@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { createRoom, joinRoom, setStatusCallback, disconnect, isConnected } from '../multiplayer/MultiplayerManager'
+import { createRoom, joinRoom, setStatusCallback, disconnect, getMyTeam } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
 
 export default function OnlineScreen() {
@@ -11,17 +11,20 @@ export default function OnlineScreen() {
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState({ status: 'idle', msg: '' })
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setStatusCallback(setStatus)
     return () => { setStatusCallback(null); disconnect() }
   }, [])
 
-  // When connected, proceed to team select
+  // When connected, assign teams and go to team select
   useEffect(() => {
     if (status.status === 'connected') {
       setTimeout(() => {
         setGameMode('online')
+        // Store which team this player controls
+        useMatchStore.setState({ onlineMyTeam: getMyTeam() })
         goToScreen(SCREEN.TEAM_SELECT)
       }, 1500)
     }
@@ -50,6 +53,38 @@ export default function OnlineScreen() {
     }
   }, [joinCode])
 
+  // Share the room code via native share or clipboard
+  const handleShare = useCallback(async () => {
+    const shareText = `Join my CAPBALL match! Room code: ${roomCode}\n\nPlay at: ${window.location.origin}`
+
+    // Try native share API first (mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'CAPBALL Online Match', text: shareText })
+        return
+      } catch (e) {} // user cancelled or not supported
+    }
+
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (e) {
+      // Last fallback: select text
+      prompt('Copy this invite:', shareText)
+    }
+  }, [roomCode])
+
+  // Copy just the code
+  const handleCopyCode = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(roomCode)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (e) {}
+  }, [roomCode])
+
   return (
     <div style={styles.container}>
       <div style={styles.vignette} />
@@ -60,6 +95,10 @@ export default function OnlineScreen() {
 
         {view === 'menu' && (
           <div style={styles.options}>
+            <div style={styles.infoText}>
+              Host creates a room, guest joins with the code.
+              Host plays as <b style={{ color: '#E53935' }}>Team 1</b>, Guest plays as <b style={{ color: '#1E88E5' }}>Team 2</b>.
+            </div>
             <button className="arcade-btn" style={styles.createBtn} onClick={handleCreate} onMouseEnter={playHoverTick}>
               CREATE ROOM
             </button>
@@ -78,10 +117,26 @@ export default function OnlineScreen() {
               <>
                 <div style={styles.codeLabel}>YOUR ROOM CODE</div>
                 <div style={styles.codeDisplay}>{roomCode}</div>
-                <div style={styles.codeHint}>Share this code with your friend</div>
+
+                {/* Share buttons */}
+                <div style={styles.shareRow}>
+                  <button className="arcade-btn" style={styles.shareBtn} onClick={handleShare} onMouseEnter={playHoverTick}>
+                    &#128279; SHARE INVITE
+                  </button>
+                  <button className="arcade-link" style={styles.copyBtn} onClick={handleCopyCode} onMouseEnter={playHoverTick}>
+                    {copied ? '✓ COPIED!' : 'COPY CODE'}
+                  </button>
+                </div>
+
+                <div style={styles.codeHint}>Send the code or invite link to your friend</div>
+
+                <div style={styles.teamInfo}>
+                  You are <span style={{ color: '#E53935', fontWeight: '700' }}>TEAM 1</span> (Host)
+                </div>
+
                 <div style={styles.statusText}>
-                  {status.status === 'waiting' && '⏳ Waiting for opponent...'}
-                  {status.status === 'connected' && '✓ Connected! Starting...'}
+                  {status.status === 'waiting' && '⏳ Waiting for opponent to join...'}
+                  {status.status === 'connected' && '✓ Opponent connected! Starting match setup...'}
                   {status.status === 'error' && `✗ ${status.msg}`}
                 </div>
               </>
@@ -105,10 +160,15 @@ export default function OnlineScreen() {
               maxLength={6}
               autoFocus
             />
+
+            <div style={styles.teamInfo}>
+              You will be <span style={{ color: '#1E88E5', fontWeight: '700' }}>TEAM 2</span> (Guest)
+            </div>
+
             {error && <div style={styles.errorText}>{error}</div>}
             <div style={styles.statusText}>
               {status.status === 'connecting' && '⏳ Connecting...'}
-              {status.status === 'connected' && '✓ Connected! Starting...'}
+              {status.status === 'connected' && '✓ Connected! Starting match setup...'}
               {status.status === 'error' && `✗ ${status.msg}`}
             </div>
             <button className="arcade-btn" style={styles.joinGoBtn} onClick={handleJoin} onMouseEnter={playHoverTick}>
@@ -143,7 +203,7 @@ const styles = {
     borderRadius: '18px', padding: '32px 48px',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
     boxShadow: '0 8px 40px rgba(0,0,0,0.6)', position: 'relative', zIndex: 1,
-    minWidth: '400px', animation: 'fadeIn 0.5s ease-out',
+    minWidth: '440px', maxWidth: '500px', animation: 'fadeIn 0.5s ease-out',
   },
   title: {
     fontFamily: "var(--font-display, 'Bungee', sans-serif)",
@@ -152,6 +212,10 @@ const styles = {
   },
   titleLine: { width: '160px', height: '2px', background: 'linear-gradient(90deg, transparent, #FFD740, transparent)' },
   options: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', width: '100%' },
+  infoText: {
+    fontSize: '12px', color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: '20px',
+    padding: '0 8px', marginBottom: '4px',
+  },
   createBtn: {
     fontFamily: "var(--font-display, 'Bungee', sans-serif)",
     fontSize: '15px', fontWeight: '700', letterSpacing: '2px', color: 'white',
@@ -192,10 +256,34 @@ const styles = {
   codeDisplay: {
     fontFamily: "var(--font-score, 'Orbitron', monospace)",
     fontSize: '42px', fontWeight: '900', color: '#FFD740', letterSpacing: '8px',
-    textShadow: '0 0 20px rgba(255,215,64,0.4)', padding: '8px 0',
+    textShadow: '0 0 20px rgba(255,215,64,0.4)', padding: '4px 0',
+  },
+  shareRow: {
+    display: 'flex', gap: '10px', alignItems: 'center',
+  },
+  shareBtn: {
+    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
+    fontSize: '12px', fontWeight: '700', letterSpacing: '1px', color: 'white',
+    padding: '10px 20px',
+    background: 'linear-gradient(180deg, #AB47BC 0%, #8E24AA 40%, #6A1B9A 100%)',
+    border: '2px solid #4A148C', borderRadius: '8px', cursor: 'pointer',
+    boxShadow: '0 3px 0 #4A148C, 0 4px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+    outline: 'none',
+  },
+  copyBtn: {
+    fontFamily: "var(--font-hud, 'Russo One', sans-serif)",
+    fontSize: '10px', fontWeight: '600', letterSpacing: '1.5px',
+    color: 'rgba(255,215,64,0.7)', padding: '8px 16px',
+    background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,215,64,0.3)',
+    borderRadius: '6px', cursor: 'pointer', outline: 'none',
   },
   codeHint: {
-    fontSize: '11px', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px',
+    fontSize: '11px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.5px',
+  },
+  teamInfo: {
+    fontSize: '13px', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px',
+    padding: '6px 16px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px',
+    border: '1px solid rgba(255,255,255,0.08)',
   },
   codeInput: {
     fontFamily: "var(--font-score, 'Orbitron', monospace)",

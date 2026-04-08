@@ -40,9 +40,10 @@ export const useMatchStore = create((set, get) => ({
   goToScreen: (screen) => set({ screen }),
 
   // --- Game mode ---
-  gameMode: 'local', // 'local' or 'ai'
+  gameMode: 'local', // 'local', 'ai', or 'online'
   aiTeam: 'team2',
   aiDifficulty: 'medium', // 'easy', 'medium', 'hard'
+  onlineMyTeam: null, // 'team1' (host) or 'team2' (guest) — set during online connection
   setGameMode: (mode) => set({ gameMode: mode }),
   setAiDifficulty: (d) => set({ aiDifficulty: d }),
 

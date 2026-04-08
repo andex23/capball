@@ -433,7 +433,9 @@ function SquadNumbers({ numbers, onChange, showNumbers }) {
 /* ========================================
    TEAM PANEL — full cap builder
    ======================================== */
-function TeamPanel({ teamKey, config, onUpdate }) {
+function TeamPanel({ teamKey, config, onUpdate, locked = false }) {
+  // If locked (online mode, not your team), disable all interactions
+  const handleUpdate = locked ? () => {} : onUpdate
   const [activeTab, setActiveTab] = useState('colors')
   const isRed = teamKey === 'team1'
   const panelBorderColor = isRed ? 'rgba(229,57,53,0.35)' : 'rgba(30,136,229,0.35)'
@@ -452,11 +454,16 @@ function TeamPanel({ teamKey, config, onUpdate }) {
       boxShadow: `0 6px 30px rgba(0,0,0,0.5), 0 0 20px ${config.primary}15, inset 0 1px 0 rgba(255,255,255,0.06)`,
     }}>
       {/* Team header bar */}
+      {locked && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', zIndex: 5, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <span style={{ fontFamily: "var(--font-hud, 'Russo One', sans-serif)", fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '3px', background: 'rgba(0,0,0,0.5)', padding: '6px 16px', borderRadius: '6px' }}>OPPONENT'S TEAM</span>
+        </div>
+      )}
       <div style={{ ...styles.panelHeader, background: headerBg }}>
         <input
           style={styles.nameInput}
           value={config.name}
-          onChange={(e) => onUpdate({ name: e.target.value })}
+          onChange={(e) => handleUpdate({ name: e.target.value })}
           maxLength={16}
         />
       </div>
@@ -494,7 +501,7 @@ function TeamPanel({ teamKey, config, onUpdate }) {
                 {COLOR_PRESETS.map((c) => (
                   <div
                     key={c}
-                    onClick={() => onUpdate({ primary: c })}
+                    onClick={() => handleUpdate({ primary: c })}
                     style={{
                       ...styles.colorSwatch,
                       backgroundColor: c,
@@ -514,7 +521,7 @@ function TeamPanel({ teamKey, config, onUpdate }) {
                 {COLOR_PRESETS.map((c) => (
                   <div
                     key={c}
-                    onClick={() => onUpdate({ edge: c })}
+                    onClick={() => handleUpdate({ edge: c })}
                     style={{
                       ...styles.colorSwatch,
                       backgroundColor: c,
@@ -540,7 +547,7 @@ function TeamPanel({ teamKey, config, onUpdate }) {
                     key={b.key}
                     label={b.label}
                     selected={config.badge === b.key}
-                    onClick={() => onUpdate({ badge: b.key })}
+                    onClick={() => handleUpdate({ badge: b.key })}
                   />
                 ))}
               </div>
@@ -560,7 +567,7 @@ function TeamPanel({ teamKey, config, onUpdate }) {
                     key={p.key}
                     label={p.label}
                     selected={config.pattern === p.key}
-                    onClick={() => onUpdate({ pattern: p.key })}
+                    onClick={() => handleUpdate({ pattern: p.key })}
                   />
                 ))}
               </div>
@@ -574,7 +581,7 @@ function TeamPanel({ teamKey, config, onUpdate }) {
                     key={f.key}
                     label={f.label}
                     selected={config.finish === f.key}
-                    onClick={() => onUpdate({ finish: f.key })}
+                    onClick={() => handleUpdate({ finish: f.key })}
                   />
                 ))}
               </div>
@@ -595,6 +602,9 @@ export default function TeamSelectScreen() {
   const ballColor = useMatchStore((s) => s.ballColor)
   const setBallColor = useMatchStore((s) => s.setBallColor)
   const goToScreen = useMatchStore((s) => s.goToScreen)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const onlineMyTeam = useMatchStore((s) => s.onlineMyTeam)
+  const isOnline = gameMode === 'online'
 
   return (
     <div style={styles.container}>
@@ -613,6 +623,7 @@ export default function TeamSelectScreen() {
             teamKey="team1"
             config={teamConfig.team1}
             onUpdate={(c) => setTeamConfig('team1', c)}
+            locked={isOnline && onlineMyTeam !== 'team1'}
           />
 
           {/* Center VS divider */}
@@ -628,6 +639,7 @@ export default function TeamSelectScreen() {
             teamKey="team2"
             config={teamConfig.team2}
             onUpdate={(c) => setTeamConfig('team2', c)}
+            locked={isOnline && onlineMyTeam !== 'team2'}
           />
         </div>
 
