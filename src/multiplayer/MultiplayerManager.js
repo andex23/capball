@@ -35,7 +35,9 @@ const SYNC_KEYS = [
   'teamConfig', 'formations', 'stadium', 'team1Side', 'matchDuration',
   'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyRound',
   'penaltyTeam', 'matchResult', 'selectedCapId', 'freeKickCapId',
-  'paused', 'ballColor', 'onlineReady',
+  'paused', 'ballColor',
+  // NOTE: onlineReady is NOT in this list — it's handled separately
+  // to prevent the host's sync loop from overwriting the guest's ready state
 ]
 
 /** Get a snapshot of all syncable state */
@@ -214,7 +216,17 @@ function handleIncomingData(msg) {
         useMatchStore.getState().selectCap(data.capId)
       }
       break
+
+    case 'ready':
+      // Either player sends their ready state
+      useMatchStore.getState().setOnlineReady(data.team, data.ready)
+      break
   }
+}
+
+/** Send ready state — dedicated channel, not part of full sync */
+export function sendReady(team, ready) {
+  send('ready', { team, ready })
 }
 
 export function getIsHost() { return isHost }

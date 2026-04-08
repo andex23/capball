@@ -28,22 +28,17 @@ export default function OnlineReadyBar({ nextScreen, onBothReady }) {
   // When both ready, advance to next screen
   useEffect(() => {
     if (!isOnline) return
-    if (bothReady && nextScreen) {
-      const timer = setTimeout(() => {
-        resetOnlineReady()
-        if (onBothReady) {
-          onBothReady()
-        } else {
-          goToScreen(nextScreen)
-          // Sync navigation
-          try {
-            const { sendStateChange } = require('../multiplayer/MultiplayerManager')
-            sendStateChange({ screen: nextScreen, onlineReady: { team1: false, team2: false } })
-          } catch (e) {}
-        }
-      }, 800) // brief pause so both see "BOTH READY"
-      return () => clearTimeout(timer)
-    }
+    if (!bothReady) return
+    const timer = setTimeout(() => {
+      resetOnlineReady()
+      if (onBothReady) {
+        onBothReady()
+      } else if (nextScreen) {
+        goToScreen(nextScreen)
+        // Host syncs the screen change (guest will receive via full state sync)
+      }
+    }, 800)
+    return () => clearTimeout(timer)
   }, [bothReady, nextScreen, isOnline])
 
   if (!isOnline) return null
@@ -52,11 +47,10 @@ export default function OnlineReadyBar({ nextScreen, onBothReady }) {
     playConfirm()
     const newReady = !iAmReady
     setOnlineReady(myTeam, newReady)
-    // Broadcast ready state
+    // Send dedicated ready message (not part of full state sync)
     try {
-      const { sendStateChange } = require('../multiplayer/MultiplayerManager')
-      const updated = { ...useMatchStore.getState().onlineReady, [myTeam]: newReady }
-      sendStateChange({ onlineReady: updated })
+      const { sendReady } = require('../multiplayer/MultiplayerManager')
+      sendReady(myTeam, newReady)
     } catch (e) {}
   }
 
