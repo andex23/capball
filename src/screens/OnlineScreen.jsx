@@ -19,16 +19,20 @@ export default function OnlineScreen() {
   }, [])
 
   // When connected, assign teams and go to team select
+  // Set team assignment IMMEDIATELY on connection, before any sync can interfere
   useEffect(() => {
     if (status.status === 'connected') {
+      // Set these synchronously — must happen before host sync overwrites anything
+      const myTeam = getMyTeam()
+      useMatchStore.setState({ gameMode: 'online', onlineMyTeam: myTeam })
+      // Then navigate after a brief display
       setTimeout(() => {
-        setGameMode('online')
-        // Store which team this player controls
-        useMatchStore.setState({ onlineMyTeam: getMyTeam() })
+        // Re-assert in case sync overwrote it
+        useMatchStore.setState({ onlineMyTeam: myTeam })
         goToScreen(SCREEN.TEAM_SELECT)
       }, 1500)
     }
-  }, [status, setGameMode, goToScreen])
+  }, [status, goToScreen])
 
   const handleCreate = useCallback(async () => {
     playConfirm()

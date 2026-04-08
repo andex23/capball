@@ -54,6 +54,9 @@ function applyStateSnapshot(snap) {
   for (const key of SYNC_KEYS) {
     if (snap[key] !== undefined) update[key] = snap[key]
   }
+  // NEVER overwrite local-only state
+  delete update.onlineMyTeam
+  delete update.onlineReady
   useMatchStore.setState(update)
 }
 
@@ -188,17 +191,21 @@ function handleIncomingData(msg) {
       }
       break
 
-    case 'stateChange':
+    case 'stateChange': {
       // Either player can send targeted state changes
-      // Guest sends team config changes → host applies them
+      // NEVER overwrite local-only keys
+      const safeData = { ...data }
+      delete safeData.onlineMyTeam // never overwrite — local to each player
+      delete safeData.onlineReady  // handled via dedicated 'ready' channel
+
       if (isHost) {
-        useMatchStore.setState(data)
-        // Re-broadcast so guest sees the merged state
+        useMatchStore.setState(safeData)
         sendFullState()
       } else {
-        useMatchStore.setState(data)
+        useMatchStore.setState(safeData)
       }
       break
+    }
 
     case 'flick':
       // Guest sends flick → host executes it
