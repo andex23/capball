@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
+import OnlineReadyBar from '../ui/OnlineReadyBar'
 
 const COLOR_PRESETS = [
   '#D32F2F', '#C62828', '#E91E63', '#9C27B0',
@@ -695,6 +696,9 @@ export default function TeamSelectScreen() {
       </div>
 
       {/* Bottom nav */}
+      {isOnline ? (
+        <OnlineReadyBar nextScreen={SCREEN.STADIUM_SELECT} />
+      ) : (
       <div style={styles.navRow}>
         <button
           style={styles.backBtn}
@@ -715,6 +719,7 @@ export default function TeamSelectScreen() {
           NEXT
         </button>
       </div>
+      )}
     </div>
   )
 }

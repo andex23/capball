@@ -1,5 +1,6 @@
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { STADIUMS, STADIUM_KEYS } from '../data/StadiumData'
+import OnlineReadyBar from '../ui/OnlineReadyBar'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 
 function syncNav(screen) {
@@ -50,6 +51,8 @@ export default function StadiumSelectScreen() {
   const setStadium = useMatchStore((s) => s.setStadium)
   const team1Side = useMatchStore((s) => s.team1Side)
   const setTeam1Side = useMatchStore((s) => s.setTeam1Side)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const isOnline = gameMode === 'online'
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const goToScreen = useMatchStore((s) => s.goToScreen)
 
@@ -134,24 +137,28 @@ export default function StadiumSelectScreen() {
         </div>
       </div>
 
-      <div style={styles.navRow}>
-        <button
-          className="arcade-btn"
-          style={styles.backBtn}
-          onClick={() => syncNav(SCREEN.TEAM_SELECT)}
-          onMouseEnter={() => playHoverTick()}
-        >
-          BACK
-        </button>
-        <button
-          className="arcade-btn"
-          style={styles.nextBtn}
-          onClick={() => { playButtonSelect(); syncNav(SCREEN.FORMATION) }}
-          onMouseEnter={() => playHoverTick()}
-        >
-          NEXT
-        </button>
-      </div>
+      {isOnline ? (
+        <OnlineReadyBar nextScreen={SCREEN.FORMATION} />
+      ) : (
+        <div style={styles.navRow}>
+          <button
+            className="arcade-btn"
+            style={styles.backBtn}
+            onClick={() => syncNav(SCREEN.TEAM_SELECT)}
+            onMouseEnter={() => playHoverTick()}
+          >
+            BACK
+          </button>
+          <button
+            className="arcade-btn"
+            style={styles.nextBtn}
+            onClick={() => { playButtonSelect(); syncNav(SCREEN.FORMATION) }}
+            onMouseEnter={() => playHoverTick()}
+          >
+            NEXT
+          </button>
+        </div>
+      )}
     </div>
   )
 }

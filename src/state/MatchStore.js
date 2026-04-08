@@ -44,6 +44,11 @@ export const useMatchStore = create((set, get) => ({
   aiTeam: 'team2',
   aiDifficulty: 'medium', // 'easy', 'medium', 'hard'
   onlineMyTeam: null, // 'team1' (host) or 'team2' (guest) — set during online connection
+  onlineReady: { team1: false, team2: false }, // both must be ready to advance
+  setOnlineReady: (team, ready) => set((s) => ({
+    onlineReady: { ...s.onlineReady, [team]: ready }
+  })),
+  resetOnlineReady: () => set({ onlineReady: { team1: false, team2: false } }),
   setGameMode: (mode) => set({ gameMode: mode }),
   setAiDifficulty: (d) => set({ aiDifficulty: d }),
 

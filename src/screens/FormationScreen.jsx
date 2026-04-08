@@ -2,6 +2,7 @@ import { useMatchStore } from '../state/MatchStore'
 import { FORMATIONS, PITCH } from '../data/TeamData'
 import { STADIUMS } from '../data/StadiumData'
 import { playConfirm, playWhistle } from '../audio/SoundManager'
+import OnlineReadyBar from '../ui/OnlineReadyBar'
 import { fadeOutMenuMusic } from '../audio/MusicManager'
 
 const FORMATION_KEYS = Object.keys(FORMATIONS)
@@ -209,6 +210,12 @@ export default function FormationScreen() {
   const setFormation = useMatchStore((s) => s.setFormation)
   const goToScreen = useMatchStore((s) => s.goToScreen)
   const startGame = useMatchStore((s) => s.startGame)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const isOnline = gameMode === 'online'
+
+  const handleKickOff = () => {
+    playConfirm(); playWhistle(); fadeOutMenuMusic(); startGame()
+  }
 
   return (
     <div style={styles.container}>
@@ -247,27 +254,31 @@ export default function FormationScreen() {
       </div>
 
       {/* Action bar */}
-      <div style={styles.actionBar}>
-        <button
-          style={styles.backBtn}
-          onClick={() => goToScreen('TEAM_SELECT')}
-          onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)' }}
-          onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
-        >
-          BACK
-        </button>
+      {isOnline ? (
+        <OnlineReadyBar nextScreen={null} onBothReady={handleKickOff} />
+      ) : (
+        <div style={styles.actionBar}>
+          <button
+            style={styles.backBtn}
+            onClick={() => goToScreen('TEAM_SELECT')}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)' }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
+          >
+            BACK
+          </button>
 
-        <button
-          style={styles.startBtn}
-          onClick={() => { playConfirm(); playWhistle(); fadeOutMenuMusic(); startGame() }}
-          onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(3px)'; e.currentTarget.style.boxShadow = '0 2px 0 #5a1a00, 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3)' }}
-          onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 5px 0 #5a1a00, 0 8px 25px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 30px rgba(255,140,0,0.15)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 5px 0 #5a1a00, 0 8px 25px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 30px rgba(255,140,0,0.15)' }}
-        >
-          KICK OFF
-        </button>
-      </div>
+          <button
+            style={styles.startBtn}
+            onClick={handleKickOff}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(3px)'; e.currentTarget.style.boxShadow = '0 2px 0 #5a1a00, 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3)' }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 5px 0 #5a1a00, 0 8px 25px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 30px rgba(255,140,0,0.15)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 5px 0 #5a1a00, 0 8px 25px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 30px rgba(255,140,0,0.15)' }}
+          >
+            KICK OFF
+          </button>
+        </div>
+      )}
     </div>
   )
 }

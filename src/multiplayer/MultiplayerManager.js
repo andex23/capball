@@ -35,7 +35,7 @@ const SYNC_KEYS = [
   'teamConfig', 'formations', 'stadium', 'team1Side', 'matchDuration',
   'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyRound',
   'penaltyTeam', 'matchResult', 'selectedCapId', 'freeKickCapId',
-  'paused', 'ballColor',
+  'paused', 'ballColor', 'onlineReady',
 ]
 
 /** Get a snapshot of all syncable state */
