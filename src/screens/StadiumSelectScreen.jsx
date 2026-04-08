@@ -2,6 +2,14 @@ import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { STADIUMS, STADIUM_KEYS } from '../data/StadiumData'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 
+function syncNav(screen) {
+  const gm = useMatchStore.getState().gameMode
+  useMatchStore.getState().goToScreen(screen)
+  if (gm === 'online') {
+    try { require('../multiplayer/MultiplayerManager').sendStateChange({ screen }) } catch (e) {}
+  }
+}
+
 /* Mini pitch preview showing the surface colors */
 function SurfacePreview({ stadium, size = 180 }) {
   const s = stadium
@@ -130,7 +138,7 @@ export default function StadiumSelectScreen() {
         <button
           className="arcade-btn"
           style={styles.backBtn}
-          onClick={() => goToScreen(SCREEN.TEAM_SELECT)}
+          onClick={() => syncNav(SCREEN.TEAM_SELECT)}
           onMouseEnter={() => playHoverTick()}
         >
           BACK
@@ -138,7 +146,7 @@ export default function StadiumSelectScreen() {
         <button
           className="arcade-btn"
           style={styles.nextBtn}
-          onClick={() => { playButtonSelect(); goToScreen(SCREEN.FORMATION) }}
+          onClick={() => { playButtonSelect(); syncNav(SCREEN.FORMATION) }}
           onMouseEnter={() => playHoverTick()}
         >
           NEXT

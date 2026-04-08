@@ -455,8 +455,8 @@ function TeamPanel({ teamKey, config, onUpdate, locked = false }) {
     }}>
       {/* Team header bar */}
       {locked && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', zIndex: 5, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <span style={{ fontFamily: "var(--font-hud, 'Russo One', sans-serif)", fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '3px', background: 'rgba(0,0,0,0.5)', padding: '6px 16px', borderRadius: '6px' }}>OPPONENT'S TEAM</span>
+        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 5, pointerEvents: 'none' }}>
+          <span style={{ fontFamily: "var(--font-hud, 'Russo One', sans-serif)", fontSize: '8px', color: 'rgba(255,215,64,0.6)', letterSpacing: '2px', background: 'rgba(0,0,0,0.6)', padding: '3px 10px', borderRadius: '4px' }}>OPPONENT</span>
         </div>
       )}
       <div style={{ ...styles.panelHeader, background: headerBg }}>
@@ -606,6 +606,30 @@ export default function TeamSelectScreen() {
   const onlineMyTeam = useMatchStore((s) => s.onlineMyTeam)
   const isOnline = gameMode === 'online'
 
+  // In online mode, broadcast team config changes to the other player
+  const handleTeamUpdate = (team, config) => {
+    setTeamConfig(team, config)
+    if (isOnline) {
+      try {
+        const { sendStateChange } = require('../multiplayer/MultiplayerManager')
+        const newConfig = { ...useMatchStore.getState().teamConfig }
+        newConfig[team] = { ...newConfig[team], ...config }
+        sendStateChange({ teamConfig: newConfig })
+      } catch (e) {}
+    }
+  }
+
+  // In online mode, broadcast screen navigation
+  const handleGoToScreen = (screen) => {
+    goToScreen(screen)
+    if (isOnline) {
+      try {
+        const { sendStateChange } = require('../multiplayer/MultiplayerManager')
+        sendStateChange({ screen })
+      } catch (e) {}
+    }
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.vignette} />
@@ -622,7 +646,7 @@ export default function TeamSelectScreen() {
           <TeamPanel
             teamKey="team1"
             config={teamConfig.team1}
-            onUpdate={(c) => setTeamConfig('team1', c)}
+            onUpdate={(c) => handleTeamUpdate('team1', c)}
             locked={isOnline && onlineMyTeam !== 'team1'}
           />
 
@@ -638,7 +662,7 @@ export default function TeamSelectScreen() {
           <TeamPanel
             teamKey="team2"
             config={teamConfig.team2}
-            onUpdate={(c) => setTeamConfig('team2', c)}
+            onUpdate={(c) => handleTeamUpdate('team2', c)}
             locked={isOnline && onlineMyTeam !== 'team2'}
           />
         </div>
@@ -674,7 +698,7 @@ export default function TeamSelectScreen() {
       <div style={styles.navRow}>
         <button
           style={styles.backBtn}
-          onClick={() => goToScreen(SCREEN.MENU)}
+          onClick={() => handleGoToScreen(SCREEN.MENU)}
           onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)' }}
           onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
@@ -683,7 +707,7 @@ export default function TeamSelectScreen() {
         </button>
         <button
           style={styles.nextBtn}
-          onClick={() => goToScreen(SCREEN.STADIUM_SELECT)}
+          onClick={() => handleGoToScreen(SCREEN.STADIUM_SELECT)}
           onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(2px)' }}
           onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}

@@ -1,12 +1,12 @@
 /**
- * CAPBALL Online Multiplayer — PeerJS WebRTC
+ * CAPBALL Online Multiplayer — Real-time State Sync
  *
- * Flow:
- * 1. Host creates a room → gets a 6-char room code
- * 2. Guest joins with room code
- * 3. They connect peer-to-peer (no server for game data)
- * 4. Host runs physics, syncs state to guest
- * 5. Guest sends flick commands to host
+ * Architecture:
+ * - Host is the authority — runs physics, owns game state
+ * - Guest receives state updates and sends input commands
+ * - ALL state changes are broadcast immediately
+ * - Screen navigation is synchronized
+ * - Team config edits are synced live
  */
 
 import Peer from 'peerjs'
@@ -17,8 +17,8 @@ let peer = null
 let conn = null
 let isHost = false
 let onStatusChange = null
+let syncInterval = null
 
-// Generate a 6-char room code
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
@@ -29,9 +29,34 @@ function generateCode() {
 export function setStatusCallback(cb) { onStatusChange = cb }
 function updateStatus(status, msg) { if (onStatusChange) onStatusChange({ status, msg }) }
 
-/**
- * HOST: Create a room and wait for guest
- */
+// ── State keys to sync ──
+const SYNC_KEYS = [
+  'screen', 'score', 'activeTeam', 'phase', 'timeRemaining', 'half',
+  'teamConfig', 'formations', 'stadium', 'team1Side', 'matchDuration',
+  'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyRound',
+  'penaltyTeam', 'matchResult', 'selectedCapId', 'freeKickCapId',
+  'paused', 'ballColor',
+]
+
+/** Get a snapshot of all syncable state */
+function getStateSnapshot() {
+  const state = useMatchStore.getState()
+  const snap = {}
+  for (const key of SYNC_KEYS) snap[key] = state[key]
+  return snap
+}
+
+/** Apply a state snapshot from the other player */
+function applyStateSnapshot(snap) {
+  const update = {}
+  for (const key of SYNC_KEYS) {
+    if (snap[key] !== undefined) update[key] = snap[key]
+  }
+  useMatchStore.setState(update)
+}
+
+// ── PUBLIC API ──
+
 export function createRoom() {
   return new Promise((resolve, reject) => {
     const roomCode = generateCode()
@@ -48,12 +73,16 @@ export function createRoom() {
         updateStatus('connected', 'Opponent connected!')
 
         conn.on('data', handleIncomingData)
-        conn.on('close', () => updateStatus('disconnected', 'Opponent disconnected'))
+        conn.on('close', () => {
+          stopSync()
+          updateStatus('disconnected', 'Opponent disconnected')
+        })
 
-        // Send initial game state
+        // Start continuous sync (host → guest)
         setTimeout(() => {
-          sendState()
-        }, 500)
+          sendFullState()
+          startSync()
+        }, 300)
       })
 
       resolve(roomCode)
@@ -66,12 +95,9 @@ export function createRoom() {
   })
 }
 
-/**
- * GUEST: Join an existing room
- */
 export function joinRoom(roomCode) {
   return new Promise((resolve, reject) => {
-    const peerId = ROOM_PREFIX + 'guest-' + Math.random().toString(36).substr(2, 5)
+    const peerId = ROOM_PREFIX + 'g-' + Math.random().toString(36).substr(2, 5)
     const hostId = ROOM_PREFIX + roomCode.toUpperCase()
 
     peer = new Peer(peerId)
@@ -85,7 +111,10 @@ export function joinRoom(roomCode) {
       conn.on('open', () => {
         updateStatus('connected', 'Connected to host!')
         conn.on('data', handleIncomingData)
-        conn.on('close', () => updateStatus('disconnected', 'Host disconnected'))
+        conn.on('close', () => {
+          stopSync()
+          updateStatus('disconnected', 'Host disconnected')
+        })
         resolve()
       })
 
@@ -106,100 +135,99 @@ export function joinRoom(roomCode) {
   })
 }
 
-/**
- * Send data to the other player
- */
-export function sendToOpponent(type, data) {
+/** Send a message to the other player */
+export function send(type, data) {
   if (conn && conn.open) {
-    conn.send({ type, data })
+    conn.send({ type, data, t: Date.now() })
   }
 }
 
-/**
- * Send full game state (host → guest)
- */
-export function sendState() {
-  if (!isHost || !conn) return
-  const state = useMatchStore.getState()
-  sendToOpponent('state', {
-    score: state.score,
-    activeTeam: state.activeTeam,
-    phase: state.phase,
-    timeRemaining: state.timeRemaining,
-    half: state.half,
-    teamConfig: state.teamConfig,
-  })
+/** Broadcast full state (host → guest) */
+export function sendFullState() {
+  if (!isHost) return
+  send('fullState', getStateSnapshot())
 }
 
-/**
- * Send a flick action (guest → host)
- */
+/** Send a specific state change (either direction) */
+export function sendStateChange(changes) {
+  send('stateChange', changes)
+}
+
+/** Send a flick action (guest → host) */
 export function sendFlick(capId, velocity) {
-  sendToOpponent('flick', { capId, velocity })
+  send('flick', { capId, velocity })
 }
 
-/**
- * Handle incoming data
- */
+/** Start continuous state sync from host */
+function startSync() {
+  if (!isHost) return
+  stopSync()
+  // Sync full state every 200ms
+  syncInterval = setInterval(() => {
+    if (conn && conn.open) {
+      send('fullState', getStateSnapshot())
+    }
+  }, 200)
+}
+
+function stopSync() {
+  if (syncInterval) { clearInterval(syncInterval); syncInterval = null }
+}
+
+/** Handle incoming data from other player */
 function handleIncomingData(msg) {
   const { type, data } = msg
 
-  if (type === 'state') {
-    // Guest receives state update from host
-    if (!isHost) {
-      useMatchStore.setState({
-        score: data.score,
-        activeTeam: data.activeTeam,
-        phase: data.phase,
-        timeRemaining: data.timeRemaining,
-        half: data.half,
-      })
-    }
-  }
+  switch (type) {
+    case 'fullState':
+      // Guest receives full state from host — apply it
+      if (!isHost) {
+        applyStateSnapshot(data)
+      }
+      break
 
-  if (type === 'flick') {
-    // Host receives flick command from guest
-    if (isHost) {
-      const { applyFlick } = require('../physics/PhysicsWorld')
-      applyFlick(data.capId, data.velocity)
-      useMatchStore.getState().setLastFlickedCap(data.capId)
-      useMatchStore.getState().startResolve()
-    }
-  }
+    case 'stateChange':
+      // Either player can send targeted state changes
+      // Guest sends team config changes → host applies them
+      if (isHost) {
+        useMatchStore.setState(data)
+        // Re-broadcast so guest sees the merged state
+        sendFullState()
+      } else {
+        useMatchStore.setState(data)
+      }
+      break
 
-  if (type === 'chat') {
-    updateStatus('chat', data.message)
+    case 'flick':
+      // Guest sends flick → host executes it
+      if (isHost) {
+        const { applyFlick } = require('../physics/PhysicsWorld')
+        applyFlick(data.capId, data.velocity)
+        useMatchStore.getState().setLastFlickedCap(data.capId)
+        useMatchStore.getState().startResolve()
+      }
+      break
+
+    case 'capSelect':
+      // Guest selects a cap → host applies
+      if (isHost) {
+        useMatchStore.getState().selectCap(data.capId)
+      }
+      break
   }
 }
 
-/**
- * Check if we're the host
- */
 export function getIsHost() { return isHost }
-
-/**
- * Check if we're connected
- */
 export function isConnected() { return conn && conn.open }
-
-/**
- * Which team does this player control?
- * Host = team1, Guest = team2
- */
 export function getMyTeam() { return isHost ? 'team1' : 'team2' }
 
-/**
- * Is it my turn?
- */
 export function isMyTurn() {
   const activeTeam = useMatchStore.getState().activeTeam
   return activeTeam === getMyTeam()
 }
 
-/**
- * Disconnect and cleanup
- */
 export function disconnect() {
+  stopSync()
   if (conn) { conn.close(); conn = null }
   if (peer) { peer.destroy(); peer = null }
   isHost = false

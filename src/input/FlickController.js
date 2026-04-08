@@ -144,8 +144,24 @@ export function useFlickController(meshRefs, trajectoryRef) {
       const power = Math.min(dragDist * 0.8, PHYSICS.maxFlickVelocity)
 
       // Apply velocity: Three.js x,z → Matter.js x,y
+      const velocity = { x: nx * power, y: nz * power }
       playFlick()
-      applyFlick(selectedId, { x: nx * power, y: nz * power })
+
+      // Online mode: guest sends flick to host instead of executing locally
+      const gameMode = useMatchStore.getState().gameMode
+      if (gameMode === 'online') {
+        try {
+          const { getIsHost, sendFlick } = require('../multiplayer/MultiplayerManager')
+          if (!getIsHost()) {
+            sendFlick(selectedId, velocity)
+            // Guest doesn't execute physics — host will do it and sync back
+            dragCurrent.current = null
+            return
+          }
+        } catch (e) {}
+      }
+
+      applyFlick(selectedId, velocity)
       useMatchStore.getState().setLastFlickedCap(selectedId)
       state.startResolve()
       dragCurrent.current = null
