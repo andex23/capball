@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useMatchStore, PHASE } from '../state/MatchStore'
-import { getBodies, applyFlick } from '../physics/PhysicsWorld'
+import { getBodies } from '../physics/PhysicsWorld'
+import { performFlick } from '../game/flick'
 import { CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, PITCH } from '../data/TeamData'
 
 /**
@@ -22,38 +23,45 @@ export function useAIController() {
   const activeTeam = useMatchStore((s) => s.activeTeam)
   const gameMode = useMatchStore((s) => s.gameMode)
   const aiTeam = useMatchStore((s) => s.aiTeam)
-  const selectCap = useMatchStore((s) => s.selectCap)
-  const startResolve = useMatchStore((s) => s.startResolve)
-  const freeKickCapId = useMatchStore((s) => s.freeKickCapId)
-  const acting = useRef(false)
+  const paused = useMatchStore((s) => s.paused)
+  const aimTimer = useRef(null)
+
+  // Never let a pending shot outlive the match
+  useEffect(() => () => clearTimeout(aimTimer.current), [])
+
+  // Pausing mid-aim puts the cap down; the AI picks again after unpausing
+  useEffect(() => {
+    if (!paused || !aimTimer.current) return
+    clearTimeout(aimTimer.current)
+    aimTimer.current = null
+    const s = useMatchStore.getState()
+    if (s.phase === PHASE.AIM && s.activeTeam === s.aiTeam) s.cancelAim()
+  }, [paused])
 
   useEffect(() => {
-    if (gameMode !== 'ai') return
-    if (activeTeam !== aiTeam) return
-    if (phase !== PHASE.SELECT) return
-    if (acting.current) return
+    if (gameMode !== 'ai' || activeTeam !== aiTeam || phase !== PHASE.SELECT || paused) return
 
-    acting.current = true
-    const diff = DIFFICULTY[useMatchStore.getState().aiDifficulty || 'medium']
+    const diff = DIFFICULTY[useMatchStore.getState().aiDifficulty] || DIFFICULTY.medium
 
     const thinkTimer = setTimeout(() => {
-      const decision = computeSmartDecision(aiTeam, diff, freeKickCapId)
-      if (!decision) { acting.current = false; return }
-
-      selectCap(decision.capId)
-
-      const aimTimer = setTimeout(() => {
-        applyFlick(decision.capId, decision.velocity)
-        useMatchStore.getState().setLastFlickedCap(decision.capId)
-        startResolve()
-        acting.current = false
+      const state = useMatchStore.getState()
+      const decision = computeSmartDecision(aiTeam, diff, state.freeKickCapId)
+      if (!decision) {
+        // Nothing sensible to do — pass the turn rather than stall the match
+        state.switchTurn()
+        return
+      }
+      state.selectCap(decision.capId)
+      aimTimer.current = setTimeout(() => {
+        aimTimer.current = null
+        const s = useMatchStore.getState()
+        if (s.phase !== PHASE.AIM || s.activeTeam !== aiTeam) return
+        if (performFlick(decision.capId, decision.velocity) !== null) s.switchTurn()
       }, diff.aimDelay)
-
-      return () => clearTimeout(aimTimer)
     }, diff.thinkDelay)
 
-    return () => { clearTimeout(thinkTimer); acting.current = false }
-  }, [phase, activeTeam, gameMode, aiTeam, selectCap, startResolve, freeKickCapId])
+    return () => clearTimeout(thinkTimer)
+  }, [phase, activeTeam, gameMode, aiTeam, paused])
 }
 
 function computeSmartDecision(aiTeam, diff, requiredCapId) {
@@ -72,8 +80,6 @@ function computeSmartDecision(aiTeam, diff, requiredCapId) {
   } else {
     goalX = aiTeam === 'team1' ? -PITCH.halfW : PITCH.halfW
   }
-
-  const opponentTeam = aiTeam === 'team1' ? 'team2' : 'team1'
 
   // If a specific cap is required (free kick/penalty), use it
   if (requiredCapId) {
@@ -152,10 +158,25 @@ function aimAtGoal(capId, capBody, bx, by, goalX, diff) {
   const cx = capBody.position.x
   const cy = capBody.position.y
 
-  // Aim at ball
-  const dirX = bx - cx
-  const dirY = by - cy
-  const dirLen = Math.sqrt(dirX * dirX + dirY * dirY)
+  // Aim at the point on the ball that sends it toward the goal. If the cap is
+  // on the wrong side of the ball for that, just hit the ball centre.
+  let tx = bx
+  let ty = by
+  const gx = goalX - bx
+  const gy = -by
+  const gLen = Math.hypot(gx, gy)
+  if (gLen > 0.1) {
+    const reach = (capId.endsWith('_gk') ? GK_RADIUS : CAP_RADIUS) + BALL_RADIUS
+    const px = bx - (gx / gLen) * reach * 0.9
+    const py = by - (gy / gLen) * reach * 0.9
+    const capToBall = Math.hypot(bx - cx, by - cy)
+    const capToContact = Math.hypot(px - cx, py - cy)
+    if (capToContact < capToBall) { tx = px; ty = py }
+  }
+
+  const dirX = tx - cx
+  const dirY = ty - cy
+  const dirLen = Math.hypot(dirX, dirY)
   if (dirLen < 0.1) return null
 
   const nx = dirX / dirLen

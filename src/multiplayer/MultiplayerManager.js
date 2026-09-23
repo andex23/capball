@@ -1,23 +1,49 @@
 /**
- * CAPBALL Online Multiplayer — Real-time State Sync
+ * CAPBALL online multiplayer (PeerJS, peer-to-peer).
  *
- * Architecture:
- * - Host is the authority — runs physics, owns game state
- * - Guest receives state updates and sends input commands
- * - ALL state changes are broadcast immediately
- * - Screen navigation is synchronized
- * - Team config edits are synced live
+ * - The host (team1) is the authority: it runs physics and the rules and
+ *   streams store state + body positions to the guest.
+ * - The guest (team2) only renders what the host sends and makes requests
+ *   (see protocol.js), which the host validates before applying.
  */
 
 import Peer from 'peerjs'
-import { useMatchStore } from '../state/MatchStore'
+import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { snapshotBodies, applyBodySnapshot } from '../physics/PhysicsWorld'
+import { performFlick } from '../game/flick'
+import { validateGuestMessage, pickSynced, filterSynced, GUEST_TEAM, HOST_TEAM } from './protocol'
 
 const ROOM_PREFIX = 'capball-'
+const SYNC_MS = 50
+const HEARTBEAT_MS = 1000
+// WebRTC can take ~30s to notice a vanished peer; this much silence means gone.
+// Generous, so briefly switching apps on a phone doesn't end the match.
+const TIMEOUT_MS = 20000
+
 let peer = null
 let conn = null
 let isHost = false
-let onStatusChange = null
-let syncInterval = null
+let syncTimer = null
+let lastSentState = ''
+let lastSentBodies = ''
+let lastHeartbeat = 0
+let lastReceived = 0
+let watchdog = null
+
+/**
+ * PeerJS signalling server. Defaults to the free public PeerJS cloud; set
+ * VITE_PEER_HOST (and optionally _PORT, _PATH, _SECURE) to use your own.
+ */
+function peerOptions() {
+  const env = import.meta.env || {}
+  if (!env.VITE_PEER_HOST) return {}
+  return {
+    host: env.VITE_PEER_HOST,
+    port: Number(env.VITE_PEER_PORT) || 443,
+    path: env.VITE_PEER_PATH || '/',
+    secure: env.VITE_PEER_SECURE !== 'false',
+  }
+}
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -26,229 +52,197 @@ function generateCode() {
   return code
 }
 
-export function setStatusCallback(cb) { onStatusChange = cb }
-function updateStatus(status, msg) { if (onStatusChange) onStatusChange({ status, msg }) }
+function setStatus(status, msg = '') {
+  useMatchStore.setState({ onlineStatus: { status, msg } })
+}
 
-// ── State keys to sync ──
-const SYNC_KEYS = [
-  'screen', 'score', 'activeTeam', 'phase', 'timeRemaining', 'half',
-  'teamConfig', 'formations', 'stadium', 'team1Side', 'matchDuration',
-  'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyRound',
-  'penaltyTeam', 'matchResult', 'selectedCapId', 'freeKickCapId',
-  'paused', 'ballColor',
-  // NOTE: onlineReady is NOT in this list — it's handled separately
-  // to prevent the host's sync loop from overwriting the guest's ready state
-]
+function send(type, data) {
+  if (conn && conn.open) conn.send({ type, data })
+}
 
-/** Get a snapshot of all syncable state */
-function getStateSnapshot() {
+/* ── Host → guest state stream ── */
+
+function syncTick() {
+  if (!isHost || !conn?.open) return
   const state = useMatchStore.getState()
-  const snap = {}
-  for (const key of SYNC_KEYS) snap[key] = state[key]
-  return snap
+  const now = Date.now()
+
+  const stateJson = JSON.stringify(pickSynced(state))
+  const bodiesJson = state.screen === SCREEN.PLAYING ? JSON.stringify(snapshotBodies()) : ''
+  const stateChanged = stateJson !== lastSentState
+  const bodiesChanged = bodiesJson !== lastSentBodies
+  // Always send something at least once a second so a missed packet heals itself
+  if (!stateChanged && !bodiesChanged && now - lastHeartbeat < HEARTBEAT_MS) return
+
+  const payload = {}
+  if (stateChanged || now - lastHeartbeat >= HEARTBEAT_MS) payload.state = JSON.parse(stateJson)
+  if (bodiesJson && (bodiesChanged || now - lastHeartbeat >= HEARTBEAT_MS)) payload.bodies = JSON.parse(bodiesJson)
+  send('sync', payload)
+  lastSentState = stateJson
+  lastSentBodies = bodiesJson
+  lastHeartbeat = now
 }
 
-/** Apply a state snapshot from the other player */
-function applyStateSnapshot(snap) {
-  const update = {}
-  for (const key of SYNC_KEYS) {
-    if (snap[key] !== undefined) update[key] = snap[key]
+function startSync() {
+  stopSync()
+  lastSentState = ''
+  lastSentBodies = ''
+  syncTimer = setInterval(syncTick, SYNC_MS)
+}
+
+function stopSync() {
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null }
+}
+
+/* ── Incoming messages ── */
+
+function handleAsHost(msg) {
+  const store = useMatchStore.getState()
+  const action = validateGuestMessage(msg, store)
+  if (!action) return
+  switch (action.type) {
+    case 'teamConfig': store.setTeamConfig(GUEST_TEAM, action.config); break
+    case 'formation': store.setFormation(GUEST_TEAM, action.key); break
+    case 'ready': store.setOnlineReady(GUEST_TEAM, action.ready); break
+    case 'pause': store.setPaused(action.paused); break
+    case 'select': store.selectCap(action.capId); break
+    case 'cancel': store.cancelAim(); break
+    case 'flick': performFlick(action.capId, action.velocity, GUEST_TEAM); break
   }
-  // NEVER overwrite local-only state
-  delete update.onlineMyTeam
-  delete update.onlineReady
-  useMatchStore.setState(update)
 }
 
-// ── PUBLIC API ──
+function handleAsGuest(msg) {
+  if (!msg || typeof msg !== 'object') return
+  const store = useMatchStore.getState()
+  if (msg.type === 'sync' && msg.data) {
+    const update = filterSynced(msg.data.state)
+    // A new screen means a new ready round
+    if (update.screen && update.screen !== store.screen) update.onlineReady = { team1: false, team2: false }
+    if (Object.keys(update).length) useMatchStore.setState(update)
+    if (msg.data.bodies) applyBodySnapshot(msg.data.bodies)
+  } else if (msg.type === 'ready') {
+    store.setOnlineReady(HOST_TEAM, msg.data?.ready === true)
+  }
+}
 
-export function createRoom() {
+function connectionLost() {
+  stopSync()
+  const c = conn
+  conn = null
+  if (c) c.close()
+  setStatus('disconnected', isHost ? 'Your opponent left the match.' : 'The host left the match.')
+}
+
+/* Both sides send something every second (host: sync heartbeat, guest: ping)
+   and give up on a peer that goes quiet. */
+function startWatchdog() {
+  stopWatchdog()
+  lastReceived = Date.now()
+  watchdog = setInterval(() => {
+    if (!conn) return
+    if (!isHost) send('ping', {})
+    if (Date.now() - lastReceived > TIMEOUT_MS) connectionLost()
+  }, HEARTBEAT_MS)
+}
+
+function stopWatchdog() {
+  if (watchdog) { clearInterval(watchdog); watchdog = null }
+}
+
+function attachConnection(connection) {
+  conn = connection
+  conn.on('data', (msg) => {
+    lastReceived = Date.now()
+    if (isHost) handleAsHost(msg)
+    else handleAsGuest(msg)
+  })
+  conn.on('close', () => { if (conn === connection) connectionLost() })
+  conn.on('error', () => setStatus('error', 'Connection problem. Try again.'))
+}
+
+function onConnected() {
+  const myTeam = isHost ? HOST_TEAM : GUEST_TEAM
+  useMatchStore.setState({
+    gameMode: 'online',
+    onlineMyTeam: myTeam,
+    onlineReady: { team1: false, team2: false },
+  })
+  setStatus('connected', isHost ? 'Opponent connected!' : 'Connected to host!')
+  if (isHost) startSync()
+  startWatchdog()
+}
+
+/* ── Public API ── */
+
+export function createRoom(attempt = 0) {
+  disconnect()
   return new Promise((resolve, reject) => {
     const roomCode = generateCode()
-    const peerId = ROOM_PREFIX + roomCode
-
-    peer = new Peer(peerId)
+    peer = new Peer(ROOM_PREFIX + roomCode, peerOptions())
+    isHost = true
 
     peer.on('open', () => {
-      isHost = true
-      updateStatus('waiting', `Room: ${roomCode} — Waiting for opponent...`)
-
-      peer.on('connection', (connection) => {
-        conn = connection
-        updateStatus('connected', 'Opponent connected!')
-
-        conn.on('data', handleIncomingData)
-        conn.on('close', () => {
-          stopSync()
-          updateStatus('disconnected', 'Opponent disconnected')
-        })
-
-        // Start continuous sync (host → guest)
-        setTimeout(() => {
-          sendFullState()
-          startSync()
-        }, 300)
-      })
-
+      setStatus('waiting', 'Waiting for opponent…')
       resolve(roomCode)
     })
-
+    peer.on('connection', (connection) => {
+      // One guest per room
+      if (conn) { connection.close(); return }
+      attachConnection(connection)
+      connection.on('open', onConnected)
+    })
     peer.on('error', (err) => {
-      updateStatus('error', `Connection error: ${err.type}`)
+      if (err.type === 'unavailable-id' && attempt < 3) {
+        createRoom(attempt + 1).then(resolve, reject)
+        return
+      }
+      setStatus('error', `Connection error (${err.type}).`)
       reject(err)
     })
   })
 }
 
 export function joinRoom(roomCode) {
+  disconnect()
   return new Promise((resolve, reject) => {
-    const peerId = ROOM_PREFIX + 'g-' + Math.random().toString(36).substr(2, 5)
-    const hostId = ROOM_PREFIX + roomCode.toUpperCase()
-
-    peer = new Peer(peerId)
+    const code = String(roomCode).toUpperCase().replace(/[^A-Z0-9]/g, '')
+    peer = new Peer(peerOptions())
+    isHost = false
 
     peer.on('open', () => {
-      isHost = false
-      updateStatus('connecting', 'Connecting to room...')
-
-      conn = peer.connect(hostId, { reliable: true })
-
-      conn.on('open', () => {
-        updateStatus('connected', 'Connected to host!')
-        conn.on('data', handleIncomingData)
-        conn.on('close', () => {
-          stopSync()
-          updateStatus('disconnected', 'Host disconnected')
-        })
-        resolve()
-      })
-
-      conn.on('error', (err) => {
-        updateStatus('error', `Join error: ${err.type}`)
-        reject(err)
-      })
+      setStatus('connecting', 'Connecting to room…')
+      const connection = peer.connect(ROOM_PREFIX + code, { reliable: true })
+      attachConnection(connection)
+      connection.on('open', () => { onConnected(); resolve() })
     })
-
     peer.on('error', (err) => {
-      if (err.type === 'peer-unavailable') {
-        updateStatus('error', 'Room not found. Check the code.')
-      } else {
-        updateStatus('error', `Connection error: ${err.type}`)
-      }
+      setStatus('error', err.type === 'peer-unavailable' ? 'Room not found. Check the code.' : `Connection error (${err.type}).`)
       reject(err)
     })
   })
 }
 
-/** Send a message to the other player */
-export function send(type, data) {
-  if (conn && conn.open) {
-    conn.send({ type, data, t: Date.now() })
-  }
-}
+// Closing the tab tells the other side straight away where the browser allows it
+if (typeof window !== 'undefined') window.addEventListener('pagehide', () => { if (conn) disconnect() })
 
-/** Broadcast full state (host → guest) */
-export function sendFullState() {
-  if (!isHost) return
-  send('fullState', getStateSnapshot())
-}
-
-/** Send a specific state change (either direction) */
-export function sendStateChange(changes) {
-  send('stateChange', changes)
-}
-
-/** Send a flick action (guest → host) */
-export function sendFlick(capId, velocity) {
-  send('flick', { capId, velocity })
-}
-
-/** Start continuous state sync from host */
-function startSync() {
-  if (!isHost) return
-  stopSync()
-  // Sync full state every 200ms
-  syncInterval = setInterval(() => {
-    if (conn && conn.open) {
-      send('fullState', getStateSnapshot())
-    }
-  }, 200)
-}
-
-function stopSync() {
-  if (syncInterval) { clearInterval(syncInterval); syncInterval = null }
-}
-
-/** Handle incoming data from other player */
-function handleIncomingData(msg) {
-  const { type, data } = msg
-
-  switch (type) {
-    case 'fullState':
-      // Guest receives full state from host — apply it
-      if (!isHost) {
-        applyStateSnapshot(data)
-      }
-      break
-
-    case 'stateChange': {
-      // Either player can send targeted state changes
-      // NEVER overwrite local-only keys
-      const safeData = { ...data }
-      delete safeData.onlineMyTeam // never overwrite — local to each player
-      delete safeData.onlineReady  // handled via dedicated 'ready' channel
-
-      if (isHost) {
-        useMatchStore.setState(safeData)
-        sendFullState()
-      } else {
-        useMatchStore.setState(safeData)
-      }
-      break
-    }
-
-    case 'flick':
-      // Guest sends flick → host executes it
-      if (isHost) {
-        const { applyFlick } = require('../physics/PhysicsWorld')
-        applyFlick(data.capId, data.velocity)
-        useMatchStore.getState().setLastFlickedCap(data.capId)
-        useMatchStore.getState().startResolve()
-      }
-      break
-
-    case 'capSelect':
-      // Guest selects a cap → host applies
-      if (isHost) {
-        useMatchStore.getState().selectCap(data.capId)
-      }
-      break
-
-    case 'ready':
-      // Either player sends their ready state
-      useMatchStore.getState().setOnlineReady(data.team, data.ready)
-      break
-  }
-}
-
-/** Send ready state — dedicated channel, not part of full sync */
-export function sendReady(team, ready) {
-  send('ready', { team, ready })
-}
+/* Guest requests (the host ignores anything it doesn't allow) */
+export function sendTeamConfig(config) { send('teamConfig', { config }) }
+export function sendFormation(key) { send('formation', { key }) }
+export function sendSelect(capId) { send('select', { capId }) }
+export function sendFlick(capId, velocity) { send('flick', { capId, velocity }) }
+export function sendCancel() { send('cancel', {}) }
+export function sendPause(paused) { send('pause', { paused }) }
+/** Either side: my ready state */
+export function sendReady(ready) { send('ready', { ready }) }
 
 export function getIsHost() { return isHost }
-export function isConnected() { return conn && conn.open }
-export function getMyTeam() { return isHost ? 'team1' : 'team2' }
-
-export function isMyTurn() {
-  const activeTeam = useMatchStore.getState().activeTeam
-  return activeTeam === getMyTeam()
-}
+export function isConnected() { return !!conn?.open }
 
 export function disconnect() {
   stopSync()
-  if (conn) { conn.close(); conn = null }
+  stopWatchdog()
+  if (conn) { const c = conn; conn = null; c.close() }
   if (peer) { peer.destroy(); peer = null }
   isHost = false
-  updateStatus('disconnected', 'Disconnected')
+  useMatchStore.setState({ onlineMyTeam: null, onlineStatus: { status: 'idle', msg: '' } })
 }

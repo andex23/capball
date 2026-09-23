@@ -30,7 +30,8 @@
 import Matter from 'matter-js'
 import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, getFormationPositions } from '../data/TeamData'
 import { playFoulWhistle, playBallHit, playWallHit } from '../audio/SoundManager'
-import { useMatchStore } from '../state/MatchStore'
+import { useMatchStore, PHASE, later } from '../state/MatchStore'
+import { teamHomeDir, teamOf, classifyContact, isInPenaltyArea, otherTeam } from '../game/rules'
 
 const { Engine, World, Bodies, Body, Events } = Matter
 
@@ -44,11 +45,14 @@ const CAT_GOAL_BLOCKER = 0x0002
 let engine = null
 let bodies = {}
 
-/** Get direction for a team based on side selection. -1 = left, +1 = right */
+/** Direction of a team's own goal for the current half. -1 = left, +1 = right */
 function getTeamDir(team) {
-  const side = useMatchStore.getState().team1Side || 'left'
-  if (side === 'left') return team === 'team1' ? -1 : 1
-  return team === 'team1' ? 1 : -1
+  return teamHomeDir(team, useMatchStore.getState().team1Side || 'left')
+}
+
+export function radiusOf(id) {
+  if (id === 'ball') return BALL_RADIUS
+  return id.endsWith('_gk') ? GK_RADIUS : CAP_RADIUS
 }
 
 function getTeam1Side() {
@@ -73,9 +77,8 @@ export function createPhysicsWorld() {
   engine.gravity.x = 0
   engine.gravity.y = 0
 
-  const { halfW, halfH, goalWidth, wallThickness: wt } = PITCH
+  const { halfW, halfH, goalWidth, goalDepth } = PITCH
   const goalHalf = goalWidth / 2
-  const goalDepth = 1.8
 
   // ── Static walls — thick for reliable collision ──
   const wallThick = 3 // thick walls prevent tunneling
@@ -137,42 +140,35 @@ export function createPhysicsWorld() {
   // ── EVENT: First-contact tracking for foul detection ──
   Events.on(engine, 'collisionStart', (event) => {
     const store = useMatchStore.getState()
-    const { phase, lastFlickedCapId, firstCollisionTracked, activeTeam } = store
-    if (phase !== 'RESOLVE' || !lastFlickedCapId || firstCollisionTracked) return
+    const { phase, lastFlickedCapId, firstCollisionTracked, activeTeam, penaltyShootout } = store
+    if (phase !== PHASE.RESOLVE || !lastFlickedCapId || firstCollisionTracked) return
 
     for (const pair of event.pairs) {
       const labels = [pair.bodyA.label, pair.bodyB.label]
       if (!labels.includes(lastFlickedCapId)) continue
 
       const other = labels[0] === lastFlickedCapId ? labels[1] : labels[0]
-      useMatchStore.setState({ firstCollisionTracked: true })
+      const contact = classifyContact(lastFlickedCapId, other)
+      // Cushion bounces don't decide anything — keep watching.
+      if (contact === 'wall') continue
 
-      // Ball first = legal play
-      if (other === 'ball') return
+      store.setFirstCollisionTracked(true)
+      if (contact === 'ball') { store.bumpStat(activeTeam, 'shots'); return }
+      if (contact !== 'foul' || penaltyShootout) return
 
-      // Teammate first = miskick (wasted turn, no foul)
-      const flickedTeam = lastFlickedCapId.split('_')[0]
-      const otherTeam = other.split('_')[0]
-      if (otherTeam === flickedTeam) return
+      // Opponent cap hit before the ball = foul
+      const foulBody = pair.bodyA.label === other ? pair.bodyA : pair.bodyB
+      const foulSpot = { x: foulBody.position.x, y: foulBody.position.y }
+      const inPenaltyBox = isInPenaltyArea(foulSpot.x, foulSpot.y, getTeamDir(activeTeam))
 
-      // Opponent cap first = FOUL
-      if (other.startsWith('team1_') || other.startsWith('team2_')) {
-        const foulBody = pair.bodyA.label === other ? pair.bodyA : pair.bodyB
-        const foulSpot = { x: foulBody.position.x, y: foulBody.position.y }
-        const fouledTeam = otherTeam
-
-        // Is foul inside the fouling team's own penalty box? (activeTeam committed the foul)
-        const foulTeamDir = getTeamDir(activeTeam)
-        const inPenaltyBox = foulTeamDir === -1
-          ? (foulSpot.x < -PITCH.halfW + PEN_AREA_W && Math.abs(foulSpot.y) < PEN_AREA_H / 2)
-          : (foulSpot.x > PITCH.halfW - PEN_AREA_W && Math.abs(foulSpot.y) < PEN_AREA_H / 2)
-
-        playFoulWhistle()
-        setTimeout(() => {
-          stopAll()
-          store.callFoul(foulSpot, fouledTeam, inPenaltyBox)
-        }, 300)
-      }
+      playFoulWhistle()
+      later(() => {
+        // The half may have ended (or a goal gone in) in the meantime.
+        const s = useMatchStore.getState()
+        if (s.phase !== PHASE.RESOLVE || s.lastFlickedCapId !== lastFlickedCapId) return
+        stopAll()
+        s.callFoul(foulSpot, teamOf(other), inPenaltyBox)
+      }, 300)
       return
     }
   })
@@ -327,9 +323,8 @@ function stopAll() { stopAllBodies() }
    ═══════════════════════════════════════════════════════════ */
 
 export function clampAllBodies() {
-  const { halfW, halfH, goalWidth } = PITCH
+  const { halfW, halfH, goalWidth, goalDepth } = PITCH
   const goalHalf = goalWidth / 2
-  const goalDepth = 1.8
   const backWallX = halfW + goalDepth
   const penHalfH = PEN_AREA_H / 2
   const bounce = PHYSICS.restitution
@@ -345,7 +340,7 @@ export function clampAllBodies() {
 
     const isBall = id === 'ball'
     const isGk = id.endsWith('_gk')
-    const radius = isBall ? BALL_RADIUS : (isGk ? GK_RADIUS : CAP_RADIUS)
+    const radius = radiusOf(id)
 
     // ── GK CONFINEMENT (always active — no physical walls for this) ──
     if (isGk) {
@@ -426,8 +421,8 @@ function safePlace(id, x, y) {
   Body.setVelocity(b, { x: 0, y: 0 })
 }
 
-/** Push apart any overlapping bodies after set piece placement */
-function deOverlapBodies() {
+/** Push apart any overlapping bodies after set piece placement (the ball stays put) */
+export function deOverlapBodies() {
   const ids = Object.keys(bodies)
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 0; i < ids.length; i++) {
@@ -435,8 +430,8 @@ function deOverlapBodies() {
         const a = bodies[ids[i]]
         const b = bodies[ids[j]]
         if (!a || !b) continue
-        const rA = ids[i] === 'ball' ? BALL_RADIUS : (ids[i].endsWith('_gk') ? GK_RADIUS : CAP_RADIUS)
-        const rB = ids[j] === 'ball' ? BALL_RADIUS : (ids[j].endsWith('_gk') ? GK_RADIUS : CAP_RADIUS)
+        const rA = radiusOf(ids[i])
+        const rB = radiusOf(ids[j])
         const minDist = rA + rB + 0.3
         const dx = b.position.x - a.position.x
         const dy = b.position.y - a.position.y
@@ -446,8 +441,11 @@ function deOverlapBodies() {
           const nx = dx / dist
           const ny = dy / dist
           // Don't move the ball during set piece setup
-          if (ids[i] !== 'ball') Body.setPosition(a, { x: a.position.x - nx * push, y: a.position.y - ny * push })
-          if (ids[j] !== 'ball') Body.setPosition(b, { x: b.position.x + nx * push, y: b.position.y + ny * push })
+          // If one side is the ball, the cap takes the whole push
+          const pa = ids[j] === 'ball' ? push * 2 : push
+          const pb = ids[i] === 'ball' ? push * 2 : push
+          if (ids[i] !== 'ball') Body.setPosition(a, clampInPitch(a.position.x - nx * pa, a.position.y - ny * pa, rA))
+          if (ids[j] !== 'ball') Body.setPosition(b, clampInPitch(b.position.x + nx * pb, b.position.y + ny * pb, rB))
         }
       }
     }
@@ -570,26 +568,27 @@ export function setupFreeKick(foulSpot, fouledTeam) {
 }
 
 export function setupPenalty(fouledTeam) {
-  const { halfW, halfH } = PITCH
-  const defTeam = fouledTeam === 'team1' ? 'team2' : 'team1'
+  const { halfW } = PITCH
+  const defTeam = otherTeam(fouledTeam)
   const atkGkDir = getTeamDir(fouledTeam)
   const defGkDir = getTeamDir(defTeam)
 
   stopAll()
 
   // Ball at penalty spot (4.5 units from the DEFENDING goal line)
-  const penX = defGkDir * (halfW - 4.5)
+  const penX = defGkDir * (halfW - PITCH.penSpotDist)
   placeBallAt(penX, 0)
 
   // Kicker behind ball (toward center)
   safePlace(`${fouledTeam}_atk1`, penX + atkGkDir * 3, 0)
 
-  // Defending GK on goal line
+  // Both keepers on their own goal lines (they're confined to their boxes anyway)
   safePlace(`${defTeam}_gk`, defGkDir * (halfW - 1.2), 0)
+  safePlace(`${fouledTeam}_gk`, atkGkDir * (halfW - 1.2), 0)
 
-  // All 8 remaining caps: spread in a line along the halfway line
+  // The 7 remaining outfield caps: spread in a line along the halfway line
   const others = [
-    `${fouledTeam}_atk2`, `${fouledTeam}_def1`, `${fouledTeam}_def2`, `${fouledTeam}_gk`,
+    `${fouledTeam}_atk2`, `${fouledTeam}_def1`, `${fouledTeam}_def2`,
     `${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_atk1`, `${defTeam}_atk2`,
   ]
   const spacing = 2.2
@@ -604,64 +603,49 @@ export function setupPenalty(fouledTeam) {
   useMatchStore.setState({ freeKickCapId: `${fouledTeam}_atk1` })
 }
 
-export function placePenalty(fouledTeam) { setupPenalty(fouledTeam) }
-
 /* ═══════════════════════════════════════════════════════════
    7. KICKOFF POSITIONING
    ═══════════════════════════════════════════════════════════ */
 
+/**
+ * Kick-off layout: every cap starts in its team's chosen formation, then the
+ * laws are enforced — everyone in their own half, the defending team outside
+ * the centre circle, and the kicker next to the ball.
+ */
 export function resetToKickoff(kickingTeam) {
-  const { halfW, halfH } = PITCH
-  const nonKickingTeam = kickingTeam === 'team1' ? 'team2' : 'team1'
-
-  // kHome = direction toward kicking team's OWN goal (where their GK is)
-  // kAttack = direction toward opponent's goal (where kicker wants to shoot)
-  const kHome = getTeamDir(kickingTeam)
-  const kAttack = -kHome
-  const nHome = getTeamDir(nonKickingTeam)
-
+  const { formations, team1Side } = useMatchStore.getState()
   stopAll()
   placeBallAt(0, 0)
 
-  // === KICKING TEAM ===
-  // Kicker: RIGHT NEXT TO the ball, touching it, slightly offset so visible
-  const ka1 = bodies[`${kickingTeam}_atk1`]
-  if (ka1) Body.setPosition(ka1, { x: kHome * 0.9, y: -0.9 })
+  for (const team of ['team1', 'team2']) {
+    const home = getTeamDir(team)
+    const pos = getFormationPositions(team, formations?.[team] || 'default', team1Side || 'left')
+    for (const role of Object.keys(pos)) {
+      const id = `${team}_${role}`
+      const r = radiusOf(id)
+      let { x, y } = pos[role]
+      // Own half only
+      if (Math.sign(x) !== home || Math.abs(x) < r + 0.2) x = home * (r + 0.2)
+      // Defending team stays out of the centre circle
+      if (team !== kickingTeam) {
+        const d = Math.hypot(x, y)
+        const minD = PITCH.centerCircleR + r + 0.2
+        if (d < minD) {
+          const nx = d > 0.01 ? x / d : home
+          const ny = d > 0.01 ? y / d : 0
+          x = nx * minD
+          y = ny * minD
+          if (Math.sign(x) !== home) x = home * Math.abs(x)
+        }
+      }
+      safePlace(id, x, y)
+    }
+  }
 
-  // Second attacker: on kicking team's own half, outside center circle
-  const ka2 = bodies[`${kickingTeam}_atk2`]
-  if (ka2) Body.setPosition(ka2, { x: kHome * 5, y: -halfH * 0.3 })
-
-  // Defenders: on own half
-  const kd1 = bodies[`${kickingTeam}_def1`]
-  if (kd1) Body.setPosition(kd1, { x: kHome * halfW * 0.42, y: -halfH * 0.45 })
-  const kd2 = bodies[`${kickingTeam}_def2`]
-  if (kd2) Body.setPosition(kd2, { x: kHome * halfW * 0.42, y: halfH * 0.45 })
-
-  // GK: on own goal line
-  const kg = bodies[`${kickingTeam}_gk`]
-  if (kg) Body.setPosition(kg, { x: kHome * (halfW - 1.2), y: 0 })
-
-  // === NON-KICKING TEAM ===
-  // ALL on their own half, OUTSIDE center circle
-  const na1 = bodies[`${nonKickingTeam}_atk1`]
-  if (na1) Body.setPosition(na1, { x: nHome * 5, y: -halfH * 0.3 })
-  const na2 = bodies[`${nonKickingTeam}_atk2`]
-  if (na2) Body.setPosition(na2, { x: nHome * 5, y: halfH * 0.3 })
-
-  const nd1 = bodies[`${nonKickingTeam}_def1`]
-  if (nd1) Body.setPosition(nd1, { x: nHome * halfW * 0.45, y: -halfH * 0.45 })
-  const nd2 = bodies[`${nonKickingTeam}_def2`]
-  if (nd2) Body.setPosition(nd2, { x: nHome * halfW * 0.45, y: halfH * 0.45 })
-
-  // GK: on own goal line
-  const ng = bodies[`${nonKickingTeam}_gk`]
-  if (ng) Body.setPosition(ng, { x: nHome * (halfW - 1.2), y: 0 })
-}
-
-export function resetToFormation() {
-  const activeTeam = useMatchStore.getState().activeTeam || 'team1'
-  resetToKickoff(activeTeam)
+  // Kicker right next to the ball, slightly offset so it's visible
+  const home = getTeamDir(kickingTeam)
+  safePlace(`${kickingTeam}_atk1`, home * 0.9, -0.9)
+  deOverlapBodies()
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -671,4 +655,31 @@ export function resetToFormation() {
 export function stepPhysics(delta) {
   if (!engine) return
   Engine.update(engine, delta)
+}
+
+/* ═══════════════════════════════════════════════════════════
+   9. ONLINE SNAPSHOTS (host → guest)
+   ═══════════════════════════════════════════════════════════ */
+
+const round3 = (n) => Math.round(n * 1000) / 1000
+
+/** Compact positions of every dynamic body: { id: [x, y] } */
+export function snapshotBodies() {
+  const snap = {}
+  for (const [id, b] of Object.entries(bodies)) snap[id] = [round3(b.position.x), round3(b.position.y)]
+  return snap
+}
+
+/** Move bodies to host-authoritative positions. Unknown ids and bad numbers are ignored. */
+export function applyBodySnapshot(snap) {
+  if (!snap || typeof snap !== 'object') return
+  for (const [id, b] of Object.entries(bodies)) {
+    const p = snap[id]
+    if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue
+    // Velocity is only used for visuals on the guest (ball trail); the guest never steps physics.
+    const vx = (p[0] - b.position.x) / 3
+    const vy = (p[1] - b.position.y) / 3
+    Body.setPosition(b, { x: p[0], y: p[1] })
+    Body.setVelocity(b, { x: vx, y: vy })
+  }
 }

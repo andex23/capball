@@ -91,7 +91,7 @@ function createPitchTexture(stadiumConfig) {
 
   // Center circle
   ctx.beginPath()
-  ctx.arc(canvas.width / 2, canvas.height / 2, 3 * sx, 0, Math.PI * 2)
+  ctx.arc(canvas.width / 2, canvas.height / 2, PITCH.centerCircleR * sx, 0, Math.PI * 2)
   ctx.stroke()
 
   // Center spot
@@ -129,7 +129,6 @@ function createPitchTexture(stadiumConfig) {
   // Use 3 * sx for the arc radius (visible, proportional)
   const arcRadius = 3.2 * sx
   // Calculate the angle where the arc intersects the penalty area edge
-  const penEdgeFromSpot = penAreaW - penSpotX * sx / sx // distance in pitch units
   const arcAngle = Math.acos(Math.min(1, (penAreaW - penSpotX) * sx / arcRadius))
 
   // Left penalty arc (outside the left penalty area, to the right)
@@ -176,7 +175,7 @@ function createPitchTexture(stadiumConfig) {
 export default function PitchMesh() {
   const stadiumId = useMatchStore((s) => s.stadium)
   const sc = STADIUMS[stadiumId] || STADIUMS.arena
-  const texture = useMemo(() => createPitchTexture(sc), [stadiumId])
+  const texture = useMemo(() => createPitchTexture(sc), [sc])
 
   return (
     <group>

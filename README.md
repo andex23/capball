@@ -1,22 +1,22 @@
 # CAPBALL
 
-A browser game inspired by tabletop bottle-cap football. Players take turns flicking caps to move the ball and score, with a 3D pitch and arcade presentation.
+A browser game inspired by tabletop bottle-cap football. Players take turns flicking caps to move the ball and score, on a 3D pitch with a broadcast-style presentation.
 
 [Play CAPBALL](https://capball.vercel.app/)
 
-![CAPBALL title screen with a tabletop football pitch](docs/images/preview.jpg)
+![CAPBALL main menu over a tabletop football pitch](docs/images/preview.jpg)
 
 ## Features
 
-- Local matches, computer opponents, and an online match mode.
-- Team, formation, and stadium selection.
-- Drag-and-release flick controls.
-- Match timing, scoring, fouls, and goal detection.
-- Sound, music, and difficulty settings.
+- Local two-player matches, a computer opponent (easy / medium / hard), and online matches with a room code or invite link.
+- Team builder (name, colours, badge, pattern, finish), four venues, and four formations that set the kick-off layout.
+- Drag-and-release flick controls with an aim arrow and ball-contact preview.
+- Two halves with a change of ends, fouls, free kicks with a wall, penalties, and a penalty shootout with sudden death.
+- Works on phones: the pitch turns upright in portrait and the layout adapts.
 
 ## Built with
 
-React 19 and Vite 8; Three.js and React Three Fiber for rendering; Matter.js for physics; Zustand for state; PeerJS for online connections.
+React 19 and Vite 8; Three.js and React Three Fiber for rendering; Matter.js for physics; Zustand for state; PeerJS for online play; Vitest and ESLint for checks.
 
 ## Run locally
 
@@ -29,20 +29,42 @@ npm run dev
 
 Use the local URL printed by Vite.
 
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm test` | Run the unit tests once (`npm run test:watch` to keep watching) |
+| `npm run lint` | Lint the code |
+| `npm run check` | Lint, test and build — the same as CI |
+| `npm run build` / `npm run preview` | Build for production and serve the build |
+
+### Online play
+
+Online matches use the free public PeerJS server by default. To use your own [PeerJS server](https://github.com/peers/peerjs-server), set these before building:
+
 ```bash
-npm run build
-npm run preview
+VITE_PEER_HOST=peer.example.com VITE_PEER_PORT=443 VITE_PEER_PATH=/ VITE_PEER_SECURE=true npm run build
 ```
+
+The host runs the physics and rules; the guest sends requests (edit its own team, ready up, flick its own caps on its own turn), and the host validates every one before applying it.
+
+## Rules at a glance
+
+- Teams alternate turns; a turn ends when everything stops moving.
+- No goal straight from a kick-off flick. Goalkeepers can't score, but an own goal off a keeper counts.
+- Hitting an opponent's cap before the ball is a foul (a cushion bounce first is fine): free kick, or a penalty if it's in the offender's own area.
+- A drawn match can go to a shootout: best of three each, then sudden death.
 
 ## Code map
 
 | Path | Purpose |
 | --- | --- |
-| `src/scene/` | Pitch, ball, and cap rendering |
-| `src/physics/` | Physics simulation and goal detection |
+| `src/game/` | Pure match rules (goals, fouls, shootout) and flick validation |
+| `src/state/` | Match state and flow (Zustand store) |
+| `src/physics/` | Physics world, set-piece layouts, goal detection |
+| `src/scene/` | Pitch, ball and cap rendering; camera presets |
 | `src/input/` | Flick controls |
 | `src/ai/` | Computer opponent |
-| `src/multiplayer/` | Peer connection logic |
-| `src/state/` | Match state |
-| `src/screens/` | Menus and match setup |
-
+| `src/multiplayer/` | PeerJS connection and the validated online protocol |
+| `src/screens/`, `src/ui/` | Menus, setup flow, HUD and shared UI |
+| `src/styles/theme.css` | Design tokens and component styles |
+| `src/__tests__/` | Unit and physics simulation tests |

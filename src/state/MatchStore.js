@@ -1,10 +1,10 @@
 import { create } from 'zustand'
+import { otherTeam, shootoutStatus, nextShooter, matchWinner } from '../game/rules'
 
 // App screens
 export const SCREEN = {
   SPLASH: 'SPLASH',
   MENU: 'MENU',
-  RULES: 'RULES',
   ONLINE: 'ONLINE',
   TEAM_SELECT: 'TEAM_SELECT',
   STADIUM_SELECT: 'STADIUM_SELECT',
@@ -15,24 +15,81 @@ export const SCREEN = {
 
 // Turn phases
 export const PHASE = {
-  IDLE: 'IDLE',
   SELECT: 'SELECT',
   AIM: 'AIM',
-  FLICK: 'FLICK',
   RESOLVE: 'RESOLVE',
-  SWITCH: 'SWITCH',
   GOAL: 'GOAL',
+  NO_GOAL: 'NO_GOAL',
+  MISSED: 'MISSED',
   KICKOFF: 'KICKOFF',
   FOUL: 'FOUL',
   FREE_KICK_SETUP: 'FREE_KICK_SETUP',
-  FREE_KICK_AIM: 'FREE_KICK_AIM',
   PENALTY_SETUP: 'PENALTY_SETUP',
-  PENALTY_AIM: 'PENALTY_AIM',
   MATCH_OVER: 'MATCH_OVER',
 }
 
-// Match duration options (seconds)
+/** Phases where a player may pick up and flick a cap. */
+export const INPUT_PHASES = [PHASE.SELECT, PHASE.AIM]
+/** Phases where the match clock runs. */
+export const CLOCK_PHASES = [PHASE.SELECT, PHASE.AIM, PHASE.RESOLVE]
+
+// Match duration options (seconds, whole match)
 export const MATCH_DURATIONS = [120, 180, 300]
+
+// How long each overlay stays up before play continues (ms)
+export const TIMING = {
+  kickoff: 2000,
+  goal: 1500,
+  foul: 1200,
+  setPiece: 1500,
+  noGoal: 1500,
+  shootoutResult: 1500,
+  fullTime: 1500,
+}
+
+/* ── Match timers ──
+   Every delayed transition goes through later() so leaving or restarting a
+   match can cancel them all. Without this, a timer from an abandoned match
+   could fire into the next one. */
+const pendingTimers = new Set()
+
+export function later(fn, ms) {
+  const id = setTimeout(() => {
+    pendingTimers.delete(id)
+    fn()
+  }, ms)
+  pendingTimers.add(id)
+  return id
+}
+
+export function clearMatchTimers() {
+  pendingTimers.forEach(clearTimeout)
+  pendingTimers.clear()
+}
+
+const emptyStats = () => ({
+  team1: { goals: 0, shots: 0, fouls: 0, turns: 0 },
+  team2: { goals: 0, shots: 0, fouls: 0, turns: 0 },
+})
+
+const clearTurn = {
+  selectedCapId: null,
+  lastFlickedCapId: null,
+  firstCollisionTracked: false,
+  freeKickCapId: null,
+  foulData: null,
+  dragPower: 0,
+}
+
+export const DEFAULT_TEAM_CONFIG = {
+  team1: { name: 'Team 1', primary: '#D32F2F', edge: '#FFD700', badge: 'none', numbers: { gk: 1, def1: 4, def2: 5, atk1: 10, atk2: 9 }, pattern: 'none', finish: 'matte' },
+  team2: { name: 'Team 2', primary: '#1565C0', edge: '#FFFFFF', badge: 'none', numbers: { gk: 1, def1: 3, def2: 6, atk1: 7, atk2: 11 }, pattern: 'none', finish: 'matte' },
+}
+
+/** Does this client run physics and rules? Everyone except an online guest. */
+export function isAuthority(state) {
+  return state.gameMode !== 'online' || state.onlineMyTeam === 'team1'
+}
 
 export const useMatchStore = create((set, get) => ({
   // --- App navigation ---
@@ -43,374 +100,291 @@ export const useMatchStore = create((set, get) => ({
   gameMode: 'local', // 'local', 'ai', or 'online'
   aiTeam: 'team2',
   aiDifficulty: 'medium', // 'easy', 'medium', 'hard'
-  onlineMyTeam: null, // 'team1' (host) or 'team2' (guest) — set during online connection
-  onlineReady: { team1: false, team2: false }, // both must be ready to advance
-  setOnlineReady: (team, ready) => set((s) => ({
-    onlineReady: { ...s.onlineReady, [team]: ready }
-  })),
-  resetOnlineReady: () => set({ onlineReady: { team1: false, team2: false } }),
   setGameMode: (mode) => set({ gameMode: mode }),
   setAiDifficulty: (d) => set({ aiDifficulty: d }),
 
+  // --- Online (local-only, never synced) ---
+  onlineMyTeam: null, // 'team1' (host) or 'team2' (guest)
+  onlineStatus: { status: 'idle', msg: '' },
+  onlineReady: { team1: false, team2: false },
+  setOnlineReady: (team, ready) => set((s) => ({ onlineReady: { ...s.onlineReady, [team]: ready } })),
+  resetOnlineReady: () => set({ onlineReady: { team1: false, team2: false } }),
+
   // --- Team customization ---
-  teamConfig: {
-    team1: { name: 'Team 1', primary: '#D32F2F', edge: '#FFD700', badge: 'none', numbers: { gk: 1, def1: 4, def2: 5, atk1: 10, atk2: 9 }, pattern: 'none', finish: 'matte' },
-    team2: { name: 'Team 2', primary: '#1565C0', edge: '#FFFFFF', badge: 'none', numbers: { gk: 1, def1: 3, def2: 6, atk1: 7, atk2: 11 }, pattern: 'none', finish: 'matte' },
-  },
+  teamConfig: DEFAULT_TEAM_CONFIG,
   setTeamConfig: (team, config) => set((s) => ({
-    teamConfig: { ...s.teamConfig, [team]: { ...s.teamConfig[team], ...config } }
+    teamConfig: { ...s.teamConfig, [team]: { ...s.teamConfig[team], ...config } },
   })),
 
-  // --- Ball color ---
   ballColor: '#c0c0c0',
   setBallColor: (color) => set({ ballColor: color }),
 
-  // --- Stadium / surface ---
   stadium: 'arena',
   setStadium: (id) => set({ stadium: id }),
 
-  // --- Side selection (which side team1 plays on) ---
-  team1Side: 'left', // 'left' or 'right'
-  setTeam1Side: (side) => set({ team1Side: side }),
+  // Side team1 starts on (chosen in setup) vs. the side it's on right now
+  // (flips at half time).
+  chosenTeam1Side: 'left',
+  team1Side: 'left',
+  setTeam1Side: (side) => set({ chosenTeam1Side: side, team1Side: side }),
 
-  // --- Formations ---
   formations: { team1: 'default', team2: 'default' },
-  setFormation: (team, formation) => set((s) => ({
-    formations: { ...s.formations, [team]: formation }
-  })),
+  setFormation: (team, formation) => set((s) => ({ formations: { ...s.formations, [team]: formation } })),
 
-  // --- Match timer ---
-  matchDuration: 180, // default 3 minutes (per half)
-  timeRemaining: 90,  // half the match duration
+  // --- Match clock ---
+  matchDuration: 180, // whole match, split into two halves
+  timeRemaining: 90,
   timerRunning: false,
   paused: false,
-  half: 1, // 1 or 2
-  firstHalfKicker: 'team1', // who kicked off first half
+  half: 1,
+  firstHalfKicker: 'team1',
   setMatchDuration: (d) => set({ matchDuration: d }),
 
   tickTimer: (dt) => {
     const { timeRemaining, timerRunning, paused, phase, half } = get()
-    if (!timerRunning || paused) return
-    const activePhases = [PHASE.SELECT, PHASE.AIM, PHASE.FLICK, PHASE.RESOLVE]
-    if (!activePhases.includes(phase)) return
+    if (!timerRunning || paused || !CLOCK_PHASES.includes(phase)) return
     const next = Math.max(0, timeRemaining - dt)
     set({ timeRemaining: next })
-    if (next <= 0) {
-      if (half === 1) {
-        // Half time — swap sides, start second half
-        get().startSecondHalf()
-      } else {
-        get().endMatch()
-      }
-    }
+    if (next > 0) return
+    if (half === 1) get().startSecondHalf()
+    else get().endMatch()
   },
 
   togglePause: () => set((s) => ({ paused: !s.paused })),
+  setPaused: (paused) => set({ paused }),
 
-  // --- Start game ---
+  // Bumped on every new match/shootout so the 3D scene remounts cleanly.
+  matchKey: 0,
+
+  // --- Match flow ---
   startGame: () => {
-    const { matchDuration } = get()
+    clearMatchTimers()
+    const s = get()
     set({
+      ...clearTurn,
       screen: SCREEN.PLAYING,
+      matchKey: s.matchKey + 1,
       score: { team1: 0, team2: 0 },
-      activeTeam: 'team1',
-      phase: PHASE.KICKOFF, // show KICK OFF overlay first
-      selectedCapId: null,
+      stats: emptyStats(),
+      team1Side: s.chosenTeam1Side,
+      activeTeam: s.firstHalfKicker,
+      phase: PHASE.KICKOFF,
+      kickoffGuard: true,
       lastConceded: null,
-      timeRemaining: Math.floor(matchDuration / 2),
-      timerRunning: false, // don't start timer until kickoff completes
+      lastScorer: null,
+      timeRemaining: Math.floor(s.matchDuration / 2),
+      timerRunning: false,
       paused: false,
       half: 1,
-      foulData: null,
-      freeKickCapId: null,
-      lastFlickedCapId: null,
-      stats: { team1: { shots: 0, fouls: 0, turns: 0 }, team2: { shots: 0, fouls: 0, turns: 0 } },
+      matchResult: null,
+      penaltyShootout: false,
+      penaltyKicks: { team1: 0, team2: 0 },
+      penaltyScores: { team1: 0, team2: 0 },
     })
-    // After 2 seconds, whistle blows and play starts
-    setTimeout(() => {
-      set({ phase: PHASE.SELECT, timerRunning: true })
-    }, 2000)
+    later(() => get().beginPlay(), TIMING.kickoff)
   },
 
-  // --- Half time: swap sides, reset timer for second half ---
+  /** KICKOFF overlay done — hand control to the kicking team. */
+  beginPlay: () => {
+    if (get().phase !== PHASE.KICKOFF) return
+    set({ phase: PHASE.SELECT, timerRunning: !get().penaltyShootout })
+  },
+
   startSecondHalf: () => {
+    clearMatchTimers()
     const { matchDuration, team1Side, firstHalfKicker } = get()
-    const newSide = team1Side === 'left' ? 'right' : 'left'
-    const secondHalfKicker = firstHalfKicker === 'team1' ? 'team2' : 'team1'
     set({
-      team1Side: newSide,
+      ...clearTurn,
+      team1Side: team1Side === 'left' ? 'right' : 'left',
       half: 2,
       timeRemaining: Math.floor(matchDuration / 2),
       timerRunning: false,
       phase: PHASE.KICKOFF,
-      activeTeam: secondHalfKicker, // opposite team kicks off second half
-      selectedCapId: null,
-      foulData: null,
-      freeKickCapId: null,
-      lastFlickedCapId: null,
+      kickoffGuard: true,
+      activeTeam: otherTeam(firstHalfKicker),
     })
-    // Show KICK OFF for 2 seconds then play
-    setTimeout(() => {
-      set({ timerRunning: true, phase: PHASE.SELECT })
-    }, 2000)
+    later(() => get().beginPlay(), TIMING.kickoff)
   },
 
-  // --- End match ---
   endMatch: () => {
-    const { score, teamConfig } = get()
-    let winner = null
-    if (score.team1 > score.team2) winner = 'team1'
-    else if (score.team2 > score.team1) winner = 'team2'
-    const isDraw = !winner
+    clearMatchTimers()
+    const { score, teamConfig, stats } = get()
+    const winner = matchWinner(score)
     set({
+      ...clearTurn,
       phase: PHASE.MATCH_OVER,
       timerRunning: false,
       matchResult: {
         winner,
-        isDraw,
+        isDraw: !winner,
         score: { ...score },
+        stats,
         team1Name: teamConfig.team1.name,
         team2Name: teamConfig.team2.name,
       },
     })
-    setTimeout(() => {
-      set({ screen: SCREEN.MATCH_END })
-    }, 1500)
+    later(() => set({ screen: SCREEN.MATCH_END }), TIMING.fullTime)
   },
+
+  /** Leave the match (menu / disconnect). Cancels anything still scheduled. */
+  quitMatch: (screen = SCREEN.MENU) => {
+    clearMatchTimers()
+    set({ ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false })
+  },
+
   matchResult: null,
-
-  // --- Score ---
   score: { team1: 0, team2: 0 },
+  lastScorer: null,
+  stats: emptyStats(),
 
-  // --- Match statistics ---
-  stats: {
-    team1: { shots: 0, fouls: 0, turns: 0 },
-    team2: { shots: 0, fouls: 0, turns: 0 },
-  },
-  recordShot: (team) => set((s) => ({
-    stats: { ...s.stats, [team]: { ...s.stats[team], shots: s.stats[team].shots + 1 } }
-  })),
-  recordFoul: (team) => set((s) => ({
-    stats: { ...s.stats, [team]: { ...s.stats[team], fouls: s.stats[team].fouls + 1 } }
-  })),
-  recordTurn: (team) => set((s) => ({
-    stats: { ...s.stats, [team]: { ...s.stats[team], turns: s.stats[team].turns + 1 } }
+  bumpStat: (team, key) => set((s) => ({
+    stats: { ...s.stats, [team]: { ...s.stats[team], [key]: s.stats[team][key] + 1 } },
   })),
 
-  // --- Turn ---
+  // --- Turn state ---
   activeTeam: 'team1',
   phase: PHASE.SELECT,
   selectedCapId: null,
   lastConceded: null,
-
-  // --- Last flicked cap (for GK goal restriction + foul tracking) ---
   lastFlickedCapId: null,
-  setLastFlickedCap: (capId) => set({ lastFlickedCapId: capId }),
-
-  // --- Foul system ---
-  freeKickCapId: null, // only this cap can take the free kick/penalty
-  foulData: null, // { foulSpot: {x, y}, fouledTeam, inPenaltyBox }
   firstCollisionTracked: false,
+  // True for the flick straight from a kick-off, which may not score.
+  kickoffGuard: false,
+  // Only this cap may take the current free kick / penalty.
+  freeKickCapId: null,
+  foulData: null, // { foulSpot: {x, y}, fouledTeam, inPenaltyBox }
 
   setFirstCollisionTracked: (v) => set({ firstCollisionTracked: v }),
 
-  callFoul: (foulSpot, fouledTeam, inPenaltyBox) => {
-    // Record foul against the team that committed it (active team)
-    const { activeTeam } = get()
-    get().recordFoul(activeTeam)
-    set({
-      phase: PHASE.FOUL,
-      foulData: { foulSpot, fouledTeam, inPenaltyBox },
-      selectedCapId: null,
-    })
-    // After brief display, transition to set piece
-    setTimeout(() => {
-      const { foulData } = get()
-      if (!foulData) return
-      if (foulData.inPenaltyBox) {
-        set({ phase: PHASE.PENALTY_SETUP, activeTeam: foulData.fouledTeam })
-      } else {
-        set({ phase: PHASE.FREE_KICK_SETUP, activeTeam: foulData.fouledTeam })
-      }
-    }, 1200)
-  },
-
-  clearFoul: () => set({ foulData: null, freeKickCapId: null }),
-
-  // Start free kick / penalty aim after ball is placed — use normal SELECT flow
-  startFreeKickAim: () => set({ phase: PHASE.SELECT, selectedCapId: null }),
-  startPenaltyAim: () => set({ phase: PHASE.SELECT, selectedCapId: null }),
-
-  // After set piece resolves
-  finishSetPiece: () => {
-    set({ foulData: null, phase: PHASE.RESOLVE })
-  },
-
-  // --- Drag power (0-1) for power gauge ---
   dragPower: 0,
-  setDragPower: (power) => set({ dragPower: power }),
+  setDragPower: (power) => { if (get().dragPower !== power) set({ dragPower: power }) },
 
-  // --- Actions ---
   selectCap: (capId) => set({ selectedCapId: capId, phase: PHASE.AIM }),
+  cancelAim: () => set({ selectedCapId: null, phase: PHASE.SELECT, dragPower: 0 }),
 
-  startFlick: () => set({ phase: PHASE.FLICK }),
-
-  startResolve: () => set({ phase: PHASE.RESOLVE, firstCollisionTracked: false }),
+  /** A flick has been applied to the physics world — watch it play out. */
+  commitFlick: (capId) => set({
+    selectedCapId: capId,
+    lastFlickedCapId: capId,
+    phase: PHASE.RESOLVE,
+    firstCollisionTracked: false,
+    freeKickCapId: null,
+    foulData: null,
+    dragPower: 0,
+  }),
 
   switchTurn: () => {
     const { activeTeam } = get()
-    // Record turn stat
-    get().recordTurn(activeTeam)
-    set({
-      activeTeam: activeTeam === 'team1' ? 'team2' : 'team1',
-      phase: PHASE.SELECT,
-      selectedCapId: null,
-      firstCollisionTracked: false,
-      freeKickCapId: null,
-      foulData: null,
-    })
+    get().bumpStat(activeTeam, 'turns')
+    set({ ...clearTurn, activeTeam: otherTeam(activeTeam), phase: PHASE.SELECT, kickoffGuard: false })
   },
 
   scoreGoal: (scoringTeam) => {
     const { score } = get()
-    const concedingTeam = scoringTeam === 'team1' ? 'team2' : 'team1'
+    const concedingTeam = otherTeam(scoringTeam)
+    get().bumpStat(scoringTeam, 'goals')
     set({
+      ...clearTurn,
       score: { ...score, [scoringTeam]: score[scoringTeam] + 1 },
       phase: PHASE.GOAL,
+      lastScorer: scoringTeam,
       lastConceded: concedingTeam,
-      selectedCapId: null,
-      foulData: null,
-      freeKickCapId: null,
     })
+    later(() => get().startKickoff(concedingTeam), TIMING.goal)
   },
 
-  startKickoff: () => set({ phase: PHASE.KICKOFF, freeKickCapId: null }),
+  /** A ball in the net that doesn't count. Possession passes over. */
+  disallowGoal: (reason) => {
+    set({ ...clearTurn, phase: PHASE.NO_GOAL, noGoalReason: reason })
+    later(() => get().switchTurn(), TIMING.noGoal)
+  },
+  noGoalReason: null,
 
-  finishKickoff: () => {
-    const { lastConceded } = get()
-    set({
-      activeTeam: lastConceded || 'team1',
-      phase: PHASE.SELECT,
-      selectedCapId: null,
-      firstCollisionTracked: false,
-      freeKickCapId: null,
-      foulData: null,
-    })
+  startKickoff: (team) => {
+    set({ ...clearTurn, phase: PHASE.KICKOFF, activeTeam: team, kickoffGuard: true })
+    later(() => get().beginPlay(), TIMING.kickoff)
   },
 
-  reset: () => {
-    const { matchDuration } = get()
+  // --- Fouls ---
+  callFoul: (foulSpot, fouledTeam, inPenaltyBox) => {
+    const { activeTeam } = get()
+    get().bumpStat(activeTeam, 'fouls')
     set({
-      score: { team1: 0, team2: 0 },
-      activeTeam: 'team1',
-      phase: PHASE.SELECT,
-      selectedCapId: null,
-      lastConceded: null,
-      timeRemaining: Math.floor(matchDuration / 2),
-      timerRunning: true,
-      paused: false,
-      half: 1,
-      foulData: null,
-      firstCollisionTracked: false,
-      lastFlickedCapId: null,
+      ...clearTurn,
+      phase: PHASE.FOUL,
+      foulData: { foulSpot, fouledTeam, inPenaltyBox },
+      kickoffGuard: false,
     })
+    later(() => {
+      set({ phase: inPenaltyBox ? PHASE.PENALTY_SETUP : PHASE.FREE_KICK_SETUP, activeTeam: fouledTeam })
+      // The scene places the caps as soon as the setup phase starts.
+      later(() => {
+        const s = get()
+        if (s.phase === PHASE.FREE_KICK_SETUP || s.phase === PHASE.PENALTY_SETUP) {
+          set({ phase: PHASE.SELECT, selectedCapId: null })
+        }
+      }, TIMING.setPiece)
+    }, TIMING.foul)
   },
 
   // --- Penalty shootout ---
   penaltyShootout: false,
-  penaltyRound: 0,        // 0-2 (3 rounds each)
-  penaltyTeam: 'team1',   // whose turn to shoot
+  penaltyKicks: { team1: 0, team2: 0 },
   penaltyScores: { team1: 0, team2: 0 },
 
   startPenaltyShootout: () => {
+    clearMatchTimers()
     set({
+      ...clearTurn,
       screen: SCREEN.PLAYING,
+      matchKey: get().matchKey + 1,
       penaltyShootout: true,
-      penaltyRound: 0,
-      penaltyTeam: 'team1',
+      penaltyKicks: { team1: 0, team2: 0 },
       penaltyScores: { team1: 0, team2: 0 },
       phase: PHASE.KICKOFF,
       activeTeam: 'team1',
+      kickoffGuard: false,
       timerRunning: false,
       paused: false,
-      foulData: null,
-      freeKickCapId: null,
+      matchResult: null,
     })
-    // Show PENALTY SHOOTOUT text then start
-    setTimeout(() => {
-      set({ phase: PHASE.SELECT })
-    }, 2000)
+    later(() => get().beginPlay(), TIMING.kickoff)
   },
 
-  // Called after each penalty attempt resolves
+  /** A shootout kick has finished — show the result, then move on. */
   penaltyAttemptResult: (scored) => {
-    const { penaltyTeam, penaltyRound, penaltyScores } = get()
-    const newScores = { ...penaltyScores }
-    if (scored) newScores[penaltyTeam] = newScores[penaltyTeam] + 1
-
-    const nextTeam = penaltyTeam === 'team1' ? 'team2' : 'team1'
-    const roundDone = penaltyTeam === 'team2' // both teams have shot this round
-    const nextRound = roundDone ? penaltyRound + 1 : penaltyRound
-
-    // Check if shootout is decided (after both teams shot in a round)
-    if (roundDone && nextRound <= 3) {
-      const remaining = 3 - nextRound
-      const diff = Math.abs(newScores.team1 - newScores.team2)
-      // If one team can't catch up even if they score all remaining
-      if (diff > remaining) {
-        // Shootout decided
-        const winner = newScores.team1 > newScores.team2 ? 'team1' : 'team2'
-        const { teamConfig } = get()
+    const { activeTeam, penaltyKicks, penaltyScores } = get()
+    const kicks = { ...penaltyKicks, [activeTeam]: penaltyKicks[activeTeam] + 1 }
+    const goals = { ...penaltyScores, [activeTeam]: penaltyScores[activeTeam] + (scored ? 1 : 0) }
+    set({
+      ...clearTurn,
+      penaltyKicks: kicks,
+      penaltyScores: goals,
+      phase: scored ? PHASE.GOAL : PHASE.MISSED,
+      lastScorer: scored ? activeTeam : null,
+    })
+    later(() => {
+      const status = shootoutStatus(kicks, goals)
+      if (status.decided) {
+        const { teamConfig, score, stats } = get()
         set({
-          penaltyScores: newScores,
           phase: PHASE.MATCH_OVER,
           matchResult: {
-            winner,
+            winner: status.winner,
             isDraw: false,
-            score: { ...get().score },
-            penaltyScore: { ...newScores },
+            score: { ...score },
+            stats,
+            penaltyScore: { ...goals },
             team1Name: teamConfig.team1.name,
             team2Name: teamConfig.team2.name,
           },
         })
-        setTimeout(() => set({ screen: SCREEN.MATCH_END }), 1500)
+        later(() => set({ screen: SCREEN.MATCH_END }), TIMING.fullTime)
         return
       }
-    }
-
-    // All 3 rounds done?
-    if (nextRound >= 3) {
-      const { teamConfig } = get()
-      let winner = null
-      if (newScores.team1 > newScores.team2) winner = 'team1'
-      else if (newScores.team2 > newScores.team1) winner = 'team2'
-      set({
-        penaltyScores: newScores,
-        phase: PHASE.MATCH_OVER,
-        matchResult: {
-          winner,
-          isDraw: !winner,
-          score: { ...get().score },
-          penaltyScore: { ...newScores },
-          team1Name: teamConfig.team1.name,
-          team2Name: teamConfig.team2.name,
-        },
-      })
-      setTimeout(() => set({ screen: SCREEN.MATCH_END }), 1500)
-      return
-    }
-
-    // Continue shootout
-    set({
-      penaltyScores: newScores,
-      penaltyTeam: nextTeam,
-      penaltyRound: nextRound,
-      activeTeam: nextTeam,
-      phase: PHASE.KICKOFF,
-      selectedCapId: null,
-      freeKickCapId: null,
-    })
-    setTimeout(() => set({ phase: PHASE.SELECT }), 1500)
+      set({ phase: PHASE.KICKOFF, activeTeam: nextShooter(kicks) })
+      later(() => get().beginPlay(), TIMING.kickoff)
+    }, TIMING.shootoutResult)
   },
 
   // --- Audio settings ---
