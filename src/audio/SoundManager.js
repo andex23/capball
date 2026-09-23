@@ -3,12 +3,16 @@ import { useMatchStore } from '../state/MatchStore'
 // Web Audio API synthesized sounds — no external files needed
 let audioCtx = null
 
+// Returns null where Web Audio isn't available (tests, old browsers) so every
+// sound quietly becomes a no-op instead of throwing mid-match.
 function getCtx() {
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const Ctx = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)
+    if (!Ctx) return null
+    try { audioCtx = new Ctx() } catch { return null }
   }
   if (audioCtx.state === 'suspended') {
-    audioCtx.resume()
+    audioCtx.resume().catch(() => {})
   }
   return audioCtx
 }
@@ -21,9 +25,10 @@ function getVolume() {
 // --- Sound generators ---
 
 function playTone(freq, duration, type = 'square', vol = 0.3) {
-  const ctx = getCtx()
   const v = getVolume() * vol
   if (v <= 0) return
+  const ctx = getCtx()
+  if (!ctx) return
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.type = type
@@ -37,9 +42,10 @@ function playTone(freq, duration, type = 'square', vol = 0.3) {
 }
 
 function playNoise(duration, vol = 0.2) {
-  const ctx = getCtx()
   const v = getVolume() * vol
   if (v <= 0) return
+  const ctx = getCtx()
+  if (!ctx) return
   const bufferSize = ctx.sampleRate * duration
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
   const data = buffer.getChannelData(0)
@@ -151,9 +157,10 @@ export function playPenalty() {
 let crowdNode = null
 export function startCrowdAmbience() {
   if (crowdNode) return
-  const ctx = getCtx()
   const v = getVolume() * 0.08
   if (v <= 0) return
+  const ctx = getCtx()
+  if (!ctx) return
 
   const bufferSize = ctx.sampleRate * 2
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)

@@ -1,8 +1,9 @@
 import { useRef, useCallback, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { useMatchStore, PHASE } from '../state/MatchStore'
-import { applyFlick } from '../physics/PhysicsWorld'
+import { useMatchStore, PHASE, INPUT_PHASES } from '../state/MatchStore'
+import { performFlick, flickError, controllableTeams } from '../game/flick'
+import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
 
@@ -19,13 +20,14 @@ function rayCircleIntersect(ox, oz, dx, dz, cx, cz, r) {
   return t > 0.1 ? t : -1
 }
 
-// Flick controller using native DOM pointer events + manual raycasting
-// This approach works reliably across desktop (mouse) and mobile (touch)
+// Flick controller using native DOM pointer events + manual raycasting.
+// Works for mouse and touch. Down is on the canvas; move/up are on window so a
+// release outside the canvas still ends the drag.
 export function useFlickController(meshRefs, trajectoryRef) {
   const { camera, gl } = useThree()
   const raycaster = useRef(new THREE.Raycaster())
   const pitchPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
-  const dragging = useRef(false)
+  const dragCapId = useRef(null)  // cap being dragged (local — not overwritten by online sync)
   const dragCurrent = useRef(null)
 
   // Convert clientX/clientY to world position on the pitch plane
@@ -37,149 +39,127 @@ export function useFlickController(meshRefs, trajectoryRef) {
     )
     raycaster.current.setFromCamera(ndc, camera)
     const hit = new THREE.Vector3()
-    raycaster.current.ray.intersectPlane(pitchPlane.current, hit)
-    return hit
+    return raycaster.current.ray.intersectPlane(pitchPlane.current, hit) ? hit : null
   }, [camera, gl])
 
-  // Find active team's cap at position
+  // Find the active team's cap nearest to a pitch position
   const findCapAtPosition = useCallback((worldPos) => {
     const currentTeam = useMatchStore.getState().activeTeam
     const refs = meshRefs.current
     if (!refs) return null
 
+    let best = null
+    let bestDist = Infinity
     for (const [id, mesh] of Object.entries(refs)) {
-      if (!mesh || id === 'ball') continue
-      if (!id.startsWith(currentTeam)) continue
-
-      const isGk = id.endsWith('_gk')
-      const radius = isGk ? GK_RADIUS : CAP_RADIUS
-      const dx = worldPos.x - mesh.position.x
-      const dz = worldPos.z - mesh.position.z
-      if (Math.sqrt(dx * dx + dz * dz) < radius + 0.3) return id
+      if (!mesh || !id.startsWith(`${currentTeam}_`)) continue
+      const radius = id.endsWith('_gk') ? GK_RADIUS : CAP_RADIUS
+      const d = Math.hypot(worldPos.x - mesh.position.x, worldPos.z - mesh.position.z)
+      if (d < radius + 0.3 && d < bestDist) { best = id; bestDist = d }
     }
-    return null
+    return best
   }, [meshRefs])
 
   useEffect(() => {
     const canvas = gl.domElement
 
-    const handlePointerDown = (e) => {
-      const state = useMatchStore.getState()
-
-      // Online multiplayer: only allow input on your turn
-      if (state.gameMode === 'online') {
-        try {
-          const { isMyTurn } = require('../multiplayer/MultiplayerManager')
-          if (!isMyTurn()) return
-        } catch (e) {}
-      }
-
-      const clientX = e.clientX
-      const clientY = e.clientY
-      const worldPos = getWorldPos(clientX, clientY)
-
-      if (state.phase === PHASE.SELECT || state.phase === PHASE.FREE_KICK_AIM || state.phase === PHASE.PENALTY_AIM) {
-        const capId = findCapAtPosition(worldPos)
-        if (capId) {
-          // If a specific cap must take the kick (free kick/penalty), only allow that one
-          const requiredCap = state.freeKickCapId
-          if (requiredCap && capId !== requiredCap) return // wrong cap, ignore
-
-          state.selectCap(capId)
-          dragging.current = true
-          dragCurrent.current = worldPos.clone()
-        }
-      } else if (state.phase === PHASE.AIM && state.selectedCapId) {
-        dragging.current = true
-        dragCurrent.current = worldPos.clone()
-      }
-    }
-
-    const handlePointerMove = (e) => {
-      if (!dragging.current) return
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY
-      const worldPos = getWorldPos(clientX, clientY)
-      if (worldPos) dragCurrent.current = worldPos.clone()
-    }
-
-    const handlePointerUp = (e) => {
-      if (!dragging.current) return
-      dragging.current = false
-
-      const state = useMatchStore.getState()
-      const selectedId = state.selectedCapId
-      if (!selectedId || !dragCurrent.current) return
-
-      const capMesh = meshRefs.current[selectedId]
-      if (!capMesh) return
-
-      // Slingshot: drag BACK from cap, cap shoots in opposite direction
-      // Use cap position on pitch plane (x, z in 3D = x, y in physics)
-      const capX = capMesh.position.x
-      const capZ = capMesh.position.z
-      const dragX = dragCurrent.current.x
-      const dragZ = dragCurrent.current.z
-
-      // Direction: from drag point toward cap (slingshot)
-      const dx = capX - dragX
-      const dz = capZ - dragZ
-      const dragDist = Math.sqrt(dx * dx + dz * dz)
-
-      if (dragDist < PHYSICS.minFlickThreshold) {
-        useMatchStore.setState({ phase: PHASE.SELECT, selectedCapId: null })
-        dragCurrent.current = null
-        return
-      }
-
-      // Clear foul data and kicker restriction when set piece is taken
-      const foulData = useMatchStore.getState().foulData
-      if (foulData || useMatchStore.getState().freeKickCapId) {
-        useMatchStore.setState({ foulData: null, freeKickCapId: null })
-      }
-
-      // Normalize direction and calculate power
-      const nx = dx / dragDist
-      const nz = dz / dragDist
-      const power = Math.min(dragDist * 0.8, PHYSICS.maxFlickVelocity)
-
-      // Apply velocity: Three.js x,z → Matter.js x,y
-      const velocity = { x: nx * power, y: nz * power }
-      playFlick()
-
-      // Online mode: guest sends flick to host instead of executing locally
-      const gameMode = useMatchStore.getState().gameMode
-      if (gameMode === 'online') {
-        try {
-          const { getIsHost, sendFlick } = require('../multiplayer/MultiplayerManager')
-          if (!getIsHost()) {
-            sendFlick(selectedId, velocity)
-            // Guest doesn't execute physics — host will do it and sync back
-            dragCurrent.current = null
-            return
-          }
-        } catch (e) {}
-      }
-
-      applyFlick(selectedId, velocity)
-      useMatchStore.getState().setLastFlickedCap(selectedId)
-      state.startResolve()
+    const endDrag = () => {
+      dragCapId.current = null
       dragCurrent.current = null
     }
 
-    // Pointer events handle both mouse and touch
+    const handlePointerDown = (e) => {
+      if (e.button !== undefined && e.button !== 0) return // right/middle = camera
+      const state = useMatchStore.getState()
+      if (state.paused || !INPUT_PHASES.includes(state.phase)) return
+      // Only the teams this client controls (not the CPU's, not the online opponent's)
+      if (!controllableTeams(state).includes(state.activeTeam)) return
+
+      const worldPos = getWorldPos(e.clientX, e.clientY)
+      if (!worldPos) return
+
+      let capId = findCapAtPosition(worldPos)
+      // Already aiming: a press anywhere keeps dragging the selected cap
+      if (!capId && state.phase === PHASE.AIM && dragCapId.current === null) capId = state.selectedCapId
+      if (!capId) return
+      // Free kick / penalty: only the designated taker
+      if (state.freeKickCapId && capId !== state.freeKickCapId) return
+
+      dragCapId.current = capId
+      dragCurrent.current = worldPos.clone()
+      state.selectCap(capId)
+      if (state.gameMode === 'online' && !getIsHost()) sendSelect(capId)
+    }
+
+    const handlePointerMove = (e) => {
+      if (!dragCapId.current) return
+      const worldPos = getWorldPos(e.clientX, e.clientY)
+      if (worldPos) dragCurrent.current = worldPos.clone()
+    }
+
+    const handlePointerUp = () => {
+      const capId = dragCapId.current
+      const dragPos = dragCurrent.current
+      endDrag()
+      if (!capId || !dragPos) return
+
+      const state = useMatchStore.getState()
+      const capMesh = meshRefs.current[capId]
+      if (!capMesh) return
+
+      // Slingshot: drag BACK from the cap, it shoots the opposite way
+      const dx = capMesh.position.x - dragPos.x
+      const dz = capMesh.position.z - dragPos.z
+      const dragDist = Math.hypot(dx, dz)
+
+      if (dragDist < PHYSICS.minFlickThreshold) {
+        state.cancelAim()
+        if (state.gameMode === 'online' && !getIsHost()) sendCancel()
+        return
+      }
+
+      const power = Math.min(dragDist * 0.8, PHYSICS.maxFlickVelocity)
+      // Three.js x,z → Matter.js x,y
+      const velocity = { x: (dx / dragDist) * power, y: (dz / dragDist) * power }
+
+      if (state.gameMode === 'online' && !getIsHost()) {
+        // Guest: the host validates and runs the flick, then streams the result back
+        if (flickError(state, { capId, velocity }) === null) {
+          playFlick()
+          sendFlick(capId, velocity)
+        }
+        state.setDragPower(0)
+        return
+      }
+
+      if (performFlick(capId, velocity) === null) playFlick()
+      else state.cancelAim()
+    }
+
+    const handlePointerCancel = () => {
+      if (!dragCapId.current) return
+      endDrag()
+      const state = useMatchStore.getState()
+      state.cancelAim()
+      if (state.gameMode === 'online' && !getIsHost()) sendCancel()
+    }
+
+    // Stop the page scrolling/zooming while dragging on touch screens
+    const preventTouch = (e) => e.preventDefault()
+
     canvas.addEventListener('pointerdown', handlePointerDown)
-    canvas.addEventListener('pointermove', handlePointerMove)
-    canvas.addEventListener('pointerup', handlePointerUp)
-    // Prevent default touch to avoid scroll/zoom during drag
-    canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false })
-    canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false })
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerCancel)
+    canvas.addEventListener('touchstart', preventTouch, { passive: false })
+    canvas.addEventListener('touchmove', preventTouch, { passive: false })
 
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown)
-      canvas.removeEventListener('pointermove', handlePointerMove)
-      canvas.removeEventListener('pointerup', handlePointerUp)
-      canvas.removeEventListener('touchend', handlePointerUp)
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+      canvas.removeEventListener('touchstart', preventTouch)
+      canvas.removeEventListener('touchmove', preventTouch)
     }
   }, [gl, getWorldPos, findCapAtPosition, meshRefs])
 
@@ -189,10 +169,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
     if (!arrow) return
 
     const state = useMatchStore.getState()
-    const show = (state.phase === PHASE.AIM)
-      && dragging.current
-      && dragCurrent.current
-      && state.selectedCapId
+    const capId = dragCapId.current
+    const show = capId && dragCurrent.current && !state.paused && INPUT_PHASES.includes(state.phase)
 
     if (!show) {
       arrow.group.visible = false
@@ -202,7 +180,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
       return
     }
 
-    const capMesh = meshRefs.current[state.selectedCapId]
+    const capMesh = meshRefs.current[capId]
     const ballMesh = meshRefs.current.ball
     if (!capMesh) { arrow.group.visible = false; arrow.ballGroup.visible = false; arrow.ring.visible = false; return }
 
@@ -243,7 +221,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
 
     const bx = ballMesh.position.x
     const bz = ballMesh.position.z
-    const isGk = state.selectedCapId.endsWith('_gk')
+    const isGk = capId.endsWith('_gk')
     const capRadius = isGk ? GK_RADIUS : CAP_RADIUS
     const hitRadius = capRadius + BALL_RADIUS // collision distance
 

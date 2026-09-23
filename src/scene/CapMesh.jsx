@@ -215,7 +215,7 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   return texture
 }
 
-const CapMesh = forwardRef(function CapMesh({ id, color, edgeColor, isGk, isSelected, badge, number, pattern, finish }, ref) {
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected, badge, number, pattern, finish }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte

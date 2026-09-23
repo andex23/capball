@@ -1,26 +1,10 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react'
-import { Canvas, useThree, useFrame } from '@react-three/fiber'
+import { useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { STADIUMS } from '../data/StadiumData'
 
-// Camera preset positions — accessible from HUD
-export const CAMERA_PRESETS = {
-  topDown: { pos: [0, 30, 5], target: [0, 0, 0] },        // slight tilt, not fully flat
-  behindGoal: { pos: [-16, 12, 0], target: [2, 0, 0] },    // lower, closer, looking across pitch
-  sideline: { pos: [0, 14, 14], target: [0, 0, 0] },       // gentle side angle, readable
-}
-
-// Global ref so HUD can trigger camera moves
-let _controlsRef = null
-let _cameraRef = null
-export function setCameraPreset(presetName) {
-  const preset = CAMERA_PRESETS[presetName]
-  if (!preset || !_controlsRef || !_cameraRef) return
-  _cameraRef.position.set(...preset.pos)
-  _controlsRef.target.set(...preset.target)
-  _controlsRef.update()
-}
+import { setCameraRefs, fitCurrentPreset, resetCameraPreset } from './camera'
 import PitchMesh from './PitchMesh'
 import BallTrail from './BallTrail'
 import CapMesh from './CapMesh'
@@ -28,10 +12,9 @@ import BallMesh from './BallMesh'
 import { usePhysicsSync } from '../physics/PhysicsSync'
 import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
-import { createPhysicsWorld, resetToFormation, resetToKickoff, stopAllBodies } from '../physics/PhysicsWorld'
-import { resetKickoffProtection } from '../physics/GoalDetector'
-import { playWhistle } from '../audio/SoundManager'
-import { useMatchStore, PHASE } from '../state/MatchStore'
+import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty } from '../physics/PhysicsWorld'
+import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
+import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 
 // Trajectory arrow + ball prediction visuals
 function TrajectoryLineManager({ trajectoryRef }) {
@@ -167,31 +150,50 @@ function StadiumAtmosphere({ stadiumConfig }) {
   )
 }
 
+/* Crowd: rows of spectators on the four stands, one instanced mesh */
 function CrowdDots({ colors: crowdColors }) {
-  const dots = useMemo(() => {
-    const result = []
-    const colors = crowdColors || ['#e53935', '#1e88e5', '#ffd740', '#ff7043', '#66bb6a', '#ab47bc', '#ffffff']
-    for (let i = 0; i < 200; i++) {
-      const side = Math.floor(Math.random() * 4) // 0=back, 1=front, 2=left, 3=right
-      let x, y, z
-      if (side === 0) { x = (Math.random() - 0.5) * 38; y = 1 + Math.random() * 5; z = -14 - Math.random() * 3 }
-      else if (side === 1) { x = (Math.random() - 0.5) * 38; y = 1 + Math.random() * 5; z = 14 + Math.random() * 3 }
-      else if (side === 2) { x = -20 - Math.random() * 3; y = 1 + Math.random() * 5; z = (Math.random() - 0.5) * 28 }
-      else { x = 20 + Math.random() * 3; y = 1 + Math.random() * 5; z = (Math.random() - 0.5) * 28 }
-      result.push({ x, y, z, color: colors[Math.floor(Math.random() * colors.length)], opacity: 0.15 + Math.random() * 0.35, size: 0.08 + Math.random() * 0.15 })
+  const meshRef = useRef(null)
+  const seats = useMemo(() => {
+    const palette = (crowdColors || ['#e53935', '#1e88e5', '#ffd740', '#ffffff']).map((c) =>
+      new THREE.Color(c).lerp(new THREE.Color('#141a2e'), 0.68)
+    )
+    const out = []
+    const rows = 6
+    const addStand = (len, place) => {
+      for (let r = 0; r < rows; r++) {
+        for (let i = 0; i < len; i++) {
+          if (Math.random() < 0.18) continue // empty seats
+          const along = (i / (len - 1) - 0.5) + (Math.random() - 0.5) * 0.01
+          out.push({ ...place(along, r), color: palette[Math.floor(Math.random() * palette.length)] })
+        }
+      }
     }
-    return result
-  }, [])
+    // Stands rise away from the pitch: each row is higher and further back
+    addStand(56, (a, r) => ({ x: a * 40, y: 0.9 + r * 0.95, z: -15.2 - r * 0.55 }))
+    addStand(56, (a, r) => ({ x: a * 40, y: 0.9 + r * 0.95, z: 15.2 + r * 0.55 }))
+    addStand(36, (a, r) => ({ x: -21.2 - r * 0.55, y: 0.9 + r * 0.95, z: a * 26 }))
+    addStand(36, (a, r) => ({ x: 21.2 + r * 0.55, y: 0.9 + r * 0.95, z: a * 26 }))
+    return out
+  }, [crowdColors])
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    const m = new THREE.Matrix4()
+    seats.forEach((seat, i) => {
+      m.makeTranslation(seat.x, seat.y, seat.z)
+      mesh.setMatrixAt(i, m)
+      mesh.setColorAt(i, seat.color)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+  }, [seats])
 
   return (
-    <group>
-      {dots.map((d, i) => (
-        <mesh key={i} position={[d.x, d.y, d.z]}>
-          <sphereGeometry args={[d.size, 6, 6]} />
-          <meshBasicMaterial color={d.color} transparent opacity={d.opacity} />
-        </mesh>
-      ))}
-    </group>
+    <instancedMesh ref={meshRef} args={[null, null, seats.length]}>
+      <sphereGeometry args={[0.17, 6, 5]} />
+      <meshStandardMaterial roughness={0.9} />
+    </instancedMesh>
   )
 }
 
@@ -257,34 +259,36 @@ function GameWorld() {
 
   const phase = useMatchStore((s) => s.phase)
   const selectedCapId = useMatchStore((s) => s.selectedCapId)
-  const startKickoff = useMatchStore((s) => s.startKickoff)
-  const finishKickoff = useMatchStore((s) => s.finishKickoff)
+  const freeKickCapId = useMatchStore((s) => s.freeKickCapId)
 
-  useEffect(() => {
+  // Fresh physics world for every match (GameWorld is keyed by matchKey)
+  // Also lays the caps out for whatever is happening right now — the scene can
+  // finish loading after the kick-off has already started.
+  useLayoutEffect(() => {
     createPhysicsWorld()
-    // Immediately reposition to proper kickoff layout (not formation)
-    const activeTeam = useMatchStore.getState().activeTeam || 'team1'
-    resetToKickoff(activeTeam)
-    resetKickoffProtection()
-    playWhistle()
+    const s = useMatchStore.getState()
+    if (!isAuthority(s)) return
+    if (s.penaltyShootout) setupPenalty(s.activeTeam)
+    else resetToKickoff(s.activeTeam)
   }, [])
 
+  // Place the caps whenever play restarts. Only the authority does this; an
+  // online guest receives positions from the host.
   useEffect(() => {
-    if (phase === PHASE.GOAL) {
-      const timer = setTimeout(() => {
-        stopAllBodies()
-        const { lastConceded } = useMatchStore.getState()
-        const kickingTeam = lastConceded || 'team1'
-        resetToKickoff(kickingTeam)
-        resetKickoffProtection()
-        playWhistle()
-        startKickoff()
-        // Show KICK OFF overlay for 2 seconds, then start play
-        setTimeout(() => finishKickoff(), 2000)
-      }, 1500)
-      return () => clearTimeout(timer)
+    const s = useMatchStore.getState()
+    if (!isAuthority(s)) return
+    if (phase === PHASE.KICKOFF) {
+      if (s.penaltyShootout) setupPenalty(s.activeTeam)
+      else resetToKickoff(s.activeTeam)
+      playWhistle()
+    } else if (phase === PHASE.FREE_KICK_SETUP && s.foulData) {
+      setupFreeKick(s.foulData.foulSpot, s.foulData.fouledTeam)
+      playFreeKick()
+    } else if (phase === PHASE.PENALTY_SETUP && s.foulData) {
+      setupPenalty(s.foulData.fouledTeam)
+      playPenalty()
     }
-  }, [phase, startKickoff, finishKickoff])
+  }, [phase])
 
   const setMeshRef = useCallback((id) => (el) => {
     meshRefs.current[id] = el
@@ -312,7 +316,6 @@ function GameWorld() {
       <PitchMesh />
 
       {team1Caps.map((id) => {
-        const pos = id.replace('team1_', '')
         return (
           <CapMesh
             key={id}
@@ -321,7 +324,7 @@ function GameWorld() {
             color={team1.primary}
             edgeColor={team1.edge}
             isGk={id.endsWith('_gk')}
-            isSelected={selectedCapId === id}
+            isSelected={selectedCapId === id || freeKickCapId === id}
             badge={team1.badge}
             number={null}
             pattern={team1.pattern}
@@ -331,7 +334,6 @@ function GameWorld() {
       })}
 
       {team2Caps.map((id) => {
-        const pos = id.replace('team2_', '')
         return (
           <CapMesh
             key={id}
@@ -340,7 +342,7 @@ function GameWorld() {
             color={team2.primary}
             edgeColor={team2.edge}
             isGk={id.endsWith('_gk')}
-            isSelected={selectedCapId === id}
+            isSelected={selectedCapId === id || freeKickCapId === id}
             badge={team2.badge}
             number={null}
             pattern={team2.pattern}
@@ -376,7 +378,7 @@ function GameWorld() {
       <pointLight position={[20, 4, 0]} intensity={0.12} color={sc.floodColor} distance={30} />
 
       <OrbitControls
-        ref={(ref) => { _controlsRef = ref }}
+        ref={(ref) => setCameraRefs({ controls: ref })}
         enableRotate={true}
         enableZoom={true}
         enablePan={true}
@@ -390,7 +392,7 @@ function GameWorld() {
           TWO: THREE.TOUCH.DOLLY_ROTATE,
         }}
         minDistance={10}
-        maxDistance={60}
+        maxDistance={80}
         maxPolarAngle={Math.PI / 2.1}
         target={[0, 0, 0]}
       />
@@ -400,12 +402,20 @@ function GameWorld() {
 }
 
 function CameraRefCapture() {
-  const { camera } = useThree()
-  useEffect(() => { _cameraRef = camera }, [camera])
+  const { camera, size } = useThree()
+  useEffect(() => {
+    setCameraRefs({ camera })
+    resetCameraPreset()
+  }, [camera])
+  // Re-fit when the screen size/orientation changes
+  useEffect(() => {
+    fitCurrentPreset()
+  }, [camera, size.width, size.height])
   return null
 }
 
 export default function Scene() {
+  const matchKey = useMatchStore((s) => s.matchKey)
   return (
     <Canvas
       shadows
@@ -425,7 +435,7 @@ export default function Scene() {
       }}
     >
       <color attach="background" args={[STADIUMS[useMatchStore.getState().stadium || 'arena'].bgColor]} />
-      <GameWorld />
+      <GameWorld key={matchKey} />
     </Canvas>
   )
 }
