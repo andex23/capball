@@ -169,6 +169,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
     if (!arrow) return
 
     const state = useMatchStore.getState()
+    // The turn ended under the player's finger (shot clock) — drop the drag
+    if (dragCapId.current && !INPUT_PHASES.includes(state.phase)) { dragCapId.current = null; dragCurrent.current = null }
     const capId = dragCapId.current
     const show = capId && dragCurrent.current && !state.paused && INPUT_PHASES.includes(state.phase)
 

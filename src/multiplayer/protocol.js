@@ -20,7 +20,7 @@ export const SYNC_KEYS = [
   'teamConfig', 'formations', 'stadium', 'team1Side', 'chosenTeam1Side', 'matchDuration',
   'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyKicks', 'matchResult',
   'selectedCapId', 'freeKickCapId', 'paused', 'ballColor', 'lastScorer', 'noGoalReason',
-  'kickoffGuard',
+  'kickoffGuard', 'shotClock', 'shotClockRemaining',
 ]
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i

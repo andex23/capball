@@ -25,6 +25,7 @@ export const PHASE = {
   FOUL: 'FOUL',
   FREE_KICK_SETUP: 'FREE_KICK_SETUP',
   PENALTY_SETUP: 'PENALTY_SETUP',
+  TIMEOUT: 'TIMEOUT',
   MATCH_OVER: 'MATCH_OVER',
 }
 
@@ -35,6 +36,8 @@ export const CLOCK_PHASES = [PHASE.SELECT, PHASE.AIM, PHASE.RESOLVE]
 
 // Match duration options (seconds, whole match)
 export const MATCH_DURATIONS = [120, 180, 300]
+// Shot clock options (seconds per turn, 0 = off)
+export const SHOT_CLOCKS = [0, 10, 15, 20]
 
 // How long each overlay stays up before play continues (ms)
 export const TIMING = {
@@ -45,6 +48,7 @@ export const TIMING = {
   noGoal: 1500,
   shootoutResult: 1500,
   fullTime: 1500,
+  timeUp: 1200,
 }
 
 /* ── Match timers ──
@@ -140,6 +144,29 @@ export const useMatchStore = create((set, get) => ({
   firstHalfKicker: 'team1',
   setMatchDuration: (d) => set({ matchDuration: d }),
 
+  // --- Shot clock (per turn; only runs while the active team can act) ---
+  shotClock: 15,
+  shotClockRemaining: 15,
+  setShotClock: (secs) => set({ shotClock: secs, shotClockRemaining: secs }),
+
+  tickShotClock: (dt) => {
+    const { shotClock, shotClockRemaining, paused, phase } = get()
+    if (!shotClock || paused || !INPUT_PHASES.includes(phase)) return
+    const next = Math.max(0, shotClockRemaining - dt)
+    set({ shotClockRemaining: next })
+    if (next === 0) get().shotClockExpired()
+  },
+
+  /** Out of time: the cap goes down and the turn (or set piece, or penalty) is lost. */
+  shotClockExpired: () => {
+    if (get().penaltyShootout) {
+      get().penaltyAttemptResult(false)
+      return
+    }
+    set({ phase: PHASE.TIMEOUT, selectedCapId: null, dragPower: 0 })
+    later(() => get().switchTurn(), TIMING.timeUp)
+  },
+
   tickTimer: (dt) => {
     const { timeRemaining, timerRunning, paused, phase, half } = get()
     if (!timerRunning || paused || !CLOCK_PHASES.includes(phase)) return
@@ -187,7 +214,7 @@ export const useMatchStore = create((set, get) => ({
   /** KICKOFF overlay done — hand control to the kicking team. */
   beginPlay: () => {
     if (get().phase !== PHASE.KICKOFF) return
-    set({ phase: PHASE.SELECT, timerRunning: !get().penaltyShootout })
+    set({ phase: PHASE.SELECT, timerRunning: !get().penaltyShootout, shotClockRemaining: get().shotClock })
   },
 
   startSecondHalf: () => {
@@ -260,7 +287,8 @@ export const useMatchStore = create((set, get) => ({
   setDragPower: (power) => { if (get().dragPower !== power) set({ dragPower: power }) },
 
   selectCap: (capId) => set({ selectedCapId: capId, phase: PHASE.AIM }),
-  cancelAim: () => set({ selectedCapId: null, phase: PHASE.SELECT, dragPower: 0 }),
+  // Only while aiming: a late release after the turn has moved on must not rewind it
+  cancelAim: () => { if (get().phase === PHASE.AIM) set({ selectedCapId: null, phase: PHASE.SELECT, dragPower: 0 }) },
 
   /** A flick has been applied to the physics world — watch it play out. */
   commitFlick: (capId) => set({
@@ -276,7 +304,7 @@ export const useMatchStore = create((set, get) => ({
   switchTurn: () => {
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'turns')
-    set({ ...clearTurn, activeTeam: otherTeam(activeTeam), phase: PHASE.SELECT, kickoffGuard: false })
+    set({ ...clearTurn, activeTeam: otherTeam(activeTeam), phase: PHASE.SELECT, kickoffGuard: false, shotClockRemaining: get().shotClock })
   },
 
   scoreGoal: (scoringTeam) => {
@@ -321,7 +349,7 @@ export const useMatchStore = create((set, get) => ({
       later(() => {
         const s = get()
         if (s.phase === PHASE.FREE_KICK_SETUP || s.phase === PHASE.PENALTY_SETUP) {
-          set({ phase: PHASE.SELECT, selectedCapId: null })
+          set({ phase: PHASE.SELECT, selectedCapId: null, shotClockRemaining: s.shotClock })
         }
       }, TIMING.setPiece)
     }, TIMING.foul)

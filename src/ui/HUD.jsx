@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { useMatchStore, PHASE, SCREEN, isAuthority } from '../state/MatchStore'
+import { useMatchStore, PHASE, SCREEN, INPUT_PHASES, isAuthority } from '../state/MatchStore'
 import { cycleCameraPreset } from '../scene/camera'
-import { formatClock, SHOOTOUT_ROUNDS } from '../game/rules'
+import { formatClock, otherTeam, SHOOTOUT_ROUNDS } from '../game/rules'
 import { sendPause, disconnect } from '../multiplayer/MultiplayerManager'
 import { stopAllBodies } from '../physics/PhysicsWorld'
-import { playButtonSelect, playWhistle } from '../audio/SoundManager'
+import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer } from '../audio/SoundManager'
 import Icon from './Icon'
 import Modal from './Modal'
 import SettingsPanel from './SettingsPanel'
@@ -16,6 +16,9 @@ const NO_GOAL_TEXT = {
   kickoff_violation: 'You can’t score straight from kick-off',
   gk_violation: 'Goalkeepers can’t score',
 }
+
+// The shot clock ran out on this turn (a timed-out shootout kick shows as MISSED)
+const timedOut = (s) => s.shotClock > 0 && s.shotClockRemaining <= 0 && (s.phase === PHASE.TIMEOUT || s.phase === PHASE.MISSED)
 
 function ScoreBug() {
   const score = useMatchStore((s) => s.score)
@@ -78,6 +81,20 @@ function useTurnText() {
   }
 }
 
+/** Seconds left to flick, inside the turn pill. Ticks through the last three. */
+function ShotClock() {
+  const secs = useMatchStore((s) => Math.ceil(s.shotClockRemaining))
+  const live = useMatchStore((s) => s.shotClock > 0 && !s.paused && INPUT_PHASES.includes(s.phase))
+  useEffect(() => {
+    if (live && secs > 0 && secs <= 3) playShotClockTick()
+  }, [secs, live])
+  if (!live) return null
+  return (
+    // Hidden from screen readers: the pill is a live region and would announce every second
+    <span className={`shot-clock${secs <= 5 ? ' urgent' : ''}`} aria-hidden>{secs}s</span>
+  )
+}
+
 function Banner() {
   const phase = useMatchStore((s) => s.phase)
   const activeTeam = useMatchStore((s) => s.activeTeam)
@@ -88,6 +105,8 @@ function Banner() {
   const half = useMatchStore((s) => s.half)
   const shootout = useMatchStore((s) => s.penaltyShootout)
   const kicks = useMatchStore((s) => s.penaltyKicks)
+  const freeKickCapId = useMatchStore((s) => s.freeKickCapId)
+  const timeUp = useMatchStore(timedOut)
 
   const nameOf = (t) => teamConfig[t]?.name || ''
   const colorOf = (t) => (t ? displayColor(teamConfig[t].primary) : undefined)
@@ -99,7 +118,15 @@ function Banner() {
         : { title: 'Kick off', sub: `${half === 2 ? 'Second half · ' : ''}${nameOf(activeTeam)} to start`, team: activeTeam }
       break
     case PHASE.GOAL: b = { title: 'Goal!', tone: 'gold', sub: `${nameOf(lastScorer)} score${shootout ? ' the penalty' : ''}`, team: lastScorer }; break
-    case PHASE.MISSED: b = { title: 'Saved!', sub: `${nameOf(activeTeam)} miss the penalty` }; break
+    case PHASE.MISSED: b = timeUp
+      ? { title: 'Time’s up', tone: 'bad', sub: `${nameOf(activeTeam)} miss the penalty` }
+      : { title: 'Saved!', sub: `${nameOf(activeTeam)} miss the penalty` }; break
+    case PHASE.TIMEOUT: b = {
+      title: 'Time’s up',
+      tone: 'bad',
+      sub: freeKickCapId ? `${nameOf(activeTeam)} lose the ${foulData?.inPenaltyBox ? 'penalty' : 'free kick'}` : `Over to ${nameOf(otherTeam(activeTeam))}`,
+      team: otherTeam(activeTeam),
+    }; break
     case PHASE.NO_GOAL: b = { title: 'No goal', tone: 'bad', sub: NO_GOAL_TEXT[noGoalReason] || 'Doesn’t count' }; break
     case PHASE.FOUL: b = { title: 'Foul!', tone: 'bad', sub: foulData?.inPenaltyBox ? 'Penalty kick' : 'Free kick', team: foulData?.fouledTeam }; break
     case PHASE.FREE_KICK_SETUP: b = { title: 'Free kick', sub: `${nameOf(activeTeam)} · the wall is set`, team: activeTeam }; break
@@ -175,6 +202,7 @@ export default function HUD() {
   const authority = useMatchStore((s) => isAuthority(s))
   const connectionLost = useMatchStore((s) => s.gameMode === 'online' && s.onlineStatus.status === 'disconnected')
   const turnText = useTurnText()
+  const timeUp = useMatchStore(timedOut)
   const [camLabel, setCamLabel] = useState(null)
   const camTimer = useRef(null)
 
@@ -216,6 +244,8 @@ export default function HUD() {
   }
   useEffect(() => () => clearTimeout(camTimer.current), [])
 
+  useEffect(() => { if (timeUp) playShotClockBuzzer() }, [timeUp])
+
   return (
     <div className="hud">
       <div className="hud-top">
@@ -223,6 +253,7 @@ export default function HUD() {
         {turnText && !paused && (
           <div className="turn-pill" style={{ '--team': displayColor(teamConfig[activeTeam].primary) }} aria-live="polite">
             <i className="team-dot" /> {turnText}
+            <ShotClock />
           </div>
         )}
       </div>

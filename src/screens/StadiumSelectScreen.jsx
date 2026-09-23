@@ -1,4 +1,4 @@
-import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
+import { useMatchStore, SCREEN, MATCH_DURATIONS, SHOT_CLOCKS } from '../state/MatchStore'
 import { STADIUMS, STADIUM_KEYS } from '../data/StadiumData'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
@@ -47,6 +47,8 @@ export default function StadiumSelectScreen() {
   const setTeam1Side = useMatchStore((s) => s.setTeam1Side)
   const matchDuration = useMatchStore((s) => s.matchDuration)
   const setMatchDuration = useMatchStore((s) => s.setMatchDuration)
+  const shotClock = useMatchStore((s) => s.shotClock)
+  const setShotClock = useMatchStore((s) => s.setShotClock)
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const goToScreen = useMatchStore((s) => s.goToScreen)
   const isGuest = useMatchStore((s) => s.gameMode === 'online' && s.onlineMyTeam === 'team2')
@@ -57,7 +59,7 @@ export default function StadiumSelectScreen() {
     <SetupShell
       step={1}
       title="Choose the venue"
-      subtitle={isGuest ? 'The host picks the venue and match length.' : 'Pick a pitch, the ends, and how long to play.'}
+      subtitle={isGuest ? 'The host picks the venue, match length and shot clock.' : 'Pick a pitch, the ends, and how long to play.'}
       onBack={() => goToScreen(SCREEN.TEAM_SELECT)}
       next={{ label: 'Formations', onClick: () => goToScreen(SCREEN.FORMATION) }}
       onBothReady={() => goToScreen(SCREEN.FORMATION)}
@@ -108,6 +110,19 @@ export default function StadiumSelectScreen() {
             ))}
           </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Two halves of {formatClock(matchDuration / 2)}. The clock stops between turns.</p>
+        </div>
+        <div className="card card-pad">
+          <div className="eyebrow" style={{ marginBottom: 10 }}>Shot clock</div>
+          <div className="segmented stretch" role="group" aria-label="Shot clock">
+            {SHOT_CLOCKS.map((secs) => (
+              <button key={secs} aria-pressed={shotClock === secs} disabled={isGuest} onClick={pick(() => setShotClock(secs))}>
+                {secs ? `${secs}s` : 'Off'}
+              </button>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            {shotClock ? `${shotClock} seconds to flick, or the turn passes over.` : 'Take as long as you like on each turn.'}
+          </p>
         </div>
       </div>
     </SetupShell>
