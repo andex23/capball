@@ -68,3 +68,5 @@ The host runs the physics and rules; the guest sends requests (edit its own team
 | `src/screens/`, `src/ui/` | Menus, setup flow, HUD and shared UI |
 | `src/styles/theme.css` | Design tokens and component styles |
 | `src/__tests__/` | Unit and physics simulation tests |
+| `src/sw.js`, `src/pwa/` | Offline service worker (production builds only), install prompt, update toast |
+| `scripts/generate-icons.js` | Renders the app icons in `public/icons/` (`node scripts/generate-icons.js`) |

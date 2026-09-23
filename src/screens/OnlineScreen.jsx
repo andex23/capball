@@ -3,6 +3,7 @@ import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
+import { useOnline } from '../pwa/useOnline'
 
 const CODE_LENGTH = 6
 
@@ -22,6 +23,7 @@ export default function OnlineScreen() {
   })
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const online = useOnline()
 
   // Connected → both players move on to team select together
   useEffect(() => {
@@ -106,8 +108,8 @@ export default function OnlineScreen() {
           {view === 'menu' && (
             <>
               <p className="muted">One player hosts and shares a code; the other joins with it. The host plays the home team.</p>
-              <button className="btn btn-purple btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick}>Host a room</button>
-              <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} onMouseEnter={playHoverTick}>I have a code</button>
+              <button className="btn btn-purple btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick} disabled={!online}>Host a room</button>
+              <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} onMouseEnter={playHoverTick} disabled={!online}>I have a code</button>
             </>
           )}
 
@@ -145,10 +147,16 @@ export default function OnlineScreen() {
                 autoFocus
                 disabled={busy}
               />
-              <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={joinCode.length !== CODE_LENGTH || busy}>
+              <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={joinCode.length !== CODE_LENGTH || busy || !online}>
                 {busy ? <><Spinner /> Joining…</> : 'Join match'}
               </button>
             </form>
+          )}
+
+          {!online && (
+            <div role="status" className="offline-note">
+              <Icon name="wifi" size={18} /> You're offline. Online matches need an internet connection. Local and vs-computer games still work.
+            </div>
           )}
 
           {view !== 'menu' && status.msg && (
