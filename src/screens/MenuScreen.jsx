@@ -5,6 +5,7 @@ import Modal from '../ui/Modal'
 import SettingsPanel from '../ui/SettingsPanel'
 import RulesPanel from '../ui/RulesPanel'
 import Icon from '../ui/Icon'
+import InstallPrompt from '../pwa/InstallPrompt'
 import { playButtonSelect, playConfirm, playMenuNavigate, playHoverTick } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
 
@@ -76,6 +77,7 @@ export default function MenuScreen() {
             <Icon name="settings" size={18} /> Settings
           </button>
         </footer>
+        <InstallPrompt />
       </div>
 
       {dialog === 'settings' && (
