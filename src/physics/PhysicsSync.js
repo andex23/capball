@@ -34,6 +34,7 @@ export function usePhysicsSync(meshRefs) {
     // Only the authority simulates; an online guest just mirrors host positions.
     if (authority && !store.paused) {
       store.tickTimer(Math.min(delta, MAX_CLOCK_STEP_S))
+      store.tickShotClock(Math.min(delta, MAX_CLOCK_STEP_S))
       if (useMatchStore.getState().phase === PHASE.RESOLVE) {
         const subSteps = PHYSICS.subSteps || 8
         for (let i = 0; i < subSteps; i++) stepPhysics(frameMs / subSteps)

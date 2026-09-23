@@ -153,6 +153,16 @@ export function playPenalty() {
   setTimeout(() => playTone(660, 0.25, 'sine', 0.3), 400)
 }
 
+// Shot clock: a tick for each of the last seconds, a low buzzer when it runs out
+export function playShotClockTick() {
+  playTone(1320, 0.05, 'square', 0.12)
+}
+
+export function playShotClockBuzzer() {
+  playTone(196, 0.35, 'sawtooth', 0.25)
+  setTimeout(() => playTone(185, 0.3, 'sawtooth', 0.2), 90)
+}
+
 // Crowd ambience — looping noise filtered to sound like a crowd
 let crowdNode = null
 export function startCrowdAmbience() {

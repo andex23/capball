@@ -186,3 +186,130 @@ describe('penalty shootout', () => {
     expect(get().matchResult).toMatchObject({ winner: 'team1', penaltyScore: { team1: 4, team2: 3 } })
   })
 })
+
+describe('shot clock', () => {
+  it('defaults to 15 s and only counts down while the active team can act', () => {
+    startAndKickOff()
+    expect(get()).toMatchObject({ shotClock: 15, shotClockRemaining: 15 })
+    get().tickShotClock(2)
+    expect(get().shotClockRemaining).toBeCloseTo(13)
+    get().selectCap('team1_atk1')
+    get().tickShotClock(1)
+    expect(get().shotClockRemaining).toBeCloseTo(12)
+    for (const phase of [PHASE.RESOLVE, PHASE.GOAL, PHASE.KICKOFF, PHASE.FOUL, PHASE.FREE_KICK_SETUP]) {
+      useMatchStore.setState({ phase })
+      get().tickShotClock(1)
+      expect(get().shotClockRemaining).toBeCloseTo(12)
+    }
+  })
+
+  it('does not tick while paused', () => {
+    startAndKickOff()
+    get().togglePause()
+    get().tickShotClock(20)
+    expect(get()).toMatchObject({ shotClockRemaining: 15, phase: PHASE.SELECT, activeTeam: 'team1' })
+  })
+
+  it('resets whenever a new turn starts', () => {
+    startAndKickOff()
+    get().tickShotClock(10)
+    get().commitFlick('team1_atk1')
+    get().switchTurn()
+    expect(get().shotClockRemaining).toBe(15)
+
+    // Set piece becomes playable
+    get().tickShotClock(10)
+    get().commitFlick('team2_atk1')
+    get().callFoul({ x: 3, y: 1 }, 'team1', false)
+    vi.advanceTimersByTime(TIMING.foul + TIMING.setPiece)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, shotClockRemaining: 15 })
+
+    // Kick-off after a goal
+    get().tickShotClock(10)
+    get().scoreGoal('team1')
+    vi.advanceTimersByTime(TIMING.goal + TIMING.kickoff)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2', shotClockRemaining: 15 })
+  })
+
+  it('cancelling an aim does not buy more time', () => {
+    startAndKickOff()
+    get().selectCap('team1_atk1')
+    get().tickShotClock(5)
+    get().cancelAim()
+    expect(get().phase).toBe(PHASE.SELECT)
+    expect(get().shotClockRemaining).toBeCloseTo(10)
+  })
+
+  it('on expiry shows time up, then passes the turn', () => {
+    startAndKickOff()
+    get().tickShotClock(16)
+    expect(get()).toMatchObject({ phase: PHASE.TIMEOUT, activeTeam: 'team1', shotClockRemaining: 0 })
+    // The match clock stops during the banner too
+    const t = get().timeRemaining
+    get().tickTimer(1)
+    expect(get().timeRemaining).toBe(t)
+    vi.advanceTimersByTime(TIMING.timeUp)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2', shotClockRemaining: 15, kickoffGuard: false })
+    expect(get().stats.team1.turns).toBe(1)
+  })
+
+  it('expiry mid-aim puts the cap down', () => {
+    startAndKickOff()
+    get().selectCap('team1_def1')
+    get().setDragPower(0.6)
+    get().tickShotClock(15)
+    expect(get()).toMatchObject({ phase: PHASE.TIMEOUT, selectedCapId: null, dragPower: 0 })
+    // A late release can't rewind the turn
+    get().cancelAim()
+    expect(get().phase).toBe(PHASE.TIMEOUT)
+    vi.advanceTimersByTime(TIMING.timeUp)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2', selectedCapId: null })
+  })
+
+  it('an expired free kick is forfeited', () => {
+    startAndKickOff()
+    get().commitFlick('team1_atk1')
+    get().callFoul({ x: 3, y: 1 }, 'team2', false)
+    vi.advanceTimersByTime(TIMING.foul)
+    useMatchStore.setState({ freeKickCapId: 'team2_atk1' }) // done by the physics setup
+    vi.advanceTimersByTime(TIMING.setPiece)
+    get().tickShotClock(15)
+    expect(get()).toMatchObject({ phase: PHASE.TIMEOUT, activeTeam: 'team2' })
+    vi.advanceTimersByTime(TIMING.timeUp)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team1', freeKickCapId: null, foulData: null })
+  })
+
+  it('an expired shootout kick counts as a miss', () => {
+    get().startPenaltyShootout()
+    vi.advanceTimersByTime(TIMING.kickoff)
+    get().tickShotClock(15)
+    expect(get()).toMatchObject({ phase: PHASE.MISSED, penaltyKicks: { team1: 1, team2: 0 }, penaltyScores: { team1: 0, team2: 0 } })
+    vi.advanceTimersByTime(TIMING.shootoutResult + TIMING.kickoff)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2', shotClockRemaining: 15 })
+  })
+
+  it('is off at 0', () => {
+    get().setShotClock(0)
+    startAndKickOff()
+    get().tickShotClock(1000)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team1' })
+  })
+
+  it('uses the chosen length', () => {
+    get().setShotClock(10)
+    startAndKickOff()
+    expect(get().shotClockRemaining).toBe(10)
+    get().tickShotClock(9.9)
+    expect(get().phase).toBe(PHASE.SELECT)
+    get().tickShotClock(0.1)
+    expect(get().phase).toBe(PHASE.TIMEOUT)
+  })
+
+  it('a pending timeout does not fire after leaving the match', () => {
+    startAndKickOff()
+    get().tickShotClock(15)
+    get().quitMatch()
+    vi.advanceTimersByTime(10_000)
+    expect(get()).toMatchObject({ phase: PHASE.TIMEOUT, activeTeam: 'team1' })
+  })
+})
