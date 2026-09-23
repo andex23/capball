@@ -4,6 +4,7 @@ import StadiumBackground from '../ui/StadiumBackground'
 import Modal from '../ui/Modal'
 import SettingsPanel from '../ui/SettingsPanel'
 import RulesPanel from '../ui/RulesPanel'
+import RecordsPanel from '../ui/RecordsPanel'
 import Icon from '../ui/Icon'
 import { playButtonSelect, playConfirm, playMenuNavigate, playHoverTick } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
@@ -22,7 +23,7 @@ export default function MenuScreen() {
   const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
   const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
   const [imgFailed, setImgFailed] = useState(false)
-  const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | null
+  const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | 'records' | null
 
   useEffect(() => { startMenuMusic() }, [])
 
@@ -68,12 +69,15 @@ export default function MenuScreen() {
           </div>
         </nav>
 
-        <footer style={{ display: 'flex', gap: 8 }}>
+        <footer style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => { playMenuNavigate(); setDialog('rules') }}>
             <Icon name="help" size={18} /> How to play
           </button>
           <button className="btn btn-secondary" onClick={() => { playMenuNavigate(); setDialog('settings') }}>
             <Icon name="settings" size={18} /> Settings
+          </button>
+          <button className="btn btn-secondary" onClick={() => { playMenuNavigate(); setDialog('records') }}>
+            <Icon name="trophy" size={18} /> Records
           </button>
         </footer>
       </div>
@@ -81,6 +85,11 @@ export default function MenuScreen() {
       {dialog === 'settings' && (
         <Modal title="Settings" onClose={() => setDialog(null)}>
           <SettingsPanel />
+        </Modal>
+      )}
+      {dialog === 'records' && (
+        <Modal title="Records" onClose={() => setDialog(null)}>
+          <RecordsPanel />
         </Modal>
       )}
       {dialog === 'rules' && (

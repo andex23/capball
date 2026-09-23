@@ -5,6 +5,8 @@ import { playConfirm, playButtonSelect, playWhistle } from '../audio/SoundManage
 import Icon from '../ui/Icon'
 import CapPreview from '../ui/CapPreview'
 import { displayColor } from '../ui/color'
+import { useRecordsStore } from '../state/persistence'
+import { recordLine, BEST_LABELS } from '../game/records'
 
 const STAT_ROWS = [
   { key: 'goals', label: 'Goals' },
@@ -24,6 +26,24 @@ function StatRow({ label, a, b, colorA, colorB }) {
         <div style={{ flex: a / total || 0.0001, background: colorA, borderRadius: 3, opacity: a >= b ? 1 : 0.45 }} />
         <div style={{ flex: b / total || 0.0001, background: colorB, borderRadius: 3, opacity: b >= a ? 1 : 0.45 }} />
       </div>
+    </div>
+  )
+}
+
+/** "Your record vs Hard CPU: 4W 1D 2L", plus any new bests from this match. */
+function RecordNote() {
+  const records = useRecordsStore((s) => s.records)
+  const lastUpdate = useRecordsStore((s) => s.lastUpdate)
+  const matchKey = useMatchStore((s) => s.matchKey)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
+  const line = recordLine(records, { gameMode, aiDifficulty })
+  const bests = lastUpdate?.matchKey === matchKey ? lastUpdate.newBests : []
+  if (!line) return null
+  return (
+    <div className="records-note">
+      <span className="muted tabular">{line}</span>
+      {bests.map((b) => <span key={b} className="records-best">{BEST_LABELS[b]}</span>)}
     </div>
   )
 }
@@ -78,6 +98,8 @@ export default function MatchEndScreen() {
             <div className="display" style={{ fontSize: 22, marginTop: 6 }}>{team2Name}</div>
           </div>
         </div>
+
+        <RecordNote />
 
         {stats && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 20px', borderTop: '1px solid var(--line)' }}>
