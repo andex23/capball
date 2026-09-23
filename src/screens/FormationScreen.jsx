@@ -118,7 +118,7 @@ export default function FormationScreen() {
       title="Pick formations"
       subtitle="This is where your caps line up at every kick-off."
       onBack={() => goToScreen(SCREEN.STADIUM_SELECT)}
-      next={{ label: 'Kick off', icon: 'ball', onClick: kickOff }}
+      next={{ label: 'Kick off', icon: 'ball', color: 'orange', onClick: kickOff }}
       onBothReady={kickOff}
     >
       <div className="versus">

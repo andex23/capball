@@ -40,11 +40,11 @@ export default function SetupShell({ step, title, subtitle, onBack, next, onBoth
               <OnlineReadyBar onBothReady={onBothReady} />
             ) : (
               <>
-                <button className="btn btn-ghost" onClick={() => { playButtonSelect(); onBack() }} onMouseEnter={playHoverTick}>
+                <button className="btn btn-secondary" onClick={() => { playButtonSelect(); onBack() }} onMouseEnter={playHoverTick}>
                   <Icon name="back" size={18} /> Back
                 </button>
                 <button
-                  className="btn btn-primary btn-lg"
+                  className={`btn btn-lg btn-${next.color || 'primary'}`}
                   onClick={() => { playConfirm(); next.onClick() }}
                   onMouseEnter={playHoverTick}
                   disabled={next.disabled}

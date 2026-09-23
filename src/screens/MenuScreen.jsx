@@ -9,9 +9,9 @@ import { playButtonSelect, playConfirm, playMenuNavigate, playHoverTick } from '
 import { startMenuMusic } from '../audio/MusicManager'
 
 const MODES = [
-  { key: 'local', icon: 'users', title: 'Local match', text: 'Two players, one screen. Take turns.' },
-  { key: 'ai', icon: 'cpu', title: 'Vs computer', text: 'Play the CPU at your level.' },
-  { key: 'online', icon: 'globe', title: 'Online', text: 'Invite a friend with a room code.' },
+  { key: 'local', icon: 'users', title: 'Local match', color: 'red' },
+  { key: 'ai', icon: 'cpu', title: 'Vs computer', color: 'blue' },
+  { key: 'online', icon: 'globe', title: 'Online match', color: 'purple' },
 ]
 
 const DIFFICULTIES = ['easy', 'medium', 'hard']
@@ -52,13 +52,8 @@ export default function MenuScreen() {
 
         <nav className="menu-modes" aria-label="Game mode">
           {MODES.map((m) => (
-            <button key={m.key} className="mode-card" onClick={() => choose(m.key)} onMouseEnter={playHoverTick}>
-              <span className="mode-icon"><Icon name={m.icon} size={24} /></span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="display" style={{ display: 'block', fontSize: 32 }}>{m.title}</span>
-                <span className="muted" style={{ fontSize: 13 }}>{m.text}</span>
-              </span>
-              <Icon name="next" size={20} />
+            <button key={m.key} className={`btn btn-${m.color} mode-btn`} onClick={() => choose(m.key)} onMouseEnter={playHoverTick}>
+              <Icon name={m.icon} size={26} /> {m.title}
             </button>
           ))}
           <div className="label-row" style={{ padding: '2px 4px', flexWrap: 'wrap' }}>

@@ -41,7 +41,7 @@ export default function OnlineReadyBar({ onBothReady }) {
 
   return (
     <>
-      <button className="btn btn-ghost" onClick={leave}>
+      <button className="btn btn-secondary" onClick={leave}>
         <Icon name="exit" size={18} /> Leave
       </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
