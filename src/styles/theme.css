@@ -699,3 +699,45 @@ button { cursor: pointer; background: none; border: 0; }
   animation: shot-clock-pulse 1s ease-in-out infinite;
 }
 @keyframes shot-clock-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+/* ── Records ── */
+.records-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 20px 16px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+.records-best {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.records-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.records-table th, .records-table td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--line); }
+.records-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.records-table th[scope='row'], .records-table thead th:first-child { text-align: left; padding-left: 0; }
+.records-table th[scope='row'] { font-weight: 600; }
+.records-table td { font-weight: 700; }
+.records-table .records-goals { text-align: right; padding-right: 0; color: var(--text-2); }
+.records-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+.records-stat {
+  padding: 12px 8px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.records-stat .display { font-size: 32px; color: var(--accent); }
+.records-confirm { display: flex; flex-direction: column; gap: 10px; }
