@@ -91,16 +91,16 @@ export default function MatchEndScreen() {
           {authority ? (
             <>
               {isDraw && !penaltyScore && (
-                <button className="btn btn-primary btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>
+                <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>
               )}
-              <button className={`btn btn-lg btn-block ${isDraw && !penaltyScore ? 'btn-secondary' : 'btn-primary'}`} onClick={rematch}>
+              <button className={`btn btn-lg btn-block ${isDraw && !penaltyScore ? 'btn-blue' : 'btn-primary'}`} onClick={rematch}>
                 <Icon name="restart" size={18} /> Rematch
               </button>
             </>
           ) : (
             <p className="muted" style={{ textAlign: 'center' }}>Waiting for the host to start a rematch{isDraw && !penaltyScore ? ' or penalties' : ''}…</p>
           )}
-          <button className="btn btn-ghost btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>
+          <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>
         </div>
       </div>
     </div>

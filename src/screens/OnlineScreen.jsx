@@ -106,8 +106,8 @@ export default function OnlineScreen() {
           {view === 'menu' && (
             <>
               <p className="muted">One player hosts and shares a code; the other joins with it. The host plays the home team.</p>
-              <button className="btn btn-primary btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick}>Host a room</button>
-              <button className="btn btn-secondary btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} onMouseEnter={playHoverTick}>I have a code</button>
+              <button className="btn btn-purple btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick}>Host a room</button>
+              <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} onMouseEnter={playHoverTick}>I have a code</button>
             </>
           )}
 
@@ -163,7 +163,7 @@ export default function OnlineScreen() {
             </div>
           )}
 
-          <button className="btn btn-ghost" onClick={back} style={{ alignSelf: 'flex-start' }}>
+          <button className="btn btn-secondary" onClick={back} style={{ alignSelf: 'flex-start' }}>
             <Icon name="back" size={18} /> Back
           </button>
         </div>

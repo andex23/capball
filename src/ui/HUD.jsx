@@ -160,7 +160,7 @@ function PauseMenu({ onClose }) {
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('rules') }}><Icon name="help" size={18} /> Rules</button>
       </div>
       {authority && gameMode !== 'online' && (
-        <button className="btn btn-secondary btn-block" onClick={restart}><Icon name="restart" size={18} /> Restart {shootout ? 'shootout' : 'match'}</button>
+        <button className="btn btn-orange btn-block" onClick={restart}><Icon name="restart" size={18} /> Restart {shootout ? 'shootout' : 'match'}</button>
       )}
       <button className="btn btn-danger btn-block" onClick={quit}><Icon name="exit" size={18} /> {gameMode === 'online' ? 'Leave match' : 'Quit to menu'}</button>
     </Modal>
