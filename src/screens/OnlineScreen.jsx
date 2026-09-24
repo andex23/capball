@@ -154,7 +154,7 @@ export default function OnlineScreen() {
           {view !== 'menu' && status.msg && (
             <div
               role="status"
-              className="chip"
+              className="chip online-status"
               style={{ justifyContent: 'center', cursor: 'default', borderColor: isError ? 'var(--bad)' : connected ? 'var(--good)' : undefined, color: isError ? '#ffb3bd' : connected ? 'var(--good)' : undefined }}
             >
               {!isError && !connected && <Spinner />}

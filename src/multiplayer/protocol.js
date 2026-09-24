@@ -78,8 +78,18 @@ export function validateGuestMessage(msg, state) {
     case 'formation':
       if (state.screen !== 'FORMATION') return null
       return Object.hasOwn(FORMATIONS, data.key) ? { type: 'formation', key: data.key } : null
-    case 'ready':
-      return { type: 'ready', ready: data.ready === true }
+    case 'ready': {
+      const ready = data.ready === true
+      // On the full-time screen "ready" means "I want this": a rematch or penalties
+      if (ready && state.screen === 'MATCH_END') {
+        const choice = END_CHOICES.includes(data.choice) ? data.choice : null
+        if (!choice || (choice === 'penalties' && !canChoosePenalties(state.matchResult))) return null
+        return { type: 'ready', ready, choice }
+      }
+      return { type: 'ready', ready }
+    }
+    case 'bye':
+      return { type: 'bye' }
     case 'pause':
       if (state.screen !== 'PLAYING') return null
       return { type: 'pause', paused: data.paused === true }
@@ -117,4 +127,59 @@ export function filterSynced(snap) {
   const out = {}
   for (const key of SYNC_KEYS) if (snap[key] !== undefined) out[key] = snap[key]
   return out
+}
+
+/* ── Rematch / penalties after full time (online) ── */
+
+/** What a player can ask for on the full-time screen. */
+export const END_CHOICES = ['rematch', 'penalties']
+
+/** Penalties are only on offer after a drawn match that didn't already have a shootout. */
+export function canChoosePenalties(matchResult) {
+  return !!matchResult?.isDraw && !matchResult.penaltyScore
+}
+
+/** Guest-side: the host's ready message → the value stored in onlineReady. */
+export function readyValue(data) {
+  if (!isObj(data) || data.ready !== true) return false
+  return END_CHOICES.includes(data.choice) ? data.choice : true
+}
+
+/**
+ * Both players agree? `ready` is onlineReady: { team1, team2 } with values
+ * false | true | 'rematch' | 'penalties'. Returns 'rematch', 'penalties' or null.
+ */
+export function endChoiceOutcome(ready, matchResult) {
+  const a = ready?.team1
+  const b = ready?.team2
+  if (!END_CHOICES.includes(a) || a !== b) return null
+  if (a === 'penalties' && !canChoosePenalties(matchResult)) return null
+  return a
+}
+
+/* ── Joining / rejoining a room ── */
+
+/** Random per-room secret the host gives its guest; a rejoining guest must present it. */
+export const SESSION_TOKEN = /^[0-9a-f]{32}$/
+
+export function makeSessionToken(randomBytes = (n) => crypto.getRandomValues(new Uint8Array(n))) {
+  return Array.from(randomBytes(16), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Host-side: may this incoming connection join? `metadata` is what the guest
+ * sent with its connection; `room` is { token, bound, busy }:
+ *   bound — a guest has already joined this room (it's theirs now)
+ *   busy  — a connection is currently open or opening
+ * A fresh lobby takes the first guest with no token. After that only the
+ * guest holding the room's token gets in (it replaces its own stale link).
+ */
+export function validateJoin(metadata, room) {
+  const token = isObj(metadata) && typeof metadata.token === 'string' && SESSION_TOKEN.test(metadata.token) ? metadata.token : null
+  if (room?.bound) {
+    if (token && typeof room.token === 'string' && token === room.token) return { ok: true, rejoin: true }
+    return { ok: false, reason: 'room-in-use' }
+  }
+  if (room?.busy) return { ok: false, reason: 'room-in-use' }
+  return { ok: true, rejoin: false }
 }

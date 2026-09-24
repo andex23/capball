@@ -4,6 +4,7 @@ import { disconnect } from '../multiplayer/MultiplayerManager'
 import { playConfirm, playButtonSelect, playWhistle } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
 import CapPreview from '../ui/CapPreview'
+import OnlineEndChoice from '../ui/OnlineEndChoice'
 import { displayColor } from '../ui/color'
 
 const STAT_ROWS = [
@@ -88,7 +89,9 @@ export default function MatchEndScreen() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>
-          {authority ? (
+          {online ? (
+            <OnlineEndChoice onRematch={rematch} onPenalties={penalties} />
+          ) : authority ? (
             <>
               {isDraw && !penaltyScore && (
                 <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>

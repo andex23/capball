@@ -4,6 +4,7 @@ import { useMatchStore, PHASE, SCREEN, isAuthority } from '../state/MatchStore'
 import { cycleCameraPreset } from '../scene/camera'
 import { formatClock, SHOOTOUT_ROUNDS } from '../game/rules'
 import { sendPause, disconnect } from '../multiplayer/MultiplayerManager'
+import { onlineInterrupted } from '../multiplayer/reconnect'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { playButtonSelect, playWhistle } from '../audio/SoundManager'
 import Icon from './Icon'
@@ -173,7 +174,8 @@ export default function HUD() {
   const activeTeam = useMatchStore((s) => s.activeTeam)
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const authority = useMatchStore((s) => isAuthority(s))
-  const connectionLost = useMatchStore((s) => s.gameMode === 'online' && s.onlineStatus.status === 'disconnected')
+  // Dropped / reconnecting online: the connection overlay replaces the pause menu
+  const connectionLost = useMatchStore(onlineInterrupted)
   const turnText = useTurnText()
   const [camLabel, setCamLabel] = useState(null)
   const camTimer = useRef(null)
@@ -190,7 +192,7 @@ export default function HUD() {
       if (e.key !== 'p' && e.key !== 'P' && e.key !== 'Escape') return
       if (e.key === 'Escape' && useMatchStore.getState().paused) return // the modal handles Esc
       const s = useMatchStore.getState()
-      if (s.phase === PHASE.MATCH_OVER) return
+      if (s.phase === PHASE.MATCH_OVER || onlineInterrupted(s)) return
       if (isAuthority(s)) s.setPaused(!s.paused)
       else sendPause(!s.paused)
     }

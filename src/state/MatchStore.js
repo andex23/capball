@@ -107,6 +107,7 @@ export const useMatchStore = create((set, get) => ({
   onlineMyTeam: null, // 'team1' (host) or 'team2' (guest)
   onlineStatus: { status: 'idle', msg: '' },
   onlineReady: { team1: false, team2: false },
+  onlineReconnect: null, // { phase: 'lost' | 'restored', deadline, attempts } while a dropped link is recovered
   setOnlineReady: (team, ready) => set((s) => ({ onlineReady: { ...s.onlineReady, [team]: ready } })),
   resetOnlineReady: () => set({ onlineReady: { team1: false, team2: false } }),
 
