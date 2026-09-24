@@ -1,249 +1,133 @@
-import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { stopAllBodies, resetToFormation, setupPenalty } from '../physics/PhysicsWorld'
+import { useMatchStore, SCREEN, isAuthority } from '../state/MatchStore'
+import { stopAllBodies } from '../physics/PhysicsWorld'
+import { disconnect } from '../multiplayer/MultiplayerManager'
+import { playConfirm, playButtonSelect, playWhistle } from '../audio/SoundManager'
+import Icon from '../ui/Icon'
+import CapPreview from '../ui/CapPreview'
+import OnlineEndChoice from '../ui/OnlineEndChoice'
+import { displayColor } from '../ui/color'
+import { useRecordsStore } from '../state/persistence'
+import { recordLine, BEST_LABELS } from '../game/records'
 
-export default function MatchEndScreen() {
-  const matchResult = useMatchStore((s) => s.matchResult)
-  const goToScreen = useMatchStore((s) => s.goToScreen)
-  const reset = useMatchStore((s) => s.reset)
-  const startPenaltyShootout = useMatchStore((s) => s.startPenaltyShootout)
-  const stats = useMatchStore((s) => s.stats)
+const STAT_ROWS = [
+  { key: 'goals', label: 'Goals' },
+  { key: 'shots', label: 'Shots' },
+  { key: 'fouls', label: 'Fouls' },
+  { key: 'turns', label: 'Turns' },
+]
 
-  if (!matchResult) return null
-  const { winner, score, team1Name, team2Name, penaltyScore, isDraw } = matchResult
-
-  const handleRematch = () => {
-    stopAllBodies()
-    resetToFormation()
-    reset()
-    goToScreen(SCREEN.PLAYING)
-  }
-
-  const handleMenu = () => {
-    stopAllBodies()
-    goToScreen(SCREEN.MENU)
-  }
-
-  const handlePenalties = () => {
-    stopAllBodies()
-    startPenaltyShootout()
-    // Setup first penalty
-    setTimeout(() => setupPenalty('team1'), 500)
-  }
-
+function StatRow({ label, a, b, colorA, colorB }) {
+  const total = a + b || 1
   return (
-    <div style={styles.container}>
-      <div style={styles.vignette} />
-
-      <div style={styles.card}>
-        <h1 style={styles.title}>FULL TIME</h1>
-        <div style={styles.titleLine} />
-
-        <div style={styles.resultArea}>
-          <div style={styles.teamScore}>
-            <span style={styles.teamLabel}>{team1Name}</span>
-            <span style={styles.scoreNum}>{score.team1}</span>
-          </div>
-          <span style={styles.dash}>&mdash;</span>
-          <div style={styles.teamScore}>
-            <span style={styles.scoreNum}>{score.team2}</span>
-            <span style={styles.teamLabel}>{team2Name}</span>
-          </div>
-        </div>
-
-        {/* Penalty scores if applicable */}
-        {penaltyScore && (
-          <div style={{ textAlign: 'center', margin: '4px 0' }}>
-            <span style={{ fontFamily: "var(--font-hud, 'Russo One', sans-serif)", fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '2px' }}>
-              PENALTIES: {penaltyScore.team1} — {penaltyScore.team2}
-            </span>
-          </div>
-        )}
-
-        <div style={styles.verdict}>
-          {isDraw ? (
-            <span style={styles.drawText}>DRAW</span>
-          ) : (
-            <span style={styles.winnerText}>
-              {winner === 'team1' ? team1Name : team2Name} WINS!
-            </span>
-          )}
-        </div>
-
-        {/* Match statistics */}
-        {stats && (
-          <div style={{ display: 'flex', gap: '30px', margin: '8px 0', fontFamily: "var(--font-hud, 'Russo One', sans-serif)" }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', letterSpacing: '2px', marginBottom: '4px' }}>STATS</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto', gap: '2px 16px', fontSize: '11px' }}>
-                <span style={{ color: 'rgba(255,255,255,0.8)', textAlign: 'right' }}>{stats.team1.turns}</span>
-                <span style={{ color: 'rgba(255,255,255,0.4)' }}>TURNS</span>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>{stats.team2.turns}</span>
-                <span style={{ color: 'rgba(255,255,255,0.8)', textAlign: 'right' }}>{stats.team1.fouls}</span>
-                <span style={{ color: 'rgba(255,255,255,0.4)' }}>FOULS</span>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>{stats.team2.fouls}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div style={styles.buttons}>
-          {isDraw && !penaltyScore && (
-            <button style={styles.penaltyBtn} onClick={handlePenalties}>
-              PENALTY SHOOTOUT
-            </button>
-          )}
-          <button style={styles.rematchBtn} onClick={handleRematch}>
-            REMATCH
-          </button>
-          <button style={styles.menuBtn} onClick={handleMenu}>
-            MAIN MENU
-          </button>
-        </div>
+    <div>
+      <div className="label-row tabular" style={{ fontWeight: 700, marginBottom: 4 }}>
+        <span>{a}</span><span className="eyebrow">{label}</span><span>{b}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 4, height: 6 }}>
+        <div style={{ flex: a / total || 0.0001, background: colorA, borderRadius: 3, opacity: a >= b ? 1 : 0.45 }} />
+        <div style={{ flex: b / total || 0.0001, background: colorB, borderRadius: 3, opacity: b >= a ? 1 : 0.45 }} />
       </div>
     </div>
   )
 }
 
-const styles = {
-  container: {
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(180deg, #060814 0%, #0c1028 30%, #111840 60%, #0a0e22 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: "var(--font-hud, 'Russo One', sans-serif)",
-    color: 'white',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  vignette: {
-    position: 'absolute',
-    inset: 0,
-    background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%)',
-    pointerEvents: 'none',
-  },
-  card: {
-    background: 'linear-gradient(180deg, rgba(16,20,45,0.95) 0%, rgba(10,13,30,0.98) 100%)',
-    border: '2px solid rgba(255,215,64,0.4)',
-    borderRadius: '18px',
-    padding: '32px 48px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '16px',
-    boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 40px rgba(255,215,64,0.06)',
-    position: 'relative',
-    zIndex: 1,
-    animation: 'fadeIn 0.6s ease-out',
-    minWidth: '440px',
-  },
-  title: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '36px',
-    fontWeight: '900',
-    color: '#FFD740',
-    margin: 0,
-    letterSpacing: '6px',
-    textShadow: '0 0 20px rgba(255,215,64,0.4), 0 3px 0 #B8860B',
-  },
-  titleLine: {
-    width: '180px',
-    height: '2px',
-    background: 'linear-gradient(90deg, transparent, #FFD740, transparent)',
-  },
-  resultArea: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '20px',
-    margin: '8px 0',
-  },
-  teamScore: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
-  },
-  teamLabel: {
-    fontSize: '14px',
-    fontWeight: '700',
-    letterSpacing: '2px',
-    color: 'rgba(255,255,255,0.8)',
-    textTransform: 'uppercase',
-  },
-  scoreNum: {
-    fontFamily: "var(--font-score, 'Orbitron', monospace)",
-    fontSize: '52px',
-    fontWeight: '900',
-    color: '#FFD740',
-    textShadow: '0 0 15px rgba(255,215,64,0.4)',
-  },
-  dash: {
-    fontSize: '24px',
-    color: 'rgba(255,255,255,0.3)',
-  },
-  verdict: {
-    margin: '4px 0 8px',
-  },
-  drawText: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '22px',
-    color: 'rgba(255,255,255,0.6)',
-    letterSpacing: '4px',
-  },
-  winnerText: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '22px',
-    color: '#FFD740',
-    letterSpacing: '3px',
-    textShadow: '0 0 10px rgba(255,215,64,0.3)',
-  },
-  buttons: {
-    display: 'flex',
-    gap: '14px',
-    marginTop: '8px',
-  },
-  penaltyBtn: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '15px',
-    fontWeight: '700',
-    letterSpacing: '2px',
-    color: 'white',
-    padding: '14px 36px',
-    background: 'linear-gradient(180deg, #FF8F00 0%, #F57C00 40%, #E65100 100%)',
-    border: '2px solid #BF360C',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    boxShadow: '0 4px 0 #5a1a00, 0 6px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25)',
-    textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-    outline: 'none',
-  },
-  rematchBtn: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '15px',
-    fontWeight: '700',
-    letterSpacing: '2px',
-    color: 'white',
-    padding: '14px 40px',
-    background: 'linear-gradient(180deg, #66BB6A 0%, #43A047 40%, #2E7D32 100%)',
-    border: '2px solid #1B5E20',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    boxShadow: '0 4px 0 #1B5E20, 0 6px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25)',
-    textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-    outline: 'none',
-  },
-  menuBtn: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '13px',
-    fontWeight: '700',
-    letterSpacing: '1.5px',
-    color: 'rgba(255,255,255,0.7)',
-    padding: '14px 32px',
-    background: 'linear-gradient(180deg, rgba(55,60,85,0.9) 0%, rgba(30,33,50,0.95) 100%)',
-    border: '1.5px solid rgba(255,255,255,0.15)',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    boxShadow: '0 3px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)',
-    outline: 'none',
-  },
+/** "Your record vs Hard CPU: 4W 1D 2L", plus any new bests from this match. */
+function RecordNote() {
+  const records = useRecordsStore((s) => s.records)
+  const lastUpdate = useRecordsStore((s) => s.lastUpdate)
+  const matchKey = useMatchStore((s) => s.matchKey)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
+  const line = recordLine(records, { gameMode, aiDifficulty })
+  const bests = lastUpdate?.matchKey === matchKey ? lastUpdate.newBests : []
+  if (!line) return null
+  return (
+    <div className="records-note">
+      <span className="muted tabular">{line}</span>
+      {bests.map((b) => <span key={b} className="records-best">{BEST_LABELS[b]}</span>)}
+    </div>
+  )
+}
+
+export default function MatchEndScreen() {
+  const matchResult = useMatchStore((s) => s.matchResult)
+  const teamConfig = useMatchStore((s) => s.teamConfig)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const authority = useMatchStore((s) => isAuthority(s))
+
+  if (!matchResult) return null
+  const { winner, score, team1Name, team2Name, penaltyScore, isDraw, stats } = matchResult
+  const c1 = displayColor(teamConfig.team1.primary)
+  const c2 = displayColor(teamConfig.team2.primary)
+  const winnerName = winner === 'team1' ? team1Name : team2Name
+  const online = gameMode === 'online'
+
+  const rematch = () => { playConfirm(); playWhistle(); stopAllBodies(); useMatchStore.getState().startGame() }
+  const penalties = () => { playConfirm(); playWhistle(); stopAllBodies(); useMatchStore.getState().startPenaltyShootout() }
+  const menu = () => {
+    playButtonSelect()
+    stopAllBodies()
+    if (online) disconnect()
+    useMatchStore.getState().quitMatch(SCREEN.MENU)
+  }
+
+  let headline = isDraw ? 'It’s a draw' : `${winnerName} win`
+  if (gameMode === 'ai' && !isDraw) headline = winner === useMatchStore.getState().aiTeam ? 'CPU wins' : 'You win!'
+  if (online && !isDraw) headline = winner === useMatchStore.getState().onlineMyTeam ? 'You win!' : `${winnerName} win`
+
+  return (
+    <div className="screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
+      <div className="card" style={{ width: 'min(560px, 100%)', animation: 'pop-in 0.3s ease' }}>
+        <div className="card-pad" style={{ textAlign: 'center', paddingBottom: 8 }}>
+          <div className="eyebrow">{penaltyScore ? 'After penalties' : 'Full time'}</div>
+          <h1 className="display" style={{ fontSize: 'clamp(40px, 8vw, 60px)', color: isDraw ? 'var(--text)' : 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            {!isDraw && <Icon name="trophy" size={36} />}{headline}
+          </h1>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, padding: '8px 20px 16px' }}>
+          <div style={{ textAlign: 'center', opacity: winner === 'team2' ? 0.6 : 1 }}>
+            <CapPreview config={teamConfig.team1} size={72} />
+            <div className="display" style={{ fontSize: 22, marginTop: 6 }}>{team1Name}</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div className="display tabular" style={{ fontSize: 72 }}>{score.team1}<span style={{ color: 'var(--text-3)', margin: '0 8px' }}>–</span>{score.team2}</div>
+            {penaltyScore && <div className="chip" style={{ cursor: 'default' }}>Pens {penaltyScore.team1}–{penaltyScore.team2}</div>}
+          </div>
+          <div style={{ textAlign: 'center', opacity: winner === 'team1' ? 0.6 : 1 }}>
+            <CapPreview config={teamConfig.team2} size={72} />
+            <div className="display" style={{ fontSize: 22, marginTop: 6 }}>{team2Name}</div>
+          </div>
+        </div>
+
+        <RecordNote />
+
+        {stats && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 20px', borderTop: '1px solid var(--line)' }}>
+            {STAT_ROWS.map((r) => (
+              <StatRow key={r.key} label={r.label} a={stats.team1[r.key]} b={stats.team2[r.key]} colorA={c1} colorB={c2} />
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>
+          {online ? (
+            <OnlineEndChoice onRematch={rematch} onPenalties={penalties} />
+          ) : authority ? (
+            <>
+              {isDraw && !penaltyScore && (
+                <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>
+              )}
+              <button className={`btn btn-lg btn-block ${isDraw && !penaltyScore ? 'btn-blue' : 'btn-primary'}`} onClick={rematch}>
+                <Icon name="restart" size={18} /> Rematch
+              </button>
+            </>
+          ) : (
+            <p className="muted" style={{ textAlign: 'center' }}>Waiting for the host to start a rematch{isDraw && !penaltyScore ? ' or penalties' : ''}…</p>
+          )}
+          <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>
+        </div>
+      </div>
+    </div>
+  )
 }

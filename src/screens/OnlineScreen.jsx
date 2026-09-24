@@ -1,305 +1,181 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { createRoom, joinRoom, setStatusCallback, disconnect, getMyTeam } from '../multiplayer/MultiplayerManager'
+import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
+import Icon from '../ui/Icon'
+import { useOnline } from '../pwa/useOnline'
+
+const CODE_LENGTH = 6
+
+function Spinner() {
+  return <span aria-hidden style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid currentColor', borderRightColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+}
 
 export default function OnlineScreen() {
   const goToScreen = useMatchStore((s) => s.goToScreen)
-  const setGameMode = useMatchStore((s) => s.setGameMode)
-  const [view, setView] = useState('menu') // 'menu', 'create', 'join'
+  const status = useMatchStore((s) => s.onlineStatus)
+  const [view, setView] = useState('menu') // 'menu' | 'host' | 'join'
   const [roomCode, setRoomCode] = useState('')
-  const [joinCode, setJoinCode] = useState('')
-  const [status, setStatus] = useState({ status: 'idle', msg: '' })
-  const [error, setError] = useState('')
+  const [joinCode, setJoinCode] = useState(() => {
+    // Invite links carry ?room=CODE
+    const fromUrl = new URLSearchParams(window.location.search).get('room')
+    return fromUrl ? fromUrl.toUpperCase().slice(0, CODE_LENGTH) : ''
+  })
+  const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const online = useOnline()
 
+  // Connected → both players move on to team select together
   useEffect(() => {
-    setStatusCallback(setStatus)
-    return () => { setStatusCallback(null); disconnect() }
-  }, [])
+    if (status.status !== 'connected') return
+    const t = setTimeout(() => goToScreen(SCREEN.TEAM_SELECT), 900)
+    return () => clearTimeout(t)
+  }, [status.status, goToScreen])
 
-  // When connected, assign teams and go to team select
-  // Set team assignment IMMEDIATELY on connection, before any sync can interfere
+  // Opened from an invite link → go straight to the join form
   useEffect(() => {
-    if (status.status === 'connected') {
-      // Set these synchronously — must happen before host sync overwrites anything
-      const myTeam = getMyTeam()
-      useMatchStore.setState({ gameMode: 'online', onlineMyTeam: myTeam })
-      // Then navigate after a brief display
-      setTimeout(() => {
-        // Re-assert in case sync overwrote it
-        useMatchStore.setState({ onlineMyTeam: myTeam })
-        goToScreen(SCREEN.TEAM_SELECT)
-      }, 1500)
-    }
-  }, [status, goToScreen])
+    if (joinCode) setView('join')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleCreate = useCallback(async () => {
+  const host = async () => {
     playConfirm()
-    setView('create')
-    setError('')
+    setView('host')
+    setBusy(true)
     try {
-      const code = await createRoom()
-      setRoomCode(code)
-    } catch (e) {
-      setError('Failed to create room. Try again.')
+      setRoomCode(await createRoom())
+    } catch {
+      // status message comes from the manager
+    } finally {
+      setBusy(false)
     }
-  }, [])
+  }
 
-  const handleJoin = useCallback(async () => {
-    if (joinCode.length < 4) { setError('Enter a valid room code'); return }
+  const join = async (e) => {
+    e?.preventDefault()
+    if (joinCode.length !== CODE_LENGTH) return
     playConfirm()
-    setError('')
+    setBusy(true)
     try {
       await joinRoom(joinCode)
-    } catch (e) {
-      setError('Could not join room. Check the code and try again.')
+    } catch {
+      setBusy(false)
     }
-  }, [joinCode])
+  }
 
-  // Share the room code via native share or clipboard
-  const handleShare = useCallback(async () => {
-    const shareText = `Join my CAPBALL match! Room code: ${roomCode}\n\nPlay at: ${window.location.origin}`
+  const back = () => {
+    playButtonSelect()
+    disconnect()
+    if (view === 'menu') goToScreen(SCREEN.MENU)
+    else { setView('menu'); setRoomCode(''); setBusy(false) }
+  }
 
-    // Try native share API first (mobile)
+  const inviteUrl = roomCode ? `${window.location.origin}${window.location.pathname}?room=${roomCode}` : ''
+
+  const share = async () => {
+    playButtonSelect()
+    const text = `Play CAPBALL with me! Room code ${roomCode}`
     if (navigator.share) {
-      try {
-        await navigator.share({ title: 'CAPBALL Online Match', text: shareText })
-        return
-      } catch (e) {} // user cancelled or not supported
+      try { await navigator.share({ title: 'CAPBALL', text, url: inviteUrl }); return } catch { /* cancelled */ }
     }
+    copy(`${text}\n${inviteUrl}`)
+  }
 
-    // Fallback: copy to clipboard
+  const copy = async (text) => {
     try {
-      await navigator.clipboard.writeText(shareText)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (e) {
-      // Last fallback: select text
-      prompt('Copy this invite:', shareText)
-    }
-  }, [roomCode])
+      setTimeout(() => setCopied(false), 1800)
+    } catch { /* clipboard blocked — the code is on screen */ }
+  }
 
-  // Copy just the code
-  const handleCopyCode = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(roomCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (e) {}
-  }, [roomCode])
+  const isError = status.status === 'error' || status.status === 'disconnected'
+  const connected = status.status === 'connected'
 
   return (
-    <div style={styles.container}>
-      <div style={styles.vignette} />
-
-      <div style={styles.card}>
-        <h2 style={styles.title}>ONLINE MATCH</h2>
-        <div style={styles.titleLine} />
-
-        {view === 'menu' && (
-          <div style={styles.options}>
-            <div style={styles.infoText}>
-              Host creates a room, guest joins with the code.
-              Host plays as <b style={{ color: '#E53935' }}>Team 1</b>, Guest plays as <b style={{ color: '#1E88E5' }}>Team 2</b>.
-            </div>
-            <button className="arcade-btn" style={styles.createBtn} onClick={handleCreate} onMouseEnter={playHoverTick}>
-              CREATE ROOM
-            </button>
-            <button className="arcade-btn" style={styles.joinBtn} onClick={() => { playButtonSelect(); setView('join') }} onMouseEnter={playHoverTick}>
-              JOIN ROOM
-            </button>
-            <button className="arcade-link" style={styles.backBtn} onClick={() => goToScreen(SCREEN.MENU)} onMouseEnter={playHoverTick}>
-              BACK
-            </button>
+    <div className="screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
+      <div className="card" style={{ width: 'min(460px, 100%)' }}>
+        <div className="sheet-head">
+          <div>
+            <div className="eyebrow">Online match</div>
+            <h1 className="display" style={{ fontSize: 40 }}>
+              {view === 'host' ? 'Host a room' : view === 'join' ? 'Join a room' : 'Play a friend'}
+            </h1>
           </div>
-        )}
+          <span className="mode-icon"><Icon name="globe" size={24} /></span>
+        </div>
 
-        {view === 'create' && (
-          <div style={styles.options}>
-            {roomCode ? (
-              <>
-                <div style={styles.codeLabel}>YOUR ROOM CODE</div>
-                <div style={styles.codeDisplay}>{roomCode}</div>
+        <div className="sheet-body">
+          {view === 'menu' && (
+            <>
+              <p className="muted">One player hosts and shares a code; the other joins with it. The host plays the home team.</p>
+              <button className="btn btn-purple btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick} disabled={!online}>Host a room</button>
+              <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} onMouseEnter={playHoverTick} disabled={!online}>I have a code</button>
+            </>
+          )}
 
-                {/* Share buttons */}
-                <div style={styles.shareRow}>
-                  <button className="arcade-btn" style={styles.shareBtn} onClick={handleShare} onMouseEnter={playHoverTick}>
-                    &#128279; SHARE INVITE
-                  </button>
-                  <button className="arcade-link" style={styles.copyBtn} onClick={handleCopyCode} onMouseEnter={playHoverTick}>
-                    {copied ? '✓ COPIED!' : 'COPY CODE'}
-                  </button>
+          {view === 'host' && (
+            <>
+              <div style={{ textAlign: 'center' }}>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>Room code</div>
+                <div className="display tabular" aria-live="polite" style={{ fontSize: 64, letterSpacing: '0.12em', color: roomCode ? 'var(--accent)' : 'var(--text-3)' }}>
+                  {roomCode || '······'}
                 </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button className="btn btn-primary" onClick={share} disabled={!roomCode}><Icon name="share" size={18} /> Invite</button>
+                <button className="btn btn-secondary" onClick={() => { playButtonSelect(); copy(roomCode) }} disabled={!roomCode}>
+                  <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? 'Copied' : 'Copy code'}
+                </button>
+              </div>
+            </>
+          )}
 
-                <div style={styles.codeHint}>Send the code or invite link to your friend</div>
+          {view === 'join' && (
+            <form onSubmit={join} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label className="eyebrow" htmlFor="room-code">Room code</label>
+              <input
+                id="room-code"
+                className="field display tabular"
+                style={{ fontSize: 36, textAlign: 'center', letterSpacing: '0.2em', minHeight: 64 }}
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH))}
+                placeholder="ABC123"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                inputMode="text"
+                autoFocus
+                disabled={busy}
+              />
+              <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={joinCode.length !== CODE_LENGTH || busy || !online}>
+                {busy ? <><Spinner /> Joining…</> : 'Join match'}
+              </button>
+            </form>
+          )}
 
-                <div style={styles.teamInfo}>
-                  You are <span style={{ color: '#E53935', fontWeight: '700' }}>TEAM 1</span> (Host)
-                </div>
-
-                <div style={styles.statusText}>
-                  {status.status === 'waiting' && '⏳ Waiting for opponent to join...'}
-                  {status.status === 'connected' && '✓ Opponent connected! Starting match setup...'}
-                  {status.status === 'error' && `✗ ${status.msg}`}
-                </div>
-              </>
-            ) : (
-              <div style={styles.statusText}>Creating room...</div>
-            )}
-            <button className="arcade-link" style={styles.backBtn} onClick={() => { disconnect(); setView('menu') }} onMouseEnter={playHoverTick}>
-              CANCEL
-            </button>
-          </div>
-        )}
-
-        {view === 'join' && (
-          <div style={styles.options}>
-            <div style={styles.codeLabel}>ENTER ROOM CODE</div>
-            <input
-              style={styles.codeInput}
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
-              placeholder="ABC123"
-              maxLength={6}
-              autoFocus
-            />
-
-            <div style={styles.teamInfo}>
-              You will be <span style={{ color: '#1E88E5', fontWeight: '700' }}>TEAM 2</span> (Guest)
+          {!online && (
+            <div role="status" className="offline-note">
+              <Icon name="wifi" size={18} /> You're offline. Online matches need an internet connection. Local and vs-computer games still work.
             </div>
+          )}
 
-            {error && <div style={styles.errorText}>{error}</div>}
-            <div style={styles.statusText}>
-              {status.status === 'connecting' && '⏳ Connecting...'}
-              {status.status === 'connected' && '✓ Connected! Starting match setup...'}
-              {status.status === 'error' && `✗ ${status.msg}`}
+          {view !== 'menu' && status.msg && (
+            <div
+              role="status"
+              className="chip online-status"
+              style={{ justifyContent: 'center', cursor: 'default', borderColor: isError ? 'var(--bad)' : connected ? 'var(--good)' : undefined, color: isError ? '#ffb3bd' : connected ? 'var(--good)' : undefined }}
+            >
+              {!isError && !connected && <Spinner />}
+              {connected && <Icon name="check" size={16} />}
+              {status.msg}
             </div>
-            <button className="arcade-btn" style={styles.joinGoBtn} onClick={handleJoin} onMouseEnter={playHoverTick}>
-              JOIN
-            </button>
-            <button className="arcade-link" style={styles.backBtn} onClick={() => { disconnect(); setView('menu') }} onMouseEnter={playHoverTick}>
-              CANCEL
-            </button>
-          </div>
-        )}
+          )}
+
+          <button className="btn btn-secondary" onClick={back} style={{ alignSelf: 'flex-start' }}>
+            <Icon name="back" size={18} /> Back
+          </button>
+        </div>
       </div>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    width: '100%', height: '100%',
-    background: 'linear-gradient(180deg, #060814 0%, #0c1028 30%, #111840 60%, #0a0e22 100%)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontFamily: "var(--font-hud, 'Russo One', sans-serif)",
-    color: 'white', position: 'relative', overflow: 'hidden',
-  },
-  vignette: {
-    position: 'absolute', inset: 0,
-    background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%)',
-    pointerEvents: 'none',
-  },
-  card: {
-    background: 'linear-gradient(180deg, rgba(16,20,45,0.95) 0%, rgba(10,13,30,0.98) 100%)',
-    border: '2px solid rgba(255,215,64,0.35)',
-    borderRadius: '18px', padding: '32px 48px',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
-    boxShadow: '0 8px 40px rgba(0,0,0,0.6)', position: 'relative', zIndex: 1,
-    minWidth: '440px', maxWidth: '500px', animation: 'fadeIn 0.5s ease-out',
-  },
-  title: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '28px', fontWeight: '900', color: '#FFD740', margin: 0,
-    letterSpacing: '4px', textShadow: '0 0 15px rgba(255,215,64,0.3), 0 2px 0 #B8860B',
-  },
-  titleLine: { width: '160px', height: '2px', background: 'linear-gradient(90deg, transparent, #FFD740, transparent)' },
-  options: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', width: '100%' },
-  infoText: {
-    fontSize: '12px', color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: '20px',
-    padding: '0 8px', marginBottom: '4px',
-  },
-  createBtn: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '15px', fontWeight: '700', letterSpacing: '2px', color: 'white',
-    padding: '14px 40px', width: '100%',
-    background: 'linear-gradient(180deg, #66BB6A 0%, #43A047 40%, #2E7D32 100%)',
-    border: '2px solid #1B5E20', borderRadius: '10px', cursor: 'pointer',
-    boxShadow: '0 4px 0 #1B5E20, 0 6px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25)',
-    outline: 'none',
-  },
-  joinBtn: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '15px', fontWeight: '700', letterSpacing: '2px', color: 'white',
-    padding: '14px 40px', width: '100%',
-    background: 'linear-gradient(180deg, #42A5F5 0%, #1E88E5 40%, #0D47A1 100%)',
-    border: '2px solid #0D47A1', borderRadius: '10px', cursor: 'pointer',
-    boxShadow: '0 4px 0 #062a6e, 0 6px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25)',
-    outline: 'none',
-  },
-  joinGoBtn: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '14px', fontWeight: '700', letterSpacing: '2px', color: 'white',
-    padding: '12px 36px',
-    background: 'linear-gradient(180deg, #66BB6A 0%, #43A047 40%, #2E7D32 100%)',
-    border: '2px solid #1B5E20', borderRadius: '8px', cursor: 'pointer',
-    boxShadow: '0 3px 0 #1B5E20, 0 4px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25)',
-    outline: 'none',
-  },
-  backBtn: {
-    fontFamily: "var(--font-hud, 'Russo One', sans-serif)",
-    fontSize: '11px', fontWeight: '600', letterSpacing: '2px',
-    color: 'rgba(255,255,255,0.5)', padding: '8px 24px',
-    background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: '6px', cursor: 'pointer', outline: 'none', marginTop: '8px',
-  },
-  codeLabel: {
-    fontSize: '10px', letterSpacing: '3px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase',
-  },
-  codeDisplay: {
-    fontFamily: "var(--font-score, 'Orbitron', monospace)",
-    fontSize: '42px', fontWeight: '900', color: '#FFD740', letterSpacing: '8px',
-    textShadow: '0 0 20px rgba(255,215,64,0.4)', padding: '4px 0',
-  },
-  shareRow: {
-    display: 'flex', gap: '10px', alignItems: 'center',
-  },
-  shareBtn: {
-    fontFamily: "var(--font-display, 'Bungee', sans-serif)",
-    fontSize: '12px', fontWeight: '700', letterSpacing: '1px', color: 'white',
-    padding: '10px 20px',
-    background: 'linear-gradient(180deg, #AB47BC 0%, #8E24AA 40%, #6A1B9A 100%)',
-    border: '2px solid #4A148C', borderRadius: '8px', cursor: 'pointer',
-    boxShadow: '0 3px 0 #4A148C, 0 4px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-    outline: 'none',
-  },
-  copyBtn: {
-    fontFamily: "var(--font-hud, 'Russo One', sans-serif)",
-    fontSize: '10px', fontWeight: '600', letterSpacing: '1.5px',
-    color: 'rgba(255,215,64,0.7)', padding: '8px 16px',
-    background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,215,64,0.3)',
-    borderRadius: '6px', cursor: 'pointer', outline: 'none',
-  },
-  codeHint: {
-    fontSize: '11px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.5px',
-  },
-  teamInfo: {
-    fontSize: '13px', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px',
-    padding: '6px 16px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px',
-    border: '1px solid rgba(255,255,255,0.08)',
-  },
-  codeInput: {
-    fontFamily: "var(--font-score, 'Orbitron', monospace)",
-    fontSize: '28px', fontWeight: '700', color: '#FFD740', letterSpacing: '6px',
-    background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,215,64,0.3)',
-    borderRadius: '10px', padding: '12px 20px', textAlign: 'center',
-    outline: 'none', width: '220px',
-  },
-  statusText: {
-    fontSize: '12px', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px', textAlign: 'center',
-  },
-  errorText: {
-    fontSize: '11px', color: '#FF5722', letterSpacing: '0.5px',
-  },
 }

@@ -9,6 +9,9 @@ export const PITCH = {
   wallThickness: 1.0,
   penAreaW: 6,   // penalty area extends 6 units from goal line
   penAreaH: 12,  // penalty area height (y = ±6)
+  centerCircleR: 3,
+  goalDepth: 1.8,
+  penSpotDist: 4.5, // penalty spot distance from the goal line
 }
 
 // Cap radii
@@ -94,12 +97,8 @@ const FORMATION_POSITIONS = {
  * @param {string} team1Side - 'left' or 'right' (which side team1 defends)
  */
 export function getFormationPositions(team, formationKey = 'default', team1Side = 'left') {
-  let dir
-  if (team1Side === 'left') {
-    dir = team === 'team1' ? -1 : 1  // team1 on left, team2 on right
-  } else {
-    dir = team === 'team1' ? 1 : -1  // team1 on right, team2 on left
-  }
+  const team1Dir = team1Side === 'right' ? 1 : -1
+  const dir = team === 'team1' ? team1Dir : -team1Dir
 
   const hw = PITCH.halfW
   const hh = PITCH.halfH
