@@ -13,6 +13,7 @@ import HUD from './ui/HUD'
 import GameEffects from './ui/GameEffects'
 import Modal from './ui/Modal'
 import Icon from './ui/Icon'
+import PwaUpdateToast from './pwa/PwaUpdateToast'
 
 // three.js is most of the download — only fetch it once a match is coming up
 const loadScene = () => import('./scene/Scene')
@@ -105,6 +106,7 @@ export default function App() {
       <ErrorBoundary>
         <Screen screen={screen} />
         <ConnectionLost />
+        <PwaUpdateToast />
       </ErrorBoundary>
     </div>
   )
