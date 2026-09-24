@@ -6,18 +6,48 @@ import { performFlick, flickError, controllableTeams } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
+import { classifyContact } from '../game/rules'
+import { predictShot, createShot, createPrediction, capBounds, goalFor } from '../game/predict'
 
-// Ray-circle intersection: returns distance to hit or -1
-function rayCircleIntersect(ox, oz, dx, dz, cx, cz, r) {
-  const fx = ox - cx, fz = oz - cz
-  const a = dx * dx + dz * dz
-  const b = 2 * (fx * dx + fz * dz)
-  const c = fx * fx + fz * fz - r * r
-  let disc = b * b - 4 * a * c
-  if (disc < 0) return -1
-  disc = Math.sqrt(disc)
-  const t = (-b - disc) / (2 * a)
-  return t > 0.1 ? t : -1
+const DOT_SPACING = 0.5
+const DOT_FADE_LEN = 40 // dots fade out over this distance along a path
+
+// Lay dots along a predicted path (flat [x, y, ...] in physics coords, y → z)
+// into the instanced dot mesh, starting `skip` in from its start and fading
+// with distance. Writes straight into the instance buffers: no allocation.
+// Returns the next free dot index.
+function layDots(t, path, points, skip, i, size, r, g, b, alpha) {
+  const m = t.dots.instanceMatrix.array
+  const c = t.dotColors.array
+  let along = 0
+  let next = skip
+  for (let p = 0; p + 1 < points && i < t.maxDots; p++) {
+    const x0 = path[p * 2], y0 = path[p * 2 + 1]
+    const dx = path[p * 2 + 2] - x0, dy = path[p * 2 + 3] - y0
+    const len = Math.hypot(dx, dy)
+    while (next <= along + len && i < t.maxDots) {
+      const f = len > 0 ? (next - along) / len : 0
+      const fade = Math.max(0.15, 1 - next / DOT_FADE_LEN)
+      const s = size * (0.6 + 0.4 * fade)
+      const o = i * 16 // scale + translation of an otherwise identity matrix
+      m[o] = s; m[o + 5] = s; m[o + 10] = s
+      m[o + 12] = x0 + dx * f; m[o + 13] = 0.07; m[o + 14] = y0 + dy * f
+      const k = i * 4
+      c[k] = r; c[k + 1] = g; c[k + 2] = b; c[k + 3] = alpha * fade
+      i++
+      next += DOT_SPACING
+    }
+    along += len
+  }
+  return i
+}
+
+function hidePreview(t) {
+  t.group.visible = false
+  t.dots.count = 0
+  t.foul.visible = false
+  t.goalRing.visible = false
+  t.ring.visible = false
 }
 
 // Flick controller using native DOM pointer events + manual raycasting.
@@ -29,6 +59,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
   const pitchPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const dragCapId = useRef(null)  // cap being dragged (local — not overwritten by online sync)
   const dragCurrent = useRef(null)
+  const shotRef = useRef(null)  // reused predictShot input/output (no per-frame allocation)
+  const predRef = useRef(null)
 
   // Convert clientX/clientY to world position on the pitch plane
   const getWorldPos = useCallback((clientX, clientY) => {
@@ -163,26 +195,25 @@ export function useFlickController(meshRefs, trajectoryRef) {
     }
   }, [gl, getWorldPos, findCapAtPosition, meshRefs])
 
-  // Update trajectory arrow + ball prediction each frame
+  // Update the aim arrow and the predicted cap/ball paths each frame
   useFrame(() => {
-    const arrow = trajectoryRef.current
-    if (!arrow) return
+    const t = trajectoryRef.current
+    if (!t) return
 
     const state = useMatchStore.getState()
     const capId = dragCapId.current
     const show = capId && dragCurrent.current && !state.paused && INPUT_PHASES.includes(state.phase)
 
     if (!show) {
-      arrow.group.visible = false
-      arrow.ballGroup.visible = false
-      arrow.ring.visible = false
+      hidePreview(t)
       useMatchStore.getState().setDragPower(0)
       return
     }
 
-    const capMesh = meshRefs.current[capId]
-    const ballMesh = meshRefs.current.ball
-    if (!capMesh) { arrow.group.visible = false; arrow.ballGroup.visible = false; arrow.ring.visible = false; return }
+    const refs = meshRefs.current
+    const capMesh = refs[capId]
+    const ballMesh = refs.ball
+    if (!capMesh) { hidePreview(t); return }
 
     const cx = capMesh.position.x
     const cz = capMesh.position.z
@@ -190,81 +221,98 @@ export function useFlickController(meshRefs, trajectoryRef) {
     const dz = cz - dragCurrent.current.z
     const dist = Math.sqrt(dx * dx + dz * dz)
 
-    if (dist < 0.1) { arrow.group.visible = false; arrow.ballGroup.visible = false; arrow.ring.visible = false; return }
+    if (dist < 0.1) { hidePreview(t); return }
 
     const nx = dx / dist
     const nz = dz / dist
-    const arrowLen = Math.min(dist * 0.8, PHYSICS.maxFlickVelocity) * 0.8
-
-    // Position cap aim arrow
-    const midX = cx + nx * arrowLen * 0.5
-    const midZ = cz + nz * arrowLen * 0.5
-    arrow.shaft.position.set(midX, 0.15, midZ)
-    arrow.shaft.scale.x = arrowLen
-    arrow.shaft.rotation.y = -Math.atan2(nz, nx)
-    arrow.head.position.set(cx + nx * arrowLen, 0.15, cz + nz * arrowLen)
-    arrow.head.rotation.y = -Math.atan2(nz, nx)
-    arrow.group.visible = true
+    const flickSpeed = Math.min(dist * 0.8, PHYSICS.maxFlickVelocity) // same as handlePointerUp
+    let arrowLen = flickSpeed * 0.8
 
     // Color: green → yellow → red based on power
     const power = Math.min(dist / (PHYSICS.maxFlickVelocity / 0.8), 1)
     useMatchStore.getState().setDragPower(power)
-    const color = arrow.mat.color
+    const color = t.mat.color
     if (power < 0.5) {
       color.setRGB(power * 2, 1, 0)
     } else {
       color.setRGB(1, 2 - power * 2, 0)
     }
 
-    // === Ball prediction ===
-    if (!ballMesh) { arrow.ballGroup.visible = false; arrow.ring.visible = false; return }
-
-    const bx = ballMesh.position.x
-    const bz = ballMesh.position.z
+    // === Prediction (physics x,y = three x,z) ===
+    if (!shotRef.current) { shotRef.current = createShot(); predRef.current = createPrediction() }
+    const shot = shotRef.current
+    const pred = predRef.current
     const isGk = capId.endsWith('_gk')
     const capRadius = isGk ? GK_RADIUS : CAP_RADIUS
-    const hitRadius = capRadius + BALL_RADIUS // collision distance
-
-    // Ray from cap center in flick direction — check if it hits the ball
-    const t = rayCircleIntersect(cx, cz, nx, nz, bx, bz, hitRadius)
-
-    if (t < 0 || t > 30) {
-      // No hit predicted
-      arrow.ballGroup.visible = false
-      arrow.ring.visible = false
-      return
+    shot.x = cx; shot.y = cz
+    shot.r = capRadius
+    shot.mass = isGk ? PHYSICS.gkMass : PHYSICS.playerMass
+    shot.vx = nx * flickSpeed; shot.vy = nz * flickSpeed
+    shot.ballX = ballMesh ? ballMesh.position.x : 1e6
+    shot.ballY = ballMesh ? ballMesh.position.z : 1e6
+    let n = 0
+    for (const id in refs) {
+      const mesh = refs[id]
+      if (!mesh || id === 'ball' || id === capId || n >= shot.bodies.length) continue
+      const b = shot.bodies[n++]
+      b.x = mesh.position.x; b.y = mesh.position.z
+      b.r = id.endsWith('_gk') ? GK_RADIUS : CAP_RADIUS
+      b.contact = classifyContact(capId, id)
     }
+    shot.bodyCount = n
+    const team1Side = state.team1Side || 'left'
+    capBounds(capId, team1Side, shot)
+    predictShot(shot, pred)
 
-    // Cap position at moment of collision
-    const hitCapX = cx + nx * t
-    const hitCapZ = cz + nz * t
+    // Cap aim arrow — stops where the cap's straight run ends (contact or cushion)
+    if (pred.capPoints >= 2) {
+      const run = Math.hypot(pred.capPath[2] - cx, pred.capPath[3] - cz)
+      arrowLen = Math.max(0.3, Math.min(arrowLen, run))
+    }
+    const midX = cx + nx * arrowLen * 0.5
+    const midZ = cz + nz * arrowLen * 0.5
+    t.shaft.position.set(midX, 0.15, midZ)
+    t.shaft.scale.x = arrowLen
+    t.shaft.rotation.y = -Math.atan2(nz, nx)
+    t.head.position.set(cx + nx * arrowLen, 0.15, cz + nz * arrowLen)
+    t.head.rotation.y = -Math.atan2(nz, nx)
+    t.group.visible = true
 
-    // Ball deflection: direction from cap center at impact → ball center
-    const deflectX = bx - hitCapX
-    const deflectZ = bz - hitCapZ
-    const deflectDist = Math.sqrt(deflectX * deflectX + deflectZ * deflectZ)
-    if (deflectDist < 0.01) { arrow.ballGroup.visible = false; arrow.ring.visible = false; return }
+    // Dotted paths: the cap's run (pale), then the ball's (cyan; gold into the
+    // opponent's goal, red into your own)
+    let dots = layDots(t, pred.capPath, pred.capPoints, capRadius + 0.2, 0, 0.07, 1, 1, 1, 0.55)
+    const goal = goalFor(pred, capId, team1Side)
+    const ballOnPath = pred.contact === 'ball' && pred.ballPoints >= 2
+    if (ballOnPath) {
+      let r = 0.3, g = 0.95, b = 1
+      if (goal === 'score') { r = 1; g = 0.78; b = 0.16 }
+      else if (goal === 'own') { r = 1; g = 0.2; b = 0.2 }
+      dots = layDots(t, pred.ballPath, pred.ballPoints, BALL_RADIUS + 0.15, dots, 0.11, r, g, b, 0.95)
+      if (goal) {
+        const e = (pred.ballPoints - 1) * 2
+        t.goalRing.position.set(pred.ballPath[e], 0.06, pred.ballPath[e + 1])
+        t.goalRingMat.color.setRGB(r, g, b)
+      }
+    }
+    t.dots.count = dots
+    t.dots.instanceMatrix.needsUpdate = true
+    t.dotColors.needsUpdate = true
+    t.goalRing.visible = ballOnPath && goal !== null
 
-    const bnx = deflectX / deflectDist
-    const bnz = deflectZ / deflectDist
-    const ballArrowLen = power * 1.5 // prediction length scales with power
+    // Foul (opponent first) = red marker; teammate first (wasted turn) = amber
+    const blocked = pred.contact === 'foul' || pred.contact === 'teammate'
+    if (blocked) {
+      t.foul.position.set(pred.contactX, 0.08, pred.contactY)
+      if (pred.contact === 'foul') t.foulMat.color.setRGB(1, 0.19, 0.19)
+      else t.foulMat.color.setRGB(1, 0.62, 0.1)
+    }
+    t.foul.visible = blocked
 
-    // Position ball prediction arrow
-    const bMidX = bx + bnx * ballArrowLen * 0.5
-    const bMidZ = bz + bnz * ballArrowLen * 0.5
-    arrow.ballShaft.position.set(bMidX, 0.15, bMidZ)
-    arrow.ballShaft.scale.x = ballArrowLen
-    arrow.ballShaft.rotation.y = -Math.atan2(bnz, bnx)
-    arrow.ballHead.position.set(bx + bnx * ballArrowLen, 0.15, bz + bnz * ballArrowLen)
-    arrow.ballHead.rotation.y = -Math.atan2(bnz, bnx)
-    arrow.ballGroup.visible = true
-
-    // Hit indicator ring around ball
-    arrow.ring.position.set(bx, 0.05, bz)
-    arrow.ring.visible = true
-
-    // Pulse the ring opacity
-    const pulse = 0.4 + Math.sin(Date.now() * 0.005) * 0.2
-    arrow.ringMat.opacity = pulse
+    // Hit indicator ring around the ball
+    t.ring.visible = pred.contact === 'ball' && !!ballMesh
+    if (t.ring.visible) {
+      t.ring.position.set(ballMesh.position.x, 0.05, ballMesh.position.z)
+      t.ringMat.opacity = 0.4 + Math.sin(Date.now() * 0.005) * 0.2 // pulse
+    }
   })
 }
