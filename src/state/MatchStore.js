@@ -39,7 +39,7 @@ export const MATCH_DURATIONS = [120, 180, 300]
 // How long each overlay stays up before play continues (ms)
 export const TIMING = {
   kickoff: 2000,
-  goal: 1500,
+  goal: 5000, // banner + slow-motion replay (see game/replay.js)
   foul: 1200,
   setPiece: 1500,
   noGoal: 1500,
@@ -52,6 +52,7 @@ export const TIMING = {
    match can cancel them all. Without this, a timer from an abandoned match
    could fire into the next one. */
 const pendingTimers = new Set()
+let goalTimer = null
 
 export function later(fn, ms) {
   const id = setTimeout(() => {
@@ -60,6 +61,12 @@ export function later(fn, ms) {
   }, ms)
   pendingTimers.add(id)
   return id
+}
+
+/** Cancel one timer from later() before it fires. */
+export function cancelLater(id) {
+  clearTimeout(id)
+  pendingTimers.delete(id)
 }
 
 export function clearMatchTimers() {
@@ -290,8 +297,21 @@ export const useMatchStore = create((set, get) => ({
       lastScorer: scoringTeam,
       lastConceded: concedingTeam,
     })
-    later(() => get().startKickoff(concedingTeam), TIMING.goal)
+    goalTimer = later(() => get().startKickoff(concedingTeam), TIMING.goal)
   },
+
+  /** Cut the goal replay short and go straight to the kick-off. Offline only:
+      online, each side skips just its own view and the host's clock rules. */
+  skipGoal: () => {
+    const s = get()
+    if (s.phase !== PHASE.GOAL || s.penaltyShootout || s.gameMode === 'online') return
+    cancelLater(goalTimer)
+    s.startKickoff(s.lastConceded)
+  },
+
+  // True while this client is showing a goal replay (local only, never synced)
+  replaying: false,
+  setReplaying: (v) => { if (get().replaying !== v) set({ replaying: v }) },
 
   /** A ball in the net that doesn't count. Possession passes over. */
   disallowGoal: (reason) => {
@@ -396,4 +416,8 @@ export const useMatchStore = create((set, get) => ({
   setSfxVolume: (v) => set({ sfxVolume: v }),
   setMusicVolume: (v) => set({ musicVolume: v }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
+
+  // Phone vibration on flicks, hard cushion hits, goals and fouls
+  vibration: true,
+  toggleVibration: () => set((s) => ({ vibration: !s.vibration })),
 }))

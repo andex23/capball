@@ -153,12 +153,94 @@ export function playPenalty() {
   setTimeout(() => playTone(660, 0.25, 'sine', 0.3), 400)
 }
 
-// Crowd ambience — looping noise filtered to sound like a crowd
+/* ── Crowd ──
+   A looping bed of filtered noise whose level the match drives (see
+   scene/useCrowdReaction.js), plus one-shot reactions on top. Everything
+   scales with the master/effects volume and mute, like every other sound. */
+
+// Noise swell through a band-pass filter: `freq` can glide to `freqTo`
+function playCrowdNoise({ duration, vol, freq, freqTo = freq, q = 0.8, attack = 0.1 }) {
+  const v = getVolume() * vol
+  if (v <= 0) return
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const length = Math.floor(ctx.sampleRate * duration)
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1
+  const source = ctx.createBufferSource()
+  source.buffer = buffer
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.Q.value = q
+  filter.frequency.setValueAtTime(freq, t)
+  filter.frequency.exponentialRampToValueAtTime(freqTo, t + duration)
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(0.0001, t)
+  gain.gain.exponentialRampToValueAtTime(v, t + attack)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + duration)
+  source.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  source.start(t)
+  source.stop(t + duration)
+}
+
+// A sliding whistle from somewhere in the stands
+function playCrowdWhistle(from, to, duration, vol) {
+  const v = getVolume() * vol
+  if (v <= 0) return
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(from, t)
+  osc.frequency.exponentialRampToValueAtTime(to, t + duration)
+  gain.gain.setValueAtTime(0.0001, t)
+  gain.gain.exponentialRampToValueAtTime(v, t + 0.05)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + duration)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(t)
+  osc.stop(t + duration)
+}
+
+/** The stadium erupts. */
+export function playCrowdRoar() {
+  playCrowdNoise({ duration: 2.6, vol: 0.5, freq: 500, freqTo: 900, q: 0.6, attack: 0.18 })
+  playCrowdNoise({ duration: 2.2, vol: 0.3, freq: 1400, freqTo: 1100, q: 1.2, attack: 0.25 })
+  setTimeout(() => playCrowdNoise({ duration: 1.8, vol: 0.25, freq: 700, freqTo: 450, q: 0.7, attack: 0.3 }), 900)
+}
+
+/** "Ohhh…" — a shot just wide of the post. */
+export function playCrowdGroan() {
+  playCrowdNoise({ duration: 1.3, vol: 0.4, freq: 650, freqTo: 260, q: 1.4, attack: 0.12 })
+  playCrowdNoise({ duration: 1.1, vol: 0.2, freq: 1200, freqTo: 500, q: 2, attack: 0.08 })
+}
+
+/** Disgruntled murmur and a few whistles from the stands after a foul. */
+export function playCrowdMurmur() {
+  playCrowdNoise({ duration: 1.4, vol: 0.28, freq: 320, freqTo: 420, q: 1.2, attack: 0.2 })
+  setTimeout(() => playCrowdWhistle(1900, 2500, 0.35, 0.08), 150)
+  setTimeout(() => playCrowdWhistle(2300, 1700, 0.45, 0.07), 420)
+  setTimeout(() => playCrowdWhistle(2100, 2700, 0.3, 0.06), 700)
+}
+
 let crowdNode = null
+let crowdLevel = 0.3
+const CROWD_GAIN = 0.12
+
+// The bed's gain for a crowd level 0–1, with the current volume settings
+function crowdGain(level) {
+  return getVolume() * CROWD_GAIN * (0.25 + level)
+}
+
+/** Start the crowd bed (silent if sound is off — it follows setCrowdVolume). */
 export function startCrowdAmbience() {
   if (crowdNode) return
-  const v = getVolume() * 0.08
-  if (v <= 0) return
   const ctx = getCtx()
   if (!ctx) return
 
@@ -179,22 +261,32 @@ export function startCrowdAmbience() {
   filter.Q.value = 0.5
 
   const gain = ctx.createGain()
-  gain.gain.value = v
+  gain.gain.value = crowdGain(crowdLevel)
 
   source.connect(filter)
   filter.connect(gain)
   gain.connect(ctx.destination)
   source.start()
-  crowdNode = { source, gain }
+  crowdNode = { source, filter, gain }
 }
 
 export function stopCrowdAmbience() {
   if (crowdNode) {
-    crowdNode.source.stop()
+    try { crowdNode.source.stop() } catch { /* already stopped */ }
+    crowdNode.gain.disconnect()
     crowdNode = null
   }
 }
 
-export function setCrowdVolume(vol) {
-  if (crowdNode) crowdNode.gain.gain.value = vol * 0.08
+/**
+ * Set how excited the crowd is, 0 (hushed) – 1 (on its feet). A busier crowd
+ * is louder and brighter. Re-reads the volume settings every call, so mute
+ * and the sliders apply straight away.
+ */
+export function setCrowdVolume(level) {
+  crowdLevel = Math.min(1, Math.max(0, level))
+  if (!crowdNode || !audioCtx) return
+  const t = audioCtx.currentTime
+  crowdNode.gain.gain.setTargetAtTime(crowdGain(crowdLevel), t, 0.08)
+  crowdNode.filter.frequency.setTargetAtTime(380 + 420 * crowdLevel, t, 0.15)
 }

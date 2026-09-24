@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useMatchStore } from '../state/MatchStore'
 import { updateMenuMusicVolume } from '../audio/MusicManager'
 import { playButtonSelect } from '../audio/SoundManager'
+import { canVibrate, haptic } from '../input/haptics'
 import Icon from './Icon'
 
 function Slider({ label, value, onChange, disabled }) {
@@ -22,7 +23,8 @@ export default function SettingsPanel() {
   const sfxVolume = useMatchStore((s) => s.sfxVolume)
   const musicVolume = useMatchStore((s) => s.musicVolume)
   const muted = useMatchStore((s) => s.muted)
-  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute } = useMatchStore.getState()
+  const vibration = useMatchStore((s) => s.vibration)
+  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration } = useMatchStore.getState()
 
   useEffect(() => { updateMenuMusicVolume() }, [masterVolume, musicVolume, muted])
 
@@ -34,6 +36,12 @@ export default function SettingsPanel() {
       <Slider label="Master" value={masterVolume} onChange={setMasterVolume} disabled={muted} />
       <Slider label="Effects" value={sfxVolume} onChange={setSfxVolume} disabled={muted} />
       <Slider label="Music" value={musicVolume} onChange={setMusicVolume} disabled={muted} />
+      {/* Only phones that can actually vibrate get the option */}
+      {canVibrate() && (
+        <button className="btn btn-secondary" aria-pressed={vibration} onClick={() => { toggleVibration(); playButtonSelect(); haptic('flick') }}>
+          <Icon name="vibrate" size={18} /> {vibration ? 'Vibration on' : 'Vibration off'}
+        </button>
+      )}
     </>
   )
 }

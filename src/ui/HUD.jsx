@@ -116,6 +116,21 @@ function Banner() {
   )
 }
 
+/** Broadcast-style letterbox + badge while a goal replay plays. */
+function ReplayOverlay() {
+  const replaying = useMatchStore((s) => s.replaying)
+  const paused = useMatchStore((s) => s.paused)
+  if (!replaying || paused) return null
+  return (
+    <div className="replay" aria-live="polite">
+      <div className="replay-bar top" />
+      <div className="replay-bar bottom">
+        <div className="replay-badge"><i aria-hidden /> Replay <span>Tap or Space to skip</span></div>
+      </div>
+    </div>
+  )
+}
+
 function PowerMeter() {
   const power = useMatchStore((s) => s.dragPower)
   if (power <= 0) return null
@@ -218,6 +233,7 @@ export default function HUD() {
 
   return (
     <div className="hud">
+      <ReplayOverlay />
       <div className="hud-top">
         <ScoreBug />
         {turnText && !paused && (
