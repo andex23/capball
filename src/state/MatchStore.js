@@ -140,9 +140,13 @@ export const useMatchStore = create((set, get) => ({
   firstHalfKicker: 'team1',
   setMatchDuration: (d) => set({ matchDuration: d }),
 
+  // First-match tutorial showing a coach mark — the clock waits for the player
+  tutorialHold: false,
+  setTutorialHold: (hold) => { if (get().tutorialHold !== hold) set({ tutorialHold: hold }) },
+
   tickTimer: (dt) => {
-    const { timeRemaining, timerRunning, paused, phase, half } = get()
-    if (!timerRunning || paused || !CLOCK_PHASES.includes(phase)) return
+    const { timeRemaining, timerRunning, paused, tutorialHold, phase, half } = get()
+    if (!timerRunning || paused || tutorialHold || !CLOCK_PHASES.includes(phase)) return
     const next = Math.max(0, timeRemaining - dt)
     set({ timeRemaining: next })
     if (next > 0) return

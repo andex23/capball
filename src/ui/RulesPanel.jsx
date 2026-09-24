@@ -1,3 +1,8 @@
+import { useState } from 'react'
+import { rearmTutorial } from '../game/tutorial'
+import { playButtonSelect } from '../audio/SoundManager'
+import Icon from './Icon'
+
 const SECTIONS = [
   {
     title: 'How to play',
@@ -37,6 +42,27 @@ const SECTIONS = [
   },
 ]
 
+/** Re-arms the first-match coach marks. */
+function ReplayTutorial() {
+  const [armed, setArmed] = useState(false)
+  const replay = () => {
+    playButtonSelect()
+    rearmTutorial()
+    setArmed(true)
+  }
+  return (
+    <section>
+      <h3 className="eyebrow" style={{ color: 'var(--accent)', marginBottom: 8 }}>Tutorial</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <button className="btn btn-blue" onClick={replay}><Icon name="restart" size={18} /> Replay tutorial</button>
+        <span className="muted" role="status" style={{ fontSize: 13 }}>
+          {armed ? 'It’ll play on your next turn in a local or CPU match.' : ''}
+        </span>
+      </div>
+    </section>
+  )
+}
+
 export default function RulesPanel() {
   return SECTIONS.map((s) => (
     <section key={s.title}>
@@ -45,5 +71,5 @@ export default function RulesPanel() {
         {s.items.map((t) => <li key={t}>{t}</li>)}
       </ul>
     </section>
-  ))
+  )).concat(<ReplayTutorial key="replay-tutorial" />)
 }

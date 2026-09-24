@@ -402,11 +402,11 @@ function GameWorld() {
 }
 
 function CameraRefCapture() {
-  const { camera, size } = useThree()
+  const { camera, size, gl } = useThree()
   useEffect(() => {
-    setCameraRefs({ camera })
+    setCameraRefs({ camera, canvas: gl.domElement })
     resetCameraPreset()
-  }, [camera])
+  }, [camera, gl])
   // Re-fit when the screen size/orientation changes
   useEffect(() => {
     fitCurrentPreset()
