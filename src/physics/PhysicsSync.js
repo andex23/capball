@@ -8,6 +8,7 @@ import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 import { PHYSICS } from '../data/TeamData'
 import { playGoal, playTurnChange } from '../audio/SoundManager'
+import { useGoalReplay } from '../scene/useGoalReplay'
 
 // A turn never waits longer than this for everything to stop rolling.
 const MAX_RESOLVE_MS = 12000
@@ -19,6 +20,7 @@ export function usePhysicsSync(meshRefs) {
   const resolveMs = useRef(0)
   // Set once the current RESOLVE phase has an outcome, so it can't be decided twice
   const resolved = useRef(false)
+  const replayFrame = useGoalReplay(meshRefs)
 
   useFrame((_, delta) => {
     const store = useMatchStore.getState()
@@ -50,6 +52,8 @@ export function usePhysicsSync(meshRefs) {
       mesh.position.x += (body.position.x - mesh.position.x) * blend
       mesh.position.z += (body.position.y - mesh.position.z) * blend
     }
+    // Record this frame for goal replays — or, during one, redraw the past
+    replayFrame(delta)
 
     if (!authority || store.paused || resolved.current) return
     const s = useMatchStore.getState()

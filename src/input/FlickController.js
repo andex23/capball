@@ -6,6 +6,7 @@ import { performFlick, flickError, controllableTeams } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
+import { haptic } from './haptics'
 
 // Ray-circle intersection: returns distance to hit or -1
 function rayCircleIntersect(ox, oz, dx, dz, cx, cz, r) {
@@ -125,14 +126,17 @@ export function useFlickController(meshRefs, trajectoryRef) {
         // Guest: the host validates and runs the flick, then streams the result back
         if (flickError(state, { capId, velocity }) === null) {
           playFlick()
+          haptic('flick')
           sendFlick(capId, velocity)
         }
         state.setDragPower(0)
         return
       }
 
-      if (performFlick(capId, velocity) === null) playFlick()
-      else state.cancelAim()
+      if (performFlick(capId, velocity) === null) {
+        playFlick()
+        haptic('flick')
+      } else state.cancelAim()
     }
 
     const handlePointerCancel = () => {
