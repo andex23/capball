@@ -11,6 +11,7 @@ import FormationScreen from './screens/FormationScreen'
 import MatchEndScreen from './screens/MatchEndScreen'
 import HUD from './ui/HUD'
 import GameEffects from './ui/GameEffects'
+import Tutorial from './ui/Tutorial'
 import Modal from './ui/Modal'
 import Icon from './ui/Icon'
 
@@ -73,6 +74,7 @@ function Screen({ screen }) {
             <Scene />
           </Suspense>
           <HUD />
+          <Tutorial />
           <GameEffects />
         </>
       )

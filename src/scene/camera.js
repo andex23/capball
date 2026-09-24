@@ -17,11 +17,42 @@ const BASE_DISTANCE = Math.hypot(30, 5)
 // Refs registered by the 3D scene so the HUD can move the camera
 let _controlsRef = null
 let _cameraRef = null
+let _canvasRef = null
 let _presetIndex = 0
 
-export function setCameraRefs({ camera, controls }) {
+export function setCameraRefs({ camera, controls, canvas }) {
   if (camera !== undefined) _cameraRef = camera
   if (controls !== undefined) _controlsRef = controls
+  if (canvas !== undefined) _canvasRef = canvas
+}
+
+/**
+ * Where a world point is on screen, in client pixels, or null when there is no
+ * camera yet or the point is behind it. Plain matrix maths on the camera's
+ * own matrices, so the DOM UI can use it without importing three.js.
+ */
+export function projectToScreen(x, y, z, camera = _cameraRef, rect = _canvasRef?.getBoundingClientRect()) {
+  if (!camera?.projectionMatrix || !camera.matrixWorldInverse || !rect) return null
+  camera.updateMatrixWorld?.()
+  const v = camera.matrixWorldInverse.elements
+  const p = camera.projectionMatrix.elements
+  // view space
+  const vx = v[0] * x + v[4] * y + v[8] * z + v[12]
+  const vy = v[1] * x + v[5] * y + v[9] * z + v[13]
+  const vz = v[2] * x + v[6] * y + v[10] * z + v[14]
+  const vw = v[3] * x + v[7] * y + v[11] * z + v[15]
+  // clip space
+  const cx = p[0] * vx + p[4] * vy + p[8] * vz + p[12] * vw
+  const cy = p[1] * vx + p[5] * vy + p[9] * vz + p[13] * vw
+  const cw = p[3] * vx + p[7] * vy + p[11] * vz + p[15] * vw
+  if (!(cw > 0)) return null
+  const nx = cx / cw
+  const ny = cy / cw
+  return {
+    x: rect.left + ((nx + 1) / 2) * rect.width,
+    y: rect.top + ((1 - ny) / 2) * rect.height,
+    onScreen: Math.abs(nx) <= 1 && Math.abs(ny) <= 1,
+  }
 }
 
 export function resetCameraPreset() {
