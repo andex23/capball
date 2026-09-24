@@ -741,3 +741,70 @@ button { cursor: pointer; background: none; border: 0; }
 }
 .records-stat .display { font-size: 32px; color: var(--accent); }
 .records-confirm { display: flex; flex-direction: column; gap: 10px; }
+/* ── PWA ── */
+.install-btn { align-self: flex-start; }
+.install-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.install-hint > svg { flex: none; color: var(--accent); }
+.install-hint b { color: var(--text); font-weight: 600; }
+.install-hint-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+}
+.install-hint-close:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+
+.offline-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 200, 61, 0.45);
+  background: rgba(255, 200, 61, 0.08);
+  color: var(--accent-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+.offline-note svg { flex: none; margin-top: 1px; }
+
+.pwa-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 16px);
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 2 * var(--gutter));
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+  white-space: nowrap;
+  animation: pwa-toast-in 0.25s ease both;
+}
+@keyframes pwa-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.pwa-toast > svg { color: var(--good); }
+.pwa-toast:not(:has(.btn)) { padding-right: 16px; }
+.pwa-toast .btn { min-height: 38px; padding: 0 16px; font-size: 17px; }
+.pwa-toast .btn-ghost { padding: 0 10px; }

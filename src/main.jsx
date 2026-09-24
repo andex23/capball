@@ -10,8 +10,11 @@ import '@fontsource/inter/latin-700.css'
 import './styles/theme.css'
 import App from './App'
 import { initPersistence } from './state/persistence'
+import { initInstallPrompt } from './pwa/install'
 
 // Restore saved teams, settings and records before the first render
 initPersistence()
+// The install prompt can fire before the menu mounts, so catch it early
+initInstallPrompt()
 
 createRoot(document.getElementById('root')).render(<App />)
