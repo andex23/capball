@@ -17,7 +17,7 @@ import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty } from 
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 
-// Trajectory arrow + ball prediction visuals
+// Aim arrow + predicted cap/ball paths (filled in by FlickController each frame)
 function TrajectoryLineManager({ trajectoryRef }) {
   const { scene } = useThree()
 
@@ -37,20 +37,59 @@ function TrajectoryLineManager({ trajectoryRef }) {
     group.renderOrder = 999
     scene.add(group)
 
-    // === Ball prediction arrow (cyan) ===
-    const ballMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true, opacity: 0.8 })
-    const ballShaftGeom = new THREE.BoxGeometry(1, 0.08, 0.18)
-    const ballShaft = new THREE.Mesh(ballShaftGeom, ballMat)
-    const ballHeadGeom = new THREE.ConeGeometry(0.28, 0.5, 6)
-    ballHeadGeom.rotateZ(-Math.PI / 2)
-    const ballHead = new THREE.Mesh(ballHeadGeom, ballMat)
+    // === Predicted paths: flat dots on the pitch, one instanced mesh, per-dot RGBA ===
+    const MAX_DOTS = 220
+    const dotGeom = new THREE.CircleGeometry(1, 12)
+    dotGeom.rotateX(-Math.PI / 2)
+    const dotColors = new THREE.InstancedBufferAttribute(new Float32Array(MAX_DOTS * 4), 4)
+    dotColors.setUsage(THREE.DynamicDrawUsage)
+    dotGeom.setAttribute('aColor', dotColors)
+    const dotMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      vertexShader: `
+        attribute vec4 aColor;
+        varying vec4 vColor;
+        void main() {
+          vColor = aColor;
+          gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        varying vec4 vColor;
+        void main() { gl_FragColor = vColor; }`,
+    })
+    const dots = new THREE.InstancedMesh(dotGeom, dotMat, MAX_DOTS)
+    dots.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    dots.count = 0
+    dots.frustumCulled = false // instances move every frame; bounds would be stale
+    dots.renderOrder = 998
+    scene.add(dots)
 
-    const ballGroup = new THREE.Group()
-    ballGroup.add(ballShaft)
-    ballGroup.add(ballHead)
-    ballGroup.visible = false
-    ballGroup.renderOrder = 999
-    scene.add(ballGroup)
+    // === Foul marker: red ring + cross where the cap would hit an opponent first ===
+    const foulMat = new THREE.MeshBasicMaterial({ color: 0xff3030, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 })
+    const foulRingGeom = new THREE.RingGeometry(0.4, 0.56, 20)
+    foulRingGeom.rotateX(-Math.PI / 2)
+    const foulBarGeom = new THREE.BoxGeometry(0.76, 0.02, 0.13)
+    const foul = new THREE.Group()
+    foul.add(new THREE.Mesh(foulRingGeom, foulMat))
+    const bar1 = new THREE.Mesh(foulBarGeom, foulMat)
+    bar1.rotation.y = Math.PI / 4
+    const bar2 = new THREE.Mesh(foulBarGeom, foulMat)
+    bar2.rotation.y = -Math.PI / 4
+    foul.add(bar1, bar2)
+    foul.children.forEach((m) => { m.renderOrder = 999 })
+    foul.visible = false
+    scene.add(foul)
+
+    // === Goal marker at the end of a ball path that goes in ===
+    const goalRingGeom = new THREE.RingGeometry(0.55, 0.75, 28)
+    const goalRingMat = new THREE.MeshBasicMaterial({ color: 0xffc629, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.9 })
+    const goalRing = new THREE.Mesh(goalRingGeom, goalRingMat)
+    goalRing.rotation.x = -Math.PI / 2
+    goalRing.visible = false
+    goalRing.renderOrder = 999
+    scene.add(goalRing)
 
     // === Hit indicator ring on ball ===
     const ringGeom = new THREE.RingGeometry(0.5, 0.65, 24)
@@ -63,15 +102,20 @@ function TrajectoryLineManager({ trajectoryRef }) {
 
     trajectoryRef.current = {
       group, shaft, head, mat,
-      ballGroup, ballShaft, ballHead, ballMat,
+      dots, dotColors, maxDots: MAX_DOTS,
+      foul, foulMat,
+      goalRing, goalRingMat,
       ring, ringMat,
     }
 
     return () => {
       scene.remove(group)
-      scene.remove(ballGroup)
+      scene.remove(dots)
+      scene.remove(foul)
+      scene.remove(goalRing)
       scene.remove(ring)
-      ;[shaftGeom, headGeom, mat, ballShaftGeom, ballHeadGeom, ballMat, ringGeom, ringMat].forEach(g => g.dispose())
+      dots.dispose()
+      ;[shaftGeom, headGeom, mat, dotGeom, dotMat, foulMat, foulRingGeom, foulBarGeom, goalRingGeom, goalRingMat, ringGeom, ringMat].forEach(g => g.dispose())
     }
   }, [scene, trajectoryRef])
 
