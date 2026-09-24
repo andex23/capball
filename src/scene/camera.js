@@ -68,3 +68,16 @@ export function cycleCameraPreset() {
   applyPreset(preset)
   return preset.label
 }
+
+/** Where the camera is right now (so a replay can move it and put it back). */
+export function getCameraPose() {
+  if (!_controlsRef || !_cameraRef) return null
+  return { position: _cameraRef.position.toArray(), target: _controlsRef.target.toArray() }
+}
+
+export function setCameraPose({ position, target }) {
+  if (!_controlsRef || !_cameraRef) return
+  _cameraRef.position.set(...position)
+  _controlsRef.target.set(...target)
+  _controlsRef.update()
+}

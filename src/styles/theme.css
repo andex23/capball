@@ -808,3 +808,54 @@ button { cursor: pointer; background: none; border: 0; }
 .pwa-toast:not(:has(.btn)) { padding-right: 16px; }
 .pwa-toast .btn { min-height: 38px; padding: 0 16px; font-size: 17px; }
 .pwa-toast .btn-ghost { padding: 0 10px; }
+/* ── Replay ── */
+/* Goal replay: letterbox bars, a soft vignette and a broadcast badge. It sits
+   first in the HUD so the scoreboard and buttons stay on top of it. */
+.hud > .replay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  animation: fade-in 0.35s ease-out;
+}
+.replay-bar {
+  position: absolute; left: 0; right: 0;
+  height: clamp(32px, 9vh, 76px);
+  background: rgba(0, 0, 0, 0.82);
+  display: flex; align-items: center; justify-content: center;
+  animation: replay-bar-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.replay-bar.top { top: 0; transform-origin: top; }
+.replay-bar.bottom { bottom: 0; transform-origin: bottom; padding-bottom: var(--safe-bottom); }
+.replay-badge {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.replay-badge i {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--bad);
+  box-shadow: 0 0 10px var(--bad);
+  animation: blink 1s ease-in-out infinite;
+}
+.replay-badge span {
+  margin-left: 10px;
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-3);
+}
+.replay ~ .banner, .replay ~ .hint { display: none; }
+@keyframes replay-bar-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@media (max-width: 560px) {
+  .replay-badge { font-size: 18px; }
+  .replay-badge span { display: none; }
+}

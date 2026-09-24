@@ -12,6 +12,7 @@ import BallMesh from './BallMesh'
 import { usePhysicsSync } from '../physics/PhysicsSync'
 import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
+import { useCrowdReaction } from './useCrowdReaction'
 import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty } from '../physics/PhysicsWorld'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
@@ -297,6 +298,7 @@ function GameWorld() {
   usePhysicsSync(meshRefs)
   useFlickController(meshRefs, trajectoryRef)
   useAIController()
+  useCrowdReaction(meshRefs)
 
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const stadiumId = useMatchStore((s) => s.stadium)
