@@ -59,24 +59,8 @@ function getTeam1Side() {
   return useMatchStore.getState().team1Side || 'left'
 }
 
-/* ═══════════════════════════════════════════════════════════
-   1. WORLD CREATION
-   ═══════════════════════════════════════════════════════════ */
-
-export function createPhysicsWorld() {
-  // Destroy previous engine if exists
-  if (engine) {
-    World.clear(engine.world)
-    Engine.clear(engine)
-  }
-
-  engine = Engine.create({
-    positionIterations: 20,   // high iterations = reliable collision resolution
-    velocityIterations: 20,   // prevents objects sinking into walls
-  })
-  engine.gravity.x = 0
-  engine.gravity.y = 0
-
+/** Static pitch boundary, goal nets and goal-mouth cap blockers (shared by every world). */
+function createWallBodies() {
   const { halfW, halfH, goalWidth, goalDepth } = PITCH
   const goalHalf = goalWidth / 2
 
@@ -117,25 +101,76 @@ export function createPhysicsWorld() {
   const leftGoalBlocker = Bodies.rectangle(-halfW - wallThick / 2, 0, wallThick, goalWidth, blockerOpts)
   const rightGoalBlocker = Bodies.rectangle(halfW + wallThick / 2, 0, wallThick, goalWidth, blockerOpts)
 
-  World.add(engine.world, [
+  return [
     topWall, bottomWall,
     leftTop, leftBottom, rightTop, rightBottom,
     leftGoalBack, leftGoalTop, leftGoalBottom,
     rightGoalBack, rightGoalTop, rightGoalBottom,
     leftGoalBlocker, rightGoalBlocker,
-  ])
+  ]
+}
+
+// ── Per-step friction & velocity cap ──
+const SUB_STEPS = PHYSICS.subSteps || 8
+const CAP_FRICTION_PER_STEP = PHYSICS.linearFriction / SUB_STEPS
+const BALL_FRICTION_PER_STEP = (PHYSICS.linearFriction * 0.5) / SUB_STEPS // ball has half the friction of caps
+const MAX_SPEED = PHYSICS.maxFlickVelocity * 1.5
+
+/** Linear friction + hard speed cap for one sub-step, applied to a map of dynamic bodies. */
+function applyStepFriction(bodies) {
+  for (const key in bodies) {
+    const body = bodies[key]
+    let vx = body.velocity.x
+    let vy = body.velocity.y
+    let speed = Math.sqrt(vx * vx + vy * vy)
+
+    // Hard velocity cap — prevents tunneling through walls
+    if (speed > MAX_SPEED) {
+      const s = MAX_SPEED / speed
+      vx *= s
+      vy *= s
+      speed = MAX_SPEED
+    }
+
+    // Linear friction — constant deceleration per step
+    const friction = key === 'ball' ? BALL_FRICTION_PER_STEP : CAP_FRICTION_PER_STEP
+
+    if (speed <= friction) {
+      // Below threshold — stop completely
+      Body.setVelocity(body, { x: 0, y: 0 })
+    } else {
+      // Scale down velocity
+      const scale = (speed - friction) / speed
+      Body.setVelocity(body, { x: vx * scale, y: vy * scale })
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   1. WORLD CREATION
+   ═══════════════════════════════════════════════════════════ */
+
+export function createPhysicsWorld() {
+  // Destroy previous engine if exists
+  if (engine) {
+    World.clear(engine.world)
+    Engine.clear(engine)
+  }
+
+  engine = Engine.create({
+    positionIterations: 20,   // high iterations = reliable collision resolution
+    velocityIterations: 20,   // prevents objects sinking into walls
+  })
+  engine.gravity.x = 0
+  engine.gravity.y = 0
+
+  World.add(engine.world, createWallBodies())
 
   // ── Create dynamic bodies ──
   bodies = {}
   createTeamBodies('team1')
   createTeamBodies('team2')
   createBallBody()
-
-  // ── Per-step friction & velocity cap ──
-  const subSteps = PHYSICS.subSteps || 8
-  const capFrictionPerStep = PHYSICS.linearFriction / subSteps
-  const ballFrictionPerStep = (PHYSICS.linearFriction * 0.5) / subSteps // ball has half the friction of caps
-  const maxSpeed = PHYSICS.maxFlickVelocity * 1.5
 
   // ── EVENT: First-contact tracking for foul detection ──
   Events.on(engine, 'collisionStart', (event) => {
@@ -189,34 +224,7 @@ export function createPhysicsWorld() {
   })
 
   // ── EVENT: Per-step friction + velocity cap ──
-  Events.on(engine, 'beforeUpdate', () => {
-    for (const key in bodies) {
-      const body = bodies[key]
-      let vx = body.velocity.x
-      let vy = body.velocity.y
-      let speed = Math.sqrt(vx * vx + vy * vy)
-
-      // Hard velocity cap — prevents tunneling through walls
-      if (speed > maxSpeed) {
-        const s = maxSpeed / speed
-        vx *= s
-        vy *= s
-        speed = maxSpeed
-      }
-
-      // Linear friction — constant deceleration per step
-      const friction = key === 'ball' ? ballFrictionPerStep : capFrictionPerStep
-
-      if (speed <= friction) {
-        // Below threshold — stop completely
-        Body.setVelocity(body, { x: 0, y: 0 })
-      } else {
-        // Scale down velocity
-        const scale = (speed - friction) / speed
-        Body.setVelocity(body, { x: vx * scale, y: vy * scale })
-      }
-    }
-  })
+  Events.on(engine, 'beforeUpdate', () => applyStepFriction(bodies))
 
   return engine
 }
@@ -225,8 +233,11 @@ export function createPhysicsWorld() {
    2. BODY CREATION
    ═══════════════════════════════════════════════════════════ */
 
-function createCapBody(id, x, y, radius, mass, isBall) {
-  const body = Bodies.circle(x, y, radius, {
+/** A cap or the ball, not yet added to any world. Radius and mass follow from the id. */
+function makeDynamicBody(id, x, y) {
+  const isBall = id === 'ball'
+  const mass = isBall ? PHYSICS.ballMass : (id.endsWith('_gk') ? PHYSICS.gkMass : PHYSICS.playerMass)
+  const body = Bodies.circle(x, y, radiusOf(id), {
     friction: 0,
     frictionStatic: 0,
     frictionAir: isBall ? 0 : 0.001, // ball has zero air drag, caps have minimal
@@ -239,6 +250,11 @@ function createCapBody(id, x, y, radius, mass, isBall) {
   })
   Body.setMass(body, mass)
   Body.setInertia(body, Infinity) // no rotation — pure translation
+  return body
+}
+
+function createCapBody(id, x, y) {
+  const body = makeDynamicBody(id, x, y)
   World.add(engine.world, body)
   bodies[id] = body
   return body
@@ -248,15 +264,15 @@ function createTeamBodies(team) {
   const formations = useMatchStore.getState().formations
   const formationKey = formations?.[team] || 'default'
   const pos = getFormationPositions(team, formationKey, getTeam1Side())
-  createCapBody(`${team}_gk`, pos.gk.x, pos.gk.y, GK_RADIUS, PHYSICS.gkMass, false)
-  createCapBody(`${team}_def1`, pos.def1.x, pos.def1.y, CAP_RADIUS, PHYSICS.playerMass, false)
-  createCapBody(`${team}_def2`, pos.def2.x, pos.def2.y, CAP_RADIUS, PHYSICS.playerMass, false)
-  createCapBody(`${team}_atk1`, pos.atk1.x, pos.atk1.y, CAP_RADIUS, PHYSICS.playerMass, false)
-  createCapBody(`${team}_atk2`, pos.atk2.x, pos.atk2.y, CAP_RADIUS, PHYSICS.playerMass, false)
+  createCapBody(`${team}_gk`, pos.gk.x, pos.gk.y)
+  createCapBody(`${team}_def1`, pos.def1.x, pos.def1.y)
+  createCapBody(`${team}_def2`, pos.def2.x, pos.def2.y)
+  createCapBody(`${team}_atk1`, pos.atk1.x, pos.atk1.y)
+  createCapBody(`${team}_atk2`, pos.atk2.x, pos.atk2.y)
 }
 
 function createBallBody() {
-  createCapBody('ball', 0, 0, BALL_RADIUS, PHYSICS.ballMass, true)
+  createCapBody('ball', 0, 0)
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -323,6 +339,11 @@ function stopAll() { stopAllBodies() }
    ═══════════════════════════════════════════════════════════ */
 
 export function clampAllBodies() {
+  clampBodyMap(bodies, getTeam1Side())
+}
+
+/** GK confinement + tunnelling rescue for any map of dynamic bodies. */
+function clampBodyMap(bodies, team1Side) {
   const { halfW, halfH, goalWidth, goalDepth } = PITCH
   const goalHalf = goalWidth / 2
   const backWallX = halfW + goalDepth
@@ -346,7 +367,7 @@ export function clampAllBodies() {
     if (isGk) {
       const r = GK_RADIUS
       const team = id.startsWith('team1') ? 'team1' : 'team2'
-      const homeDir = getTeamDir(team)
+      const homeDir = teamHomeDir(team, team1Side)
       const onLeft = homeDir === -1
       const xMin = onLeft ? (-halfW + r) : (halfW - PEN_AREA_W + r)
       const xMax = onLeft ? (-halfW + PEN_AREA_W - r) : (halfW - r)
@@ -655,6 +676,54 @@ export function resetToKickoff(kickingTeam) {
 export function stepPhysics(delta) {
   if (!engine) return
   Engine.update(engine, delta)
+}
+
+/**
+ * A private, headless copy of the pitch for look-ahead (the AI planner).
+ * Same walls, radii, masses, restitution, per-step friction and clamping as
+ * the match world, but no store, sound or foul side effects and nothing
+ * shared with the live engine.
+ *
+ * @param snapshot  { id: {x, y, vx?, vy?} | [x, y] } — only these bodies exist
+ * @param opts.team1Side  'left' | 'right' (decides the keepers' boxes)
+ * @returns {{ engine, bodies, step(frameMs?: number): void, reset(snapshot): void }}
+ *   step() advances one rendered frame exactly like PhysicsSync does;
+ *   reset() puts every body back on a snapshot, at rest, to replay another flick.
+ */
+export function createSimulationWorld(snapshot, { team1Side = 'left' } = {}) {
+  const simEngine = Engine.create({ positionIterations: 20, velocityIterations: 20 })
+  simEngine.gravity.x = 0
+  simEngine.gravity.y = 0
+  World.add(simEngine.world, createWallBodies())
+
+  const simBodies = {}
+  for (const [id, s] of Object.entries(snapshot || {})) {
+    const p = Array.isArray(s) ? { x: s[0], y: s[1] } : s
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue
+    const body = makeDynamicBody(id, p.x, p.y)
+    if (p.vx || p.vy) Body.setVelocity(body, { x: p.vx || 0, y: p.vy || 0 })
+    World.add(simEngine.world, body)
+    simBodies[id] = body
+  }
+  Events.on(simEngine, 'beforeUpdate', () => applyStepFriction(simBodies))
+
+  function step(frameMs = 16) {
+    for (let i = 0; i < SUB_STEPS; i++) Engine.update(simEngine, frameMs / SUB_STEPS)
+    clampBodyMap(simBodies, team1Side)
+  }
+
+  // Put every body back on a snapshot so one world can replay many flicks
+  // (much less garbage than a fresh engine each time).
+  function reset(snap) {
+    for (const [id, body] of Object.entries(simBodies)) {
+      const s = snap?.[id]
+      const p = Array.isArray(s) ? { x: s[0], y: s[1] } : (s || {})
+      if (Number.isFinite(p.x) && Number.isFinite(p.y)) Body.setPosition(body, { x: p.x, y: p.y })
+      Body.setVelocity(body, { x: p.vx || 0, y: p.vy || 0 })
+    }
+    Matter.Pairs.clear(simEngine.pairs) // forget contacts from the last run
+  }
+  return { engine: simEngine, bodies: simBodies, step, reset }
 }
 
 /* ═══════════════════════════════════════════════════════════
