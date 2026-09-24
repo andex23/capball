@@ -897,3 +897,49 @@ button { cursor: pointer; background: none; border: 0; }
 }
 .end-choice-status { align-self: center; cursor: default; }
 .end-choice-status:hover { color: var(--text-2); border-color: var(--line-strong); }
+/* ── Tutorial ── */
+.tut { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+.tut-card {
+  position: fixed;
+  width: min(360px, calc(100vw - 32px));
+  padding: 14px 16px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  pointer-events: auto;
+  animation: pop-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+/* Not pointing at anything: sit above the bottom HUD, centred */
+.tut-card[data-anchored='false'] {
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 72px);
+  transform: translateX(-50%);
+  animation: fade-in 0.2s ease;
+}
+.tut-eyebrow { color: var(--accent); }
+.tut-title { font-size: 26px; }
+.tut-body { color: var(--text); font-size: 15px; line-height: 1.4; }
+.tut-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 4px; }
+.tut-actions .btn { min-height: 40px; padding: 0 16px; font-size: 17px; }
+.tut-actions .tut-skip { margin-right: auto; padding: 0 10px; font-size: 15px; }
+.tut-ring {
+  position: fixed; left: 0; top: 0;
+  width: 60px; height: 60px;
+  transform: translate(-9999px, -9999px);
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(255, 200, 61, 0.25), 0 0 24px rgba(255, 200, 61, 0.55);
+  pointer-events: none;
+}
+.tut-ring::after {
+  content: '';
+  position: absolute; inset: -3px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  animation: tut-ping 1.4s ease-out infinite;
+}
+@keyframes tut-ping { from { transform: scale(1); opacity: 0.9; } to { transform: scale(1.7); opacity: 0; } }
+@media (max-width: 560px) {
+  .tut-title { font-size: 22px; }
+  .tut-body { font-size: 14px; }
+}

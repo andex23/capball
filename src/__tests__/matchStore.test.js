@@ -188,6 +188,17 @@ describe('penalty shootout', () => {
 })
 
 describe('shot clock', () => {
+  it('waits while a tutorial coach mark is up', () => {
+    startAndKickOff()
+    get().setTutorialHold(true)
+    get().tickShotClock(5)
+    get().tickTimer(5)
+    expect(get().shotClockRemaining).toBe(15)
+    get().setTutorialHold(false)
+    get().tickShotClock(5)
+    expect(get().shotClockRemaining).toBeCloseTo(10)
+  })
+
   it('defaults to 15 s and only counts down while the active team can act', () => {
     startAndKickOff()
     expect(get()).toMatchObject({ shotClock: 15, shotClockRemaining: 15 })
