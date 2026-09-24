@@ -13,6 +13,7 @@ import HUD from './ui/HUD'
 import GameEffects from './ui/GameEffects'
 import Modal from './ui/Modal'
 import Icon from './ui/Icon'
+import OnlineReconnect from './ui/OnlineReconnect'
 
 // three.js is most of the download — only fetch it once a match is coming up
 const loadScene = () => import('./scene/Scene')
@@ -104,6 +105,7 @@ export default function App() {
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
       <ErrorBoundary>
         <Screen screen={screen} />
+        <OnlineReconnect />
         <ConnectionLost />
       </ErrorBoundary>
     </div>

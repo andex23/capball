@@ -45,7 +45,29 @@ Online matches use the free public PeerJS server by default. To use your own [Pe
 VITE_PEER_HOST=peer.example.com VITE_PEER_PORT=443 VITE_PEER_PATH=/ VITE_PEER_SECURE=true npm run build
 ```
 
-The host runs the physics and rules; the guest sends requests (edit its own team, ready up, flick its own caps on its own turn), and the host validates every one before applying it.
+The host runs the physics and rules; the guest sends requests (edit its own team, ready up, flick its own caps on its own turn), and the host validates every one before applying it. At full time both players pick Rematch (or Penalty shootout after a draw) and it starts once they agree.
+
+#### Relay (TURN) servers
+
+Players connect directly using public STUN servers (`stun:stun.l.google.com:19302`). Some networks — lots of mobile data, office and school Wi-Fi — block direct connections, and then the traffic has to go through a relay (TURN) server. None is built in, because relays cost money to run; without one, those players see *"Couldn’t connect directly — one of you may be on a strict network…"* (PeerJS's own best-effort public relay is still tried when you don't configure one).
+
+To add a relay, set either or both of these before building:
+
+| Variable | Example |
+| --- | --- |
+| `VITE_ICE_SERVERS` | JSON array of [RTCIceServer](https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer) objects: `[{"urls":"turn:turn.example.com:3478","username":"u","credential":"p"}]` |
+| `VITE_TURN_URL` | `turn:turn.example.com:3478` (comma-separate several, e.g. add `turns:turn.example.com:5349?transport=tcp`) |
+| `VITE_TURN_USERNAME` / `VITE_TURN_CREDENTIAL` | the relay's username and password |
+
+```bash
+VITE_TURN_URL=turn:turn.example.com:3478 VITE_TURN_USERNAME=capball VITE_TURN_CREDENTIAL=secret npm run build
+```
+
+They're added to the STUN defaults; malformed entries (bad JSON, TURN urls without a username and credential) are ignored. Any TURN service works — for example [Metered](https://www.metered.ca/stun-turn) or [Twilio Network Traversal](https://www.twilio.com/docs/stun-turn) (both have free tiers and give you the urls and credentials to paste in), or your own [coturn](https://github.com/coturn/coturn) server. These values end up in the public JavaScript bundle, so use credentials meant for browsers (Metered and Twilio can issue restricted or short-lived ones) rather than an account password.
+
+#### Dropped connections
+
+If the link drops during setup or a match, the host keeps the room open and pauses the match for up to a minute while the guest reconnects automatically (retrying after 1 s, 2 s, 4 s … ). The host sends the full match state again when the guest is back and play resumes after a short "back" notice. When the host first accepts a guest it gives it a random session token; only a guest presenting that token can rejoin a room, so nobody else can take over a match in progress. Pressing Leave (or closing the tab) tells the other player straight away.
 
 ## Rules at a glance
 
