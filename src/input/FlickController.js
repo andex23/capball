@@ -11,6 +11,10 @@ import { classifyContact } from '../game/rules'
 import { predictShot, createShot, createPrediction, capBounds, goalFor } from '../game/predict'
 
 const DOT_SPACING = 0.5
+// A finger picks up the nearest cap within this many screen pixels of the touch…
+const TOUCH_REACH_PX = 30
+// …but never from further than this across the pitch (world units), however far out the camera is
+const TOUCH_REACH_MAX = 2.4
 const DOT_FADE_LEN = 40 // dots fade out over this distance along a path
 
 // Lay dots along a predicted path (flat [x, y, ...] in physics coords, y → z)
@@ -75,8 +79,10 @@ export function useFlickController(meshRefs, trajectoryRef) {
     return raycaster.current.ray.intersectPlane(pitchPlane.current, hit) ? hit : null
   }, [camera, gl])
 
-  // Find the active team's cap nearest to a pitch position
-  const findCapAtPosition = useCallback((worldPos) => {
+  // Find the active team's cap nearest to a pitch position. `minReach` widens
+  // the catch area (world units) for fingers, which are far less precise than
+  // a mouse pointer on a cap that is only a couple of dozen pixels across.
+  const findCapAtPosition = useCallback((worldPos, minReach = 0) => {
     const currentTeam = useMatchStore.getState().activeTeam
     const refs = meshRefs.current
     if (!refs) return null
@@ -87,10 +93,19 @@ export function useFlickController(meshRefs, trajectoryRef) {
       if (!mesh || !id.startsWith(`${currentTeam}_`)) continue
       const radius = id.endsWith('_gk') ? GK_RADIUS : CAP_RADIUS
       const d = Math.hypot(worldPos.x - mesh.position.x, worldPos.z - mesh.position.z)
-      if (d < radius + 0.3 && d < bestDist) { best = id; bestDist = d }
+      if (d < Math.max(radius + 0.3, minReach) && d < bestDist) { best = id; bestDist = d }
     }
     return best
   }, [meshRefs])
+
+  // How far TOUCH_REACH_PX screen pixels reach across the pitch at a screen point
+  const touchReach = useCallback((clientX, clientY, worldPos) => {
+    const aside = getWorldPos(clientX + TOUCH_REACH_PX, clientY)
+    const below = getWorldPos(clientX, clientY + TOUCH_REACH_PX)
+    const dist = (p) => (p ? Math.hypot(p.x - worldPos.x, p.z - worldPos.z) : Infinity)
+    const reach = Math.min(dist(aside), dist(below))
+    return Number.isFinite(reach) ? Math.min(reach, TOUCH_REACH_MAX) : 0
+  }, [getWorldPos])
 
   useEffect(() => {
     const canvas = gl.domElement
@@ -110,7 +125,9 @@ export function useFlickController(meshRefs, trajectoryRef) {
       const worldPos = getWorldPos(e.clientX, e.clientY)
       if (!worldPos) return
 
-      let capId = findCapAtPosition(worldPos)
+      // Fingers get a pick-up area at least a thumb-tip wide, whatever the zoom
+      const reach = e.pointerType === 'touch' ? touchReach(e.clientX, e.clientY, worldPos) : 0
+      let capId = findCapAtPosition(worldPos, reach)
       // Already aiming: a press anywhere keeps dragging the selected cap
       if (!capId && state.phase === PHASE.AIM && dragCapId.current === null) capId = state.selectedCapId
       if (!capId) return
@@ -197,7 +214,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
       canvas.removeEventListener('touchstart', preventTouch)
       canvas.removeEventListener('touchmove', preventTouch)
     }
-  }, [gl, getWorldPos, findCapAtPosition, meshRefs])
+  }, [gl, getWorldPos, findCapAtPosition, touchReach, meshRefs])
 
   // Update the aim arrow and the predicted cap/ball paths each frame
   useFrame(() => {

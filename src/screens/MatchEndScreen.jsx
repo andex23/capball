@@ -85,18 +85,18 @@ export default function MatchEndScreen() {
           </h1>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, padding: '8px 20px 16px' }}>
+        <div className="end-teams">
           <div style={{ textAlign: 'center', opacity: winner === 'team2' ? 0.6 : 1 }}>
             <CapPreview config={teamConfig.team1} size={72} />
-            <div className="display" style={{ fontSize: 22, marginTop: 6 }}>{team1Name}</div>
+            <div className="display end-team-name">{team1Name}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div className="display tabular" style={{ fontSize: 72 }}>{score.team1}<span style={{ color: 'var(--text-3)', margin: '0 8px' }}>–</span>{score.team2}</div>
+            <div className="display tabular end-score">{score.team1}<span>–</span>{score.team2}</div>
             {penaltyScore && <div className="chip" style={{ cursor: 'default' }}>Pens {penaltyScore.team1}–{penaltyScore.team2}</div>}
           </div>
           <div style={{ textAlign: 'center', opacity: winner === 'team1' ? 0.6 : 1 }}>
             <CapPreview config={teamConfig.team2} size={72} />
-            <div className="display" style={{ fontSize: 22, marginTop: 6 }}>{team2Name}</div>
+            <div className="display end-team-name">{team2Name}</div>
           </div>
         </div>
 

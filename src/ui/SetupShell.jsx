@@ -18,9 +18,9 @@ export default function SetupShell({ step, title, subtitle, onBack, next, onBoth
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow">Match setup · Step {step + 1} of {STEPS.length}</div>
+            <div className="eyebrow shell-eyebrow">Match setup · Step {step + 1} of {STEPS.length}</div>
             <h1 className="display shell-title">{title}</h1>
-            {subtitle && <p className="muted" style={{ marginTop: 6 }}>{subtitle}</p>}
+            {subtitle && <p className="muted shell-sub">{subtitle}</p>}
           </div>
           <ol className="stepper" aria-label="Setup progress">
             {STEPS.map((label, i) => (

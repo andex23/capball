@@ -71,8 +71,22 @@ function placeCard(card, a) {
   const gap = a.r + 14
   const bottomReserve = 72 // bottom corner buttons / hint
   const below = a.y + gap + h <= vh - bottomReserve
+  const above = a.y - gap - h >= EDGE
   let top = below ? a.y + gap : a.y - gap - h
   let left = a.x - w / 2
+  if (!below && !above) {
+    // Short screens (a phone on its side): there is no room above or below the
+    // target, so sit beside it — on whichever side has more space — rather
+    // than on top of it and the scoreboard
+    const sideGap = a.r + 10
+    left = vw - a.x >= a.x ? a.x + sideGap : a.x - sideGap - w
+    top = a.y - h / 2
+    left = Math.min(Math.max(left, EDGE), Math.max(EDGE, vw - w - EDGE))
+    top = Math.min(Math.max(top, EDGE), Math.max(EDGE, vh - h - EDGE))
+    card.style.left = `${Math.round(left)}px`
+    card.style.top = `${Math.round(top)}px`
+    return
+  }
   // Near a side edge (a goal in landscape): hug that edge rather than cover midfield,
   // where the player's caps usually are
   if (a.x > vw * 0.7) left = vw - w - EDGE

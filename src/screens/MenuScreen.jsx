@@ -46,10 +46,10 @@ export default function MenuScreen() {
       <div className="screen-content menu-layout">
         <header>
           <div className="eyebrow" style={{ color: 'var(--accent)' }}>Tabletop football</div>
-          <h1 className="display" style={{ fontSize: 'clamp(64px, 10vw, 112px)' }}>
+          <h1 className="display menu-title">
             Cap<span style={{ color: 'var(--accent)' }}>ball</span>
           </h1>
-          <p className="muted" style={{ maxWidth: 360, marginTop: 8 }}>Flick your caps, beat the keeper, win the match.</p>
+          <p className="muted menu-tagline">Flick your caps, beat the keeper, win the match.</p>
         </header>
 
         <nav className="menu-modes" aria-label="Game mode">
@@ -70,7 +70,7 @@ export default function MenuScreen() {
           </div>
         </nav>
 
-        <footer style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <footer className="menu-foot">
           <button className="btn btn-secondary" onClick={() => { playMenuNavigate(); setDialog('rules') }}>
             <Icon name="help" size={18} /> How to play
           </button>

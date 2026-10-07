@@ -63,30 +63,80 @@ export function fitCurrentPreset() {
   applyPreset(CAMERA_PRESETS[_presetIndex])
 }
 
-/** How much further back than the preset the camera must sit to fit the pitch. */
-export function fitScale(aspect) {
+/**
+ * Screen space the HUD keeps to itself, in CSS pixels, when the pitch stands
+ * upright (phones and tablets held tall). The scoreboard and turn pill sit
+ * above the far goal and the pause/camera buttons below the near one, so the
+ * pitch is fitted between them instead of underneath them. Landscape screens
+ * have room beside the pitch and are left alone.
+ */
+export function hudInsets(width, height) {
+  if (!(width > 0 && height > 0) || width / height >= PORTRAIT_BELOW) return { top: 0, bottom: 0 }
+  // Scoreboard + turn prompt (which wraps onto two lines on a narrow phone), then
+  // the pause/camera buttons — less the goal's depth, which sits between them
+  return { top: width <= 560 ? 112 : 104, bottom: 34 }
+}
+
+// Notch / home-indicator space, read from CSS because JS has no direct API for it
+let _safeProbe = null
+function safeAreaInsets() {
+  if (typeof document === 'undefined' || !document.body) return { top: 0, bottom: 0 }
+  if (!_safeProbe) {
+    _safeProbe = document.createElement('div')
+    _safeProbe.setAttribute('aria-hidden', 'true')
+    _safeProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'
+      + 'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)'
+    document.body.appendChild(_safeProbe)
+  }
+  const cs = getComputedStyle(_safeProbe)
+  return { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 }
+}
+
+/**
+ * How much further back than the preset the camera must sit to fit the pitch.
+ * `freeHeight` is the share of the screen height the pitch may use (1 = all).
+ */
+export function fitScale(aspect, freeHeight = 1) {
   const portrait = aspect < PORTRAIT_BELOW
   const across = portrait ? FOOTPRINT.short : FOOTPRINT.long // screen width
   const tall = portrait ? FOOTPRINT.long : FOOTPRINT.short // screen height
   const perUnit = 2 * Math.tan((FOV * Math.PI) / 360) // visible height per unit distance
-  const needed = Math.max(tall / perUnit, across / (perUnit * aspect))
+  const free = Math.min(1, Math.max(0.4, freeHeight))
+  const needed = Math.max(tall / (perUnit * free), across / (perUnit * aspect))
   return Math.max(1, needed / BASE_DISTANCE)
 }
 
-export function posePreset(preset, aspect) {
+export function posePreset(preset, aspect, freeHeight = 1) {
   const portrait = aspect < PORTRAIT_BELOW
   const pos = portrait ? preset.portraitPos : preset.pos
   const target = preset.target
-  const k = fitScale(aspect)
+  const k = fitScale(aspect, freeHeight)
   return {
     position: pos.map((p, i) => target[i] + (p - target[i]) * k),
     target,
   }
 }
 
+/** Top/bottom pixels to keep clear of the pitch on the current canvas. */
+function currentInsets() {
+  const w = _canvasRef?.clientWidth || 0
+  const h = _canvasRef?.clientHeight || 0
+  const hud = hudInsets(w, h)
+  if (!hud.top && !hud.bottom) return { w, h, top: 0, bottom: 0 }
+  const safe = safeAreaInsets()
+  return { w, h, top: hud.top + safe.top, bottom: hud.bottom + safe.bottom }
+}
+
 function applyPreset(preset) {
   if (!preset || !_controlsRef || !_cameraRef) return
-  const { position, target } = posePreset(preset, _cameraRef.aspect || 1)
+  const { w, h, top, bottom } = currentInsets()
+  const freeHeight = h > 0 ? (h - top - bottom) / h : 1
+  const { position, target } = posePreset(preset, _cameraRef.aspect || 1, freeHeight)
+  // Slide the picture so the pitch is centred in the space the HUD leaves free.
+  // A view offset moves the image without touching the camera pose, so aiming,
+  // the tutorial pointers and replays all keep working off the same matrices.
+  if (top || bottom) _cameraRef.setViewOffset?.(w, h, 0, -(top - bottom) / 2, w, h)
+  else if (_cameraRef.view) _cameraRef.clearViewOffset?.()
   _cameraRef.position.set(...position)
   _controlsRef.target.set(...target)
   _controlsRef.update()
