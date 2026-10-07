@@ -36,13 +36,20 @@
   --gutter: clamp(16px, 3vw, 32px);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  /* Page gutters that also clear a notch when the phone is on its side */
+  --gutter-l: max(var(--gutter), var(--safe-left));
+  --gutter-r: max(var(--gutter), var(--safe-right));
 
   color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { width: 100%; height: 100%; }
-html, body { overflow: hidden; }
+/* No rubber-banding or pull-to-refresh under a drag, no text inflation when a phone is turned */
+html, body { overflow: hidden; overscroll-behavior: none; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -51,6 +58,8 @@ body {
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /* Taps act at once and a double tap never zooms the page mid-match */
+  touch-action: manipulation;
 }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; }
@@ -279,6 +288,7 @@ button { cursor: pointer; background: none; border: 0; }
   border-radius: var(--r-md);
   border: 1px solid var(--line-strong);
   background: rgba(0, 0, 0, 0.3);
+  font-size: 16px; /* below 16px, iOS zooms the whole page when the field is focused */
   font-weight: 600;
   transition: border-color 0.15s ease;
 }
@@ -292,7 +302,7 @@ button { cursor: pointer; background: none; border: 0; }
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: calc(var(--safe-top) + 20px) var(--gutter) 0;
+  padding: calc(var(--safe-top) + 20px) var(--gutter-r) 0 var(--gutter-l);
 }
 .shell-head {
   display: flex;
@@ -304,16 +314,21 @@ button { cursor: pointer; background: none; border: 0; }
   margin: 0 auto 20px;
 }
 .shell-title { font-size: clamp(34px, 5vw, 52px); }
+.shell-sub { margin-top: 6px; }
 .shell-body { flex: 1; max-width: 1120px; width: 100%; margin: 0 auto; }
 .shell-foot {
   position: sticky;
   bottom: 0;
   z-index: 5;
-  margin: 24px calc(var(--gutter) * -1) 0;
-  padding: 14px var(--gutter) calc(var(--safe-bottom) + 14px);
+  margin: 24px calc(var(--gutter-r) * -1) 0 calc(var(--gutter-l) * -1);
+  padding: 14px var(--gutter-r) calc(var(--safe-bottom) + 14px) var(--gutter-l);
   background: linear-gradient(0deg, rgba(6, 9, 19, 0.98) 55%, rgba(6, 9, 19, 0));
 }
 .shell-foot-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.shell-foot-inner .btn { flex: none; }
+.ready-group { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ready-chip { cursor: default; min-width: 0; }
+.ready-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .stepper { display: flex; align-items: center; gap: 6px; list-style: none; }
 .stepper li { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-3); }
@@ -423,7 +438,7 @@ button { cursor: pointer; background: none; border: 0; }
 .backdrop {
   position: fixed; inset: 0; z-index: 50;
   display: grid; place-items: center;
-  padding: var(--gutter);
+  padding: max(var(--gutter), var(--safe-top)) var(--gutter-r) max(var(--gutter), var(--safe-bottom)) var(--gutter-l);
   background: rgba(3, 5, 12, 0.66);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -432,14 +447,20 @@ button { cursor: pointer; background: none; border: 0; }
 .sheet {
   width: min(520px, 100%);
   max-height: min(86vh, 760px);
+  max-height: min(86dvh, 760px); /* the visible height, with a phone's browser bars showing */
   overflow-y: auto;
+  overscroll-behavior: contain;
   animation: pop-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; }
 .sheet-body { padding: 4px 20px 20px; display: flex; flex-direction: column; gap: 18px; }
 
 /* ── HUD ── */
-.hud { position: absolute; inset: 0; pointer-events: none; z-index: 10; font-family: var(--font-ui); }
+.hud {
+  position: absolute; inset: 0; pointer-events: none; z-index: 10; font-family: var(--font-ui);
+  /* A long press mid-drag must not select text or pop the copy/share callout */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
 .hud > * { pointer-events: auto; }
 .hud-top {
   position: absolute;
@@ -511,19 +532,21 @@ button { cursor: pointer; background: none; border: 0; }
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  max-width: 100%;
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
 }
+.turn-pill > * { flex: none; }
 .turn-pill .team-dot { width: 10px; height: 10px; animation: pulse-dot 1.6s ease-in-out infinite; }
 
 .hud-corner { position: absolute; display: flex; gap: 8px; }
-.hud-corner.tl { top: calc(var(--safe-top) + 12px); left: 12px; }
-.hud-corner.bl { bottom: calc(var(--safe-bottom) + 12px); left: 12px; }
-.hud-corner.br { bottom: calc(var(--safe-bottom) + 12px); right: 12px; }
+.hud-corner.tl { top: calc(var(--safe-top) + 12px); left: calc(var(--safe-left) + 12px); }
+.hud-corner.bl { bottom: calc(var(--safe-bottom) + 12px); left: calc(var(--safe-left) + 12px); }
+.hud-corner.br { bottom: calc(var(--safe-bottom) + 12px); right: calc(var(--safe-right) + 12px); }
 
 .power {
   position: absolute;
-  right: 16px;
+  right: calc(var(--safe-right) + 16px);
   top: 50%;
   transform: translateY(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -592,6 +615,15 @@ button { cursor: pointer; background: none; border: 0; }
   pointer-events: none;
   white-space: nowrap;
 }
+/* Upright pitch (see camera.js): the near goal sits where the hint would */
+@media (max-aspect-ratio: 9/10) { .hint { display: none; } }
+.hint-touch { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .hint-mouse { display: none; }
+  .hint-touch { display: inline; }
+  /* Sliders get a thumb-sized grab area */
+  .range { min-height: 36px; }
+}
 
 /* ── Animations ── */
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -605,9 +637,13 @@ button { cursor: pointer; background: none; border: 0; }
 
 /* ── Responsive ── */
 @media (max-width: 860px) {
+  .shell-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+/* Stack the two teams on tall screens and on anything phone-narrow. A phone on
+   its side is wide but short: side by side uses that space far better. */
+@media (max-width: 860px) and (orientation: portrait), (max-width: 560px) {
   .versus { grid-template-columns: 1fr; gap: 14px; }
   .vs-badge { justify-self: center; width: 40px; height: 40px; font-size: 16px; }
-  .shell-head { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 @media (max-width: 560px) {
   body { font-size: 14px; }
@@ -633,9 +669,12 @@ button { cursor: pointer; background: none; border: 0; }
   justify-content: center;
   gap: 28px;
   max-width: 480px;
-  padding: calc(var(--safe-top) + 32px) var(--gutter) calc(var(--safe-bottom) + 32px);
+  padding: calc(var(--safe-top) + 32px) var(--gutter-r) calc(var(--safe-bottom) + 32px) var(--gutter-l);
   margin-left: clamp(0px, 6vw, 96px);
 }
+.menu-title { font-size: clamp(64px, 10vw, 112px); }
+.menu-tagline { max-width: 360px; margin-top: 8px; }
+.menu-foot { display: flex; gap: 8px; flex-wrap: wrap; }
 .menu-modes { display: flex; flex-direction: column; gap: 10px; }
 .mode-btn {
   width: 100%;
@@ -942,4 +981,129 @@ button { cursor: pointer; background: none; border: 0; }
 @media (max-width: 560px) {
   .tut-title { font-size: 22px; }
   .tut-body { font-size: 14px; }
+}
+
+/* ── Venue, formation and full-time layouts ── */
+.venue-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.venue-name { font-weight: 700; }
+.venue-label { font-size: 13px; }
+.formation-body { display: flex; flex-direction: column; gap: 14px; }
+.kit-preview { display: grid; place-items: center; padding: 18px 0 10px; }
+.kit-tabs { padding: 0 12px; }
+.kit-options { display: flex; flex-direction: column; gap: 16px; min-height: 210px; }
+.formation-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.list-option > span { min-width: 0; }
+.list-option small { flex: none; white-space: nowrap; }
+.end-teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 8px 20px 16px; }
+.end-team-name { font-size: 22px; margin-top: 6px; overflow-wrap: anywhere; }
+.end-score { font-size: clamp(46px, 15vw, 72px); white-space: nowrap; }
+.end-score span { color: var(--text-3); margin: 0 0.11em; }
+
+/* ── Phones, upright ── */
+@media (max-width: 560px) {
+  /* Two venues per row: all four fit on one screen instead of a long scroll */
+  .venue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .venue-grid .option-card { padding: 8px; gap: 8px; border-radius: var(--r-md); }
+  .venue-grid .option-card .check { top: 6px; right: 6px; width: 22px; height: 22px; }
+  .venue-name { font-size: 14px; line-height: 1.2; }
+  .venue-label { font-size: 12px; line-height: 1.3; margin-top: 2px; }
+  .segmented.stretch button { padding: 0 8px; }
+  /* The turn prompt wraps onto a second line rather than running off the sides */
+  .turn-pill { white-space: normal; text-align: center; line-height: 1.25; padding: 6px 12px; border-radius: 16px; }
+  /* Long banners ("Shootout over") stay inside a phone's width */
+  .banner-title { font-size: clamp(40px, 13vw, 56px); }
+  .end-teams { padding: 8px 12px 14px; gap: 8px; }
+  .end-team-name { font-size: 19px; }
+  /* Online ready bar: the dot already says who it is about */
+  .ready-group { gap: 8px; }
+  .ready-name, .ready-leave-label { display: none; }
+  .sheet-head { padding: 14px 16px 10px; }
+  .sheet-body { padding: 4px 16px 16px; gap: 14px; }
+}
+@media (max-width: 380px) {
+  .shell-foot .btn { padding: 0 14px; font-size: 17px; }
+  .shell-foot .btn-lg { padding: 0 14px; font-size: 20px; }
+  .shell-foot-inner { gap: 8px; }
+  .ready-chip { padding: 0 10px; }
+  .card-pad { padding: 16px; }
+  .formation-options .list-option { padding: 0 10px; gap: 6px; font-size: 13px; line-height: 1.2; }
+  .scorebug-team { font-size: 14px; padding: 0 6px; }
+  .mode-btn { font-size: 22px; }
+}
+
+/* ── Phones on their side: wide but very short ── */
+@media (min-width: 561px) and (max-height: 500px) {
+  /* Setup: one slim header row so the choices get the height */
+  .shell { padding-top: calc(var(--safe-top) + 10px); }
+  .shell-head { flex-direction: row; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .shell-eyebrow, .shell-sub { display: none; }
+  .shell-title { font-size: 28px; }
+  .shell-foot { margin-top: 12px; padding-top: 8px; padding-bottom: calc(var(--safe-bottom) + 10px); }
+  .shell-foot .btn { min-height: 42px; }
+  .shell-foot .btn-lg { min-height: 46px; font-size: 21px; padding: 0 24px; }
+  .versus { gap: 12px; }
+  .vs-badge { width: 36px; height: 36px; font-size: 15px; }
+  .card-pad { padding: 14px; }
+  .team-card-head { padding: 8px 12px; }
+  .team-name-input { min-height: 34px; font-size: 20px; }
+  /* Kit builder: the cap sits beside its options instead of pushing them off-screen */
+  .kit-card { display: grid; grid-template-columns: clamp(92px, 15vw, 132px) minmax(0, 1fr); grid-template-rows: auto auto 1fr; }
+  .kit-card > .team-card-head { grid-column: 1 / -1; }
+  .kit-card > .kit-preview { grid-column: 1; grid-row: 2 / -1; align-self: start; padding: 14px 0 10px 12px; }
+  .kit-card > .kit-preview > * { width: 100%; max-width: 112px; height: auto; }
+  .kit-tabs { padding: 0 8px; }
+  .kit-tabs button { font-size: 11px; letter-spacing: 0.06em; }
+  .venue-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .venue-grid .option-card { padding: 8px; gap: 8px; }
+  .venue-name { font-size: 14px; line-height: 1.2; }
+  .venue-label { font-size: 12px; line-height: 1.3; margin-top: 2px; }
+  .kit-card > :not(.team-card-head):not(.kit-preview) { grid-column: 2; }
+  .kit-options { min-height: 0; gap: 12px; }
+  .tabs button { min-height: 36px; }
+  /* Formation: pitch on the left, the four choices stacked on the right */
+  .formation-body { flex-direction: row; align-items: center; }
+  .formation-body > svg { flex: 1 1 0; min-width: 0; }
+  .formation-options { flex: 0 0 42%; grid-template-columns: 1fr; gap: 6px; }
+  .formation-options .list-option { min-height: 38px; padding: 0 10px; font-size: 13px; }
+
+  /* Menu: everything on one screen */
+  .menu-layout { gap: 12px; padding-top: calc(var(--safe-top) + 12px); padding-bottom: calc(var(--safe-bottom) + 12px); }
+  .menu-title { font-size: 52px; }
+  .menu-tagline { display: none; }
+  .menu-modes { gap: 8px; }
+  .mode-btn { min-height: 46px; font-size: 21px; }
+  .mode-btn svg { width: 22px; height: 22px; }
+  .menu-foot .btn { min-height: 40px; font-size: 17px; padding: 0 14px; }
+
+  /* Match: compact scoreboard up top, the turn prompt drops to the bottom
+     edge so the far touchline and goal are not hidden under it */
+  .hud-top {
+    top: calc(var(--safe-top) + 8px);
+    bottom: calc(var(--safe-bottom) + 8px);
+    justify-content: space-between;
+  }
+  .scorebug { height: 40px; }
+  .scorebug-team { font-size: 16px; padding: 0 10px; gap: 8px; }
+  .scorebug-score { min-width: 36px; font-size: 24px; padding: 0 8px; }
+  .scorebug-clock { min-width: 60px; }
+  .scorebug-clock b { font-size: 19px; }
+  .turn-pill { min-height: 28px; font-size: 12px; }
+  .hint { display: none; }
+  .hud-corner.tl { top: calc(var(--safe-top) + 8px); }
+  .hud-corner.br { bottom: calc(var(--safe-bottom) + 8px); }
+  .power-track { height: min(46vh, 200px); }
+  .power-fill { background-size: 100% min(46vh, 200px); }
+  .banner-title { font-size: clamp(48px, 22vh, 96px); }
+  .banner-stripe { height: 110px; }
+  .tut-card { width: min(300px, 44vw); padding: 10px 12px; gap: 4px; }
+  .tut-title { font-size: 21px; }
+  .tut-body { font-size: 13px; line-height: 1.35; }
+  .tut-actions .btn { min-height: 36px; }
+  .tut-card[data-anchored='false'] { bottom: calc(var(--safe-bottom) + 48px); }
+
+  /* Dialogs use the full height available */
+  .backdrop { padding-top: max(10px, var(--safe-top)); padding-bottom: max(10px, var(--safe-bottom)); }
+  .sheet { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
+  .sheet-head { padding: 12px 18px 8px; }
+  .sheet-body { gap: 12px; }
 }

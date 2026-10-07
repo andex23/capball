@@ -64,7 +64,7 @@ export default function StadiumSelectScreen() {
       next={{ label: 'Formations', onClick: () => goToScreen(SCREEN.FORMATION) }}
       onBothReady={() => goToScreen(SCREEN.FORMATION)}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+      <div className="venue-grid">
         {STADIUM_KEYS.map((key) => {
           const st = STADIUMS[key]
           const selected = stadium === key
@@ -79,8 +79,8 @@ export default function StadiumSelectScreen() {
             >
               <SurfacePreview stadium={st} size={240} />
               <div>
-                <div style={{ fontWeight: 700 }}>{st.name}</div>
-                <div className="muted" style={{ fontSize: 13 }}>{st.label}</div>
+                <div className="venue-name">{st.name}</div>
+                <div className="muted venue-label">{st.label}</div>
               </div>
               {selected && <span className="check"><Icon name="check" size={14} strokeWidth={3} /></span>}
             </button>

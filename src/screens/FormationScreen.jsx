@@ -62,9 +62,9 @@ function FormationCard({ team, config, formation, onSelect, locked, tag }) {
         <span className="display" style={{ fontSize: 24, flex: 1 }}>{config.name}</span>
         {tag && <span className="lock-note">{tag}</span>}
       </div>
-      <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="card-pad formation-body">
         <PitchPreview team={team} formationKey={formation} color={config.primary} edge={config.edge} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }} role="group" aria-label="Formation">
+        <div className="formation-options" role="group" aria-label="Formation">
           {FORMATION_KEYS.map((key) => (
             <button
               key={key}

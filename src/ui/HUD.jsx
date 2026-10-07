@@ -290,7 +290,10 @@ export default function HUD() {
       <PowerMeter />
       {!paused && <Banner />}
 
-      <div className="hint">Drag back from a cap to aim · Right-drag to rotate · Scroll to zoom · P to pause</div>
+      <div className="hint">
+        <span className="hint-mouse">Drag back from a cap to aim · Right-drag to rotate · Scroll to zoom · P to pause</span>
+        <span className="hint-touch">Drag back from a cap to aim · Two fingers to turn or zoom the view</span>
+      </div>
 
       {paused && !connectionLost && <PauseMenu onClose={() => setPaused(false)} />}
     </div>

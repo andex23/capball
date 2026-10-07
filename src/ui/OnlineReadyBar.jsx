@@ -41,13 +41,13 @@ export default function OnlineReadyBar({ onBothReady }) {
 
   return (
     <>
-      <button className="btn btn-secondary" onClick={leave}>
-        <Icon name="exit" size={18} /> Leave
+      <button className="btn btn-secondary" onClick={leave} aria-label="Leave">
+        <Icon name="exit" size={18} /> <span className="ready-leave-label">Leave</span>
       </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <span className="chip" aria-live="polite" style={{ cursor: 'default' }}>
+      <div className="ready-group">
+        <span className="chip ready-chip" aria-live="polite">
           <span className="team-dot" style={{ '--team': opponentReady ? 'var(--good)' : 'var(--text-3)' }} />
-          {teamConfig[opponent]?.name || 'Opponent'} · {opponentReady ? 'Ready' : 'Choosing…'}
+          <span className="ready-text"><span className="ready-name">{teamConfig[opponent]?.name || 'Opponent'} · </span>{opponentReady ? 'Ready' : 'Choosing…'}</span>
         </span>
         <button className={`btn btn-lg ${iAmReady ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleReady} aria-pressed={iAmReady}>
           {bothReady ? 'Starting…' : iAmReady ? <><Icon name="check" size={18} /> Ready</> : 'Ready up'}

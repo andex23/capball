@@ -85,7 +85,7 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
   }
 
   return (
-    <section className="card team-card" style={{ '--team': teamColor }} aria-label={`${config.name} kit`}>
+    <section className="card team-card kit-card" style={{ '--team': teamColor }} aria-label={`${config.name} kit`}>
       <div className="team-card-head">
         <input
           className="team-name-input"
@@ -100,7 +100,7 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
         {tag && <span className="lock-note">{locked && <Icon name="lock" size={14} />}{tag}</span>}
       </div>
 
-      <div style={{ display: 'grid', placeItems: 'center', padding: '18px 0 10px' }}>
+      <div className="kit-preview">
         <CapPreview config={config} size={128} />
       </div>
 
@@ -110,14 +110,14 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
         </p>
       ) : (
         <>
-          <div className="tabs" role="tablist" style={{ padding: '0 12px' }}>
+          <div className="tabs kit-tabs" role="tablist">
             {TABS.map((t) => (
               <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => { playButtonSelect(); setTab(t.key) }}>
                 {t.label}
               </button>
             ))}
           </div>
-          <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: 210 }}>
+          <div className="card-pad kit-options">
             {tab === 'colors' && (
               <>
                 <Swatches label="Body" value={config.primary} onPick={(c) => onUpdate({ primary: c })} />
