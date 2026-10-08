@@ -14,7 +14,7 @@ import { usePhysicsSync } from '../physics/PhysicsSync'
 import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
-import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty } from '../physics/PhysicsWorld'
+import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty, setupCorner, setupGoalKick } from '../physics/PhysicsWorld'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 
@@ -330,6 +330,10 @@ function GameWorld() {
     } else if (phase === PHASE.FREE_KICK_SETUP && s.foulData) {
       setupFreeKick(s.foulData.foulSpot, s.foulData.fouledTeam)
       playFreeKick()
+    } else if (phase === PHASE.CORNER_SETUP && s.restart) {
+      setupCorner(s.restart.team, s.restart.ex, s.restart.ey)
+    } else if (phase === PHASE.GOAL_KICK_SETUP && s.restart) {
+      setupGoalKick(s.restart.team, s.restart.ex, s.restart.ey)
     } else if (phase === PHASE.PENALTY_SETUP && s.foulData) {
       setupPenalty(s.foulData.fouledTeam)
       playPenalty()

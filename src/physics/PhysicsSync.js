@@ -2,12 +2,13 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
-  stopAllBodies, placeBallAt, deOverlapBodies,
+  stopAllBodies, placeBallAt, deOverlapBodies, getLastBallTeam,
 } from './PhysicsWorld'
+import { ballInCorner, cornerRestart } from '../game/rules'
 import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 import { PHYSICS } from '../data/TeamData'
-import { playGoal, playTurnChange } from '../audio/SoundManager'
+import { playGoal, playTurnChange, playWhistle } from '../audio/SoundManager'
 import { useGoalReplay } from '../scene/useGoalReplay'
 
 // A turn never waits longer than this for everything to stop rolling.
@@ -91,6 +92,13 @@ export function usePhysicsSync(meshRefs) {
     stopAllBodies()
     if (s.penaltyShootout) {
       s.penaltyAttemptResult(false)
+      return
+    }
+    // Ball stuck in a corner: corner kick or goal kick, like real football
+    const corner = bodies.ball && ballInCorner(bodies.ball.position.x, bodies.ball.position.y)
+    if (corner) {
+      playWhistle()
+      s.awardRestart({ ...cornerRestart(corner.ex, getLastBallTeam(), s.team1Side || 'left'), ...corner })
     } else {
       playTurnChange()
       s.switchTurn()

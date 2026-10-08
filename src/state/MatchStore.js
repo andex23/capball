@@ -24,6 +24,8 @@ export const PHASE = {
   KICKOFF: 'KICKOFF',
   FOUL: 'FOUL',
   FREE_KICK_SETUP: 'FREE_KICK_SETUP',
+  CORNER_SETUP: 'CORNER_SETUP',
+  GOAL_KICK_SETUP: 'GOAL_KICK_SETUP',
   PENALTY_SETUP: 'PENALTY_SETUP',
   TIMEOUT: 'TIMEOUT',
   MATCH_OVER: 'MATCH_OVER',
@@ -356,6 +358,27 @@ export const useMatchStore = create((set, get) => ({
   startKickoff: (team) => {
     set({ ...clearTurn, phase: PHASE.KICKOFF, activeTeam: team, kickoffGuard: true })
     later(() => get().beginPlay(), TIMING.kickoff)
+  },
+
+  // --- Corner kicks / goal kicks (ball stuck in a corner) ---
+  restart: null, // { kind: 'corner' | 'goalKick', team, ex, ey }
+  awardRestart: ({ kind, team, ex, ey }) => {
+    const { activeTeam } = get()
+    get().bumpStat(activeTeam, 'turns')
+    set({
+      ...clearTurn,
+      phase: kind === 'corner' ? PHASE.CORNER_SETUP : PHASE.GOAL_KICK_SETUP,
+      activeTeam: team,
+      restart: { kind, team, ex, ey },
+      kickoffGuard: false,
+    })
+    // The scene lays the caps out as soon as the setup phase starts
+    later(() => {
+      const s = get()
+      if (s.phase === PHASE.CORNER_SETUP || s.phase === PHASE.GOAL_KICK_SETUP) {
+        set({ phase: PHASE.SELECT, selectedCapId: null, shotClockRemaining: s.shotClock })
+      }
+    }, TIMING.setPiece)
   },
 
   // --- Fouls ---
