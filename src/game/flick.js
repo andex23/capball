@@ -1,6 +1,6 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
 import { applyFlick, getBody } from '../physics/PhysicsWorld'
-import { teamOf } from './rules'
+import { teamOf, isGoalkeeper, keeperCanPlay, teamHomeDir } from './rules'
 
 /**
  * Why a flick isn't allowed right now, or null if it is.
@@ -10,14 +10,18 @@ import { teamOf } from './rules'
  * @param capId   cap being flicked
  * @param velocity {x, y}
  * @param byTeam  team the request comes from (null = trusted local input)
+ * @param ball    ball position {x, y} (physics coords); enables the keeper-range rule
  */
-export function flickError(state, { capId, velocity, byTeam = null }) {
+export function flickError(state, { capId, velocity, byTeam = null, ball = null }) {
   if (state.paused) return 'paused'
   if (!INPUT_PHASES.includes(state.phase)) return 'wrong-phase'
   const team = teamOf(capId)
   if (!team || team !== state.activeTeam) return 'not-your-cap'
   if (byTeam && byTeam !== state.activeTeam) return 'not-your-turn'
   if (state.freeKickCapId && capId !== state.freeKickCapId) return 'set-piece-taker-only'
+  // Keepers only come out for the ball near their own box (a set-piece taker always may)
+  if (isGoalkeeper(capId) && capId !== state.freeKickCapId && ball
+    && !keeperCanPlay(ball.x, ball.y, teamHomeDir(team, state.team1Side || 'left'))) return 'keeper-out-of-range'
   if (!velocity || !Number.isFinite(velocity.x) || !Number.isFinite(velocity.y)) return 'bad-velocity'
   if (velocity.x === 0 && velocity.y === 0) return 'bad-velocity'
   return null
@@ -26,12 +30,18 @@ export function flickError(state, { capId, velocity, byTeam = null }) {
 /** Validate and apply a flick. Returns null on success or the reason it was refused. */
 export function performFlick(capId, velocity, byTeam = null) {
   const state = useMatchStore.getState()
-  const err = flickError(state, { capId, velocity, byTeam })
+  const err = flickError(state, { capId, velocity, byTeam, ball: getBody('ball')?.position || null })
   if (err) return err
   if (!getBody(capId)) return 'no-body'
   applyFlick(capId, velocity) // clamps to max power
   state.commitFlick(capId)
   return null
+}
+
+/** Can this cap be picked up right now, as far as the keeper-range rule goes? */
+export function capSelectable(state, capId, ball) {
+  if (!isGoalkeeper(capId) || capId === state.freeKickCapId || !ball) return true
+  return keeperCanPlay(ball.x, ball.y, teamHomeDir(teamOf(capId), state.team1Side || 'left'))
 }
 
 /** Teams this client may control with the mouse/touch. */

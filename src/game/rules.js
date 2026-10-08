@@ -82,6 +82,22 @@ export function isInPenaltyArea(x, y, homeDir) {
     : x > PITCH.halfW - PITCH.penAreaW
 }
 
+// How far outside his own penalty area the ball can be and the keeper still come for it
+export const KEEPER_REACH = 3
+
+/**
+ * A goalkeeper may only be flicked while the ball is in or near his own
+ * penalty area (homeDir = which end that keeper defends: -1 left, +1 right).
+ * Out in open play the outfield caps have to do the work.
+ */
+export function keeperCanPlay(ballX, ballY, homeDir, margin = KEEPER_REACH) {
+  if (!Number.isFinite(ballX) || !Number.isFinite(ballY)) return true
+  if (Math.abs(ballY) > PITCH.penAreaH / 2 + margin) return false
+  return homeDir === -1
+    ? ballX < -PITCH.halfW + PITCH.penAreaW + margin
+    : ballX > PITCH.halfW - PITCH.penAreaW - margin
+}
+
 /**
  * Penalty shootout state after any number of kicks.
  * Best of SHOOTOUT_ROUNDS, stops early once one side can't catch up, then
