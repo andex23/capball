@@ -1,3 +1,4 @@
+import { useTournamentStore } from '../state/tournamentStore'
 import { useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { sendReady, getIsHost, disconnect } from '../multiplayer/MultiplayerManager'
@@ -35,6 +36,7 @@ export default function OnlineReadyBar({ onBothReady }) {
 
   const leave = () => {
     playButtonSelect()
+    if (useTournamentStore.getState().playing) { useTournamentStore.getState().backToHub(); return }
     disconnect()
     useMatchStore.getState().quitMatch(SCREEN.MENU)
   }
