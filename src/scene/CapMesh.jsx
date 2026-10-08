@@ -26,7 +26,7 @@ const BODY_HEIGHT = 0.22         // thicker than before
 const RIM_HEIGHT = BODY_HEIGHT * 0.6
 const RIM_OVERHANG = 0.06        // rim extends past body
 const DOME_HEIGHT = 0.06         // raised center plate
-const DOME_RATIO = 0.52          // center plate radius as % of cap radius
+const DOME_RATIO = 0.68          // center plate radius as % of cap radius (room for a readable squad number)
 const CHANNEL_WIDTH = 0.06       // recessed ring width
 const CHANNEL_DEPTH = 0.02       // how deep the channel is cut
 const BEVEL_RATIO = 0.92         // body top face is slightly smaller (beveled edge)
@@ -37,6 +37,14 @@ const FINISH_MAP = {
   satin:  { metalness: 0.35, roughness: 0.45, emissiveIntensity: 0.05, envMapIntensity: 0.7 },
   gloss:  { metalness: 0.5, roughness: 0.18, emissiveIntensity: 0.07, envMapIntensity: 0.9 },
   chrome: { metalness: 0.92, roughness: 0.05, emissiveIntensity: 0.08, envMapIntensity: 1.3 },
+}
+
+// 0 (black) .. 1 (white): how light a #rrggbb colour looks
+function luminance(hex) {
+  const m = /^#?([0-9a-f]{6})/i.exec(hex || '')
+  if (!m) return 0
+  const n = parseInt(m[1], 16)
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
 }
 
 // Create canvas texture for the center dome (badge + number + pattern hint)
@@ -67,8 +75,8 @@ function createDomeTexture(color, edgeColor, badge, number, size = 256) {
 
   // Badge
   const badgeColor = edgeColor === color ? '#FFFFFFBB' : `${edgeColor}DD`
-  const bs = r * 0.38
-  const badgeY = number != null ? cy - bs * 0.25 : cy
+  const bs = number != null ? r * 0.26 : r * 0.38
+  const badgeY = number != null ? cy - r * 0.42 : cy
   ctx.fillStyle = badgeColor
 
   switch (badge) {
@@ -145,13 +153,20 @@ function createDomeTexture(color, edgeColor, badge, number, size = 256) {
       break
   }
 
-  // Number
+  // Squad number: big and outlined so it reads from the match camera
   if (number != null) {
-    const numY = badge && badge !== 'none' ? cy + bs * 0.75 : cy + bs * 0.1
-    ctx.fillStyle = badgeColor
-    ctx.font = `bold ${r * 0.45}px 'Impact', sans-serif`
+    const withBadge = badge && badge !== 'none'
+    const numY = withBadge ? cy + bs * 0.62 : cy + r * 0.04
+    const size = withBadge ? r * 0.7 : r * 1.05
+    const light = luminance(color) > 0.55
+    ctx.font = `900 ${size}px 'Barlow Condensed', 'Impact', 'Arial Narrow', sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = size * 0.14
+    ctx.strokeStyle = light ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.6)'
+    ctx.strokeText(String(number), cx, numY)
+    ctx.fillStyle = light ? '#111111' : '#ffffff'
     ctx.fillText(String(number), cx, numY)
   }
 
@@ -343,7 +358,7 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected
       </mesh>
 
       {/* Dome top face — badge/number texture */}
-      <mesh position={[0, halfH + DOME_HEIGHT - 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, halfH + DOME_HEIGHT + 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[domeR, 36]} />
         <meshStandardMaterial
           map={domeTexture}

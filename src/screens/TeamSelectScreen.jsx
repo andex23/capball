@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS } from '../data/TeamOptions'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
@@ -94,7 +94,7 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
       </div>
 
       <div className="kit-preview">
-        <CapPreview config={config} size={128} />
+        <CapPreview config={config} size={128} number={config.numbers?.atk1 ?? DEFAULT_TEAM_CONFIG[teamKey].numbers.atk1} />
       </div>
 
       {locked ? (

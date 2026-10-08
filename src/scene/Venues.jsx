@@ -518,10 +518,6 @@ function KitchenRoom() {
       <mesh position={[3.1, 1.6, -3.94]}><planeGeometry args={[1.4, 1]} /><meshBasicMaterial color="#1c2a4a" /></mesh>
       <mesh position={[3.1, 1.6, -3.93]}><boxGeometry args={[1.5, 0.06, 0.03]} /><meshStandardMaterial color="#f4efe6" /></mesh>
       <mesh position={[3.1, 1.6, -3.93]}><boxGeometry args={[0.06, 1.1, 0.03]} /><meshStandardMaterial color="#f4efe6" /></mesh>
-      {/* Pendant lamp, high over the table */}
-      <mesh position={[0, 2.55, 0]}><cylinderGeometry args={[0.005, 0.005, 0.5, 4]} /><meshStandardMaterial color="#111" /></mesh>
-      <mesh position={[0, 2.25, 0]}><coneGeometry args={[0.25, 0.2, 24, 1, true]} /><meshStandardMaterial color="#c0392b" roughness={0.4} side={THREE.DoubleSide} /></mesh>
-      <Glow position={[0, 2.18, 0]} size={0.05} halo={0.16} opacity={0.4} color="#ffe2a8" />
       <Chair position={[0, 0, -0.95]} />
       <Chair position={[0, 0, 0.95]} rotation={Math.PI} />
       <Chair position={[-1.15, 0, 0]} rotation={-Math.PI / 2} />
@@ -595,7 +591,6 @@ function GameRoom() {
       {[[-3.2, 2.6, '#e53935'], [3.4, 2.8, '#1e88e5']].map(([x, z, c]) => (
         <mesh key={c} position={[x, 0.25, z]} scale={[1, 0.55, 1]}><sphereGeometry args={[0.45, 20, 14]} /><meshStandardMaterial color={c} roughness={0.8} /></mesh>
       ))}
-      <Glow position={[0, 2.7, 0]} size={0.06} halo={0.25} opacity={0.25} color="#cfd8ff" />
     </InMetres>
   )
 }

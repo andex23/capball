@@ -16,7 +16,7 @@ export const PITCH = {
 
 // Cap radii
 export const CAP_RADIUS = 0.75
-export const GK_RADIUS = 1.0 // 1.33x standard
+export const GK_RADIUS = 1.1 // a bigger frame than outfield caps (1.47x): more of the goal covered
 export const BALL_RADIUS = 0.48 // 0.64x standard
 
 // Physics values — tabletop feel. Tuned together; see the notes on each.

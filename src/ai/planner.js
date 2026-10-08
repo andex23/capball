@@ -258,6 +258,7 @@ export function generateCandidates(ctx, { powers = [1.5], banks = false, blocks 
     // Nothing can reach the ball cleanly: reposition rather than foul or pass
     if (!out.length) out.push(...positionCandidates(ctx))
     out.push(...blockCandidates(ctx))
+    out.push(...keeperCandidates(ctx))
   }
   return out
 }
@@ -297,6 +298,53 @@ function blockCandidates(ctx) {
   const spots = [3, 5].filter((k) => k <= span - 2)
     .map((k) => ({ x: ball.x + toGoal.x * k, y: ball.y + toGoal.y * k }))
   return moveCandidates(ctx, spots, 'block')
+}
+
+/* ── Goalkeeper positioning ──
+   When the ball is close enough for the keeper to play, he can also be
+   slid (without touching anything) to stand between the ball and the middle
+   of the goal, a little off his line — narrowing the angle like a real keeper. */
+
+const KEEPER_LINE_GAP = 1.6 // how far off the goal line the keeper sets himself
+
+/** Where the keeper should stand for a ball at b: on the ball→goal line, just off his line. */
+export function keeperSpot(ctx, b = ctx.positions.ball) {
+  const g = ctx.ownGoal
+  const toBall = unit(b.x - g.x, b.y - g.y)
+  // Never further out than the ball itself, and never wider than the posts
+  const out = Math.min(KEEPER_LINE_GAP / Math.max(0.35, Math.abs(toBall.x)), hyp(b.x - g.x, b.y - g.y) * 0.5)
+  const maxY = PITCH.goalWidth / 2 - 0.4
+  return {
+    x: g.x + toBall.x * out,
+    y: Math.max(-maxY, Math.min(maxY, g.y + toBall.y * out)),
+  }
+}
+
+/** How far (sideways) a cap at p is from covering a ball-to-goal-centre shot. */
+function coverGap(ctx, p) {
+  const b = ctx.positions.ball
+  const g = ctx.ownGoal
+  const dx = g.x - b.x
+  const dy = g.y - b.y
+  const len2 = dx * dx + dy * dy || 1
+  const t = clamp01(((p.x - b.x) * dx + (p.y - b.y) * dy) / len2)
+  return hyp(p.x - (b.x + t * dx), p.y - (b.y + t * dy))
+}
+
+function keeperCandidates(ctx) {
+  const { positions, team } = ctx
+  const id = `${team}_gk`
+  const k = positions[id]
+  const ball = positions.ball
+  if (!k || !ball || !keeperCanPlay(ball.x, ball.y, ctx.homeDir)) return []
+  if (dangerLevel(ctx) < 0.2) return []
+  const spot = keeperSpot(ctx)
+  const dist = hyp(spot.x - k.x, spot.y - k.y)
+  if (dist < 0.6) return [] // already there
+  const dir = { x: (spot.x - k.x) / dist, y: (spot.y - k.y) / dist }
+  if (firstHit(positions, id, dir, dist + 1)) return []
+  const power = Math.sqrt(2 * CAP_DECEL * dist) * 0.95
+  return [{ capId: id, kind: 'keeper', target: spot, capDist: dist, runout: 1, power, velocity: { x: dir.x * power, y: dir.y * power } }]
 }
 
 /**
@@ -352,6 +400,12 @@ export function heuristicScore(ctx, c) {
     return -4 + danger * 6 - c.capDist * 0.2
   }
   if (c.kind === 'position') return -5 - c.capDist * 0.2
+  if (c.kind === 'keeper') {
+    // Worth it when the keeper is badly placed and the ball is close to goal
+    const before = coverGap(ctx, positions[c.capId])
+    const after = coverGap(ctx, c.target)
+    return -3 + danger * 7 + Math.min(3, before - after) * 2.5 - c.capDist * 0.15
+  }
 
   // Where does the ball go?
   const theirLine = ctx.theirGoal.x
@@ -380,7 +434,8 @@ export function heuristicScore(ctx, c) {
   // Execution: thin cuts and long runs are less reliable
   s -= (1 - c.cut) * 5
   s -= c.capDist * 0.25
-  if (isGoalkeeper(c.capId)) s -= 2
+  // The keeper clearing a ball in his own box is the natural play; elsewhere he's a last resort
+  if (isGoalkeeper(c.capId)) s += isInPenaltyArea(ball.x, ball.y, ctx.homeDir) ? 1.5 : -2
   return s
 }
 
@@ -553,7 +608,7 @@ export function chooseHeuristic(ctx, { aimNoise = 0.2, powerMult = 1, rng = Math
 
 /** The noisy flick still hits what the clean one was meant to hit (ball, or nothing for blocks). */
 function safeFlick(ctx, c) {
-  const move = c.kind === 'block' || c.kind === 'position'
+  const move = c.kind === 'block' || c.kind === 'position' || c.kind === 'keeper'
   const hit = firstHit(ctx.positions, c.capId, c.velocity, move ? c.capDist + c.runout : Infinity)
   return move ? !hit : hit?.id === 'ball'
 }
