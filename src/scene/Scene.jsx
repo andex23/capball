@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { STADIUMS } from '../data/StadiumData'
 
 import { setCameraRefs, fitCurrentPreset, resetCameraPreset } from './camera'
+import { useTurnFacing } from './useTurnFacing'
 import PitchMesh from './PitchMesh'
 import BallTrail from './BallTrail'
 import CapMesh from './CapMesh'
@@ -342,6 +343,7 @@ function GameWorld() {
   usePhysicsSync(meshRefs)
   useFlickController(meshRefs, trajectoryRef)
   useAIController()
+  useTurnFacing()
   useCrowdReaction(meshRefs)
 
   const teamConfig = useMatchStore((s) => s.teamConfig)

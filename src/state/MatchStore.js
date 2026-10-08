@@ -453,4 +453,8 @@ export const useMatchStore = create((set, get) => ({
   // Phone vibration on flicks, hard cushion hits, goals and fouls
   vibration: true,
   toggleVibration: () => set((s) => ({ vibration: !s.vibration })),
+  // Two players on one device: turn the view round each turn so the player
+  // whose turn it is sees the pitch from their own end
+  turnView: true,
+  toggleTurnView: () => set((s) => ({ turnView: !s.turnView })),
 }))

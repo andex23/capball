@@ -24,7 +24,8 @@ export default function SettingsPanel() {
   const musicVolume = useMatchStore((s) => s.musicVolume)
   const muted = useMatchStore((s) => s.muted)
   const vibration = useMatchStore((s) => s.vibration)
-  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration } = useMatchStore.getState()
+  const turnView = useMatchStore((s) => s.turnView)
+  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView } = useMatchStore.getState()
 
   useEffect(() => { updateMenuMusicVolume() }, [masterVolume, musicVolume, muted])
 
@@ -36,6 +37,10 @@ export default function SettingsPanel() {
       <Slider label="Master" value={masterVolume} onChange={setMasterVolume} disabled={muted} />
       <Slider label="Effects" value={sfxVolume} onChange={setSfxVolume} disabled={muted} />
       <Slider label="Music" value={musicVolume} onChange={setMusicVolume} disabled={muted} />
+      <button className="btn btn-secondary" aria-pressed={turnView} onClick={() => { toggleTurnView(); playButtonSelect() }}>
+        <Icon name="camera" size={18} /> {turnView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
+      </button>
+      <p className="muted" style={{ fontSize: 12, marginTop: -8 }}>Local matches on one device: the pitch swings round so whoever’s turn it is plays from their own end.</p>
       {/* Only phones that can actually vibrate get the option */}
       {canVibrate() && (
         <button className="btn btn-secondary" aria-pressed={vibration} onClick={() => { toggleVibration(); playButtonSelect(); haptic('flick') }}>

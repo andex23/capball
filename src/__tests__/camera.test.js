@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { CAMERA_PRESETS, fitScale, posePreset, hudInsets } from '../scene/camera'
+import { CAMERA_PRESETS, fitScale, posePreset, hudInsets, needsFlip } from '../scene/camera'
+import { facingTeam } from '../scene/useTurnFacing'
 
 describe('camera fitting', () => {
   it('leaves a normal landscape screen alone', () => {
@@ -44,5 +45,33 @@ describe('camera fitting', () => {
     // Nonsense input never produces a wild pose
     expect(Number.isFinite(fitScale(tall, 0))).toBe(true)
     expect(fitScale(16 / 9, 1)).toBe(1)
+  })
+
+  it('turns the view round so the right end is nearest the viewer', () => {
+    const [overhead, , behindGoal] = CAMERA_PRESETS
+    const wide = 16 / 9
+    const tall = 390 / 844
+    // Wide screens: the left goal is on the viewer's side as drawn
+    expect(needsFlip(overhead, wide, -1)).toBe(false)
+    expect(needsFlip(overhead, wide, 1)).toBe(true)
+    // Tall screens: the right goal is at the bottom as drawn
+    expect(needsFlip(overhead, tall, 1)).toBe(false)
+    expect(needsFlip(overhead, tall, -1)).toBe(true)
+    // Behind-goal sits behind the left goal either way
+    expect(needsFlip(behindGoal, tall, -1)).toBe(false)
+    expect(needsFlip(behindGoal, wide, 1)).toBe(true)
+    // Nobody to face: leave it alone
+    expect(needsFlip(overhead, tall, null)).toBe(false)
+  })
+})
+
+describe('whose end the view faces', () => {
+  it('pass-and-play follows the turn; vs CPU the human; online this device', () => {
+    expect(facingTeam({ gameMode: 'local', turnView: true, activeTeam: 'team2' })).toBe('team2')
+    expect(facingTeam({ gameMode: 'local', turnView: true, activeTeam: 'team1' })).toBe('team1')
+    expect(facingTeam({ gameMode: 'local', turnView: false, activeTeam: 'team2' })).toBeNull()
+    expect(facingTeam({ gameMode: 'ai', aiTeam: 'team2', activeTeam: 'team2' })).toBe('team1')
+    expect(facingTeam({ gameMode: 'online', onlineMyTeam: 'team2', activeTeam: 'team1' })).toBe('team2')
+    expect(facingTeam({ gameMode: 'online', onlineMyTeam: null })).toBeNull()
   })
 })
