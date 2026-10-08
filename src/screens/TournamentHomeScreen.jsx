@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { progress, teamById } from '../game/tournament'
@@ -7,6 +7,9 @@ import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import { TeamTag, ProgressBar } from '../ui/TournamentBits'
 import { displayColor } from '../ui/color'
+import { useOnline } from '../pwa/useOnline'
+
+const CODE_LENGTH = 6
 
 const formatLabel = (t) => (t.format === 'league'
   ? `League${t.legs === 2 ? ' · home & away' : ''}`
@@ -21,17 +24,53 @@ export default function TournamentHomeScreen() {
   const local = useTournamentStore((s) => s.local)
   const history = useTournamentStore((s) => s.history)
   const abandonLocal = useTournamentStore((s) => s.abandonLocal)
+  const recentOnline = useTournamentStore((s) => s.recentOnline)
+  const { startSetup, openHub, openOnline, forgetOnline } = useTournamentStore.getState()
   const [confirm, setConfirm] = useState(null) // 'new' | 'abandon'
+  const [joining, setJoining] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [joinBusy, setJoinBusy] = useState(false)
+  const [joinError, setJoinError] = useState(null)
+  const online = useOnline()
+
+  const join = async (raw) => {
+    const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (code.length !== CODE_LENGTH) return
+    setJoinBusy(true)
+    setJoinError(null)
+    try {
+      await openOnline(code)
+      playConfirm()
+      openHub('online')
+    } catch (e) {
+      setJoinError(e.message)
+    } finally {
+      setJoinBusy(false)
+    }
+  }
+
+  // Invite links (?tournament=CODE) open the tournament straight away
+  useEffect(() => {
+    let code = null
+    try {
+      const url = new URL(window.location.href)
+      code = url.searchParams.get('tournament')
+      if (code) {
+        url.searchParams.delete('tournament')
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+      }
+    } catch { /* no URL support: ignore */ }
+    if (code) { setJoining(true); setJoinCode(code.toUpperCase().slice(0, CODE_LENGTH)); join(code) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const finished = !!local?.championId
   const p = progress(local)
   const champ = finished ? teamById(local, local.championId) : null
 
-  const go = (screen) => { playConfirm(); goToScreen(screen) }
   const startNew = () => {
     playButtonSelect()
     if (local && !finished) setConfirm('new')
-    else goToScreen(SCREEN.TOURNAMENT_SETUP)
+    else startSetup('local')
   }
 
   return (
@@ -70,7 +109,7 @@ export default function TournamentHomeScreen() {
                   <ProgressBar played={p.played} total={p.total} label="Progress" />
                 )}
                 <div className="t-actions">
-                  <button className="btn btn-gold" onClick={() => go(SCREEN.TOURNAMENT_HUB)} onMouseEnter={playHoverTick}>
+                  <button className="btn btn-gold" onClick={() => { playConfirm(); openHub('local') }} onMouseEnter={playHoverTick}>
                     {finished ? <>See results <Icon name="next" size={18} /></> : <>Continue <Icon name="play" size={18} /></>}
                   </button>
                   <button className="btn btn-secondary" onClick={startNew} onMouseEnter={playHoverTick}>New tournament</button>
@@ -83,7 +122,7 @@ export default function TournamentHomeScreen() {
               <>
                 <p className="muted">A knockout cup or a league for 3 to 8 teams. Friends take turns on this phone; the computer runs any team nobody picks, and its games play out by themselves.</p>
                 <div className="t-actions">
-                  <button className="btn btn-gold btn-lg" onClick={() => go(SCREEN.TOURNAMENT_SETUP)} onMouseEnter={playHoverTick}>
+                  <button className="btn btn-gold btn-lg" onClick={() => { playConfirm(); startSetup('local') }} onMouseEnter={playHoverTick}>
                     New tournament <Icon name="next" size={18} />
                   </button>
                 </div>
@@ -91,19 +130,66 @@ export default function TournamentHomeScreen() {
             )}
           </section>
 
-          <section className="card card-pad t-home-card t-home-online" aria-disabled="true">
+          <section className="card card-pad t-home-card t-home-online">
             <div className="t-card-head">
               <div>
                 <div className="eyebrow">With friends online</div>
                 <h2 className="display t-card-title">Online tournament</h2>
               </div>
-              <span className="chip t-static-chip t-soon">Coming soon</span>
+              <span className="chip t-static-chip"><Icon name="globe" size={15} /> Own phones</span>
             </div>
-            <p className="muted">Everyone plays from their own phone with a shared tournament code. Results land in one table for all of you.</p>
-            <div className="t-actions">
-              <button className="btn btn-purple" disabled><Icon name="globe" size={18} /> Create online</button>
-              <button className="btn btn-blue" disabled>Join with a code</button>
-            </div>
+            <p className="muted">Everyone plays from their own phone. Share the code, each friend takes a team, and every result lands in one table for all of you.</p>
+            {joining ? (
+              <form className="t-join" onSubmit={(e) => { e.preventDefault(); join(joinCode) }}>
+                <label className="eyebrow" htmlFor="t-join-code">Tournament code</label>
+                <input
+                  id="t-join-code"
+                  className="field display tabular t-join-field"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH))}
+                  placeholder="ABC123"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  autoFocus
+                  disabled={joinBusy}
+                />
+                {joinError && <p className="t-warn" role="alert" style={{ marginTop: 0 }}>{joinError}</p>}
+                <div className="t-actions" style={{ marginTop: 0 }}>
+                  <button className="btn btn-blue" type="submit" disabled={joinCode.length !== CODE_LENGTH || joinBusy || !online}>
+                    {joinBusy ? 'Opening…' : <>Open <Icon name="next" size={18} /></>}
+                  </button>
+                  <button className="btn btn-ghost" type="button" onClick={() => { playButtonSelect(); setJoining(false); setJoinError(null) }}>Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <div className="t-actions">
+                <button className="btn btn-purple" onClick={() => { playConfirm(); startSetup('online') }} onMouseEnter={playHoverTick} disabled={!online}>
+                  <Icon name="globe" size={18} /> Create online
+                </button>
+                <button className="btn btn-blue" onClick={() => { playButtonSelect(); setJoining(true) }} onMouseEnter={playHoverTick} disabled={!online}>Join with a code</button>
+              </div>
+            )}
+            {!online && <p className="t-warn">You’re offline. Online tournaments need a connection.</p>}
+            {recentOnline.length > 0 && (
+              <div className="t-recent">
+                <div className="eyebrow" style={{ marginBottom: 8 }}>Your online tournaments</div>
+                <ul>
+                  {recentOnline.map((r) => (
+                    <li key={r.code}>
+                      <button className="list-option t-recent-open" onClick={() => { playButtonSelect(); join(r.code) }} disabled={joinBusy || !online}>
+                        <span className="display tabular t-recent-code">{r.code}</span>
+                        <small>{r.label}</small>
+                      </button>
+                      <button className="t-remove" onClick={() => { playButtonSelect(); forgetOnline(r.code) }} aria-label={`Forget ${r.code}`}>
+                        <Icon name="close" size={16} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {!joining && joinError && <p className="t-warn" role="alert">{joinError}</p>}
+              </div>
+            )}
           </section>
 
           <section className="card card-pad t-home-card t-home-history">
@@ -151,7 +237,7 @@ export default function TournamentHomeScreen() {
                   playButtonSelect()
                   if (confirm === 'abandon') abandonLocal()
                   setConfirm(null)
-                  if (confirm === 'new') goToScreen(SCREEN.TOURNAMENT_SETUP)
+                  if (confirm === 'new') startSetup('local')
                 }}
               >
                 {confirm === 'new' ? 'Set up a new one' : 'Abandon'}

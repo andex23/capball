@@ -1,37 +1,48 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { progress, teamById, readyFixtures, needsHuman, standings, roundName, allFixtures } from '../game/tournament'
+import { fixtureAction, myTeamIds, waitText } from '../game/onlineActions'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
+import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
 import { TeamTag, scoreText, ProgressBar } from '../ui/TournamentBits'
 import { displayColor } from '../ui/color'
 
 const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
+// How often an online hub checks for new results, taken seats and open rooms
+const POLL_MS = 7000
+const POLL_WAITING_MS = 3000
 
 function fixtureLabel(t, f) {
   if (t.format === 'league') return `Matchday ${f.round + 1}`
   return roundName(f.round, t.rounds.length)
 }
 
-function modeLabel(t, f) {
+function modeLabel(t, f, action) {
   const home = teamById(t, f.home)
   const away = teamById(t, f.away)
   const cpu = home?.cpu ? home : away?.cpu ? away : null
-  return cpu ? `Against the computer · ${DIFF_LABEL[cpu.difficulty] || 'Medium'}` : 'Pass and play on this phone'
+  if (cpu) return `Against the computer · ${DIFF_LABEL[cpu.difficulty] || 'Medium'}`
+  if (action?.kind === 'host' || action?.kind === 'join' || action?.reason === 'home-to-start') return 'Live · phone v phone'
+  if (action?.reason === 'open-seat') return 'Needs a player'
+  return 'Pass and play on this phone'
 }
+
+const ACTION_LABEL = { play: 'Play match', host: 'Start match', join: 'Join match' }
+const SHORT_LABEL = { play: 'Play', host: 'Start', join: 'Join' }
 
 /* ── Next match ── */
 
-function NextMatch({ t, fixture, onPlay }) {
+function NextMatch({ t, fixture, action, onAct }) {
   const home = teamById(t, fixture.home)
   const away = teamById(t, fixture.away)
   return (
     <section className="card t-next" aria-label="Next match">
       <div className="t-next-head">
         <span className="eyebrow">Up next · {fixtureLabel(t, fixture)}</span>
-        <span className="eyebrow t-next-mode">{modeLabel(t, fixture)}</span>
+        <span className="eyebrow t-next-mode">{modeLabel(t, fixture, action)}</span>
       </div>
       <div className="t-next-body">
         <div className="t-next-team" style={{ '--team': displayColor(home.primary) }}>
@@ -46,9 +57,13 @@ function NextMatch({ t, fixture, onPlay }) {
           <small className="muted">Away{away.cpu ? ' · CPU' : ''}</small>
         </div>
       </div>
-      <button className="btn btn-gold btn-lg btn-block t-next-play" onClick={() => onPlay(fixture)} onMouseEnter={playHoverTick}>
-        Play match <Icon name="play" size={20} />
-      </button>
+      {action.kind === 'wait' ? (
+        <div className="t-next-wait" role="status"><span className="t-spinner" aria-hidden /> {waitText(action)}</div>
+      ) : (
+        <button className="btn btn-gold btn-lg btn-block t-next-play" onClick={() => onAct(fixture, action)} onMouseEnter={playHoverTick}>
+          {ACTION_LABEL[action.kind]} <Icon name={action.kind === 'play' ? 'play' : 'globe'} size={20} />
+        </button>
+      )}
     </section>
   )
 }
@@ -70,6 +85,17 @@ function Champion({ t, onNew }) {
   )
 }
 
+function ActButton({ fixture, action, onAct, className }) {
+  if (!action || action.kind === 'wait') return null
+  const home = fixture.homeTeam
+  const away = fixture.awayTeam
+  return (
+    <button className={className} onClick={() => onAct(fixture, action)} aria-label={`${ACTION_LABEL[action.kind]}: ${home?.name} v ${away?.name}`}>
+      <Icon name={action.kind === 'play' ? 'play' : 'globe'} size={13} /> {SHORT_LABEL[action.kind]}
+    </button>
+  )
+}
+
 /* ── Knockout bracket ── */
 
 function TieRow({ team, goals, pens, won, lost, bye }) {
@@ -83,7 +109,7 @@ function TieRow({ team, goals, pens, won, lost, bye }) {
   )
 }
 
-function Bracket({ t, nextId, playable, onPlay }) {
+function Bracket({ t, nextId, actionFor, onAct }) {
   const count = t.rounds.length
   return (
     <div className="t-bracket" style={{ '--rounds': count }}>
@@ -96,16 +122,12 @@ function Bracket({ t, nextId, playable, onPlay }) {
               const away = teamById(t, tie.away)
               const bye = r === 0 && tie.home && !tie.away
               const res = tie.result
-              const canPlay = playable.has(tie.id)
+              const action = actionFor(tie)
               return (
                 <div className="t-tie" key={tie.id} data-next={tie.id === nextId ? 'true' : undefined} data-bye={bye ? 'true' : undefined}>
                   <TieRow team={home} goals={res?.home} pens={res?.pens?.home} won={tie.winner && tie.winner === tie.home && !bye} lost={tie.winner && tie.winner !== tie.home} />
                   <TieRow team={away} goals={res?.away} pens={res?.pens?.away} won={tie.winner && tie.winner === tie.away} lost={tie.winner && tie.winner !== tie.away && !!away} bye={bye} />
-                  {canPlay && (
-                    <button className="t-tie-play" onClick={() => onPlay(tie)} aria-label={`Play ${home.name} v ${away.name}`}>
-                      <Icon name="play" size={14} /> Play
-                    </button>
-                  )}
+                  <ActButton fixture={{ ...tie, homeTeam: home, awayTeam: away }} action={action} onAct={onAct} className="t-tie-play" />
                 </div>
               )
             })}
@@ -155,7 +177,7 @@ function Table({ t, mine }) {
   )
 }
 
-function FixtureList({ t, nextId, playable, onPlay }) {
+function FixtureList({ t, nextId, actionFor, onAct }) {
   const byRound = new Map()
   for (const f of allFixtures(t)) {
     if (!byRound.has(f.round)) byRound.set(f.round, [])
@@ -171,17 +193,14 @@ function FixtureList({ t, nextId, playable, onPlay }) {
               const home = teamById(t, f.home)
               const away = teamById(t, f.away)
               const score = scoreText(f.result)
-              const canPlay = playable.has(f.id)
+              const action = actionFor(f)
+              const canAct = action && action.kind !== 'wait'
               return (
                 <li key={f.id} className="t-fixture" data-next={f.id === nextId ? 'true' : undefined}>
                   <TeamTag team={home} size={20} strong={f.result && f.result.home > f.result.away} />
-                  {canPlay ? (
-                    <button className="t-fixture-play" onClick={() => onPlay(f)} aria-label={`Play ${home.name} v ${away.name}`}>
-                      <Icon name="play" size={13} /> Play
-                    </button>
-                  ) : (
-                    <span className="t-fixture-score tabular">{score || 'v'}</span>
-                  )}
+                  {canAct
+                    ? <ActButton fixture={{ ...f, homeTeam: home, awayTeam: away }} action={action} onAct={onAct} className="t-fixture-play" />
+                    : <span className="t-fixture-score tabular">{score || 'v'}</span>}
                   <TeamTag team={away} size={20} strong={f.result && f.result.away > f.result.home} />
                 </li>
               )
@@ -193,33 +212,164 @@ function FixtureList({ t, nextId, playable, onPlay }) {
   )
 }
 
+/* ── Online extras ── */
+
+function CodeCard({ code }) {
+  const [copied, setCopied] = useState(false)
+  const url = `${window.location.origin}${window.location.pathname}?tournament=${code}`
+  const copy = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch { /* clipboard blocked: the code is on screen */ }
+  }
+  const share = async () => {
+    playButtonSelect()
+    const text = `Join my CAPBALL tournament. Code ${code}`
+    if (navigator.share) {
+      try { await navigator.share({ title: 'CAPBALL tournament', text, url }); return } catch { /* cancelled */ }
+    }
+    copy(`${text}\n${url}`)
+  }
+  return (
+    <div className="t-code">
+      <div>
+        <div className="eyebrow">Tournament code</div>
+        <div className="display tabular t-code-value">{code}</div>
+      </div>
+      <div className="t-code-actions">
+        <button className="btn btn-primary" onClick={share}><Icon name="share" size={18} /> Invite</button>
+        <button className="btn btn-secondary" onClick={() => { playButtonSelect(); copy(code) }}>
+          <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Seats({ t, snapshot, busy, onClaim, onRelease }) {
+  const seats = snapshot?.seats || []
+  if (!seats.length) return null
+  return (
+    <div className="t-seats">
+      <div className="eyebrow" style={{ marginBottom: 8 }}>Players</div>
+      <ul>
+        {seats.map((s) => {
+          const team = teamById(t, s.teamId)
+          if (!team) return null
+          return (
+            <li key={s.teamId} className="t-seat" data-mine={s.mine ? 'true' : undefined}>
+              <TeamTag team={team} size={24} strong={s.mine} />
+              {s.mine ? (
+                <span className="t-seat-right">
+                  <span className="chip t-static-chip t-seat-you">You</span>
+                  {!t.championId && <button className="btn btn-ghost t-seat-btn" onClick={() => onRelease(s.teamId)} disabled={busy}>Let go</button>}
+                </span>
+              ) : s.claimed ? (
+                <span className="chip t-static-chip">Taken</span>
+              ) : (
+                <button className="btn btn-blue t-seat-btn" onClick={() => onClaim(s.teamId)} disabled={busy || !!t.championId}>Take this team</button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+/** Waiting for the other phone in a live fixture. */
+function LiveWait({ t, playing, onCancel }) {
+  const status = useMatchStore((s) => s.onlineStatus)
+  if (!playing?.live || playing.live === 'connected') return null
+  const failed = status?.status === 'error' || status?.status === 'disconnected'
+  const home = teamById(t, playing.fixture.home)
+  const away = teamById(t, playing.fixture.away)
+  const hosting = playing.live === 'hosting'
+  return (
+    <Modal
+      title={hosting ? 'Match room open' : 'Joining…'}
+      footer={<button className="btn btn-secondary btn-block" onClick={onCancel}><Icon name="close" size={18} /> Cancel</button>}
+    >
+      <div className="t-live">
+        <TeamTag team={home} size={36} strong />
+        <span className="vs-badge">VS</span>
+        <TeamTag team={away} size={36} strong />
+      </div>
+      {failed && status.msg && <p className="t-warn" role="alert" style={{ marginTop: 0 }}>{status.msg}</p>}
+      <p className="muted" role="status">
+        {!failed && <><span className="t-spinner" aria-hidden />{' '}</>}
+        {hosting
+          ? `Waiting for ${away?.name || 'the away team'}. A “Join match” button appears on their screen — the match starts as soon as they tap it.`
+          : `Connecting to ${home?.name || 'the home team'}…`}
+      </p>
+    </Modal>
+  )
+}
+
 export default function TournamentHubScreen() {
   const goToScreen = useMatchStore((s) => s.goToScreen)
-  const t = useTournamentStore((s) => s.local)
-  const playFixture = useTournamentStore((s) => s.playFixture)
+  const kind = useTournamentStore((s) => s.hubKind)
+  const local = useTournamentStore((s) => s.local)
+  const onlineView = useTournamentStore((s) => s.online)
+  const playing = useTournamentStore((s) => s.playing)
+  const busy = useTournamentStore((s) => s.busy)
+  const storeError = useTournamentStore((s) => s.error)
+  const store = useTournamentStore.getState()
   const [tab, setTab] = useState('table')
+
+  const isOnline = kind === 'online'
+  const t = isOnline ? onlineView?.tournament : local
+  const snapshot = isOnline ? onlineView?.snapshot : null
+  const code = onlineView?.code
+
+  // Online: keep results, seats and match rooms fresh
+  const waiting = isOnline && t && readyFixtures(t).some((f) => fixtureAction(t, snapshot, f)?.kind === 'wait')
+  useEffect(() => {
+    if (!isOnline || !code) return
+    const refresh = () => { if (document.visibilityState !== 'hidden') useTournamentStore.getState().openOnline(code, { quiet: true }).catch(() => {}) }
+    const id = setInterval(refresh, waiting ? POLL_WAITING_MS : POLL_MS)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', refresh) }
+  }, [isOnline, code, waiting])
 
   const back = () => { playButtonSelect(); goToScreen(SCREEN.TOURNAMENT_HOME) }
 
   if (!t) {
+    const loading = isOnline && onlineView?.loading
     return (
       <div className="screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
         <div className="card card-pad" style={{ width: 'min(420px, 100%)', display: 'grid', gap: 14 }}>
-          <p className="muted">There’s no tournament on this device.</p>
-          <button className="btn btn-gold" onClick={back}>Tournaments <Icon name="next" size={18} /></button>
+          {loading
+            ? <p className="muted" role="status"><span className="t-spinner" aria-hidden /> Loading tournament {code}…</p>
+            : <p className="muted">{isOnline ? (onlineView?.error || 'That tournament couldn’t be loaded.') : 'There’s no tournament on this device.'}</p>}
+          {isOnline && !loading && code && (
+            <button className="btn btn-blue" onClick={() => store.openOnline(code).catch(() => {})}><Icon name="restart" size={18} /> Try again</button>
+          )}
+          <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Tournaments</button>
         </div>
       </div>
     )
   }
 
   const league = t.format === 'league'
-  const ready = readyFixtures(t).filter((f) => needsHuman(t, f))
-  const next = ready[0] || null
-  const playable = new Set(ready.map((f) => f.id))
-  const mine = t.teams.filter((x) => !x.cpu).map((x) => x.id)
+  const mine = isOnline ? myTeamIds(snapshot) : t.teams.filter((x) => !x.cpu).map((x) => x.id)
+  const actionFor = isOnline
+    ? (f) => fixtureAction(t, snapshot, f)
+    : (f) => (!f.result && !f.winner && f.home && f.away && needsHuman(t, f) ? { kind: 'play' } : null)
+  const ready = readyFixtures(t)
+  // Best next fixture: one we can play now, else one we're waiting on
+  const withActions = ready.map((f) => ({ f, a: actionFor(f) })).filter((x) => x.a)
+  const next = withActions.find((x) => x.a.kind !== 'wait') || withActions[0] || null
   const p = progress(t)
 
-  const play = (f) => { playConfirm(); playFixture('local', f) }
+  const act = (f, action) => {
+    playConfirm()
+    if (action.kind === 'play') store.playFixture(kind, f)
+    else if (action.kind === 'host') store.hostLiveFixture(f)
+    else if (action.kind === 'join') store.joinLiveFixture(f, action.roomCode)
+  }
 
   return (
     <div className="screen">
@@ -227,19 +377,21 @@ export default function TournamentHubScreen() {
         <header className="shell-head">
           <div>
             <div className="eyebrow shell-eyebrow">
-              {league ? `League${t.legs === 2 ? ' · home & away' : ''}` : 'Knockout cup'} · {t.teams.length} teams
+              {isOnline ? 'Online · ' : ''}{league ? `League${t.legs === 2 ? ' · home & away' : ''}` : 'Knockout cup'} · {t.teams.length} teams
             </div>
             <h1 className="display shell-title">{league ? 'The League' : 'The Cup'}</h1>
           </div>
-          <span className="mode-icon"><Icon name="trophy" size={24} /></span>
+          <span className="mode-icon"><Icon name={isOnline ? 'globe' : 'trophy'} size={24} /></span>
         </header>
 
         <main className="shell-body t-hub" data-format={t.format}>
+          {storeError && !playing && <p className="t-warn t-hub-error" role="alert">{storeError}</p>}
+
           {t.championId
-            ? <Champion t={t} onNew={() => { playButtonSelect(); goToScreen(SCREEN.TOURNAMENT_SETUP) }} />
+            ? <Champion t={t} onNew={() => { playButtonSelect(); store.startSetup(kind) }} />
             : (
               <div className="t-hub-top">
-                {next && <NextMatch t={t} fixture={next} onPlay={play} />}
+                {next && <NextMatch t={t} fixture={next.f} action={next.a} onAct={act} />}
                 <div className="card card-pad t-hub-progress">
                   <ProgressBar played={p.played} total={p.total} label={league ? 'Season' : 'Cup'} />
                   <p className="muted t-note">
@@ -247,9 +399,24 @@ export default function TournamentHubScreen() {
                       ? 'Win 3 pts · draw 1. Computer-only games play out by themselves.'
                       : 'Lose and you’re out. Level at full time goes to penalties.'}
                   </p>
+                  {isOnline && !next && mine.length > 0 && <p className="muted t-note">No match for you right now — waiting on other results.</p>}
                 </div>
               </div>
             )}
+
+          {isOnline && (
+            <section className="card card-pad t-online-panel">
+              <CodeCard code={code} />
+              <Seats
+                t={t}
+                snapshot={snapshot}
+                busy={busy}
+                onClaim={(id) => { playButtonSelect(); store.claimSeat(id) }}
+                onRelease={(id) => { playButtonSelect(); store.releaseSeat(id) }}
+              />
+              {!mine.length && !t.championId && <p className="muted t-note">Take a team above to play in this tournament.</p>}
+            </section>
+          )}
 
           {league ? (
             <section className="t-league" data-tab={tab}>
@@ -263,12 +430,12 @@ export default function TournamentHubScreen() {
               </div>
               <div className="card t-panel t-panel-fixtures">
                 <div className="eyebrow t-panel-title">Fixtures &amp; results</div>
-                <FixtureList t={t} nextId={next?.id} playable={playable} onPlay={play} />
+                <FixtureList t={t} nextId={next?.f.id} actionFor={actionFor} onAct={act} />
               </div>
             </section>
           ) : (
             <section className="card t-panel t-panel-bracket" aria-label="Bracket">
-              <Bracket t={t} nextId={next?.id} playable={playable} onPlay={play} />
+              <Bracket t={t} nextId={next?.f.id} actionFor={actionFor} onAct={act} />
             </section>
           )}
         </main>
@@ -278,9 +445,16 @@ export default function TournamentHubScreen() {
             <button className="btn btn-secondary" onClick={back} onMouseEnter={playHoverTick}>
               <Icon name="back" size={18} /> Tournaments
             </button>
+            {isOnline && (
+              <button className="btn btn-ghost" onClick={() => { playButtonSelect(); store.openOnline(code, { quiet: true }).catch(() => {}) }} disabled={busy}>
+                <Icon name="restart" size={18} /> Refresh
+              </button>
+            )}
           </div>
         </footer>
       </div>
+
+      {isOnline && <LiveWait t={t} playing={playing} onCancel={() => { playButtonSelect(); store.cancelLive() }} />}
     </div>
   )
 }

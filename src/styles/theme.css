@@ -1291,8 +1291,34 @@ button { cursor: pointer; background: none; border: 0; }
 .t-fixture[data-next='true'] { border-color: var(--accent); }
 .t-fixture-score { min-width: 44px; text-align: center; font-family: var(--font-display); font-weight: 800; font-size: 17px; color: var(--text-2); }
 
+/* Online */
+.t-spinner { display: inline-block; vertical-align: -3px; width: 15px; height: 15px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.8s linear infinite; }
+.t-next-wait { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 14px; border-top: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--text-2); text-align: center; }
+.t-hub-error { margin: 0; }
+.t-online-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 18px; align-items: start; }
+.t-code { display: flex; flex-direction: column; gap: 12px; }
+.t-code-value { font-size: 46px; letter-spacing: 0.12em; color: var(--accent); margin-top: 4px; }
+.t-code-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.t-seats ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.t-seat { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 4px 6px 4px 10px; border-radius: var(--r-md); background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line); }
+.t-seat[data-mine='true'] { border-color: rgba(255, 200, 61, 0.45); }
+.t-seat > .t-team { min-width: 0; }
+.t-seat-right { display: flex; align-items: center; gap: 6px; flex: none; }
+.t-seat-you { border-color: var(--accent); color: var(--accent-2); }
+.t-seat-btn { flex: none; min-height: 34px; padding: 0 12px; font-size: 15px; }
+.t-online-panel > .t-note { grid-column: 1 / -1; margin: 0; }
+.t-live { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 16px; }
+.t-join { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.t-join-field { font-size: 30px; text-align: center; letter-spacing: 0.2em; min-height: 56px; }
+.t-recent { margin-top: 16px; }
+.t-recent ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.t-recent li { display: flex; align-items: center; gap: 6px; }
+.t-recent-open { flex: 1; min-width: 0; }
+.t-recent-code { font-size: 20px; letter-spacing: 0.1em; }
+
 @media (max-width: 860px) {
   .t-hub-top { grid-template-columns: minmax(0, 1fr); }
+  .t-online-panel { grid-template-columns: minmax(0, 1fr); }
 }
 /* Phones, upright */
 @media (max-width: 560px) {
@@ -1303,7 +1329,7 @@ button { cursor: pointer; background: none; border: 0; }
   .t-abandon { margin-left: 0; }
   .t-setup-options { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .t-setup-team { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 8px; padding: 8px; }
-  .t-setup-controls { grid-column: 1 / -1; grid-row: 2; justify-content: space-between; flex-wrap: nowrap; }
+  .t-setup-controls { grid-column: 1 / -1; grid-row: 2; justify-content: space-between; flex-wrap: wrap; }
   .t-setup-controls .segmented button { padding: 0 8px; font-size: 12px; }
   .t-setup-controls .t-diff { margin-left: auto; }
   .shell-head > .mode-icon { display: none; }
@@ -1318,6 +1344,9 @@ button { cursor: pointer; background: none; border: 0; }
   .t-league[data-tab='table'] .t-panel-fixtures, .t-league[data-tab='fixtures'] .t-panel-table { display: none; }
   .t-panel-title { display: none; }
   .t-fixtures { max-height: none; overflow: visible; }
+  .t-code { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .t-code-value { font-size: 38px; }
+  .t-seat-btn { font-size: 14px; padding: 0 10px; }
 }
 @media (max-width: 400px) {
   .t-wdl { display: none; }

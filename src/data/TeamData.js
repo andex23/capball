@@ -30,16 +30,16 @@ export const PHYSICS = {
   gkFriction: 0,
   ballFriction: 0,
   restitution: 0.55,     // cap off a wall: a firm knock back, not a pinball
-  ballRestitution: 0.7,  // the ball off walls and caps
-  ballFrictionRatio: 0.9, // ball slows at this fraction of a cap's rate
-  restingSpeed: 0.4,     // below this closing speed Matter kills a bounce (its default 2 is for pixel worlds)
-  maxFlickVelocity: 3.2, // full-power flick (a full pull) — about a pitch length for a lone cap
-  linearFriction: 0.1,   // steady slowdown per frame, so things slide and settle naturally
+  ballRestitution: 0.6,  // the ball off walls and caps
+  ballFrictionRatio: 0.55,// the ball rolls: it slows at this fraction of a cap's rate
+  restingSpeed: 0.2,     // below this closing speed Matter kills a bounce (its default 2 is for pixel worlds)
+  maxFlickVelocity: 3.2, // full-power flick (a full pull) — two-thirds of the pitch for a lone cap
+  linearFriction: 0.256, // steady slowdown per physics frame: a full flick slides ~20 units
   minFlickThreshold: 0.5,
   settleSpeed: 0.02,     // settle detection
   settleTime: 300,       // quick settle check
   subSteps: 8,           // good collision stability
-  timeScale: 0.35,       // on screen, the physics runs at this fraction of real time: a shot plays out over a second or so
+  timeScale: 0.16,       // physics frames per real 60 Hz frame: a full flick glides for ~1.3 s, the ball rolls on for 2-3 s
 }
 
 // Default teams

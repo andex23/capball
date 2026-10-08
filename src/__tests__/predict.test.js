@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Matter from 'matter-js'
-import { createPhysicsWorld, getBodies, clampAllBodies, stepPhysics, radiusOf } from '../physics/PhysicsWorld'
+import { createPhysicsWorld, getBodies, clampAllBodies, stepPhysics, radiusOf, createSimulationWorld } from '../physics/PhysicsWorld'
 import { useMatchStore, PHASE, clearMatchTimers } from '../state/MatchStore'
 import { performFlick } from '../game/flick'
-import { predictShot, createShot, createPrediction, capBounds, goalFor, BODY_SIDES } from '../game/predict'
+import { predictShot, createShot, createPrediction, capBounds, goalFor } from '../game/predict'
 import { classifyContact } from '../game/rules'
 import { PITCH, PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 
@@ -27,9 +27,17 @@ function shot({ capId = 'team1_atk1', x, y, vx, vy, ballX = 0, ballY = 0, others
 }
 
 describe('predictShot', () => {
-  it('Matter circles really are the decagons the model assumes', () => {
-    for (const r of [CAP_RADIUS, GK_RADIUS, BALL_RADIUS]) {
-      expect(Matter.Bodies.circle(0, 0, r).vertices).toHaveLength(BODY_SIDES)
+  it('caps and the ball meet as true circles: the ball leaves along the line of centres at first touch', () => {
+    for (const offset of [0, 0.3, 0.7, 1.0]) {
+      const w = createSimulationWorld({ team1_atk1: { x: -10, y: 0, vx: 1.5, vy: 0 }, ball: { x: -6, y: offset } })
+      let dir = null
+      for (let f = 0; f < 60 && dir === null; f++) {
+        w.step(1000 / 60)
+        const v = w.bodies.ball.velocity
+        if (Math.hypot(v.x, v.y) > 0.01) dir = deg(v.x, v.y)
+      }
+      const ideal = deg(Math.sqrt((CAP_RADIUS + BALL_RADIUS) ** 2 - offset ** 2), offset)
+      expect(angleDiff(dir, ideal)).toBeLessThan(0.5)
     }
   })
 
@@ -40,7 +48,7 @@ describe('predictShot', () => {
     expect(p.capPoints).toBe(2)
     expect(p.capPath[2]).toBeGreaterThan(-3)
     expect(p.capPath[2]).toBeLessThan(-CAP_RADIUS)
-    expect(p.contactX).toBeCloseTo(-BALL_RADIUS * Math.cos(Math.PI / BODY_SIDES) / Math.cos(0), 1)
+    expect(p.contactX).toBeCloseTo(-BALL_RADIUS, 5)
     // Ball runs straight on (+x), faster than the cap (light ball, elastic hit)
     expect(segAngle(p.ballPath, 0)).toBeCloseTo(0, 5)
     expect(p.ballSpeed).toBeGreaterThan(3)
@@ -52,12 +60,11 @@ describe('predictShot', () => {
     expect(p.contact).toBe('ball')
     const a = segAngle(p.ballPath, 0)
     expect(a).toBeLessThan(-10)
-    // Along the (inward) contact normal, which is one of the decagon's face directions
+    // Along the (inward) contact normal: the line from the cap's centre at contact to the ball's
     expect(angleDiff(a, deg(-p.normalX, -p.normalY))).toBeLessThan(1e-6)
-    expect(Math.abs(a / 36 - Math.round(a / 36))).toBeLessThan(1e-6)
-    // …and near the ideal circle normal (centre of cap at contact → ball)
     const cx = p.capPath[2], cy = p.capPath[3]
-    expect(angleDiff(a, deg(-cx, -cy))).toBeLessThan(36)
+    expect(angleDiff(a, deg(-cx, -cy))).toBeLessThan(1e-6)
+    expect(Math.hypot(cx, cy)).toBeCloseTo(CAP_RADIUS + BALL_RADIUS, 6)
     // A glancing hit gives the ball less speed than a full one
     const full = shot({ x: -3, y: 0, vx: 3, vy: 0 })
     expect(p.ballSpeed).toBeLessThan(full.ballSpeed)
@@ -72,16 +79,17 @@ describe('predictShot', () => {
     expect(p.bounces).toBeGreaterThanOrEqual(1)
 
     // At an angle: angle of incidence = angle of reflection (off the top cushion)
-    const q = shot({ x: -3, y: 0.5, vx: 3, vy: 0 }) // ball heads off at -36°
+    const q = shot({ x: -3, y: 1, vx: 3, vy: 0 }) // a thin hit: the ball heads steeply up the pitch
+    const theta = Math.asin(1 / (CAP_RADIUS + BALL_RADIUS))
     expect(q.ballPath[3]).toBeCloseTo(-(PITCH.halfH - BALL_RADIUS), 5)
-    expect(segAngle(q.ballPath, 0)).toBeCloseTo(-36, 3)
+    expect(segAngle(q.ballPath, 0)).toBeCloseTo(-(theta * 180) / Math.PI, 3)
     // Only the normal component loses energy (the ball's restitution), so it comes off flatter
-    expect(segAngle(q.ballPath, 1)).toBeCloseTo(deg(Math.cos(Math.PI / 5), PHYSICS.ballRestitution * Math.sin(Math.PI / 5)), 3)
+    expect(segAngle(q.ballPath, 1)).toBeCloseTo(deg(Math.cos(theta), PHYSICS.ballRestitution * Math.sin(theta)), 3)
   })
 
   it('a slow ball dies on the cushion and slides along it', () => {
     // A soft touch: closing speed at the cushion is under Matter's resting threshold
-    const p = shot({ x: -3, y: 8, vx: 0.5, vy: 0.3, ballX: -1.5, ballY: 9 })
+    const p = shot({ x: -2.8, y: 9, vx: 0.64, vy: 0, ballX: -1.4, ballY: 9.25 })
     expect(p.contact).toBe('ball')
     const i = 1 // first cushion point
     expect(p.ballPath[i * 2 + 1]).toBeCloseTo(PITCH.halfH - BALL_RADIUS, 5)
@@ -241,14 +249,16 @@ describe('prediction vs matter-js', () => {
     frame() // let the contact finish resolving
     const actual = deg(ball.velocity.x, ball.velocity.y)
     expect(angleDiff(actual, segAngle(p.ballPath, 0))).toBeLessThan(10)
-    // Speed within 15% too
-    expect(Math.abs(ball.speed - p.ballSpeed) / p.ballSpeed).toBeLessThan(0.15)
+    // Speed within 15% too, after the rolling friction of the frames it took to see it
+    const rolled = p.ballSpeed - 1.5 * PHYSICS.linearFriction * PHYSICS.ballFrictionRatio
+    expect(Math.abs(ball.speed - rolled) / rolled).toBeLessThan(0.15)
   })
 
   it('the ball meets the cushion where predicted', () => {
     // Glancing hit that sends the ball down to the bottom (+y) cushion, clear of the parked caps
+    place('team2_gk', PITCH.halfW - 1.2, -5)
     place('ball', 0, 2)
-    place('team1_atk1', -3, 1.6)
+    place('team1_atk1', -3, 1)
     const p = predictFromWorld('team1_atk1', { x: 4, y: 0 })
     expect(p.bounces).toBeGreaterThanOrEqual(1)
     expect(p.ballPath[3]).toBeCloseTo(PITCH.halfH - BALL_RADIUS, 5)

@@ -86,6 +86,9 @@ export const useTournamentStore = create((set, get) => ({
 
   // Online tournament on screen: { code, snapshot, tournament, loading, error }
   online: null,
+  // Which tournament the hub shows, and which kind the set-up screen makes
+  hubKind: 'local',
+  setupKind: 'local',
   // Fixture being played: { kind: 'local' | 'online', code?, fixture, knockout, live?, recorded? }
   playing: null,
   stash: null,
@@ -94,9 +97,21 @@ export const useTournamentStore = create((set, get) => ({
 
   /* ── This device ── */
 
+  /** Open the set-up screen for a tournament on this device or online. */
+  startSetup(kind) {
+    set({ setupKind: kind === 'online' ? 'online' : 'local', error: null })
+    useMatchStore.getState().goToScreen(SCREEN.TOURNAMENT_SETUP)
+  },
+
+  /** Show a tournament's hub. */
+  openHub(kind) {
+    set({ hubKind: kind === 'online' ? 'online' : 'local', error: null })
+    useMatchStore.getState().goToScreen(SCREEN.TOURNAMENT_HUB)
+  },
+
   createLocal({ format, legs, teams, matchDuration }) {
     const t = settleCpu(createTournament({ format, legs, teams, matchDuration }))
-    set({ local: t, error: null })
+    set({ local: t, error: null, hubKind: 'local' })
     get().noteChampion(t)
     save(get())
     return t
@@ -152,7 +167,7 @@ export const useTournamentStore = create((set, get) => ({
   /** Load (or reload) an online tournament by code. */
   async openOnline(code, { quiet = false } = {}) {
     const clean = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-    if (!quiet) set({ online: { code: clean, snapshot: null, tournament: null, loading: true, error: null } })
+    if (!quiet) set({ hubKind: 'online', online: { code: clean, snapshot: null, tournament: null, loading: true, error: null } })
     try {
       const snapshot = await api.get(clean)
       const start = sanitizeTournament(snapshot.setup)

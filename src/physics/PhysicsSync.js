@@ -17,6 +17,11 @@ const MAX_RESOLVE_MS = 12000
 const BASE_FRAME_MS = 1000 / 60
 // A long frame (tab in background, device hiccup) must not eat match time
 const MAX_CLOCK_STEP_S = 0.1
+// Longest frame the physics catches up on. A phone drawing 30 frames a second
+// still plays shots at full speed; a stall longer than this just pauses them.
+const MAX_FRAME_MS = 50
+// Further than this between two sub-steps is a teleport (kick-off, set piece), not motion
+const SNAP_DIST = 1.5
 
 export function usePhysicsSync(meshRefs) {
   const settledMs = useRef(0)
@@ -25,12 +30,15 @@ export function usePhysicsSync(meshRefs) {
   const resolved = useRef(false)
   // Physics time owed but not yet stepped (fractions of a sub-step)
   const simCarry = useRef(0)
+  // Positions before the latest sub-step, so meshes can be drawn between sub-steps
+  const prevPos = useRef({})
+  const interp = useRef(0)
   const replayFrame = useGoalReplay(meshRefs)
 
   useFrame((_, delta) => {
     const store = useMatchStore.getState()
     const authority = isAuthority(store)
-    const frameMs = Math.min(delta * 1000, 16.667)
+    const frameMs = Math.min(delta * 1000, MAX_FRAME_MS)
 
     if (store.phase !== PHASE.RESOLVE) {
       resolved.current = false
@@ -49,26 +57,48 @@ export function usePhysicsSync(meshRefs) {
         const subSteps = PHYSICS.subSteps || 8
         const stepMs = BASE_FRAME_MS / subSteps
         simCarry.current += frameMs * (PHYSICS.timeScale || 1)
+        const live = getBodies()
         let n = 0
-        while (simCarry.current >= stepMs && n < subSteps * 2) {
+        while (simCarry.current >= stepMs && n < subSteps * 4) {
+          const prev = prevPos.current
+          for (const id in live) {
+            const p = prev[id] || (prev[id] = { x: 0, y: 0 })
+            p.x = live[id].position.x
+            p.y = live[id].position.y
+          }
           stepPhysics(stepMs)
           simCarry.current -= stepMs
           n++
         }
         if (n) clampAllBodies()
+        if (simCarry.current > stepMs) simCarry.current = stepMs // dropped time: don't spiral
+        interp.current = Math.min(1, simCarry.current / stepMs)
       } else {
         simCarry.current = 0
+        interp.current = 0
+        prevPos.current = {}
       }
     }
 
     // Sync 2D physics → 3D meshes (guest smooths between network snapshots)
     const bodies = getBodies()
     const blend = authority ? 1 : Math.min(1, delta * 18)
+    // The physics advances in sub-steps that don't line up with screen
+    // frames; draw each body the matching fraction of the way between its
+    // last two sub-steps so motion is smooth instead of stepping.
+    const a = authority ? interp.current : 1
     for (const [id, body] of Object.entries(bodies)) {
       const mesh = meshRefs.current[id]
       if (!mesh) continue
-      mesh.position.x += (body.position.x - mesh.position.x) * blend
-      mesh.position.z += (body.position.y - mesh.position.z) * blend
+      let x = body.position.x
+      let y = body.position.y
+      const p = authority && prevPos.current[id]
+      if (p && a < 1 && Math.abs(x - p.x) + Math.abs(y - p.y) < SNAP_DIST) {
+        x = p.x + (x - p.x) * a
+        y = p.y + (y - p.y) * a
+      }
+      mesh.position.x += (x - mesh.position.x) * blend
+      mesh.position.z += (y - mesh.position.z) * blend
     }
     // Record this frame for goal replays — or, during one, redraw the past
     replayFrame(delta)

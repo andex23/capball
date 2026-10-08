@@ -241,8 +241,9 @@ function aimAtGoal(capId, capBody, bx, by, goalX, diff, rng) {
   const aimX = nx * cos - ny * sin
   const aimY = nx * sin + ny * cos
 
-  // Power based on distance and difficulty
-  const power = Math.min(dirLen * 0.5 + 1.2, PHYSICS.maxFlickVelocity * diff.powerMult)
+  // Enough to reach the ball and carry on a few units (friction is a steady
+  // slowdown, so distance grows with the square of the speed), capped by difficulty
+  const power = Math.min(Math.sqrt(2 * PHYSICS.linearFriction * (dirLen + 4)), PHYSICS.maxFlickVelocity * Math.max(0.75, diff.powerMult))
 
   return { capId, velocity: { x: aimX * power, y: aimY * power } }
 }
@@ -282,7 +283,8 @@ function passToTeammate(bestCap, aiTeam, bodies, diff, rng) {
   const aimX = nx * cos - ny * sin
   const aimY = nx * sin + ny * cos
 
-  const power = Math.min(bestTarget.dist * 0.4 + 0.8, PHYSICS.maxFlickVelocity * diff.powerMult * 0.7)
+  // Just enough to slide up to the teammate
+  const power = Math.min(Math.sqrt(2 * PHYSICS.linearFriction * Math.max(0, bestTarget.dist - 1)), PHYSICS.maxFlickVelocity * 0.7)
 
   return { capId: bestCap.id, velocity: { x: aimX * power, y: aimY * power } }
 }
