@@ -15,6 +15,7 @@ import { create } from 'zustand'
 import { useMatchStore } from './MatchStore'
 import { getStorage, loadSaved, pickPrefs, prefsToState, syncedPrefs, serialize, writeRaw, PREF_KEYS, OPTIONAL_PREF_KEYS } from '../utils/storage'
 import { emptyRecords, matchEntry, applyMatch, resetRecords as clearRecords } from '../game/records'
+import { inTournamentPlay } from './tournamentStore'
 
 /** Records for the UI. lastUpdate: { matchKey, newBests } of the latest recorded match. */
 export const useRecordsStore = create(() => ({ records: emptyRecords(), lastUpdate: null }))
@@ -54,7 +55,13 @@ export function initPersistence({ storage = getStorage(), debounceMs = 300 } = {
   function flush() {
     if (timer) { clearTimeout(timer); timer = null }
     const state = useMatchStore.getState()
-    savedPrefs = isOnline(state) ? { ...savedPrefs, ...pickPrefs(state, { localOnly: true }) } : pickPrefs(state)
+    if (inTournamentPlay()) {
+      // A tournament fixture borrows the teams and CPU level; those aren't the player's choices
+      const { aiDifficulty: _skip, ...own } = pickPrefs(state, { localOnly: true })
+      savedPrefs = { ...savedPrefs, ...own }
+    } else {
+      savedPrefs = isOnline(state) ? { ...savedPrefs, ...pickPrefs(state, { localOnly: true }) } : pickPrefs(state)
+    }
     const json = serialize({ prefs: savedPrefs, records: useRecordsStore.getState().records })
     if (json === lastWritten) return
     if (writeRaw(storage, json)) lastWritten = json

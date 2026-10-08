@@ -1,3 +1,4 @@
+import { useTournamentStore } from '../state/tournamentStore'
 import { useMatchStore, SCREEN, isAuthority } from '../state/MatchStore'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { disconnect } from '../multiplayer/MultiplayerManager'
@@ -54,6 +55,8 @@ export default function MatchEndScreen() {
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const gameMode = useMatchStore((s) => s.gameMode)
   const authority = useMatchStore((s) => isAuthority(s))
+  const tournament = useTournamentStore((s) => s.playing)
+  const tournamentError = useTournamentStore((s) => s.error)
 
   if (!matchResult) return null
   const { winner, score, team1Name, team2Name, penaltyScore, isDraw, stats } = matchResult
@@ -62,6 +65,7 @@ export default function MatchEndScreen() {
   const winnerName = winner === 'team1' ? team1Name : team2Name
   const online = gameMode === 'online'
 
+  const backToTournament = () => { playConfirm(); stopAllBodies(); useTournamentStore.getState().backToHub() }
   const rematch = () => { playConfirm(); playWhistle(); stopAllBodies(); useMatchStore.getState().startGame() }
   const penalties = () => { playConfirm(); playWhistle(); stopAllBodies(); useMatchStore.getState().startPenaltyShootout() }
   const menu = () => {
@@ -111,7 +115,25 @@ export default function MatchEndScreen() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>
-          {online ? (
+          {tournament ? (
+            <>
+              {tournamentError && (
+                <div role="alert" className="offline-note">
+                  <span>{tournamentError}</span>
+                  <button className="btn btn-secondary" style={{ minHeight: 34, fontSize: 15 }} onClick={() => useTournamentStore.getState().retryRecord()}>Try again</button>
+                </div>
+              )}
+              {tournament.knockout && isDraw && !penaltyScore ? (
+                authority
+                  ? <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>
+                  : <p className="muted" style={{ textAlign: 'center' }}>Level — the cup tie goes to penalties…</p>
+              ) : (
+                <button className="btn btn-primary btn-lg btn-block" onClick={backToTournament}>
+                  <Icon name="trophy" size={18} /> Back to the {tournament.knockout ? 'cup' : 'league'}
+                </button>
+              )}
+            </>
+          ) : online ? (
             <OnlineEndChoice onRematch={rematch} onPenalties={penalties} />
           ) : authority ? (
             <>
@@ -125,7 +147,7 @@ export default function MatchEndScreen() {
           ) : (
             <p className="muted" style={{ textAlign: 'center' }}>Waiting for the host to start a rematch{isDraw && !penaltyScore ? ' or penalties' : ''}…</p>
           )}
-          <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>
+          {!tournament && <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>}
         </div>
       </div>
     </div>

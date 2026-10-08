@@ -1,3 +1,4 @@
+import { useTournamentStore } from '../state/tournamentStore'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { FORMATIONS, PITCH, getFormationPositions } from '../data/TeamData'
 import { STADIUMS } from '../data/StadiumData'
@@ -94,6 +95,7 @@ export default function FormationScreen() {
   const myTeam = useMatchStore((s) => s.onlineMyTeam)
   const aiTeam = useMatchStore((s) => s.aiTeam)
   const isOnline = gameMode === 'online'
+  const inTournament = useTournamentStore((s) => !!s.playing)
 
   const kickOff = () => {
     playWhistle()
@@ -117,7 +119,7 @@ export default function FormationScreen() {
       step={2}
       title="Pick formations"
       subtitle="This is where your caps line up at every kick-off."
-      onBack={() => goToScreen(SCREEN.STADIUM_SELECT)}
+      onBack={() => (inTournament ? useTournamentStore.getState().backToHub() : goToScreen(SCREEN.STADIUM_SELECT))}
       next={{ label: 'Kick off', icon: 'ball', color: 'orange', onClick: kickOff }}
       onBothReady={kickOff}
     >

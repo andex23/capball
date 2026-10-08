@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMatchStore, PHASE, SCREEN, INPUT_PHASES, isAuthority } from '../state/MatchStore'
+import { useTournamentStore } from '../state/tournamentStore'
 import { cycleCameraPreset } from '../scene/camera'
 import { formatClock, otherTeam, SHOOTOUT_ROUNDS } from '../game/rules'
 import { sendPause, disconnect } from '../multiplayer/MultiplayerManager'
@@ -188,6 +189,8 @@ function PauseMenu({ onClose }) {
   const quit = () => {
     playButtonSelect()
     stopAllBodies()
+    // A tournament fixture abandoned mid-match: back to the hub, nothing recorded
+    if (useTournamentStore.getState().playing) { useTournamentStore.getState().backToHub(); return }
     if (gameMode === 'online') disconnect()
     useMatchStore.getState().quitMatch(SCREEN.MENU)
   }
