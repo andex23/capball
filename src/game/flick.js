@@ -1,4 +1,5 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
+import { PHYSICS } from '../data/TeamData'
 import { applyFlick, getBody } from '../physics/PhysicsWorld'
 import { teamOf, isGoalkeeper, keeperCanPlay, teamHomeDir } from './rules'
 
@@ -49,4 +50,32 @@ export function controllableTeams(state) {
   if (state.gameMode === 'online') return state.onlineMyTeam ? [state.onlineMyTeam] : []
   if (state.gameMode === 'ai') return [state.aiTeam === 'team1' ? 'team2' : 'team1']
   return ['team1', 'team2']
+}
+
+/* ── Drag → power ──
+   Power comes from how far the finger (or mouse) is pulled back on the
+   SCREEN, not across the pitch, so it feels the same at any zoom and on any
+   screen. A curve keeps short pulls gentle; full power needs a long pull. */
+
+/** Shorter pulls than this (px) are a cancelled aim, not a flick. */
+export const MIN_FLICK_PX = 14
+/** Curve: 1 = straight line; higher = more room for soft touches. */
+export const FLICK_CURVE = 1.45
+
+/** Pixels of pull that give full power on a screen of this size. */
+export function fullPowerPixels(width, height) {
+  const short = Math.min(width || 0, height || 0) || 400
+  return Math.min(230, Math.max(110, short * 0.34))
+}
+
+/** 0..1 power for a pull of `px` pixels (0 below the cancel threshold). */
+export function powerFraction(px, width, height) {
+  if (!(px >= MIN_FLICK_PX)) return 0
+  const t = Math.min(1, (px - MIN_FLICK_PX) / (fullPowerPixels(width, height) - MIN_FLICK_PX))
+  return Math.max(0.04, t ** FLICK_CURVE)
+}
+
+/** Launch speed (physics units) for a pull of `px` pixels. */
+export function flickSpeedFor(px, width, height) {
+  return powerFraction(px, width, height) * PHYSICS.maxFlickVelocity
 }
