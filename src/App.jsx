@@ -1,5 +1,9 @@
 import { Component, Suspense, lazy, useEffect } from 'react'
 import { useMatchStore, SCREEN } from './state/MatchStore'
+import { useTournamentStore } from './state/tournamentStore'
+import TournamentHomeScreen from './screens/TournamentHomeScreen'
+import TournamentSetupScreen from './screens/TournamentSetupScreen'
+import TournamentHubScreen from './screens/TournamentHubScreen'
 import { disconnect, isConnected } from './multiplayer/MultiplayerManager'
 import { fadeOutMenuMusic } from './audio/MusicManager'
 import SplashScreen from './screens/SplashScreen'
@@ -52,9 +56,10 @@ function ConnectionLost() {
   const status = useMatchStore((s) => s.onlineStatus)
   const gameMode = useMatchStore((s) => s.gameMode)
   const screen = useMatchStore((s) => s.screen)
-  if (gameMode !== 'online' || status.status !== 'disconnected' || screen === SCREEN.ONLINE || screen === SCREEN.MENU) return null
+  if (gameMode !== 'online' || status.status !== 'disconnected' || screen === SCREEN.ONLINE || screen === SCREEN.MENU || screen === SCREEN.TOURNAMENT_HUB) return null
 
   const leave = () => {
+    if (useTournamentStore.getState().playing) { useTournamentStore.getState().backToHub(); return }
     disconnect()
     useMatchStore.getState().quitMatch(SCREEN.MENU)
     useMatchStore.getState().setGameMode('local')
@@ -85,6 +90,9 @@ function Screen({ screen }) {
     case SCREEN.STADIUM_SELECT: return <StadiumSelectScreen />
     case SCREEN.FORMATION: return <FormationScreen />
     case SCREEN.MATCH_END: return <MatchEndScreen />
+    case SCREEN.TOURNAMENT_HOME: return <TournamentHomeScreen />
+    case SCREEN.TOURNAMENT_SETUP: return <TournamentSetupScreen />
+    case SCREEN.TOURNAMENT_HUB: return <TournamentHubScreen />
     default: return <MenuScreen />
   }
 }
