@@ -1,19 +1,12 @@
 import { useState } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX } from '../data/TeamOptions'
+import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS } from '../data/TeamOptions'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
 import CapPreview from '../ui/CapPreview'
 import Icon from '../ui/Icon'
 import { displayColor } from '../ui/color'
-
-const COLOR_PRESETS = [
-  '#D32F2F', '#C62828', '#E91E63', '#9C27B0',
-  '#1565C0', '#0277BD', '#00838F', '#2E7D32',
-  '#F57F17', '#E65100', '#FFD700', '#FFFFFF',
-  '#424242', '#000000',
-]
 
 const BALL_COLORS = [
   { color: '#c0c0c0', label: 'Silver' },
