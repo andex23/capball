@@ -1,11 +1,13 @@
 // Camera presets, kept out of Scene.jsx so the HUD doesn't pull in three.js.
 
 // Each preset has a landscape pose and, for tall phone screens, a pose that
-// turns the pitch so its long side runs up the screen.
+// turns the pitch so its long side runs up the screen. `near` / `portraitNear`
+// say which goal (-1 left, +1 right) is on the viewer's side in that pose: the
+// left of a wide screen, the bottom of a tall one, the one behind the camera.
 export const CAMERA_PRESETS = [
-  { key: 'overhead', label: 'Overhead', pos: [0, 30, 5], portraitPos: [5, 30, 0], target: [0, 0, 0] },
-  { key: 'low', label: 'Low angle', pos: [0, 14, 14], portraitPos: [14, 14, 0], target: [0, 0, 0] },
-  { key: 'behindGoal', label: 'Behind goal', pos: [-16, 12, 0], portraitPos: [-16, 12, 0], target: [2, 0, 0] },
+  { key: 'overhead', label: 'Overhead', pos: [0, 30, 5], portraitPos: [5, 30, 0], target: [0, 0, 0], near: -1, portraitNear: 1 },
+  { key: 'low', label: 'Low angle', pos: [0, 14, 14], portraitPos: [14, 14, 0], target: [0, 0, 0], near: -1, portraitNear: 1 },
+  { key: 'behindGoal', label: 'Behind goal', pos: [-16, 12, 0], portraitPos: [-16, 12, 0], target: [2, 0, 0], near: -1, portraitNear: -1 },
 ]
 
 const PORTRAIT_BELOW = 0.9
@@ -57,6 +59,61 @@ export function projectToScreen(x, y, z, camera = _cameraRef, rect = _canvasRef?
 
 export function resetCameraPreset() {
   _presetIndex = 0
+  _facingHome = null
+  _flipped = false
+  cancelTurn()
+}
+
+/* ── Facing: whose end is nearest the viewer ──
+   The whole view can be turned round 180° (about the centre spot) so a given
+   team's own goal sits at the bottom of a tall screen / left of a wide one —
+   on one phone passed between two players, each sees the pitch from their end. */
+let _facingHome = null // home goal (-1/+1) to keep on the viewer's side, or null = preset as drawn
+let _flipped = false
+let _turnAnim = 0
+
+const turnRound = ([x, y, z]) => [-x, y, -z]
+function cancelTurn() {
+  if (_turnAnim && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(_turnAnim)
+  _turnAnim = 0
+}
+
+/** Does showing this home end nearest the viewer need the view turned round? */
+export function needsFlip(preset, aspect, homeDir) {
+  if (homeDir !== -1 && homeDir !== 1) return false
+  const near = aspect < PORTRAIT_BELOW ? preset.portraitNear : preset.near
+  return near !== homeDir
+}
+
+/**
+ * Keep the given home goal (-1 left / +1 right, or null for none) on the
+ * viewer's side. Turns the camera round smoothly when that changes.
+ */
+export function setFacing(homeDir, { animate = true } = {}) {
+  _facingHome = homeDir === -1 || homeDir === 1 ? homeDir : null
+  if (!_cameraRef || !_controlsRef) return
+  const want = needsFlip(CAMERA_PRESETS[_presetIndex], _cameraRef.aspect || 1, _facingHome)
+  if (want === _flipped) return
+  _flipped = want
+  cancelTurn()
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  const from = { position: _cameraRef.position.toArray(), target: _controlsRef.target.toArray() }
+  if (!animate || reduced || typeof requestAnimationFrame !== 'function') {
+    setCameraPose({ position: turnRound(from.position), target: turnRound(from.target) })
+    return
+  }
+  // Swing round the centre spot over ~0.7s, keeping height and distance
+  const start = performance.now()
+  const DURATION = 700
+  const spin = (t) => {
+    const k = Math.min(1, (t - start) / DURATION)
+    const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2 // ease in-out
+    const a = Math.PI * e
+    const rot = ([x, y, z]) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)]
+    setCameraPose({ position: rot(from.position), target: rot(from.target) })
+    if (k < 1) _turnAnim = requestAnimationFrame(spin)
+  }
+  _turnAnim = requestAnimationFrame(spin)
 }
 
 export function fitCurrentPreset() {
@@ -131,7 +188,12 @@ function applyPreset(preset) {
   if (!preset || !_controlsRef || !_cameraRef) return
   const { w, h, top, bottom } = currentInsets()
   const freeHeight = h > 0 ? (h - top - bottom) / h : 1
-  const { position, target } = posePreset(preset, _cameraRef.aspect || 1, freeHeight)
+  const aspect = _cameraRef.aspect || 1
+  let { position, target } = posePreset(preset, aspect, freeHeight)
+  // Keep whoever we're facing for on their side (also after a phone turns round)
+  cancelTurn()
+  _flipped = needsFlip(preset, aspect, _facingHome)
+  if (_flipped) { position = turnRound(position); target = turnRound(target) }
   // Slide the picture so the pitch is centred in the space the HUD leaves free.
   // A view offset moves the image without touching the camera pose, so aiming,
   // the tutorial pointers and replays all keep working off the same matrices.
