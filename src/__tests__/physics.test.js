@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Matter from 'matter-js'
 import {
   createPhysicsWorld, getBodies, resetToKickoff, setupFreeKick, setupPenalty,
-  FREE_KICK_WALL_DISTANCE, FREE_KICK_WALL_MIN,
+  FREE_KICK_WALL_DISTANCE, FREE_KICK_WALL_MIN, setupCorner, setupGoalKick,
   clampAllBodies, stepPhysics, allBodiesSettled, radiusOf, snapshotBodies, applyBodySnapshot,
 } from '../physics/PhysicsWorld'
 import { checkGoal } from '../physics/GoalDetector'
@@ -200,6 +200,43 @@ describe('set pieces', () => {
     expect(inLine.length).toBe(1)
     expectNoOverlaps()
     expectInsidePitch()
+  })
+
+  it('corner kicks from all four corners: ball off the walls, taker beside it, defenders back', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    for (const [ex, ey] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      resetToKickoff('team1')
+      const team = ex === 1 ? 'team1' : 'team2' // the side attacking that end
+      setupCorner(team, ex, ey)
+      const b = pos('ball')
+      expect(Math.abs(b.x)).toBeLessThan(PITCH.halfW - 0.9)
+      expect(Math.abs(b.y)).toBeLessThan(PITCH.halfH - 0.9)
+      expect(store().freeKickCapId).toBe(`${team}_atk1`)
+      expect(Math.hypot(pos(`${team}_atk1`).x - b.x, pos(`${team}_atk1`).y - b.y)).toBeLessThan(2.5)
+      for (const id of capIds()) {
+        if (id.startsWith(team) || id.endsWith('_gk')) continue
+        expect(Math.hypot(pos(id).x - b.x, pos(id).y - b.y), `${id} at corner ${ex},${ey}`).toBeGreaterThanOrEqual(4.4)
+      }
+      expectNoOverlaps()
+      expectInsidePitch()
+    }
+  })
+
+  it('goal kicks: the keeper takes it in his box, attackers stand off', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    for (const ey of [1, -1]) {
+      resetToKickoff('team1')
+      setupGoalKick('team1', -1, ey)
+      const b = pos('ball')
+      expect(b.x).toBeLessThan(-PITCH.halfW + PITCH.penAreaW)
+      expect(store().freeKickCapId).toBe('team1_gk')
+      for (const id of capIds()) {
+        if (!id.startsWith('team2') || id.endsWith('_gk')) continue
+        expect(Math.hypot(pos(id).x - b.x, pos(id).y - b.y), id).toBeGreaterThanOrEqual(5.9)
+      }
+      expectNoOverlaps()
+      expectInsidePitch()
+    }
   })
 
   it('free kick right by the wall still keeps the ball on the pitch', () => {

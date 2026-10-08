@@ -44,6 +44,7 @@ const CAT_GOAL_BLOCKER = 0x0002
 
 let engine = null
 let bodies = {}
+let lastBallTeam = null // 'team1' | 'team2' | null — last side to touch the ball
 
 /** Direction of a team's own goal for the current half. -1 = left, +1 = right */
 function getTeamDir(team) {
@@ -205,6 +206,17 @@ export function createPhysicsWorld() {
         s.callFoul(foulSpot, teamOf(other), inPenaltyBox)
       }, 300)
       return
+    }
+  })
+
+  // ── EVENT: Who touched the ball last (decides corner kick vs goal kick) ──
+  Events.on(engine, 'collisionStart', (event) => {
+    for (const pair of event.pairs) {
+      const a = pair.bodyA.label
+      const b = pair.bodyB.label
+      if (a !== 'ball' && b !== 'ball') continue
+      const team = teamOf(a === 'ball' ? b : a)
+      if (team) lastBallTeam = team
     }
   })
 
@@ -506,6 +518,9 @@ export const FREE_KICK_WALL_DISTANCE = 8
 export const FREE_KICK_WALL_MIN = 5
 // A free kick this close to the defending goal line gets a two-cap wall
 export const FREE_KICK_TWO_CAP_WALL_WITHIN = 13
+// Opponents stand this far off a corner kick / goal kick
+const CORNER_CLEARANCE = 4.5
+const GOAL_KICK_CLEARANCE = 6
 // The kicker's own teammates just keep out of the kicker's way
 const TEAMMATE_CLEARANCE = 4
 
@@ -616,6 +631,72 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   useMatchStore.setState({ freeKickCapId: kickerId })
 }
 
+/** Push every cap in `ids` at least `radius` away from (bx, by), sliding along the walls if needed. */
+function clearAround(bx, by, ids, radius) {
+  for (const id of ids) {
+    const body = bodies[id]
+    if (!body) continue
+    const dx = body.position.x - bx
+    const dy = body.position.y - by
+    const dist = Math.hypot(dx, dy)
+    if (dist >= radius) continue
+    const away = dist > 0.1 ? { x: dx / dist, y: dy / dist } : { x: -Math.sign(bx) || 1, y: 0 }
+    const toCentre = { x: -Math.sign(bx) || 1, y: -Math.sign(by) || 1 }
+    const len = Math.hypot(toCentre.x, toCentre.y)
+    const tries = [away, { x: -away.y, y: away.x }, { x: away.y, y: -away.x }, { x: toCentre.x / len, y: toCentre.y / len }]
+    for (const dir of tries) {
+      const p = clampInPitch(bx + dir.x * (radius + 0.6), by + dir.y * (radius + 0.6), radiusOf(id))
+      if (Math.hypot(p.x - bx, p.y - by) >= radius) { safePlace(id, p.x, p.y); break }
+    }
+  }
+}
+
+/**
+ * CORNER KICK for `team`, from the corner at (ex, ey). The ball sits on the
+ * end line a little up from the corner, the taker just behind it against the
+ * side wall; opponents stand off, everyone else stays where they were.
+ */
+export function setupCorner(team, ex, ey) {
+  const { halfW, halfH } = PITCH
+  stopAll()
+  const bx = ex * (halfW - 1.3)
+  const by = ey * (halfH - 2.8)
+  placeBallAt(bx, by)
+  const taker = `${team}_atk1`
+  safePlace(taker, bx, ey * (halfH - 1.25))
+  const others = Object.keys(bodies).filter((id) => id !== 'ball' && id !== taker && !id.endsWith('_gk'))
+  clearAround(bx, by, others.filter((id) => !id.startsWith(`${team}_`)), CORNER_CLEARANCE)
+  clearAround(bx, by, others.filter((id) => id.startsWith(`${team}_`)), TEAMMATE_CLEARANCE - 1)
+  deOverlapBodies()
+  useMatchStore.setState({ freeKickCapId: taker })
+}
+
+/**
+ * GOAL KICK for `team` (the defenders), after the ball got stuck in a corner
+ * at their end. The keeper takes it from inside the six-yard area, on the
+ * side the ball went out; attackers leave the penalty area.
+ */
+export function setupGoalKick(team, ex, ey) {
+  const { halfW } = PITCH
+  stopAll()
+  const bx = ex * (halfW - 3.2)
+  const by = ey * 2
+  placeBallAt(bx, by)
+  const taker = `${team}_gk`
+  safePlace(taker, ex * (halfW - 1.5), by)
+  const opponents = Object.keys(bodies).filter((id) => id.startsWith(otherTeam(team)) && !id.endsWith('_gk'))
+  clearAround(bx, by, opponents, GOAL_KICK_CLEARANCE)
+  const mates = Object.keys(bodies).filter((id) => id.startsWith(`${team}_`) && id !== taker)
+  clearAround(bx, by, mates, TEAMMATE_CLEARANCE - 1)
+  deOverlapBodies()
+  useMatchStore.setState({ freeKickCapId: taker })
+}
+
+/** Team that touched the ball last (null after a kick-off until someone does). */
+export function getLastBallTeam() {
+  return lastBallTeam
+}
+
 export function setupPenalty(fouledTeam) {
   const { halfW } = PITCH
   const defTeam = otherTeam(fouledTeam)
@@ -664,6 +745,7 @@ export function setupPenalty(fouledTeam) {
 export function resetToKickoff(kickingTeam) {
   const { formations, team1Side } = useMatchStore.getState()
   stopAll()
+  lastBallTeam = null
   placeBallAt(0, 0)
 
   for (const team of ['team1', 'team2']) {

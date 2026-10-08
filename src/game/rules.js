@@ -82,6 +82,29 @@ export function isInPenaltyArea(x, y, homeDir) {
     : x > PITCH.halfW - PITCH.penAreaW
 }
 
+// A ball that comes to rest this close to both an end wall and a side wall is
+// stuck in the corner: play restarts with a corner kick or a goal kick
+export const CORNER_ZONE = 2.6
+
+/** The corner the ball is stuck in — { ex, ey } (signs of x and y) — or null. */
+export function ballInCorner(x, y, zone = CORNER_ZONE) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  if (Math.abs(x) < PITCH.halfW - zone || Math.abs(y) < PITCH.halfH - zone) return null
+  return { ex: x < 0 ? -1 : 1, ey: y < 0 ? -1 : 1 }
+}
+
+/**
+ * Restart for a ball stuck in a corner at end `ex`, as in real football:
+ * the defending side touched it last → corner kick to the attackers;
+ * otherwise → goal kick to the defenders.
+ */
+export function cornerRestart(ex, lastTouchTeam, team1Side = 'left') {
+  const defending = teamHomeDir('team1', team1Side) === ex ? 'team1' : 'team2'
+  return lastTouchTeam === defending
+    ? { kind: 'corner', team: otherTeam(defending) }
+    : { kind: 'goalKick', team: defending }
+}
+
 // How far outside his own penalty area the ball can be and the keeper still come for it
 export const KEEPER_REACH = 3
 

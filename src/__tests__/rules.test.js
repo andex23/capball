@@ -4,6 +4,7 @@ import {
   isInPenaltyArea, shootoutStatus, nextShooter, matchWinner, formatClock,
 } from '../game/rules'
 import { PITCH } from '../data/TeamData'
+import { ballInCorner, cornerRestart } from '../game/rules'
 
 const inLeftGoal = { x: -PITCH.halfW - 0.5, y: 0 }
 const inRightGoal = { x: PITCH.halfW + 0.5, y: 0 }
@@ -134,5 +135,25 @@ describe('misc', () => {
     expect(formatClock(0.4)).toBe('0:01')
     expect(formatClock(0)).toBe('0:00')
     expect(formatClock(-3)).toBe('0:00')
+  })
+})
+
+describe('ball stuck in a corner', () => {
+  it('spots the four corners and nothing else', () => {
+    expect(ballInCorner(PITCH.halfW - 1, PITCH.halfH - 1)).toEqual({ ex: 1, ey: 1 })
+    expect(ballInCorner(-PITCH.halfW + 1, -PITCH.halfH + 1)).toEqual({ ex: -1, ey: -1 })
+    expect(ballInCorner(PITCH.halfW - 1, 0)).toBeNull() // by the goal, not the corner
+    expect(ballInCorner(0, PITCH.halfH - 0.5)).toBeNull() // along the side wall
+    expect(ballInCorner(NaN, 0)).toBeNull()
+  })
+
+  it('corner kick if the defenders touched it last, else a goal kick', () => {
+    // team1 defends the left end (team1Side left)
+    expect(cornerRestart(-1, 'team1', 'left')).toEqual({ kind: 'corner', team: 'team2' })
+    expect(cornerRestart(-1, 'team2', 'left')).toEqual({ kind: 'goalKick', team: 'team1' })
+    expect(cornerRestart(-1, null, 'left')).toEqual({ kind: 'goalKick', team: 'team1' })
+    // After the change of ends
+    expect(cornerRestart(-1, 'team2', 'right')).toEqual({ kind: 'corner', team: 'team1' })
+    expect(cornerRestart(1, 'team2', 'left')).toEqual({ kind: 'corner', team: 'team1' })
   })
 })

@@ -30,6 +30,7 @@ const SECTIONS = [
     items: [
       'Hitting an opponent’s cap before the ball is a foul. Bouncing off the side cushion first is fine.',
       'A foul gives the other team a free kick from that spot, with a defensive wall.',
+      'If the ball gets stuck in a corner: corner kick if the defenders touched it last, otherwise a goal kick.',
       'A foul in your own penalty area gives away a penalty.',
       'Only the designated taker can take a free kick or penalty.',
     ],
