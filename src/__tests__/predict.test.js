@@ -75,13 +75,13 @@ describe('predictShot', () => {
     const q = shot({ x: -3, y: 0.5, vx: 3, vy: 0 }) // ball heads off at -36°
     expect(q.ballPath[3]).toBeCloseTo(-(PITCH.halfH - BALL_RADIUS), 5)
     expect(segAngle(q.ballPath, 0)).toBeCloseTo(-36, 3)
-    // Only the normal component loses energy (restitution 0.95), so it comes off a touch flatter
-    expect(segAngle(q.ballPath, 1)).toBeCloseTo(deg(Math.cos(Math.PI / 5), 0.95 * Math.sin(Math.PI / 5)), 3)
+    // Only the normal component loses energy (the ball's restitution), so it comes off flatter
+    expect(segAngle(q.ballPath, 1)).toBeCloseTo(deg(Math.cos(Math.PI / 5), PHYSICS.ballRestitution * Math.sin(Math.PI / 5)), 3)
   })
 
   it('a slow ball dies on the cushion and slides along it', () => {
     // A soft touch: closing speed at the cushion is under Matter's resting threshold
-    const p = shot({ x: -3, y: 8, vx: 0.8, vy: 0.5, ballX: -1.5, ballY: 9 })
+    const p = shot({ x: -3, y: 8, vx: 0.5, vy: 0.3, ballX: -1.5, ballY: 9 })
     expect(p.contact).toBe('ball')
     const i = 1 // first cushion point
     expect(p.ballPath[i * 2 + 1]).toBeCloseTo(PITCH.halfH - BALL_RADIUS, 5)
@@ -89,7 +89,7 @@ describe('predictShot', () => {
   })
 
   it('a path into the goal mouth ends on the goal line with a goal flag', () => {
-    const p = shot({ x: 8, y: 0.3, vx: 4, vy: 0, ballX: 10, ballY: 0 })
+    const p = shot({ x: 8, y: 0.1, vx: 3, vy: 0, ballX: 10, ballY: 0 })
     expect(p.end).toBe('goal')
     expect(p.goalDir).toBe(1)
     expect(p.ballPath[(p.ballPoints - 1) * 2]).toBeCloseTo(PITCH.halfW, 5)
@@ -257,8 +257,9 @@ describe('prediction vs matter-js', () => {
     performFlick('team1_atk1', { x: 4, y: 0 })
     const ball = getBodies().ball
     let prevVy = null, hit = null
-    for (let f = 0; f < 300 && !hit; f++) {
-      frame()
+    // Watch every sub-step (a ball covers a few units per frame)
+    for (let i = 0; i < 300 * PHYSICS.subSteps && !hit; i++) {
+      stepPhysics(1000 / 60 / PHYSICS.subSteps)
       if (prevVy !== null && Math.sign(ball.velocity.y) !== Math.sign(prevVy) && Math.abs(prevVy) > 0.05) {
         hit = { x: ball.position.x, y: ball.position.y }
       }

@@ -35,6 +35,11 @@ import { teamHomeDir, teamOf, classifyContact, isInPenaltyArea, otherTeam } from
 
 const { Engine, World, Bodies, Body, Events } = Matter
 
+// Matter.js is built for pixel-sized worlds: below this closing speed it
+// treats a contact as "resting" and kills the bounce. Our pitch is ~30 units
+// long, so the stock value (2) made slow caps and balls die on the cushions.
+if (Number.isFinite(PHYSICS.restingSpeed)) Matter.Resolver._restingThresh = PHYSICS.restingSpeed
+
 const PEN_AREA_W = PITCH.penAreaW
 const PEN_AREA_H = PITCH.penAreaH
 
@@ -114,7 +119,7 @@ function createWallBodies() {
 // ── Per-step friction & velocity cap ──
 const SUB_STEPS = PHYSICS.subSteps || 8
 const CAP_FRICTION_PER_STEP = PHYSICS.linearFriction / SUB_STEPS
-const BALL_FRICTION_PER_STEP = (PHYSICS.linearFriction * 0.5) / SUB_STEPS // ball has half the friction of caps
+const BALL_FRICTION_PER_STEP = (PHYSICS.linearFriction * PHYSICS.ballFrictionRatio) / SUB_STEPS
 const MAX_SPEED = PHYSICS.maxFlickVelocity * 1.5
 
 /** Linear friction + hard speed cap for one sub-step, applied to a map of dynamic bodies. */
@@ -253,7 +258,7 @@ function makeDynamicBody(id, x, y) {
     friction: 0,
     frictionStatic: 0,
     frictionAir: isBall ? 0 : 0.001, // ball has zero air drag, caps have minimal
-    restitution: isBall ? 0.95 : PHYSICS.restitution, // ball very bouncy off walls
+    restitution: isBall ? PHYSICS.ballRestitution : PHYSICS.restitution,
     label: id,
     slop: 0.001,  // very tight — prevents sinking into walls
     collisionFilter: isBall

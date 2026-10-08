@@ -19,7 +19,9 @@ export const CAP_RADIUS = 0.75
 export const GK_RADIUS = 1.0 // 1.33x standard
 export const BALL_RADIUS = 0.48 // 0.64x standard
 
-// Physics values — crisp tabletop arcade feel
+// Physics values — tabletop feel. Tuned together; see the notes on each.
+// Too fast / floaty → lower maxFlickVelocity or raise linearFriction.
+// Too sticky / dies quickly → the reverse. Bouncy walls → restitution.
 export const PHYSICS = {
   playerMass: 2.5,       // heavy caps — don't get pushed around easily
   gkMass: 4.0,           // GK heavier
@@ -27,13 +29,17 @@ export const PHYSICS = {
   playerFriction: 0,
   gkFriction: 0,
   ballFriction: 0,
-  restitution: 0.9,      // wall bounce — strong rebound off walls
-  maxFlickVelocity: 4.5, // max shot power — lower for more control
-  linearFriction: 0.018, // moderate friction — things slide, slow, and stop naturally
+  restitution: 0.55,     // cap off a wall: a firm knock back, not a pinball
+  ballRestitution: 0.7,  // the ball off walls and caps
+  ballFrictionRatio: 0.9, // ball slows at this fraction of a cap's rate
+  restingSpeed: 0.4,     // below this closing speed Matter kills a bounce (its default 2 is for pixel worlds)
+  maxFlickVelocity: 3.2, // full-power flick (a full pull) — about a pitch length for a lone cap
+  linearFriction: 0.1,   // steady slowdown per frame, so things slide and settle naturally
   minFlickThreshold: 0.5,
   settleSpeed: 0.02,     // settle detection
   settleTime: 300,       // quick settle check
   subSteps: 8,           // good collision stability
+  timeScale: 0.35,       // on screen, the physics runs at this fraction of real time: a shot plays out over a second or so
 }
 
 // Default teams
