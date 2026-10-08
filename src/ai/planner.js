@@ -26,7 +26,7 @@ const FRAME_MS = 1000 / 60
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
 // Measured deceleration per 60 Hz frame in velocity units (see PhysicsWorld friction).
 const CAP_DECEL = PHYSICS.linearFriction * 1.03
-const BALL_DECEL = PHYSICS.linearFriction * 0.5 * 1.03
+const BALL_DECEL = PHYSICS.linearFriction * PHYSICS.ballFrictionRatio * 1.03
 // A heavy cap hitting the light ball head-on roughly doubles its speed.
 const BALL_SPEED_GAIN = 1.7
 const MIN_CUT = 0.3 // cos of the steepest glancing contact we try

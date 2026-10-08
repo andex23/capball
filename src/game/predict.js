@@ -26,15 +26,15 @@ import { isGoalkeeper, teamOf, teamHomeDir } from './rules'
 /** Sides of the polygon Matter uses for every circle body of our sizes (Bodies.circle: max(10, radius)). */
 export const BODY_SIDES = 10
 /** Matter.Resolver._restingThresh — below this closing speed a contact doesn't bounce. */
-const RESTING_SPEED = 2
+const RESTING_SPEED = PHYSICS.restingSpeed
 /** Ball restitution set in PhysicsWorld's createCapBody (a pair uses the higher of the two). */
-const BALL_RESTITUTION = 0.95
+const BALL_RESTITUTION = PHYSICS.ballRestitution
 /** Measured: a slow cap→ball contact (resting branch) behaves like restitution ~0.08. */
 const SLOW_CONTACT_BOUNCE = 0.08
 
 const MAX_SPEED = PHYSICS.maxFlickVelocity * 1.5
 const CAP_DECEL = PHYSICS.linearFriction
-const BALL_DECEL = PHYSICS.linearFriction * 0.5
+const BALL_DECEL = PHYSICS.linearFriction * PHYSICS.ballFrictionRatio
 const CAP_WALL_E = PHYSICS.restitution
 const BALL_WALL_E = Math.max(PHYSICS.restitution, BALL_RESTITUTION)
 const CAP_BALL_E = Math.max(PHYSICS.restitution, BALL_RESTITUTION)
