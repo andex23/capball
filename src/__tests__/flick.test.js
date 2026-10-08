@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flickError, controllableTeams, capSelectable } from '../game/flick'
+import { flickError, controllableTeams, capSelectable, powerFraction, fullPowerPixels, MIN_FLICK_PX } from '../game/flick'
 import { keeperCanPlay } from '../game/rules'
 import { PITCH } from '../data/TeamData'
 
@@ -80,5 +80,26 @@ describe('controllableTeams', () => {
   it('online: only your own team', () => {
     expect(controllableTeams({ gameMode: 'online', onlineMyTeam: 'team2' })).toEqual(['team2'])
     expect(controllableTeams({ gameMode: 'online', onlineMyTeam: null })).toEqual([])
+  })
+})
+
+describe('drag → power', () => {
+  it('ignores tiny pulls, ramps gently, and tops out at a long pull', () => {
+    const W = 390, H = 844
+    const full = fullPowerPixels(W, H)
+    expect(powerFraction(MIN_FLICK_PX - 1, W, H)).toBe(0)
+    const quarter = powerFraction(MIN_FLICK_PX + (full - MIN_FLICK_PX) * 0.25, W, H)
+    const half = powerFraction(MIN_FLICK_PX + (full - MIN_FLICK_PX) * 0.5, W, H)
+    expect(quarter).toBeLessThan(0.25) // short pulls are softer than a straight line
+    expect(half).toBeLessThan(0.5)
+    expect(half).toBeGreaterThan(quarter)
+    expect(powerFraction(full, W, H)).toBe(1)
+    expect(powerFraction(full * 3, W, H)).toBe(1)
+  })
+
+  it('needs a similar pull on any phone, in either orientation', () => {
+    expect(fullPowerPixels(390, 844)).toBe(fullPowerPixels(844, 390))
+    expect(fullPowerPixels(320, 568)).toBeGreaterThanOrEqual(110)
+    expect(fullPowerPixels(1440, 900)).toBeLessThanOrEqual(230)
   })
 })

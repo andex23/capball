@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useMatchStore, PHASE, INPUT_PHASES } from '../state/MatchStore'
-import { performFlick, flickError, controllableTeams, capSelectable } from '../game/flick'
+import { performFlick, flickError, controllableTeams, capSelectable, powerFraction, MIN_FLICK_PX } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
@@ -65,6 +65,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
   const pitchPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const dragCapId = useRef(null)  // cap being dragged (local — not overwritten by online sync)
   const dragCurrent = useRef(null)
+  const lastClient = useRef({ x: 0, y: 0 }) // where the finger/mouse is now, in client pixels
+  const capScreen = useRef(new THREE.Vector3())
   const shotRef = useRef(null)  // reused predictShot input/output (no per-frame allocation)
   const predRef = useRef(null)
 
@@ -78,6 +80,17 @@ export function useFlickController(meshRefs, trajectoryRef) {
     raycaster.current.setFromCamera(ndc, camera)
     const hit = new THREE.Vector3()
     return raycaster.current.ray.intersectPlane(pitchPlane.current, hit) ? hit : null
+  }, [camera, gl])
+
+  // How far (screen pixels) the pointer has been pulled back from a cap,
+  // and the 0..1 power that gives
+  const pullOf = useCallback((capMesh) => {
+    const rect = gl.domElement.getBoundingClientRect()
+    const v = capScreen.current.set(capMesh.position.x, 0.3, capMesh.position.z).project(camera)
+    const sx = rect.left + ((v.x + 1) / 2) * rect.width
+    const sy = rect.top + ((1 - v.y) / 2) * rect.height
+    const px = Math.hypot(lastClient.current.x - sx, lastClient.current.y - sy)
+    return { px, power: powerFraction(px, rect.width, rect.height) }
   }, [camera, gl])
 
   // Find the active team's cap nearest to a pitch position. `minReach` widens
@@ -132,6 +145,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
 
       const worldPos = getWorldPos(e.clientX, e.clientY)
       if (!worldPos) return
+      lastClient.current = { x: e.clientX, y: e.clientY }
 
       // Fingers get a pick-up area at least a thumb-tip wide, whatever the zoom
       const reach = e.pointerType === 'touch' ? touchReach(e.clientX, e.clientY, worldPos) : 0
@@ -160,6 +174,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
 
     const handlePointerMove = (e) => {
       if (!dragCapId.current) return
+      if (!e.isPrimary) return
+      lastClient.current = { x: e.clientX, y: e.clientY }
       const worldPos = getWorldPos(e.clientX, e.clientY)
       if (worldPos) dragCurrent.current = worldPos.clone()
     }
@@ -178,14 +194,15 @@ export function useFlickController(meshRefs, trajectoryRef) {
       const dx = capMesh.position.x - dragPos.x
       const dz = capMesh.position.z - dragPos.z
       const dragDist = Math.hypot(dx, dz)
+      const pull = pullOf(capMesh)
 
-      if (dragDist < PHYSICS.minFlickThreshold) {
+      if (pull.px < MIN_FLICK_PX || dragDist < 0.05) {
         state.cancelAim()
         if (state.gameMode === 'online' && !getIsHost()) sendCancel()
         return
       }
 
-      const power = Math.min(dragDist * 0.8, PHYSICS.maxFlickVelocity)
+      const power = pull.power * PHYSICS.maxFlickVelocity
       // Three.js x,z → Matter.js x,y
       const velocity = { x: (dx / dragDist) * power, y: (dz / dragDist) * power }
 
@@ -234,7 +251,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
       canvas.removeEventListener('touchstart', preventTouch)
       canvas.removeEventListener('touchmove', preventTouch)
     }
-  }, [gl, getWorldPos, findCapAtPosition, touchReach, meshRefs])
+  }, [gl, getWorldPos, findCapAtPosition, touchReach, pullOf, meshRefs])
 
   // Update the aim arrow and the predicted cap/ball paths each frame
   useFrame(() => {
@@ -264,15 +281,16 @@ export function useFlickController(meshRefs, trajectoryRef) {
     const dz = cz - dragCurrent.current.z
     const dist = Math.sqrt(dx * dx + dz * dz)
 
-    if (dist < 0.1) { hidePreview(t); return }
+    const pull = pullOf(capMesh)
+    if (dist < 0.05 || pull.px < MIN_FLICK_PX) { hidePreview(t); useMatchStore.getState().setDragPower(0); return }
 
     const nx = dx / dist
     const nz = dz / dist
-    const flickSpeed = Math.min(dist * 0.8, PHYSICS.maxFlickVelocity) // same as handlePointerUp
-    let arrowLen = flickSpeed * 0.8
+    const power = pull.power
+    const flickSpeed = power * PHYSICS.maxFlickVelocity // same as handlePointerUp
+    let arrowLen = 1.2 + power * 4.5
 
     // Color: green → yellow → red based on power
-    const power = Math.min(dist / (PHYSICS.maxFlickVelocity / 0.8), 1)
     useMatchStore.getState().setDragPower(power)
     const color = t.mat.color
     if (power < 0.5) {

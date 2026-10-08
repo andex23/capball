@@ -13,6 +13,8 @@ import { useGoalReplay } from '../scene/useGoalReplay'
 
 // A turn never waits longer than this for everything to stop rolling.
 const MAX_RESOLVE_MS = 12000
+// One physics frame, as Matter and the aim preview count them
+const BASE_FRAME_MS = 1000 / 60
 // A long frame (tab in background, device hiccup) must not eat match time
 const MAX_CLOCK_STEP_S = 0.1
 
@@ -21,6 +23,8 @@ export function usePhysicsSync(meshRefs) {
   const resolveMs = useRef(0)
   // Set once the current RESOLVE phase has an outcome, so it can't be decided twice
   const resolved = useRef(false)
+  // Physics time owed but not yet stepped (fractions of a sub-step)
+  const simCarry = useRef(0)
   const replayFrame = useGoalReplay(meshRefs)
 
   useFrame((_, delta) => {
@@ -39,9 +43,21 @@ export function usePhysicsSync(meshRefs) {
       store.tickTimer(Math.min(delta, MAX_CLOCK_STEP_S))
       store.tickShotClock(Math.min(delta, MAX_CLOCK_STEP_S))
       if (useMatchStore.getState().phase === PHASE.RESOLVE) {
+        // Physics time runs slower than real time (PHYSICS.timeScale) so a
+        // shot is watchable, but always in the same fixed sub-steps the aim
+        // preview and the CPU's look-ahead assume — only fewer per frame.
         const subSteps = PHYSICS.subSteps || 8
-        for (let i = 0; i < subSteps; i++) stepPhysics(frameMs / subSteps)
-        clampAllBodies()
+        const stepMs = BASE_FRAME_MS / subSteps
+        simCarry.current += frameMs * (PHYSICS.timeScale || 1)
+        let n = 0
+        while (simCarry.current >= stepMs && n < subSteps * 2) {
+          stepPhysics(stepMs)
+          simCarry.current -= stepMs
+          n++
+        }
+        if (n) clampAllBodies()
+      } else {
+        simCarry.current = 0
       }
     }
 
