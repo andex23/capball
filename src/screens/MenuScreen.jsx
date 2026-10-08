@@ -14,6 +14,7 @@ const MODES = [
   { key: 'local', icon: 'users', title: 'Local match', color: 'red' },
   { key: 'ai', icon: 'cpu', title: 'Vs computer', color: 'blue' },
   { key: 'online', icon: 'globe', title: 'Online match', color: 'purple' },
+  { key: 'tournament', icon: 'trophy', title: 'Tournament', color: 'gold' },
 ]
 
 const DIFFICULTIES = ['easy', 'medium', 'hard']
@@ -30,6 +31,10 @@ export default function MenuScreen() {
 
   const choose = (mode) => {
     playConfirm()
+    if (mode === 'tournament') {
+      goToScreen(SCREEN.TOURNAMENT_HOME)
+      return
+    }
     if (mode === 'online') {
       goToScreen(SCREEN.ONLINE)
       return
