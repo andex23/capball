@@ -30,7 +30,7 @@ let uid = 0
 const draftId = () => `d${++uid}`
 
 function clubTeam(club) {
-  return { key: draftId(), name: club.name, primary: club.primary, edge: club.edge, badge: club.badge || 'none', pattern: 'none', finish: 'matte', cpu: true, difficulty: 'medium' }
+  return { key: draftId(), name: club.name, primary: club.primary, edge: club.edge, badge: club.badge || 'none', pattern: 'none', finish: 'matte', cpu: true, mine: false, difficulty: 'medium' }
 }
 
 /** The next club not already in the list (by name or main colour). */
@@ -42,7 +42,7 @@ function nextClub(teams) {
     || CLUBS[teams.length % CLUBS.length]
 }
 
-function initialTeams(own) {
+function initialTeams(own, online) {
   const first = {
     key: draftId(),
     name: own?.name && own.name !== 'Team 1' ? own.name : 'My Team',
@@ -53,22 +53,25 @@ function initialTeams(own) {
     finish: own?.finish || 'matte',
     numbers: own?.numbers,
     cpu: false,
+    mine: true,
     difficulty: 'medium',
   }
   const teams = [first]
   while (teams.length < 4) teams.push(clubTeam(nextClub(teams)))
+  // Online: the second team is left open for a friend
+  if (online) teams[1] = { ...teams[1], cpu: false, mine: false }
   return teams
 }
 
 const choose2 = (n) => (n * (n - 1)) / 2
 
-function summary(format, legs, teams) {
+function summary(format, legs, teams, online) {
   const n = teams.length
   const humans = teams.filter((t) => !t.cpu).length
   if (format === 'league') {
     const total = choose2(n) * legs
     const yours = (choose2(n) - choose2(n - humans)) * legs
-    return `${total} matches, ${n - 1 > 0 ? (n - 1) * legs : 0} each. ${yours} to play on this phone; the computer plays out the rest.`
+    return `${total} matches, ${n - 1 > 0 ? (n - 1) * legs : 0} each. ${yours} ${online ? 'involve a person' : 'to play on this phone'}; the computer plays out the rest.`
   }
   let size = 1
   while (size < n) size *= 2
@@ -113,7 +116,19 @@ function KitEditor({ team, onUpdate, onClose }) {
   )
 }
 
-function TeamRow({ team, index, onUpdate, onEdit, onRemove, canRemove }) {
+const WHO_LOCAL = [
+  { key: 'player', label: 'Player', icon: 'users', patch: { cpu: false, mine: true } },
+  { key: 'cpu', label: 'CPU', icon: 'cpu', patch: { cpu: true, mine: false } },
+]
+const WHO_ONLINE = [
+  { key: 'me', label: 'Me', icon: 'users', patch: { cpu: false, mine: true } },
+  { key: 'friend', label: 'Friend', icon: 'globe', patch: { cpu: false, mine: false } },
+  { key: 'cpu', label: 'CPU', icon: 'cpu', patch: { cpu: true, mine: false } },
+]
+const whoOf = (team, online) => (team.cpu ? 'cpu' : online ? (team.mine ? 'me' : 'friend') : 'player')
+
+function TeamRow({ team, index, online, onUpdate, onEdit, onRemove, canRemove }) {
+  const who = whoOf(team, online)
   return (
     <li className="t-setup-team" style={{ '--team': displayColor(team.primary) }}>
       <button className="t-cap-btn" onClick={() => { playButtonSelect(); onEdit() }} aria-label={`Change ${team.name || `team ${index + 1}`} colours`}>
@@ -130,8 +145,11 @@ function TeamRow({ team, index, onUpdate, onEdit, onRemove, canRemove }) {
       />
       <div className="t-setup-controls">
         <div className="segmented" role="group" aria-label={`Who plays team ${index + 1}`}>
-          <button aria-pressed={!team.cpu} onClick={() => { playButtonSelect(); onUpdate({ cpu: false }) }}><Icon name="users" size={14} /> Player</button>
-          <button aria-pressed={team.cpu} onClick={() => { playButtonSelect(); onUpdate({ cpu: true }) }}><Icon name="cpu" size={14} /> CPU</button>
+          {(online ? WHO_ONLINE : WHO_LOCAL).map((o) => (
+            <button key={o.key} aria-pressed={who === o.key} onClick={() => { playButtonSelect(); onUpdate(o.patch) }}>
+              <Icon name={o.icon} size={14} /> {o.label}
+            </button>
+          ))}
         </div>
         {team.cpu && (
           <div className="segmented t-diff" role="group" aria-label={`Team ${index + 1} difficulty`}>
@@ -155,11 +173,15 @@ export default function TournamentSetupScreen() {
   const ownKit = useMatchStore((s) => s.teamConfig.team1)
   const savedDuration = useMatchStore((s) => s.matchDuration)
   const createLocal = useTournamentStore((s) => s.createLocal)
+  const createOnline = useTournamentStore((s) => s.createOnline)
+  const openHub = useTournamentStore((s) => s.openHub)
+  const online = useTournamentStore((s) => s.setupKind === 'online')
+  const busy = useTournamentStore((s) => s.busy)
 
   const [format, setFormat] = useState('knockout')
   const [legs, setLegs] = useState(1)
   const [duration, setDuration] = useState(MATCH_DURATIONS.includes(savedDuration) ? savedDuration : 180)
-  const [teams, setTeams] = useState(() => initialTeams(ownKit))
+  const [teams, setTeams] = useState(() => initialTeams(ownKit, online))
   const [editing, setEditing] = useState(null)
   const [error, setError] = useState(null)
 
@@ -169,20 +191,29 @@ export default function TournamentSetupScreen() {
   const remove = (key) => setTeams((list) => (list.length <= MIN_TEAMS ? list : list.filter((t) => t.key !== key)))
 
   const humans = teams.filter((t) => !t.cpu).length
-  const ready = humans > 0 && teams.length >= MIN_TEAMS
+  const mine = teams.filter((t) => !t.cpu && t.mine).length
+  const ready = (online ? mine > 0 : humans > 0) && teams.length >= MIN_TEAMS && !busy
   const editingTeam = teams.find((t) => t.key === editing)
 
-  const create = () => {
+  const create = async () => {
     if (!ready) return
+    setError(null)
+    const setup = {
+      format,
+      legs: format === 'league' ? legs : 1,
+      matchDuration: duration,
+      teams: teams.map(({ key, ...t }, i) => ({ ...t, name: t.name.trim() || `Team ${i + 1}` })), // eslint-disable-line no-unused-vars
+    }
     try {
-      createLocal({
-        format,
-        legs: format === 'league' ? legs : 1,
-        matchDuration: duration,
-        teams: teams.map(({ key, ...t }, i) => ({ ...t, name: t.name.trim() || `Team ${i + 1}` })), // eslint-disable-line no-unused-vars
-      })
-      playConfirm()
-      goToScreen(SCREEN.TOURNAMENT_HUB)
+      if (online) {
+        await createOnline(setup)
+        playConfirm()
+        openHub('online')
+      } else {
+        createLocal(setup)
+        playConfirm()
+        goToScreen(SCREEN.TOURNAMENT_HUB)
+      }
     } catch (e) {
       setError(e.message)
     }
@@ -193,8 +224,8 @@ export default function TournamentSetupScreen() {
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow shell-eyebrow">Tournament · On this device</div>
-            <h1 className="display shell-title">New tournament</h1>
+            <div className="eyebrow shell-eyebrow">Tournament · {online ? 'Online' : 'On this device'}</div>
+            <h1 className="display shell-title">{online ? 'Online tournament' : 'New tournament'}</h1>
           </div>
           <span className="mode-icon"><Icon name="trophy" size={24} /></span>
         </header>
@@ -213,7 +244,7 @@ export default function TournamentSetupScreen() {
                   <button aria-pressed={legs === 2} onClick={pick(() => setLegs(2))}>Home &amp; away</button>
                 </div>
               )}
-              <p className="muted t-note">{summary(format, legs, teams)}</p>
+              <p className="muted t-note">{summary(format, legs, teams, online)}</p>
             </div>
             <div className="card card-pad">
               <div className="eyebrow" style={{ marginBottom: 10 }}>Match length</div>
@@ -230,7 +261,11 @@ export default function TournamentSetupScreen() {
             <div className="label-row" style={{ marginBottom: 12 }}>
               <div>
                 <div className="eyebrow">Teams · {teams.length} of {MAX_TEAMS}</div>
-                <p className="muted t-note" style={{ marginTop: 4 }}>Tap a cap to change its colours. “Player” teams are played on this phone, pass and play.</p>
+                <p className="muted t-note" style={{ marginTop: 4 }}>
+                  {online
+                    ? 'Tap a cap to change its colours. “Me” teams are yours on this phone; “Friend” teams wait for someone to take them with the code.'
+                    : 'Tap a cap to change its colours. “Player” teams are played on this phone, pass and play.'}
+                </p>
               </div>
             </div>
             <ol className="t-setup-list">
@@ -239,6 +274,7 @@ export default function TournamentSetupScreen() {
                   key={t.key}
                   team={t}
                   index={i}
+                  online={online}
                   onUpdate={(patch) => update(t.key, patch)}
                   onEdit={() => setEditing(t.key)}
                   onRemove={() => remove(t.key)}
@@ -249,7 +285,9 @@ export default function TournamentSetupScreen() {
             {teams.length < MAX_TEAMS && (
               <button className="btn btn-secondary btn-block t-add" onClick={pick(add)} onMouseEnter={playHoverTick}>+ Add a team</button>
             )}
-            {!humans && <p className="t-warn" role="status">Make at least one team a Player team, or there’s nothing for you to play.</p>}
+            {online
+              ? !mine && <p className="t-warn" role="status">Make at least one team “Me” so you have a team to play.</p>
+              : !humans && <p className="t-warn" role="status">Make at least one team a Player team, or there’s nothing for you to play.</p>}
             {error && <p className="t-warn" role="alert">{error}</p>}
           </section>
         </main>
@@ -260,7 +298,7 @@ export default function TournamentSetupScreen() {
               <Icon name="back" size={18} /> Back
             </button>
             <button className="btn btn-lg btn-gold" onClick={create} onMouseEnter={playHoverTick} disabled={!ready}>
-              Create <Icon name="trophy" size={18} />
+              {busy ? 'Creating…' : <>Create <Icon name={online ? 'globe' : 'trophy'} size={18} /></>}
             </button>
           </div>
         </footer>

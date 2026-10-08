@@ -40,6 +40,59 @@ const { Engine, World, Bodies, Body, Events } = Matter
 // long, so the stock value (2) made slow caps and balls die on the cushions.
 if (Number.isFinite(PHYSICS.restingSpeed)) Matter.Resolver._restingThresh = PHYSICS.restingSpeed
 
+// Matter approximates small circles with 10-sided polygons, so a cap and the
+// ball used to meet face-to-face: glancing hits went off at the wrong angle
+// (up to 18° out). Bodies are now 32-gons, and for two round bodies the
+// contact normal, depth and penetration are replaced by the exact
+// circle-circle values — the ball leaves along the line between the centres.
+export const CIRCLE_SIDES = 32
+if (!Matter.Collision.__capballCircles) {
+  const polygonCollides = Matter.Collision.collides
+  Matter.Collision.collides = function circleAwareCollides(bodyA, bodyB, pairs) {
+    const c = polygonCollides(bodyA, bodyB, pairs)
+    if (!c) return c
+    const A = c.bodyA
+    const B = c.bodyB
+    const ra = A.circleRadius
+    const rb = B.circleRadius
+    if (!ra || !rb) return c
+    // q: from B's centre to A's; w: how far A moved relative to B this step
+    const qx = A.position.x - B.position.x
+    const qy = A.position.y - B.position.y
+    const d = Math.sqrt(qx * qx + qy * qy)
+    if (d < 1e-9) return c
+    const R = ra + rb
+    const depth = Math.max(0, R - d)
+    // Overlap is only noticed a step late, by which time the centres have
+    // slid past the true point of contact. Step back along the relative
+    // motion to where they first touched and take the normal from there.
+    const wx = (A.position.x - A.positionPrev.x) - (B.position.x - B.positionPrev.x)
+    const wy = (A.position.y - A.positionPrev.y) - (B.position.y - B.positionPrev.y)
+    const ww = wx * wx + wy * wy
+    let nx = qx / d
+    let ny = qy / d
+    if (ww > 1e-12) {
+      const qw = qx * wx + qy * wy
+      const disc = qw * qw - ww * (d * d - R * R)
+      const back = disc >= 0 ? (qw + Math.sqrt(disc)) / ww : -1
+      if (back > 0 && back <= 1) {
+        nx = (qx - wx * back) / R
+        ny = (qy - wy * back) / R
+      }
+    }
+    // Matter's convention: the normal points from B towards A
+    c.normal.x = nx
+    c.normal.y = ny
+    c.tangent.x = -ny
+    c.tangent.y = nx
+    c.depth = depth
+    c.penetration.x = nx * depth
+    c.penetration.y = ny * depth
+    return c
+  }
+  Matter.Collision.__capballCircles = true
+}
+
 const PEN_AREA_W = PITCH.penAreaW
 const PEN_AREA_H = PITCH.penAreaH
 
@@ -254,7 +307,9 @@ export function createPhysicsWorld() {
 function makeDynamicBody(id, x, y) {
   const isBall = id === 'ball'
   const mass = isBall ? PHYSICS.ballMass : (id.endsWith('_gk') ? PHYSICS.gkMass : PHYSICS.playerMass)
-  const body = Bodies.circle(x, y, radiusOf(id), {
+  const r = radiusOf(id)
+  const body = Bodies.polygon(x, y, CIRCLE_SIDES, r, {
+    circleRadius: r,
     friction: 0,
     frictionStatic: 0,
     frictionAir: isBall ? 0 : 0.001, // ball has zero air drag, caps have minimal

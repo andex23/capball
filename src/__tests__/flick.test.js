@@ -84,14 +84,15 @@ describe('controllableTeams', () => {
 })
 
 describe('drag → power', () => {
-  it('ignores tiny pulls, ramps gently, and tops out at a long pull', () => {
+  it('ignores tiny pulls, ramps evenly, and tops out at a long pull', () => {
     const W = 390, H = 844
     const full = fullPowerPixels(W, H)
     expect(powerFraction(MIN_FLICK_PX - 1, W, H)).toBe(0)
     const quarter = powerFraction(MIN_FLICK_PX + (full - MIN_FLICK_PX) * 0.25, W, H)
     const half = powerFraction(MIN_FLICK_PX + (full - MIN_FLICK_PX) * 0.5, W, H)
-    expect(quarter).toBeLessThan(0.25) // short pulls are softer than a straight line
-    expect(half).toBeLessThan(0.5)
+    // Power grows in a straight line with the pull; distance already grows with its square
+    expect(quarter).toBeCloseTo(0.25, 5)
+    expect(half).toBeCloseTo(0.5, 5)
     expect(half).toBeGreaterThan(quarter)
     expect(powerFraction(full, W, H)).toBe(1)
     expect(powerFraction(full * 3, W, H)).toBe(1)

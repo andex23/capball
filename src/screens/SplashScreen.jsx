@@ -13,9 +13,10 @@ export default function SplashScreen() {
     const start = () => {
       playCoinInsert()
       startMenuMusic()
-      // Invite links (?room=CODE) go straight to the online lobby
-      const invited = new URLSearchParams(window.location.search).has('room')
-      goToScreen(invited ? SCREEN.ONLINE : SCREEN.MENU)
+      // Invite links go straight in: ?room=CODE to the online lobby,
+      // ?tournament=CODE to tournaments (which opens that one)
+      const params = new URLSearchParams(window.location.search)
+      goToScreen(params.has('room') ? SCREEN.ONLINE : params.has('tournament') ? SCREEN.TOURNAMENT_HOME : SCREEN.MENU)
     }
     window.addEventListener('keydown', start)
     window.addEventListener('pointerdown', start)

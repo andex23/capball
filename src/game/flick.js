@@ -60,7 +60,7 @@ export function controllableTeams(state) {
 /** Shorter pulls than this (px) are a cancelled aim, not a flick. */
 export const MIN_FLICK_PX = 14
 /** Curve: 1 = straight line; higher = more room for soft touches. */
-export const FLICK_CURVE = 1.45
+export const FLICK_CURVE = 1
 
 /** Pixels of pull that give full power on a screen of this size. */
 export function fullPowerPixels(width, height) {

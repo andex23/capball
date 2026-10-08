@@ -8,10 +8,11 @@
  * the engine actually does, not ideal billiards:
  *
  * - Friction is a constant deceleration: linearFriction per base frame for
- *   caps, half that for the ball (PhysicsWorld applies it per sub-step, with
+ *   caps, ballFrictionRatio of that for the ball (PhysicsWorld applies it per sub-step, with
  *   subSteps sub-steps per base frame). Speeds are capped at 1.5x max flick.
- * - Matter's "circles" are regular decagons that never rotate (inertia is
- *   Infinity), so every contact normal is one of 10 fixed directions 36° apart.
+ * - Caps and the ball never rotate (inertia is Infinity) and meet as true
+ *   circles: PhysicsWorld replaces Matter's polygon contact with the exact
+ *   circle normal at the moment of first touch.
  * - Matter only applies restitution when the closing speed along the normal
  *   is at least RESTING_SPEED; slower contacts are dead (a slow ball slides
  *   along the cushion instead of bouncing).
@@ -23,8 +24,6 @@
 import { PITCH, PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { isGoalkeeper, teamOf, teamHomeDir } from './rules'
 
-/** Sides of the polygon Matter uses for every circle body of our sizes (Bodies.circle: max(10, radius)). */
-export const BODY_SIDES = 10
 /** Matter.Resolver._restingThresh — below this closing speed a contact doesn't bounce. */
 const RESTING_SPEED = PHYSICS.restingSpeed
 /** Ball restitution set in PhysicsWorld's createCapBody (a pair uses the higher of the two). */
@@ -48,84 +47,37 @@ const BALL_MAX_LEN = 45
 const MAX_POINTS = 8
 const EPS = 1e-9
 
-// Face normals of the (unrotated) decagon: Matter puts vertices at 18° + 36°k,
-// so the faces point along 0°, 36°, 72°, ...
-const NX = new Float64Array(BODY_SIDES)
-const NY = new Float64Array(BODY_SIDES)
-for (let k = 0; k < BODY_SIDES; k++) {
-  NX[k] = Math.cos((2 * Math.PI * k) / BODY_SIDES)
-  NY[k] = Math.sin((2 * Math.PI * k) / BODY_SIDES)
-}
-const APOTHEM = Math.cos(Math.PI / BODY_SIDES)
-
 // Scratch results (module level so nothing is allocated per call)
 const sweepHit = { nx: 0, ny: 0 }
 const wallHit = { nx: 0, ny: 0 }
 
 /**
  * Distance a body moving from (x, y) along unit (ux, uy) travels before it
- * touches a resting body at (cx, cy), or -1 if it never does. Two decagons with
- * the same orientation touch exactly when their centre offset reaches the edge
- * of a decagon of circumradius rSum, so this is a ray-vs-convex-polygon test.
- * The contact normal (from the resting body towards the mover) is left in sweepHit.
+ * touches a resting round body at (cx, cy) — centres rSum apart — or -1 if it
+ * never does. The contact normal (from the resting body towards the mover)
+ * is left in sweepHit. PhysicsWorld gives round bodies exact circle contacts,
+ * taken at the moment they first touch, so this is a plain ray-circle test.
  */
 function sweep(x, y, ux, uy, cx, cy, rSum) {
   const qx = x - cx
   const qy = y - cy
-  const a = rSum * APOTHEM
-  let tIn = -Infinity, tOut = Infinity, kIn = -1
-  let kNear = 0, dNear = -Infinity
-  for (let k = 0; k < BODY_SIDES; k++) {
-    const d = qx * NX[k] + qy * NY[k] - a // > 0: outside this face
-    const dn = ux * NX[k] + uy * NY[k]
-    if (d > dNear) { dNear = d; kNear = k }
-    if (Math.abs(dn) < EPS) {
-      if (d > 0) return -1
-      continue
-    }
-    const t = -d / dn
-    if (dn < 0) {
-      if (t > tIn) { tIn = t; kIn = k }
-    } else if (t < tOut) {
-      tOut = t
-    }
+  const b = qx * ux + qy * uy
+  const c = qx * qx + qy * qy - rSum * rSum
+  if (c <= 0) {
+    // Already touching: only counts if moving into it
+    if (b >= 0) return -1
+    const d = Math.sqrt(qx * qx + qy * qy) || 1
+    sweepHit.nx = qx / d
+    sweepHit.ny = qy / d
+    return 0
   }
-  if (tIn > tOut || tOut < 0) return -1
-  if (tIn < 0) {
-    // Already touching: only counts if moving into it (Matter picks the least-overlap face)
-    if (ux * NX[kNear] + uy * NY[kNear] >= 0) return -1
-    kIn = kNear
-    tIn = 0
-  }
-  sweepHit.nx = NX[kIn]
-  sweepHit.ny = NY[kIn]
-  return tIn
-}
-
-/** Face of the Minkowski decagon nearest to offset (qx, qy) — least overlap — into sweepHit. */
-function nearestFace(qx, qy) {
-  let best = -Infinity
-  for (let k = 0; k < BODY_SIDES; k++) {
-    const d = qx * NX[k] + qy * NY[k]
-    if (d > best) { best = d; sweepHit.nx = NX[k]; sweepHit.ny = NY[k] }
-  }
-}
-
-/**
- * How deep a body launched at speed v0 has pushed into another by the first
- * sub-step at which they overlap, given it first touches after `dist`.
- * Matter moves (v - k·f)/subSteps per sub-step (friction f applied first, 60 Hz
- * frames) and only then notices the overlap.
- */
-function subStepDepth(v0, decel, dist) {
-  const S = PHYSICS.subSteps
-  const f = decel / S
-  // Distance after k sub-steps: (k·v0 − f·k(k+1)/2) / S. Smallest k reaching dist:
-  const b = v0 - f / 2
-  const disc = b * b - 2 * f * S * dist
-  if (disc < 0) return 0
-  const k = Math.max(1, Math.ceil((2 * S * dist) / (b + Math.sqrt(disc)) - 1e-9))
-  return Math.max(0, (k * v0 - (f * k * (k + 1)) / 2) / S - dist)
+  if (b >= 0) return -1 // heading away
+  const disc = b * b - c
+  if (disc < 0) return -1 // passes by
+  const t = -b - Math.sqrt(disc)
+  sweepHit.nx = (qx + ux * t) / rSum
+  sweepHit.ny = (qy + uy * t) / rSum
+  return t
 }
 
 /** Distance to the edge of a box of allowed centre positions; inward normal left in wallHit. */
@@ -239,7 +191,6 @@ export function predictShot(shot, out = createPrediction()) {
     vy *= PHYSICS.maxFlickVelocity / speed
     speed = PHYSICS.maxFlickVelocity
   }
-  const v0 = speed
   let n = push(out.capPath, 0, x, y)
   let bounces = 0, travelled = 0
   const bodies = shot.bodies
@@ -290,17 +241,6 @@ export function predictShot(shot, out = createPrediction()) {
 
     out.contactX = ox + nx * or
     out.contactY = oy + ny * or
-    if (kind === 'ball') {
-      // Matter resolves the hit a sub-step late, off the face of least overlap
-      // by then — near a decagon corner that's the neighbouring face. Straight
-      // off the flick the sub-step timing is known; after a cushion use half a step.
-      const depth = bounces === 0
-        ? subStepDepth(v0, CAP_DECEL, travelled)
-        : speed / (2 * PHYSICS.subSteps)
-      nearestFace(x + ux * depth - ox, y + uy * depth - oy)
-      nx = sweepHit.nx
-      ny = sweepHit.ny
-    }
     out.contact = kind
     out.normalX = nx
     out.normalY = ny
