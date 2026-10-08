@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { useMatchStore } from '../state/MatchStore'
-import { updateMenuMusicVolume } from '../audio/MusicManager'
+import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { updateMenuMusicVolume, changeMenuMusic, MUSIC_TRACKS, DEFAULT_MUSIC_TRACK } from '../audio/MusicManager'
 import { playButtonSelect } from '../audio/SoundManager'
 import { canVibrate, haptic } from '../input/haptics'
 import Icon from './Icon'
@@ -26,6 +26,7 @@ export default function SettingsPanel() {
   const vibration = useMatchStore((s) => s.vibration)
   const turnView = useMatchStore((s) => s.turnView)
   const swipeAim = useMatchStore((s) => s.swipeAim)
+  const musicTrack = useMatchStore((s) => s.musicTrack)
   const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView, toggleSwipeAim } = useMatchStore.getState()
 
   useEffect(() => { updateMenuMusicVolume() }, [masterVolume, musicVolume, muted])
@@ -38,6 +39,25 @@ export default function SettingsPanel() {
       <Slider label="Master" value={masterVolume} onChange={setMasterVolume} disabled={muted} />
       <Slider label="Effects" value={sfxVolume} onChange={setSfxVolume} disabled={muted} />
       <Slider label="Music" value={musicVolume} onChange={setMusicVolume} disabled={muted} />
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>Menu music</div>
+        <div className="segmented stretch" role="group" aria-label="Menu music">
+          {MUSIC_TRACKS.map((t, i) => (
+            <button
+              key={t.key}
+              aria-pressed={(MUSIC_TRACKS[musicTrack] ? musicTrack : DEFAULT_MUSIC_TRACK) === i}
+              onClick={() => {
+                playButtonSelect()
+                useMatchStore.getState().setMusicTrack(i)
+                // In a match the menu music is silent anyway: the choice applies back in the menus
+                if (useMatchStore.getState().screen !== SCREEN.PLAYING) changeMenuMusic()
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <button className="btn btn-secondary" aria-pressed={turnView} onClick={() => { toggleTurnView(); playButtonSelect() }}>
         <Icon name="camera" size={18} /> {turnView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
       </button>
