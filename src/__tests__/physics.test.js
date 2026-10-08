@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Matter from 'matter-js'
 import {
   createPhysicsWorld, getBodies, resetToKickoff, setupFreeKick, setupPenalty,
+  FREE_KICK_WALL_DISTANCE, FREE_KICK_WALL_MIN,
   clampAllBodies, stepPhysics, allBodiesSettled, radiusOf, snapshotBodies, applyBodySnapshot,
 } from '../physics/PhysicsWorld'
 import { checkGoal } from '../physics/GoalDetector'
@@ -123,6 +124,65 @@ describe('set pieces', () => {
     }
     expectNoOverlaps()
     expectInsidePitch()
+  })
+
+  it('free kick in the taker\'s own half: the wall stands well back, between ball and goal', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    resetToKickoff('team1')
+    setupFreeKick({ x: -8, y: 3 }, 'team1') // team1 attacks the right goal from its own half
+    const wall = ['team2_def1', 'team2_def2', 'team2_atk1']
+    for (const id of wall) {
+      const d = Math.hypot(pos(id).x + 8, pos(id).y - 3)
+      expect(d, `${id} wall distance`).toBeGreaterThan(FREE_KICK_WALL_DISTANCE - 1.5)
+      expect(pos(id).x, `${id} is between ball and goal`).toBeGreaterThan(-8)
+    }
+    // Every other opponent keeps at least that distance too
+    for (const id of capIds()) {
+      if (!id.startsWith('team2_') || id === 'team2_gk') continue
+      expect(Math.hypot(pos(id).x + 8, pos(id).y - 3), id).toBeGreaterThanOrEqual(FREE_KICK_WALL_DISTANCE - 1.5)
+    }
+    expectNoOverlaps()
+    expectInsidePitch()
+  })
+
+  it('free kick near the box: the wall still stands between ball and goal, off the ball', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    resetToKickoff('team1')
+    setupFreeKick({ x: 4, y: -1 }, 'team1') // 11 from the goal line: the full distance doesn't fit
+    for (const id of ['team2_def1', 'team2_def2']) {
+      expect(pos(id).x, `${id} between ball and goal`).toBeGreaterThan(4)
+      expect(Math.hypot(pos(id).x - 4, pos(id).y + 1), id).toBeGreaterThanOrEqual(FREE_KICK_WALL_MIN - 0.5)
+    }
+    expectNoOverlaps()
+    expectInsidePitch()
+  })
+
+  it('free kicks anywhere: nobody crowds the ball, nothing overlaps, everyone on the pitch', () => {
+    for (const side of ['left', 'right']) {
+      for (const team of ['team1', 'team2']) {
+        for (let x = -12; x <= 12; x += 3) {
+          for (let y = -7; y <= 7; y += 3.5) {
+            useMatchStore.setState({ team1Side: side })
+            resetToKickoff(team)
+            setupFreeKick({ x, y }, team)
+            const b = pos('ball')
+            const where = `${side}/${team}/${x},${y}`
+            for (const id of capIds()) {
+              if (id === `${team}_atk1` || id.endsWith('_gk')) continue // taker; keepers keep their line
+              const d = Math.hypot(pos(id).x - b.x, pos(id).y - b.y)
+              // Opponents stand at least as far back as the wall; teammates just give room
+              // (right by the goal there's no room, so only the old 3.5 is promised)
+              const toGoal = PITCH.halfW - Math.abs(b.x)
+              const nearGoal = toGoal < 9 && Math.sign(b.x) === (side === 'left' ? 1 : -1) * (team === 'team1' ? 1 : -1)
+              const min = id.startsWith(team) || nearGoal ? 3.5 : FREE_KICK_WALL_MIN - 0.5
+              expect(d, `${id} at ${where}`).toBeGreaterThanOrEqual(min)
+            }
+            expectNoOverlaps()
+            expectInsidePitch()
+          }
+        }
+      }
+    }
   })
 
   it('free kick right by the wall still keeps the ball on the pitch', () => {
