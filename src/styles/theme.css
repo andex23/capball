@@ -617,6 +617,21 @@ button { cursor: pointer; background: none; border: 0; }
 }
 /* Upright pitch (see camera.js): the near goal sits where the hint would */
 @media (max-aspect-ratio: 9/10) { .hint { display: none; } }
+.hud-notice {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 200, 61, 0.5);
+  background: rgba(6, 9, 19, 0.88);
+  color: var(--accent-2);
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  animation: fade-in 0.18s ease;
+}
 .hint-touch { display: none; }
 @media (hover: none), (pointer: coarse) {
   .hint-mouse { display: none; }

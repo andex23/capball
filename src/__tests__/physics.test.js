@@ -185,6 +185,17 @@ describe('set pieces', () => {
     }
   })
 
+  it('free kick close to goal: a two-cap wall between ball and goal', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    resetToKickoff('team1')
+    setupFreeKick({ x: 8, y: 2 }, 'team1') // 7 from team2's goal line
+    const between = capIds().filter((id) => id.startsWith('team2_') && id !== 'team2_gk')
+      .filter((id) => pos(id).x > 8 && pos(id).x < PITCH.halfW)
+    expect(between.length).toBeGreaterThanOrEqual(2)
+    expectNoOverlaps()
+    expectInsidePitch()
+  })
+
   it('free kick right by the wall still keeps the ball on the pitch', () => {
     setupFreeKick({ x: 14.9, y: -9.9 }, 'team2')
     expect(Math.abs(pos('ball').x)).toBeLessThan(PITCH.halfW)

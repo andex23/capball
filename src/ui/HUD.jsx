@@ -222,6 +222,19 @@ export default function HUD() {
   const timeUp = useMatchStore(timedOut)
   const [camLabel, setCamLabel] = useState(null)
   const camTimer = useRef(null)
+  const [notice, setNotice] = useState(null)
+  const noticeTimer = useRef(null)
+
+  // Short explanations from the input layer ("your keeper can't play from there")
+  useEffect(() => {
+    const onNotice = (e) => {
+      setNotice(e.detail)
+      clearTimeout(noticeTimer.current)
+      noticeTimer.current = setTimeout(() => setNotice(null), 2200)
+    }
+    window.addEventListener('capball:notice', onNotice)
+    return () => { window.removeEventListener('capball:notice', onNotice); clearTimeout(noticeTimer.current) }
+  }, [])
 
   const setPaused = (value) => {
     playButtonSelect()
@@ -286,6 +299,8 @@ export default function HUD() {
         {camLabel && <span className="chip" style={{ cursor: 'default', background: 'var(--surface)' }}>{camLabel}</span>}
         <button className="icon-btn" onClick={cycleCamera} aria-label="Change camera view"><Icon name="camera" size={20} /></button>
       </div>
+
+      {notice && !paused && <div className="hud-notice" role="status">{notice}</div>}
 
       <PowerMeter />
       {!paused && <Banner />}

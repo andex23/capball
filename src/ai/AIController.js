@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useMatchStore, PHASE } from '../state/MatchStore'
 import { getBodies } from '../physics/PhysicsWorld'
-import { performFlick } from '../game/flick'
+import { performFlick, capSelectable } from '../game/flick'
 import { CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, PITCH } from '../data/TeamData'
 import { makeContext, readPositions, firstHit, chooseHeuristic, chooseBySimulation } from './planner'
 
@@ -154,6 +154,7 @@ function classicDecision(aiTeam, diff, requiredCapId, bodies, state, excluded, r
   for (const cap of caps) {
     const body = bodies[cap.id]
     if (!body || excluded.includes(cap.id)) continue
+    if (!capSelectable(state, cap.id, bodies.ball?.position)) continue // keeper stays home
 
     const cx = body.position.x
     const cy = body.position.y

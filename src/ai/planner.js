@@ -1,7 +1,7 @@
 import Matter from 'matter-js'
 import { createSimulationWorld, radiusOf } from '../physics/PhysicsWorld'
 import { PITCH, PHYSICS, BALL_RADIUS } from '../data/TeamData'
-import { teamHomeDir, teamOf, otherTeam, isGoalkeeper, classifyContact, judgeGoal, isInPenaltyArea } from '../game/rules'
+import { teamHomeDir, teamOf, otherTeam, isGoalkeeper, classifyContact, judgeGoal, isInPenaltyArea, keeperCanPlay } from '../game/rules'
 
 /**
  * CPU SHOT PLANNER
@@ -159,7 +159,7 @@ export function dangerLevel(ctx, p = ctx.positions.ball) {
   return clamp01(1 - (d - 3) / 9)
 }
 
-/** Caps allowed to take this flick. The keeper only plays when the ball is in its box. */
+/** Caps allowed to take this flick. The keeper only plays when the ball is in or near its box. */
 export function eligibleCaps(ctx) {
   const { positions, team, requiredCapId } = ctx
   if (requiredCapId) return positions[requiredCapId] ? [requiredCapId] : []
@@ -167,7 +167,7 @@ export function eligibleCaps(ctx) {
   return ['atk1', 'atk2', 'def1', 'def2', 'gk']
     .map((r) => `${team}_${r}`)
     .filter((id) => positions[id])
-    .filter((id) => !isGoalkeeper(id) || isInPenaltyArea(ball.x, ball.y, ctx.homeDir))
+    .filter((id) => !isGoalkeeper(id) || keeperCanPlay(ball.x, ball.y, ctx.homeDir))
 }
 
 /* ═══════════════════════════════════════════════════════════

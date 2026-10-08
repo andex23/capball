@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useMatchStore, PHASE, INPUT_PHASES } from '../state/MatchStore'
-import { performFlick, flickError, controllableTeams } from '../game/flick'
+import { performFlick, flickError, controllableTeams, capSelectable } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
@@ -83,14 +83,18 @@ export function useFlickController(meshRefs, trajectoryRef) {
   // the catch area (world units) for fingers, which are far less precise than
   // a mouse pointer on a cap that is only a couple of dozen pixels across.
   const findCapAtPosition = useCallback((worldPos, minReach = 0) => {
-    const currentTeam = useMatchStore.getState().activeTeam
+    const state = useMatchStore.getState()
+    const currentTeam = state.activeTeam
     const refs = meshRefs.current
     if (!refs) return null
+    const ballMesh = refs.ball
+    const ball = ballMesh ? { x: ballMesh.position.x, y: ballMesh.position.z } : null
 
     let best = null
     let bestDist = Infinity
     for (const [id, mesh] of Object.entries(refs)) {
       if (!mesh || !id.startsWith(`${currentTeam}_`)) continue
+      if (!capSelectable(state, id, ball)) continue // keeper only near his own box
       const radius = id.endsWith('_gk') ? GK_RADIUS : CAP_RADIUS
       const d = Math.hypot(worldPos.x - mesh.position.x, worldPos.z - mesh.position.z)
       if (d < Math.max(radius + 0.3, minReach) && d < bestDist) { best = id; bestDist = d }
@@ -130,7 +134,15 @@ export function useFlickController(meshRefs, trajectoryRef) {
       let capId = findCapAtPosition(worldPos, reach)
       // Already aiming: a press anywhere keeps dragging the selected cap
       if (!capId && state.phase === PHASE.AIM && dragCapId.current === null) capId = state.selectedCapId
-      if (!capId) return
+      if (!capId) {
+        // Pressed your own keeper while the ball is up the pitch: say why nothing happened
+        const gk = meshRefs.current[`${state.activeTeam}_gk`]
+        const r = GK_RADIUS + Math.max(0.3, reach - GK_RADIUS)
+        if (gk && Math.hypot(worldPos.x - gk.position.x, worldPos.z - gk.position.z) < r) {
+          window.dispatchEvent(new CustomEvent('capball:notice', { detail: 'Your keeper only plays when the ball is near his box' }))
+        }
+        return
+      }
       // Free kick / penalty: only the designated taker
       if (state.freeKickCapId && capId !== state.freeKickCapId) return
 
@@ -173,7 +185,9 @@ export function useFlickController(meshRefs, trajectoryRef) {
 
       if (state.gameMode === 'online' && !getIsHost()) {
         // Guest: the host validates and runs the flick, then streams the result back
-        if (flickError(state, { capId, velocity }) === null) {
+        const ballMesh = meshRefs.current.ball
+        const ball = ballMesh ? { x: ballMesh.position.x, y: ballMesh.position.z } : null
+        if (flickError(state, { capId, velocity, ball }) === null) {
           playFlick()
           haptic('flick')
           sendFlick(capId, velocity)
