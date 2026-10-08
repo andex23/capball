@@ -490,15 +490,24 @@ function clampInPitch(x, y, r = CAP_RADIUS) {
  * SMART FREE KICK SETUP
  *
  * Rules:
- * - CLEAR ZONE around the ball (6 unit radius) — only the kicker allowed inside
  * - Kicker behind ball, facing opponent goal
- * - Wall: between ball and goal, minimum 5 units from ball
+ * - Wall: stands on the line from the ball to the goal it protects, square to
+ *   that line, FREE_KICK_WALL_DISTANCE back from the ball (closer only when the
+ *   goal itself is nearer than that, never under FREE_KICK_WALL_MIN)
  *   - Far from box: 3 wall caps
  *   - Near box: 2 wall caps
  *   - Very near box (edge): 1 wall cap
  * - ALL other caps pushed to their own half, far from ball
- * - After placement: force-clear any cap that's too close to the ball
+ * - After placement: no cap but the kicker may stand closer to the ball than the wall
  */
+// How far the defending wall stands back from a free kick (world units; the
+// pitch is 30 long). Closer than this felt like the wall was on top of the ball.
+export const FREE_KICK_WALL_DISTANCE = 8
+// Never closer than this, even right by the goal
+export const FREE_KICK_WALL_MIN = 5
+// The kicker's own teammates just keep out of the kicker's way
+const TEAMMATE_CLEARANCE = 4
+
 export function setupFreeKick(foulSpot, fouledTeam) {
   const { halfW, halfH } = PITCH
   const defTeam = fouledTeam === 'team1' ? 'team2' : 'team1'
@@ -531,26 +540,39 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   const nyToGoal = distToGoal > 0.1 ? dyToGoal / distToGoal : 0
   // Kicker placed BEHIND ball (opposite direction), 2.5 units back on the angle line
   safePlace(`${fouledTeam}_atk1`, bx - nxToGoal * 2.5, by - nyToGoal * 2.5)
-  // Wall direction uses the same angle
-  const dirBallToGoal = Math.sign(dxToGoal)
 
   // ── ALL other attacking caps: FAR on own half ──
   safePlace(`${fouledTeam}_atk2`, atkHome * halfW * 0.5, by > 0 ? -halfH * 0.35 : halfH * 0.35)
   safePlace(`${fouledTeam}_def1`, atkHome * halfW * 0.6, -halfH * 0.4)
   safePlace(`${fouledTeam}_def2`, atkHome * halfW * 0.6, halfH * 0.4)
   safePlace(`${fouledTeam}_gk`, atkHome * (halfW - 1.2), 0)
+  // A free kick right outside your own box: the taker can end up on top of
+  // your keeper, and the pitch edge stops them being pushed apart along x.
+  // Slide the keeper along its line instead.
+  const taker = bodies[`${fouledTeam}_atk1`]?.position
+  const ownGk = bodies[`${fouledTeam}_gk`]?.position
+  if (taker && ownGk && Math.hypot(taker.x - ownGk.x, taker.y - ownGk.y) < GK_RADIUS + CAP_RADIUS + 0.4) {
+    const side = taker.y >= 0 ? -1 : 1
+    safePlace(`${fouledTeam}_gk`, ownGk.x, taker.y + side * (GK_RADIUS + CAP_RADIUS + 0.6))
+  }
 
-  // ── WALL: between ball and the goal being attacked, minimum 5 units from ball ──
-  let wallX = bx + dirBallToGoal * 5.5
-  wallX = Math.max(-halfW + 2.5, Math.min(halfW - 2.5, wallX))
+  // ── WALL: on the ball→goal line, a proper distance back from the ball ──
+  // Stand off the full distance when there's room; close to the goal, stop a
+  // little in front of the keeper instead of on top of the goal line
+  const wallDist = Math.max(FREE_KICK_WALL_MIN, Math.min(FREE_KICK_WALL_DISTANCE, distToGoal - 3.5))
+  const wallCx = bx + nxToGoal * wallDist
+  const wallCy = by + nyToGoal * wallDist
+  // Wall caps line up square to the line of the kick, shoulder to shoulder
+  const perpX = -nyToGoal
+  const perpY = nxToGoal
 
   const defFieldCaps = [`${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_atk1`, `${defTeam}_atk2`]
-  const wallSpacing = 2.5
+  const wallSpacing = 2.2
 
   // Place wall caps
   for (let i = 0; i < wallCount && i < defFieldCaps.length; i++) {
-    const wy = by + (i - (wallCount - 1) / 2) * wallSpacing
-    safePlace(defFieldCaps[i], wallX, wy)
+    const off = (i - (wallCount - 1) / 2) * wallSpacing
+    safePlace(defFieldCaps[i], wallCx + perpX * off, wallCy + perpY * off)
   }
 
   // Remaining defending field caps: far on their own half, spread out
@@ -562,25 +584,30 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   // Defending GK on goal line
   safePlace(`${defTeam}_gk`, defHome * (halfW - 1.2), 0)
 
-  // ── CLEAR ZONE: force any cap within 4 units of ball (except kicker) away ──
-  const clearRadius = 4
+  // ── CLEAR ZONE: no opponent stands nearer the ball than the wall does ──
+  // (a wall cap squeezed in by the touchline gets moved back out too). The
+  // kicker's teammates only have to give the kicker some room, and keepers
+  // stay on their goal line, as in real football.
   const kickerId = `${fouledTeam}_atk1`
   for (const [id, body] of Object.entries(bodies)) {
-    if (id === 'ball' || id === kickerId) continue
+    if (id === 'ball' || id === kickerId || id.endsWith('_gk')) continue
+    const radius = id.startsWith(defTeam) ? wallDist - 0.5 : TEAMMATE_CLEARANCE
     const dx = body.position.x - bx
     const dy = body.position.y - by
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < clearRadius) {
-      // Push this cap away from the ball along the vector from ball to cap
-      const pushDist = clearRadius + 1
-      if (dist > 0.1) {
-        safePlace(id, bx + (dx / dist) * pushDist, by + (dy / dist) * pushDist)
-      } else {
-        // Overlapping ball — push toward own half
-        const team = id.startsWith('team1') ? 'team1' : 'team2'
-        safePlace(id, bx + getTeamDir(team) * pushDist, by)
-      }
+    const dist = Math.hypot(dx, dy)
+    if (dist >= radius) continue
+    // Straight away from the ball first; if the edge of the pitch stops that,
+    // try sideways and then back toward the cap's own goal
+    const away = dist > 0.1 ? { x: dx / dist, y: dy / dist } : { x: getTeamDir(id.startsWith('team1') ? 'team1' : 'team2'), y: 0 }
+    const home = { x: getTeamDir(id.startsWith('team1') ? 'team1' : 'team2'), y: 0 }
+    const tries = [away, { x: -away.y, y: away.x }, { x: away.y, y: -away.x }, home, { x: -home.x, y: 0 }]
+    const step = radius + 1
+    let spot = null
+    for (const dir of tries) {
+      const p = clampInPitch(bx + dir.x * step, by + dir.y * step, CAP_RADIUS)
+      if (Math.hypot(p.x - bx, p.y - by) >= radius) { spot = p; break }
     }
+    if (spot) safePlace(id, spot.x, spot.y)
   }
 
   deOverlapBodies()
