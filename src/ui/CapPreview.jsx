@@ -101,10 +101,17 @@ function PatternOverlay({ pattern, cx, cy, innerR, edgeColor }) {
    6. Badge / number / pattern layers
    7. Finish-dependent lighting
    ======================================== */
-export default function CapPreview({ config, size = 120 }) {
+function isLight(hex) {
+  const m = /^#?([0-9a-f]{6})/i.exec(hex || '')
+  if (!m) return false
+  const n = parseInt(m[1], 16)
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.55
+}
+
+export default function CapPreview({ config, size = 120, number = null }) {
   const { primary, edge, badge, pattern, finish } = config
-  // Numbers disabled — caps show badge only
-  const number = null
+  // `number` (a squad number) is shown when given: the kit builder passes the
+  // striker's; small team badges elsewhere leave it off
   const cx = size / 2
   const cy = size / 2
   const uid = `${primary}-${edge}-${pattern}-${finish}`.replace(/#/g, '')
@@ -258,10 +265,13 @@ export default function CapPreview({ config, size = 120 }) {
           y={badge && badge !== 'none' ? cy + plateR * 0.52 : cy + plateR * 0.12}
           textAnchor="middle"
           dominantBaseline="central"
-          fill={badgeColor}
-          fontSize={plateR * 0.55}
+          fill={isLight(primary) ? '#111111' : '#ffffff'}
+          stroke={isLight(primary) ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.55)'}
+          strokeWidth={plateR * 0.08}
+          paintOrder="stroke"
+          fontSize={badge && badge !== 'none' ? plateR * 0.6 : plateR * 0.95}
           fontWeight="900"
-          fontFamily="'Bungee', 'Impact', sans-serif"
+          fontFamily="'Barlow Condensed', 'Impact', sans-serif"
         >
           {number}
         </text>

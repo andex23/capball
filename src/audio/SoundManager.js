@@ -105,7 +105,7 @@ function noise({ dur, vol = 0.2, type = 'bandpass', freq = 1500, q = 1, delay = 
 
 // A referee's pea whistle: two close pitches beating against each other,
 // with the pea's flutter
-function whistle(dur, { vol = 0.1, delay = 0 } = {}) {
+function whistle(dur, { vol = 0.14, delay = 0 } = {}) {
   const v = getVolume() * vol
   if (v <= 0) return
   const ctx = getCtx()
@@ -134,6 +134,54 @@ function whistle(dur, { vol = 0.1, delay = 0 } = {}) {
   flutter.stop(t + dur + 0.02)
   gain.connect(output(ctx))
 }
+
+// A struck object: a few damped resonances (its "modes") plus a tiny click of
+// noise for the moment of contact. This is what makes a knock sound like
+// plastic or wood rather than a beep. Pitch wobbles a little every time.
+function knock(modes, { vol = 0.3, click = null, pitch = 1, delay = 0 } = {}) {
+  const v = getVolume() * vol
+  if (v <= 0) return
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime + delay / 1000
+  const wobble = pitch * (0.96 + Math.random() * 0.08)
+  const bus = ctx.createGain()
+  bus.gain.value = v
+  bus.connect(output(ctx))
+  for (const m of modes) {
+    const o = ctx.createOscillator()
+    const g = ctx.createGain()
+    o.type = 'sine'
+    o.frequency.setValueAtTime(m.f * wobble, t)
+    if (m.drop) o.frequency.exponentialRampToValueAtTime(m.f * wobble * m.drop, t + m.d * 3)
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(m.a, t + 0.0015)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + m.d * 4)
+    o.connect(g)
+    g.connect(bus)
+    o.start(t)
+    o.stop(t + m.d * 4 + 0.02)
+  }
+  if (click) {
+    const src = ctx.createBufferSource()
+    src.buffer = noiseBuffer(ctx)
+    const f = ctx.createBiquadFilter()
+    f.type = click.type || 'bandpass'
+    f.frequency.value = click.f * wobble
+    f.Q.value = click.q ?? 0.9
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(click.a, t)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + click.d)
+    src.connect(f)
+    f.connect(g)
+    g.connect(bus)
+    src.start(t, Math.random() * 0.5)
+    src.stop(t + click.d + 0.02)
+  }
+}
+
+// How hard something hit (0..1) → how loud the knock is
+const hitVol = (base, intensity = 0.6) => base * (0.25 + 0.75 * Math.min(1, Math.max(0, intensity)))
 
 // --- Exported sound functions ---
 
@@ -175,22 +223,42 @@ export function playFinalWhistle() {
   whistle(0.75, { delay: 840 })
 }
 
-/** A finger snapping into a cap: crisp click and a little thump. */
-export function playFlick() {
-  noise({ dur: 0.03, vol: 0.18, freq: 2800, q: 1.4 })
-  tone({ freq: 170, freqTo: 90, dur: 0.07, type: 'triangle', vol: 0.14 })
+/** A fingernail flicking the cap: a sharp snap with a little body behind it. */
+export function playFlick(power = 0.7) {
+  knock([
+    { f: 2100, d: 0.012, a: 0.5 },
+    { f: 3400, d: 0.008, a: 0.3 },
+    { f: 210, d: 0.035, a: 0.7, drop: 0.7 },
+  ], { vol: hitVol(0.5, power), click: { f: 4200, q: 0.7, d: 0.018, a: 1 } })
 }
 
-/** Cap on ball: a hollow plastic tock. */
-export function playBallHit() {
-  tone({ freq: 620, freqTo: 430, dur: 0.07, vol: 0.12 })
-  noise({ dur: 0.02, vol: 0.08, freq: 2000, q: 2 })
+/** Cap on ball: a bright plastic clack, louder the harder the hit. */
+export function playBallHit(intensity = 0.6) {
+  knock([
+    { f: 1750, d: 0.022, a: 0.7 },
+    { f: 2950, d: 0.016, a: 0.45 },
+    { f: 4600, d: 0.009, a: 0.25 },
+    { f: 780, d: 0.03, a: 0.35 },
+  ], { vol: hitVol(0.55, intensity), click: { f: 3800, q: 1, d: 0.01, a: 0.9 } })
 }
 
-/** Into the board edge: a dull knock. */
-export function playWallHit() {
-  tone({ freq: 130, freqTo: 85, dur: 0.1, type: 'triangle', vol: 0.12 })
-  noise({ dur: 0.05, vol: 0.06, type: 'lowpass', freq: 700, q: 0.7 })
+/** Cap on cap: the same plastic, a bit lower and duller. */
+export function playCapHit(intensity = 0.6) {
+  knock([
+    { f: 1250, d: 0.02, a: 0.7 },
+    { f: 2150, d: 0.014, a: 0.4 },
+    { f: 560, d: 0.03, a: 0.4 },
+  ], { vol: hitVol(0.45, intensity), click: { f: 2600, q: 1, d: 0.01, a: 0.7 } })
+}
+
+/** Into the wooden board edge: a woody knock. */
+export function playWallHit(intensity = 0.6) {
+  knock([
+    { f: 190, d: 0.07, a: 0.8, drop: 0.85 },
+    { f: 420, d: 0.045, a: 0.5 },
+    { f: 730, d: 0.03, a: 0.3 },
+    { f: 1450, d: 0.015, a: 0.15 },
+  ], { vol: hitVol(0.5, intensity), click: { f: 1100, type: 'lowpass', q: 0.7, d: 0.02, a: 0.8 } })
 }
 
 /** Goal: the whistle, then a warm rising chord (the crowd roars on top). */
@@ -201,7 +269,7 @@ export function playGoal() {
 
 /** Turn passes over: barely there. */
 export function playTurnChange() {
-  tone({ freq: 740, dur: 0.12, vol: 0.035 })
+  tone({ freq: 740, dur: 0.12, vol: 0.06 })
 }
 
 export function playFoulWhistle() {
@@ -305,7 +373,7 @@ export function playCrowdMurmur() {
 
 let crowdNode = null
 let crowdLevel = 0.3
-const CROWD_GAIN = 0.07
+const CROWD_GAIN = 0.09
 
 // The bed's gain for a crowd level 0–1, with the current volume settings
 function crowdGain(level) {

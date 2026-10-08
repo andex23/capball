@@ -17,7 +17,14 @@ import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
 import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty, setupCorner, setupGoalKick } from '../physics/PhysicsWorld'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
-import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
+import { useMatchStore, PHASE, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
+
+/** The number on a cap's shirt: the team's own, else the default squad number. */
+function squadNumber(config, team, capId) {
+  const role = capId.slice(team.length + 1)
+  const n = config?.numbers?.[role]
+  return Number.isInteger(n) ? n : DEFAULT_TEAM_CONFIG[team].numbers[role]
+}
 
 // Aim arrow + predicted cap/ball paths (filled in by FlickController each frame)
 function TrajectoryLineManager({ trajectoryRef }) {
@@ -246,7 +253,7 @@ function GameWorld() {
             isGk={id.endsWith('_gk')}
             isSelected={selectedCapId === id || freeKickCapId === id}
             badge={team1.badge}
-            number={null}
+            number={squadNumber(team1, 'team1', id)}
             pattern={team1.pattern}
             finish={team1.finish}
           />
@@ -264,7 +271,7 @@ function GameWorld() {
             isGk={id.endsWith('_gk')}
             isSelected={selectedCapId === id || freeKickCapId === id}
             badge={team2.badge}
-            number={null}
+            number={squadNumber(team2, 'team2', id)}
             pattern={team2.pattern}
             finish={team2.finish}
           />

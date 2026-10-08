@@ -29,7 +29,7 @@
 
 import Matter from 'matter-js'
 import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, getFormationPositions } from '../data/TeamData'
-import { playFoulWhistle, playBallHit, playWallHit } from '../audio/SoundManager'
+import { playFoulWhistle, playBallHit, playCapHit, playWallHit } from '../audio/SoundManager'
 import { useMatchStore, PHASE, later } from '../state/MatchStore'
 import { teamHomeDir, teamOf, classifyContact, isInPenaltyArea, otherTeam } from '../game/rules'
 
@@ -205,6 +205,33 @@ function applyStepFriction(bodies) {
   }
 }
 
+/* Keeper grip: a goalkeeper meeting the ball stands firm. Whether he's struck
+   by a shot or punches a clearance himself, he loses most of his own speed
+   at the contact, so he isn't knocked about by shots and doesn't charge off
+   up the pitch after the ball and leave the goal empty. The ball still
+   takes the full impulse (the damping happens after the contact resolves).
+   Shared by the live engine and the planner's private worlds. */
+export const KEEPER_GRIP = 0.25
+function attachKeeperGrip(eng, bodyMap) {
+  const gripped = new Set()
+  Events.on(eng, 'collisionStart', (event) => {
+    for (const pair of event.pairs) {
+      const a = pair.bodyA.label
+      const b = pair.bodyB.label
+      if (a === 'ball' && b?.endsWith?.('_gk')) gripped.add(b)
+      else if (b === 'ball' && a?.endsWith?.('_gk')) gripped.add(a)
+    }
+  })
+  Events.on(eng, 'afterUpdate', () => {
+    if (!gripped.size) return
+    for (const id of gripped) {
+      const k = bodyMap()[id]
+      if (k) Body.setVelocity(k, { x: k.velocity.x * KEEPER_GRIP, y: k.velocity.y * KEEPER_GRIP })
+    }
+    gripped.clear()
+  })
+}
+
 /* ═══════════════════════════════════════════════════════════
    1. WORLD CREATION
    ═══════════════════════════════════════════════════════════ */
@@ -287,14 +314,23 @@ export function createPhysicsWorld() {
       const a = pair.bodyA.label || ''
       const b = pair.bodyB.label || ''
       const hasBall = a === 'ball' || b === 'ball'
-      const hasCap = a.startsWith('team') || b.startsWith('team')
-      if (hasBall && hasCap) { playBallHit(); lastSoundTime = now; return }
-      if (hasBall || hasCap) { playWallHit(); lastSoundTime = now; return }
+      const capCount = (a.startsWith('team') ? 1 : 0) + (b.startsWith('team') ? 1 : 0)
+      // How hard they met: closing speed, 0..1 of a full-power flick
+      const va = pair.bodyA.velocity
+      const vb = pair.bodyB.velocity
+      const hit = Math.min(1, Math.hypot(va.x - vb.x, va.y - vb.y) / PHYSICS.maxFlickVelocity)
+      if (hit < 0.04) continue // a gentle touch makes no sound
+      if (hasBall && capCount) playBallHit(hit)
+      else if (capCount === 2) playCapHit(hit)
+      else playWallHit(hit)
+      lastSoundTime = now
+      return
     }
   })
 
   // ── EVENT: Per-step friction + velocity cap ──
   Events.on(engine, 'beforeUpdate', () => applyStepFriction(bodies))
+  attachKeeperGrip(engine, () => bodies)
 
   return engine
 }
@@ -657,8 +693,12 @@ export function setupFreeKick(foulSpot, fouledTeam) {
     safePlace(defFieldCaps[i], defHome * halfW * 0.5, spreadY)
   }
 
-  // Defending GK on goal line
-  safePlace(`${defTeam}_gk`, defHome * (halfW - 1.2), 0)
+  // Defending GK on goal line — slid along it if the ball sits right in front of him
+  const gkX = defHome * (halfW - 1.2)
+  const gkGap = GK_RADIUS + BALL_RADIUS + 0.3
+  const gkDx = Math.abs(gkX - bx)
+  const gkY = gkDx >= gkGap ? 0 : by + (by >= 0 ? -1 : 1) * Math.sqrt(gkGap * gkGap - gkDx * gkDx)
+  safePlace(`${defTeam}_gk`, gkX, Math.abs(gkY) < 0.01 ? 0 : gkY)
 
   // ── CLEAR ZONE: no opponent stands nearer the ball than the wall does ──
   // (a wall cap squeezed in by the touchline gets moved back out too). The
@@ -876,6 +916,7 @@ export function createSimulationWorld(snapshot, { team1Side = 'left' } = {}) {
     simBodies[id] = body
   }
   Events.on(simEngine, 'beforeUpdate', () => applyStepFriction(simBodies))
+  attachKeeperGrip(simEngine, () => simBodies)
 
   function step(frameMs = 16) {
     for (let i = 0; i < SUB_STEPS; i++) Engine.update(simEngine, frameMs / SUB_STEPS)

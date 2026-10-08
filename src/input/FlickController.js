@@ -213,7 +213,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
         const ballMesh = meshRefs.current.ball
         const ball = ballMesh ? { x: ballMesh.position.x, y: ballMesh.position.z } : null
         if (flickError(state, { capId, velocity, ball }) === null) {
-          playFlick()
+          playFlick(pull.power)
           haptic('flick')
           sendFlick(capId, velocity)
         }
@@ -222,7 +222,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
       }
 
       if (performFlick(capId, velocity) === null) {
-        playFlick()
+        playFlick(pull.power)
         haptic('flick')
       } else state.cancelAim()
     }
