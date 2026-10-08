@@ -213,7 +213,7 @@ export default function Tutorial() {
   // The live region stays mounted so screen readers announce each new coach mark
   if (!shown) return <div className="tut" aria-live="polite" />
 
-  const copy = stepCopy(step, { goalWhere: where || goalPlacement(null, attackDir(tut.team, useMatchStore.getState().team1Side)) })
+  const copy = stepCopy(step, { swipe: useMatchStore.getState().swipeAim, goalWhere: where || goalPlacement(null, attackDir(tut.team, useMatchStore.getState().team1Side)) })
   const last = step === STEP.READY
   const n = NUMBERED.indexOf(step) + 1
   const next = () => { playButtonSelect(); dispatch({ type: 'next' }) }

@@ -25,7 +25,8 @@ export default function SettingsPanel() {
   const muted = useMatchStore((s) => s.muted)
   const vibration = useMatchStore((s) => s.vibration)
   const turnView = useMatchStore((s) => s.turnView)
-  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView } = useMatchStore.getState()
+  const swipeAim = useMatchStore((s) => s.swipeAim)
+  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView, toggleSwipeAim } = useMatchStore.getState()
 
   useEffect(() => { updateMenuMusicVolume() }, [masterVolume, musicVolume, muted])
 
@@ -41,6 +42,16 @@ export default function SettingsPanel() {
         <Icon name="camera" size={18} /> {turnView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
       </button>
       <p className="muted" style={{ fontSize: 12, marginTop: -8 }}>Local matches on one device: the pitch swings round so whoever’s turn it is plays from their own end.</p>
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>Aiming</div>
+        <div className="segmented stretch" role="group" aria-label="How to aim a flick">
+          <button aria-pressed={!swipeAim} onClick={() => { if (swipeAim) toggleSwipeAim(); playButtonSelect() }}>Pull back</button>
+          <button aria-pressed={swipeAim} onClick={() => { if (!swipeAim) toggleSwipeAim(); playButtonSelect() }}>Swipe forward</button>
+        </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          {swipeAim ? 'Press a cap and swipe the way you want it to go.' : 'Press a cap and drag back like a slingshot; it shoots the other way.'}
+        </p>
+      </div>
       {/* Only phones that can actually vibrate get the option */}
       {canVibrate() && (
         <button className="btn btn-secondary" aria-pressed={vibration} onClick={() => { toggleVibration(); playButtonSelect(); haptic('flick') }}>

@@ -65,7 +65,7 @@ export const FLICK_CURVE = 1
 /** Pixels of pull that give full power on a screen of this size. */
 export function fullPowerPixels(width, height) {
   const short = Math.min(width || 0, height || 0) || 400
-  return Math.min(230, Math.max(110, short * 0.34))
+  return Math.min(180, Math.max(90, short * 0.28))
 }
 
 /** 0..1 power for a pull of `px` pixels (0 below the cancel threshold). */

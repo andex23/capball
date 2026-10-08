@@ -137,10 +137,12 @@ export function goalPlacement(screenDelta, worldDir) {
 }
 
 /** Coach-mark copy for a step. */
-export function stepCopy(step, { goalWhere = 'ahead' } = {}) {
+export function stepCopy(step, { goalWhere = 'ahead', swipe = false } = {}) {
   switch (step) {
     case STEP.PRESS:
-      return { title: 'Your cap', body: 'This is your cap. Press on it and drag BACK, like a slingshot.' }
+      return swipe
+        ? { title: 'Your cap', body: 'This is your cap. Press on it and swipe the way you want it to go.' }
+        : { title: 'Your cap', body: 'This is your cap. Press on it and drag BACK, like a slingshot.' }
     case STEP.AIM:
       return { title: 'Aim', body: 'The arrow shows where your cap goes; the dotted line is where the ball will go. Let go to flick.' }
     case STEP.FOUL:

@@ -100,7 +100,7 @@ describe('drag → power', () => {
 
   it('needs a similar pull on any phone, in either orientation', () => {
     expect(fullPowerPixels(390, 844)).toBe(fullPowerPixels(844, 390))
-    expect(fullPowerPixels(320, 568)).toBeGreaterThanOrEqual(110)
-    expect(fullPowerPixels(1440, 900)).toBeLessThanOrEqual(230)
+    expect(fullPowerPixels(320, 568)).toBeGreaterThanOrEqual(90)
+    expect(fullPowerPixels(1440, 900)).toBeLessThanOrEqual(180)
   })
 })
