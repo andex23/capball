@@ -22,145 +22,209 @@ function getVolume() {
   return muted ? 0 : masterVolume * sfxVolume
 }
 
-// --- Sound generators ---
+// Everything goes through one gentle compressor, so stacked sounds never
+// clip or get harsh on phone speakers
+let out = null
+function output(ctx) {
+  if (out && out.context === ctx) return out
+  const comp = ctx.createDynamicsCompressor()
+  comp.threshold.value = -18
+  comp.knee.value = 12
+  comp.ratio.value = 4
+  comp.attack.value = 0.003
+  comp.release.value = 0.15
+  comp.connect(ctx.destination)
+  out = comp
+  return out
+}
 
-function playTone(freq, duration, type = 'square', vol = 0.3) {
+// One second of white noise, made once and reused
+let noiseBuf = null
+function noiseBuffer(ctx) {
+  if (noiseBuf && noiseBuf.sampleRate === ctx.sampleRate) return noiseBuf
+  noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
+  const d = noiseBuf.getChannelData(0)
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+  return noiseBuf
+}
+
+/* ── Sound generators ──
+   Soft shapes only: sines and triangles with a quick fade in and a smooth
+   tail, and filtered noise for clicks and knocks. No raw square waves. */
+
+function tone({ freq, freqTo = freq, dur, type = 'sine', vol = 0.2, attack = 0.004, delay = 0, lowpass = 0 }) {
   const v = getVolume() * vol
   if (v <= 0) return
   const ctx = getCtx()
   if (!ctx) return
+  const t = ctx.currentTime + delay / 1000
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.type = type
-  osc.frequency.value = freq
-  gain.gain.setValueAtTime(v, ctx.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
-  osc.connect(gain)
-  gain.connect(ctx.destination)
-  osc.start()
-  osc.stop(ctx.currentTime + duration)
+  osc.frequency.setValueAtTime(freq, t)
+  if (freqTo !== freq) osc.frequency.exponentialRampToValueAtTime(freqTo, t + dur)
+  gain.gain.setValueAtTime(0.0001, t)
+  gain.gain.exponentialRampToValueAtTime(v, t + attack)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  let node = osc
+  if (lowpass) {
+    const f = ctx.createBiquadFilter()
+    f.type = 'lowpass'
+    f.frequency.value = lowpass
+    osc.connect(f)
+    node = f
+  }
+  node.connect(gain)
+  gain.connect(output(ctx))
+  osc.start(t)
+  osc.stop(t + dur + 0.02)
 }
 
-function playNoise(duration, vol = 0.2) {
+function noise({ dur, vol = 0.2, type = 'bandpass', freq = 1500, q = 1, delay = 0, attack = 0.002 }) {
   const v = getVolume() * vol
   if (v <= 0) return
   const ctx = getCtx()
   if (!ctx) return
-  const bufferSize = ctx.sampleRate * duration
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-  const data = buffer.getChannelData(0)
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * Math.max(0, 1 - i / bufferSize)
-  }
-  const source = ctx.createBufferSource()
-  source.buffer = buffer
+  const t = ctx.currentTime + delay / 1000
+  const src = ctx.createBufferSource()
+  src.buffer = noiseBuffer(ctx)
+  const f = ctx.createBiquadFilter()
+  f.type = type
+  f.frequency.value = freq
+  f.Q.value = q
   const gain = ctx.createGain()
-  gain.gain.value = v
-  source.connect(gain)
-  gain.connect(ctx.destination)
-  source.start()
+  gain.gain.setValueAtTime(0.0001, t)
+  gain.gain.exponentialRampToValueAtTime(v, t + attack)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  src.connect(f)
+  f.connect(gain)
+  gain.connect(output(ctx))
+  src.start(t, Math.random() * 0.5)
+  src.stop(t + dur + 0.02)
+}
+
+// A referee's pea whistle: two close pitches beating against each other,
+// with the pea's flutter
+function whistle(dur, { vol = 0.1, delay = 0 } = {}) {
+  const v = getVolume() * vol
+  if (v <= 0) return
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime + delay / 1000
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(0.0001, t)
+  gain.gain.exponentialRampToValueAtTime(v, t + 0.02)
+  gain.gain.setValueAtTime(v, t + dur - 0.04)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  const flutter = ctx.createOscillator()
+  const depth = ctx.createGain()
+  flutter.frequency.value = 38
+  depth.gain.value = 70
+  flutter.connect(depth)
+  for (const f of [2700, 2760]) {
+    const o = ctx.createOscillator()
+    o.type = 'sine'
+    o.frequency.value = f
+    depth.connect(o.frequency)
+    o.connect(gain)
+    o.start(t)
+    o.stop(t + dur + 0.02)
+  }
+  flutter.start(t)
+  flutter.stop(t + dur + 0.02)
+  gain.connect(output(ctx))
 }
 
 // --- Exported sound functions ---
 
+/** Start screen: a soft two-note chime. */
 export function playCoinInsert() {
-  // Classic arcade coin-drop sound
-  playTone(1200, 0.06, 'square', 0.25)
-  setTimeout(() => playTone(1600, 0.06, 'square', 0.2), 60)
-  setTimeout(() => playTone(2000, 0.04, 'square', 0.15), 120)
-  setTimeout(() => playTone(1400, 0.08, 'square', 0.2), 180)
-  setTimeout(() => playTone(1800, 0.12, 'square', 0.25), 240)
+  tone({ freq: 784, dur: 0.35, vol: 0.12 })
+  tone({ freq: 1175, dur: 0.5, vol: 0.1, delay: 90 })
 }
 
-export function playMenuNavigate() {
-  playTone(660, 0.05, 'square', 0.15)
+// UI taps: a quiet, short click
+function uiClick(pitch = 1) {
+  noise({ dur: 0.025, vol: 0.06, freq: 3200 * pitch, q: 2 })
+  tone({ freq: 900 * pitch, freqTo: 700 * pitch, dur: 0.05, vol: 0.05 })
 }
 
-export function playHoverTick() {
-  playTone(800, 0.04, 'square', 0.1)
-}
+export function playMenuNavigate() { uiClick(1) }
 
-export function playButtonSelect() {
-  playTone(600, 0.08, 'square', 0.2)
-  setTimeout(() => playTone(900, 0.06, 'square', 0.15), 40)
-}
+/** Hovering makes no sound: ticking on every pointer move was too much. */
+export function playHoverTick() {}
+
+export function playButtonSelect() { uiClick(1.1) }
 
 export function playConfirm() {
-  playTone(523, 0.1, 'square', 0.25)
-  setTimeout(() => playTone(659, 0.1, 'square', 0.25), 80)
-  setTimeout(() => playTone(784, 0.15, 'square', 0.3), 160)
+  uiClick(1.2)
+  tone({ freq: 660, dur: 0.18, vol: 0.06, delay: 20 })
+  tone({ freq: 990, dur: 0.24, vol: 0.05, delay: 80 })
 }
 
-export function playBack() {
-  playTone(500, 0.08, 'square', 0.15)
-  setTimeout(() => playTone(350, 0.1, 'square', 0.12), 50)
-}
+export function playBack() { uiClick(0.8) }
 
 export function playWhistle() {
-  playTone(880, 0.3, 'sine', 0.4)
-  setTimeout(() => playTone(880, 0.15, 'sine', 0.3), 350)
+  whistle(0.28)
+  whistle(0.14, { delay: 360 })
 }
 
 export function playFinalWhistle() {
-  playTone(880, 0.25, 'sine', 0.4)
-  setTimeout(() => playTone(880, 0.25, 'sine', 0.35), 300)
-  setTimeout(() => playTone(880, 0.5, 'sine', 0.45), 600)
+  whistle(0.3)
+  whistle(0.3, { delay: 420 })
+  whistle(0.75, { delay: 840 })
 }
 
+/** A finger snapping into a cap: crisp click and a little thump. */
 export function playFlick() {
-  playNoise(0.08, 0.3)
-  playTone(200, 0.06, 'triangle', 0.2)
+  noise({ dur: 0.03, vol: 0.18, freq: 2800, q: 1.4 })
+  tone({ freq: 170, freqTo: 90, dur: 0.07, type: 'triangle', vol: 0.14 })
 }
 
+/** Cap on ball: a hollow plastic tock. */
 export function playBallHit() {
-  playTone(300, 0.05, 'triangle', 0.25)
-  playNoise(0.04, 0.15)
+  tone({ freq: 620, freqTo: 430, dur: 0.07, vol: 0.12 })
+  noise({ dur: 0.02, vol: 0.08, freq: 2000, q: 2 })
 }
 
+/** Into the board edge: a dull knock. */
 export function playWallHit() {
-  playTone(150, 0.08, 'triangle', 0.2)
-  playNoise(0.06, 0.12)
+  tone({ freq: 130, freqTo: 85, dur: 0.1, type: 'triangle', vol: 0.12 })
+  noise({ dur: 0.05, vol: 0.06, type: 'lowpass', freq: 700, q: 0.7 })
 }
 
+/** Goal: the whistle, then a warm rising chord (the crowd roars on top). */
 export function playGoal() {
-  // Crowd burst + rising tones
-  playNoise(0.8, 0.35)
-  playTone(440, 0.15, 'square', 0.3)
-  setTimeout(() => playTone(554, 0.15, 'square', 0.3), 100)
-  setTimeout(() => playTone(659, 0.15, 'square', 0.3), 200)
-  setTimeout(() => playTone(880, 0.4, 'square', 0.4), 300)
-  setTimeout(() => playNoise(0.5, 0.25), 400)
+  whistle(0.22, { vol: 0.08 })
+  ;[523, 659, 784].forEach((f, i) => tone({ freq: f, dur: 0.9, vol: 0.06, attack: 0.03, delay: 250 + i * 70, lowpass: 2500, type: 'triangle' }))
 }
 
+/** Turn passes over: barely there. */
 export function playTurnChange() {
-  playTone(440, 0.06, 'sine', 0.15)
-  setTimeout(() => playTone(550, 0.06, 'sine', 0.12), 60)
+  tone({ freq: 740, dur: 0.12, vol: 0.035 })
 }
 
 export function playFoulWhistle() {
-  playTone(740, 0.2, 'sine', 0.4)
-  setTimeout(() => playTone(740, 0.4, 'sine', 0.35), 250)
+  whistle(0.18)
+  whistle(0.45, { delay: 240 })
 }
 
 export function playFreeKick() {
-  playTone(660, 0.1, 'sine', 0.2)
-  setTimeout(() => playTone(550, 0.15, 'sine', 0.2), 120)
+  tone({ freq: 587, dur: 0.18, vol: 0.06 })
+  tone({ freq: 784, dur: 0.22, vol: 0.05, delay: 110 })
 }
 
 export function playPenalty() {
-  playTone(440, 0.15, 'sine', 0.25)
-  setTimeout(() => playTone(440, 0.15, 'sine', 0.25), 200)
-  setTimeout(() => playTone(660, 0.25, 'sine', 0.3), 400)
+  whistle(0.5)
 }
 
-// Shot clock: a tick for each of the last seconds, a low buzzer when it runs out
+// Shot clock: a soft tick for each of the last seconds, a low tone when it runs out
 export function playShotClockTick() {
-  playTone(1320, 0.05, 'square', 0.12)
+  tone({ freq: 1000, dur: 0.04, vol: 0.05 })
 }
 
 export function playShotClockBuzzer() {
-  playTone(196, 0.35, 'sawtooth', 0.25)
-  setTimeout(() => playTone(185, 0.3, 'sawtooth', 0.2), 90)
+  tone({ freq: 220, freqTo: 180, dur: 0.4, type: 'triangle', vol: 0.12 })
 }
 
 /* ── Crowd ──
@@ -170,7 +234,7 @@ export function playShotClockBuzzer() {
 
 // Noise swell through a band-pass filter: `freq` can glide to `freqTo`
 function playCrowdNoise({ duration, vol, freq, freqTo = freq, q = 0.8, attack = 0.1 }) {
-  const v = getVolume() * vol
+  const v = getVolume() * vol * crowdScale()
   if (v <= 0) return
   const ctx = getCtx()
   if (!ctx) return
@@ -241,11 +305,17 @@ export function playCrowdMurmur() {
 
 let crowdNode = null
 let crowdLevel = 0.3
-const CROWD_GAIN = 0.12
+const CROWD_GAIN = 0.07
 
 // The bed's gain for a crowd level 0–1, with the current volume settings
 function crowdGain(level) {
-  return getVolume() * CROWD_GAIN * (0.25 + level)
+  return getVolume() * CROWD_GAIN * crowdScale() * (0.25 + level)
+}
+
+// A full stadium is loud; the table, the street and the village pitch only
+// have a handful of people watching
+function crowdScale() {
+  return useMatchStore.getState().stadium === 'arena' ? 1 : 0.35
 }
 
 /** Start the crowd bed (silent if sound is off — it follows setCrowdVolume). */

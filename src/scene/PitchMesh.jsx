@@ -46,6 +46,116 @@ function NetSide({ corners }) {
   )
 }
 
+// Deterministic noise so a venue looks the same every match
+function seeded(seed) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function dots(ctx, w, h, n, colors, rMin, rMax, rnd) {
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = colors[i % colors.length]
+    ctx.beginPath()
+    ctx.arc(rnd() * w, rnd() * h, rMin + rnd() * (rMax - rMin), 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+/** The playing surface under the lines: grass, felt, asphalt or dirt. */
+function paintSurface(ctx, sc, w, h) {
+  const rnd = seeded(9)
+  const base = ctx.createLinearGradient(0, 0, w, 0)
+  base.addColorStop(0, sc.grass1)
+  base.addColorStop(0.5, sc.grass2)
+  base.addColorStop(1, sc.grass1)
+  ctx.fillStyle = base
+  ctx.fillRect(0, 0, w, h)
+
+  switch (sc.surface) {
+    case 'felt': {
+      // Fine woven nap and a soft vignette
+      dots(ctx, w, h, 60000, ['rgba(0,0,0,0.06)', 'rgba(255,255,255,0.035)'], 0.6, 1.4, rnd)
+      const v = ctx.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, w * 0.62)
+      v.addColorStop(0, 'rgba(0,0,0,0)')
+      v.addColorStop(1, 'rgba(0,0,0,0.22)')
+      ctx.fillStyle = v
+      ctx.fillRect(0, 0, w, h)
+      break
+    }
+    case 'asphalt': {
+      dots(ctx, w, h, 90000, ['rgba(0,0,0,0.22)', 'rgba(255,255,255,0.07)', 'rgba(120,120,130,0.12)'], 0.6, 2.2, rnd)
+      // Cracks
+      ctx.strokeStyle = 'rgba(10,10,12,0.55)'
+      for (let c = 0; c < 9; c++) {
+        ctx.lineWidth = 1.5 + rnd() * 2
+        let x = rnd() * w
+        let y = rnd() * h
+        ctx.beginPath()
+        ctx.moveTo(x, y)
+        for (let k = 0; k < 14; k++) { x += (rnd() - 0.5) * 70; y += (rnd() - 0.3) * 50; ctx.lineTo(x, y) }
+        ctx.stroke()
+      }
+      // Oil stains and patched squares
+      for (let i = 0; i < 7; i++) {
+        const x = rnd() * w
+        const y = rnd() * h
+        const r = 40 + rnd() * 90
+        const g = ctx.createRadialGradient(x, y, 4, x, y, r)
+        g.addColorStop(0, 'rgba(0,0,0,0.28)')
+        g.addColorStop(1, 'rgba(0,0,0,0)')
+        ctx.fillStyle = g
+        ctx.fillRect(x - r, y - r, r * 2, r * 2)
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.12)'
+      for (let i = 0; i < 4; i++) ctx.fillRect(rnd() * w, rnd() * h, 120 + rnd() * 160, 80 + rnd() * 120)
+      break
+    }
+    case 'dirt': {
+      dots(ctx, w, h, 50000, ['rgba(60,40,20,0.25)', 'rgba(230,200,150,0.15)', 'rgba(90,70,45,0.3)'], 0.8, 2.6, rnd)
+      // Pebbles
+      dots(ctx, w, h, 900, ['#b8a68a', '#8a7a64', '#d6c7aa', '#6e5f4b'], 2, 5, rnd)
+      // Worn, darker goalmouths and a scuffed centre
+      for (const [x, r] of [[w * 0.06, h * 0.32], [w * 0.94, h * 0.32], [w * 0.5, h * 0.22]]) {
+        const g = ctx.createRadialGradient(x, h / 2, 4, x, h / 2, r)
+        g.addColorStop(0, 'rgba(60,40,20,0.35)')
+        g.addColorStop(1, 'rgba(60,40,20,0)')
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, w, h)
+      }
+      // Tufts of grass hanging on near the touchlines
+      for (let i = 0; i < 160; i++) {
+        const edge = rnd() < 0.5 ? rnd() * h * 0.12 : h - rnd() * h * 0.12
+        const x = rnd() * w
+        const r = 6 + rnd() * 18
+        const g = ctx.createRadialGradient(x, edge, 1, x, edge, r)
+        g.addColorStop(0, 'rgba(110,130,60,0.6)')
+        g.addColorStop(1, 'rgba(110,130,60,0)')
+        ctx.fillStyle = g
+        ctx.fillRect(x - r, edge - r, r * 2, r * 2)
+      }
+      break
+    }
+    default: {
+      // Mown grass: wide stripes one way, fainter ones across, and a fine texture
+      const n = 12
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = i % 2 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)'
+        ctx.fillRect((i * w) / n, 0, w / n, h)
+      }
+      for (let j = 0; j < 8; j++) {
+        ctx.fillStyle = j % 2 ? 'rgba(0,0,0,0.025)' : 'rgba(255,255,255,0.02)'
+        ctx.fillRect(0, (j * h) / 8, w, h / 8)
+      }
+      dots(ctx, w, h, 70000, ['rgba(0,0,0,0.07)', 'rgba(255,255,160,0.05)'], 0.6, 1.6, rnd)
+    }
+  }
+}
+
 // Pitch texture using stadium surface colors
 function createPitchTexture(stadiumConfig) {
   const sc = stadiumConfig
@@ -55,22 +165,7 @@ function createPitchTexture(stadiumConfig) {
   canvas.height = Math.round(size * (PITCH.height / PITCH.width))
   const ctx = canvas.getContext('2d')
 
-  // Surface base color from stadium config
-  const grassGrad = ctx.createLinearGradient(0, 0, canvas.width, 0)
-  grassGrad.addColorStop(0, sc.grass1)
-  grassGrad.addColorStop(0.5, sc.grass2)
-  grassGrad.addColorStop(1, sc.grass1)
-  ctx.fillStyle = grassGrad
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-  // Stripe pattern
-  const stripeWidth = canvas.width / 12
-  for (let i = 0; i < 12; i++) {
-    if (i % 2 === 0) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${sc.stripeAlpha})`
-      ctx.fillRect(i * stripeWidth, 0, stripeWidth, canvas.height)
-    }
-  }
+  paintSurface(ctx, sc, canvas.width, canvas.height)
 
   const sx = canvas.width / PITCH.width
   const sy = canvas.height / PITCH.height
@@ -201,7 +296,7 @@ export default function PitchMesh() {
       </mesh>
 
       {/* Boundary rails */}
-      <WallSegments woodColor={sc.woodColor} trimColor={sc.trimColor} />
+      <WallSegments woodColor={sc.woodColor} trimColor={sc.trimColor} trimGlow={sc.trimGlow || 0} />
 
       {/* Corner flags */}
       <CornerFlags />
@@ -212,14 +307,14 @@ export default function PitchMesh() {
   )
 }
 
-function WallSegments({ woodColor = '#8B5E3C', trimColor = '#C5943A' }) {
+function WallSegments({ woodColor = '#8B5E3C', trimColor = '#C5943A', trimGlow = 0 }) {
   const { halfW, halfH, goalWidth, wallThickness: wt } = PITCH
   const goalHalf = goalWidth / 2
   const wallHeight = 0.6
   const sideLen = halfH - goalHalf
 
   const woodProps = { color: woodColor, roughness: 0.55, metalness: 0.1 }
-  const trimProps = { color: trimColor, roughness: 0.3, metalness: 0.6 }
+  const trimProps = { color: trimColor, roughness: 0.3, metalness: 0.6, emissive: trimColor, emissiveIntensity: trimGlow }
 
   const trimH = 0.04
 
@@ -294,7 +389,7 @@ function WallSegments({ woodColor = '#8B5E3C', trimColor = '#C5943A' }) {
       ].map((pos, i) => (
         <mesh key={i} position={[pos[0], wallHeight + trimH, pos[2]]}>
           <sphereGeometry args={[0.15, 12, 12]} />
-          <meshStandardMaterial color="#D4A74A" metalness={0.7} roughness={0.25} />
+          <meshStandardMaterial color={trimColor} metalness={0.7} roughness={0.25} emissive={trimColor} emissiveIntensity={trimGlow} />
         </mesh>
       ))}
     </group>

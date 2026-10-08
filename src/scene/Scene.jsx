@@ -1,4 +1,4 @@
-import { useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -7,6 +7,7 @@ import { STADIUMS } from '../data/StadiumData'
 import { setCameraRefs, fitCurrentPreset, resetCameraPreset } from './camera'
 import { useTurnFacing } from './useTurnFacing'
 import PitchMesh from './PitchMesh'
+import Venue, { VenueSky } from './Venues'
 import BallTrail from './BallTrail'
 import CapMesh from './CapMesh'
 import BallMesh from './BallMesh'
@@ -124,122 +125,28 @@ function TrajectoryLineManager({ trajectoryRef }) {
 }
 
 /* =====================================================
-   STADIUM ATMOSPHERE
-   - Ground plane (dark stadium floor)
-   - Floodlight cones in corners
-   - Soft ambient fog
+   VENUE — the world around the board (scene/Venues.jsx),
+   the floodlights, and the fog and sky colour
    ===================================================== */
 
-function StadiumAtmosphere({ stadiumConfig }) {
+function StadiumAtmosphere({ stadiumId, stadiumConfig }) {
   const sc = stadiumConfig
+  const k = sc.floodIntensity ?? 1
   return (
     <group>
-      {/* ── Stadium floor ── */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.06, 0]} receiveShadow>
-        <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color={sc.bgColor} roughness={0.95} metalness={0} />
-      </mesh>
-
-      {/* ── Ground glow ── */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.04, 0]}>
-        <circleGeometry args={[28, 64]} />
-        <meshBasicMaterial color={sc.groundGlow} transparent opacity={0.5} depthWrite={false} />
-      </mesh>
-      {/* Warm glow ring closer to pitch */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.035, 0]}>
-        <ringGeometry args={[16, 25, 64]} />
-        <meshBasicMaterial color="#1e1528" transparent opacity={0.25} depthWrite={false} />
-      </mesh>
-
-      {/* ── Crowd stands — dark angled walls around pitch ── */}
-      {/* Back stand */}
-      <mesh position={[0, 3, -16]} rotation-x={Math.PI * 0.15}>
-        <planeGeometry args={[42, 8]} />
-        <meshStandardMaterial color="#0c0e1e" roughness={0.9} metalness={0.1} />
-      </mesh>
-      {/* Front stand */}
-      <mesh position={[0, 3, 16]} rotation-x={-Math.PI * 0.15}>
-        <planeGeometry args={[42, 8]} />
-        <meshStandardMaterial color="#0c0e1e" roughness={0.9} metalness={0.1} />
-      </mesh>
-      {/* Left stand */}
-      <mesh position={[-22, 3, 0]} rotation-y={Math.PI / 2} rotation-x={Math.PI * 0.15}>
-        <planeGeometry args={[38, 8]} />
-        <meshStandardMaterial color="#0a0c1a" roughness={0.9} metalness={0.1} />
-      </mesh>
-      {/* Right stand */}
-      <mesh position={[22, 3, 0]} rotation-y={-Math.PI / 2} rotation-x={Math.PI * 0.15}>
-        <planeGeometry args={[38, 8]} />
-        <meshStandardMaterial color="#0a0c1a" roughness={0.9} metalness={0.1} />
-      </mesh>
-
-      {/* ── Crowd (arena only) ── */}
-      {sc.showCrowd && <CrowdDots colors={sc.crowdColors} />}
-
-      {/* ── Corner floodlights ── */}
-      <FloodLight position={[-20, 20, -16]} color={sc.floodColor} />
-      <FloodLight position={[20, 20, -16]} color={sc.floodColor} />
-      <FloodLight position={[-20, 20, 16]} color={sc.floodColor} />
-      <FloodLight position={[20, 20, 16]} color={sc.floodColor} />
-      <FloodLight position={[0, 22, -18]} intensity={0.4} color={sc.floodColor} />
-      <FloodLight position={[0, 22, 18]} intensity={0.4} color={sc.floodColor} />
-
-      {/* ── Light orb visuals ── */}
-      <LightOrb position={[-20, 20, -16]} size={0.6} />
-      <LightOrb position={[20, 20, -16]} size={0.6} />
-      <LightOrb position={[-20, 20, 16]} size={0.6} />
-      <LightOrb position={[20, 20, 16]} size={0.6} />
-
-      {/* ── Atmospheric haze ── */}
-      <HazeLayer />
+      <VenueSky color={sc.bgColor} fogColor={sc.fogColor} fogDensity={sc.fogDensity} />
+      <Venue stadium={stadiumId} config={sc} />
+      {k > 0 && (
+        <>
+          <FloodLight position={[-20, 20, -16]} intensity={0.7 * k} color={sc.floodColor} />
+          <FloodLight position={[20, 20, -16]} intensity={0.7 * k} color={sc.floodColor} />
+          <FloodLight position={[-20, 20, 16]} intensity={0.7 * k} color={sc.floodColor} />
+          <FloodLight position={[20, 20, 16]} intensity={0.7 * k} color={sc.floodColor} />
+          <FloodLight position={[0, 22, -18]} intensity={0.4 * k} color={sc.floodColor} />
+          <FloodLight position={[0, 22, 18]} intensity={0.4 * k} color={sc.floodColor} />
+        </>
+      )}
     </group>
-  )
-}
-
-/* Crowd: rows of spectators on the four stands, one instanced mesh */
-function CrowdDots({ colors: crowdColors }) {
-  const meshRef = useRef(null)
-  const seats = useMemo(() => {
-    const palette = (crowdColors || ['#e53935', '#1e88e5', '#ffd740', '#ffffff']).map((c) =>
-      new THREE.Color(c).lerp(new THREE.Color('#141a2e'), 0.68)
-    )
-    const out = []
-    const rows = 6
-    const addStand = (len, place) => {
-      for (let r = 0; r < rows; r++) {
-        for (let i = 0; i < len; i++) {
-          if (Math.random() < 0.18) continue // empty seats
-          const along = (i / (len - 1) - 0.5) + (Math.random() - 0.5) * 0.01
-          out.push({ ...place(along, r), color: palette[Math.floor(Math.random() * palette.length)] })
-        }
-      }
-    }
-    // Stands rise away from the pitch: each row is higher and further back
-    addStand(56, (a, r) => ({ x: a * 40, y: 0.9 + r * 0.95, z: -15.2 - r * 0.55 }))
-    addStand(56, (a, r) => ({ x: a * 40, y: 0.9 + r * 0.95, z: 15.2 + r * 0.55 }))
-    addStand(36, (a, r) => ({ x: -21.2 - r * 0.55, y: 0.9 + r * 0.95, z: a * 26 }))
-    addStand(36, (a, r) => ({ x: 21.2 + r * 0.55, y: 0.9 + r * 0.95, z: a * 26 }))
-    return out
-  }, [crowdColors])
-
-  useLayoutEffect(() => {
-    const mesh = meshRef.current
-    if (!mesh) return
-    const m = new THREE.Matrix4()
-    seats.forEach((seat, i) => {
-      m.makeTranslation(seat.x, seat.y, seat.z)
-      mesh.setMatrixAt(i, m)
-      mesh.setColorAt(i, seat.color)
-    })
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  }, [seats])
-
-  return (
-    <instancedMesh ref={meshRef} args={[null, null, seats.length]}>
-      <sphereGeometry args={[0.17, 6, 5]} />
-      <meshStandardMaterial roughness={0.9} />
-    </instancedMesh>
   )
 }
 
@@ -255,45 +162,6 @@ function FloodLight({ position, intensity = 0.7, color = '#ffe8cc' }) {
       color={color}
       castShadow={false}
     />
-  )
-}
-
-function LightOrb({ position, size = 0.5 }) {
-  return (
-    <group position={position}>
-      {/* Core */}
-      <mesh>
-        <sphereGeometry args={[size * 0.4, 12, 12]} />
-        <meshBasicMaterial color="#fffae0" />
-      </mesh>
-      {/* Glow */}
-      <mesh>
-        <sphereGeometry args={[size, 12, 12]} />
-        <meshBasicMaterial color="#ffe8b0" transparent opacity={0.3} depthWrite={false} />
-      </mesh>
-    </group>
-  )
-}
-
-function HazeLayer() {
-  return (
-    <group>
-      {/* Low haze */}
-      <mesh position={[0, 6, 0]} rotation-x={-Math.PI / 2}>
-        <planeGeometry args={[55, 35]} />
-        <meshBasicMaterial color="#1a1a3a" transparent opacity={0.05} depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Upper haze */}
-      <mesh position={[0, 12, 0]} rotation-x={-Math.PI / 2}>
-        <planeGeometry args={[70, 50]} />
-        <meshBasicMaterial color="#0d0d2a" transparent opacity={0.04} depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Warm overhead glow */}
-      <mesh position={[0, 18, 0]} rotation-x={-Math.PI / 2}>
-        <circleGeometry args={[20, 32]} />
-        <meshBasicMaterial color="#2a1a0a" transparent opacity={0.03} depthWrite={false} />
-      </mesh>
-    </group>
   )
 }
 
@@ -363,7 +231,7 @@ function GameWorld() {
       <TrajectoryLineManager trajectoryRef={trajectoryRef} />
 
       {/* Stadium atmosphere behind the pitch */}
-      <StadiumAtmosphere stadiumConfig={STADIUMS[useMatchStore.getState().stadium] || STADIUMS.arena} />
+      <StadiumAtmosphere stadiumId={STADIUMS[stadiumId] ? stadiumId : 'arena'} stadiumConfig={sc} />
 
       <PitchMesh />
 

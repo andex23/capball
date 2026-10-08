@@ -468,8 +468,8 @@ export const useMatchStore = create((set, get) => ({
 
   // --- Audio settings ---
   masterVolume: 0.7,
-  sfxVolume: 0.8,
-  musicVolume: 0.5,
+  sfxVolume: 0.6,
+  musicVolume: 0.35,
   muted: false,
   setMasterVolume: (v) => set({ masterVolume: v }),
   setSfxVolume: (v) => set({ sfxVolume: v }),
@@ -486,5 +486,8 @@ export const useMatchStore = create((set, get) => ({
   // How a flick is aimed: false = drag back like a slingshot,
   // true = swipe the way you want the cap to go
   swipeAim: false,
+  // Menu music: index into MUSIC_TRACKS (0 = off). See audio/MusicManager.js
+  musicTrack: 1,
+  setMusicTrack: (i) => set({ musicTrack: i }),
   toggleSwipeAim: () => set((s) => ({ swipeAim: !s.swipeAim })),
 }))
