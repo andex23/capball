@@ -30,3 +30,11 @@ export const FINISHES = [
 export const CAP_ROLES = ['gk', 'def1', 'def2', 'atk1', 'atk2']
 
 export const TEAM_NAME_MAX = 16
+
+/** Kit colours offered by the colour pickers. */
+export const COLOR_PRESETS = [
+  '#D32F2F', '#C62828', '#E91E63', '#9C27B0',
+  '#1565C0', '#0277BD', '#00838F', '#2E7D32',
+  '#F57F17', '#E65100', '#FFD700', '#FFFFFF',
+  '#424242', '#000000',
+]
