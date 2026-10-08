@@ -6,10 +6,11 @@
 export const STADIUMS = {
   arena: {
     id: 'arena',
-    name: 'Tournament Arena',
-    label: 'Floodlit stadium, full stands',
+    name: 'Game Room',
+    tableColor: '#2b2f3a', // the table the board sits on (venue picker preview)
+    label: 'Black table, neon lights',
     surface: 'grass',
-    floodIntensity: 1,
+    floodIntensity: 0.55,
     // Pitch surface
     grass1: '#2a8830',
     grass2: '#32a03a',
@@ -24,9 +25,9 @@ export const STADIUMS = {
     baseColor: '#1a2030',
     baseTrimColor: '#3a4256',
     // Background / atmosphere
-    bgColor: '#070a14',
-    fogColor: '#070a14',
-    fogDensity: 0.0055,
+    bgColor: '#0b0d1c',
+    fogColor: '#0b0d1c',
+    fogDensity: 0.005,
     groundGlow: '#1a1830',
     // Lighting
     ambientColor: '#fff0dd',
@@ -35,8 +36,8 @@ export const STADIUMS = {
     keyLightIntensity: 1.8,
     fillLightColor: '#c8d8ff',
     fillLightIntensity: 0.5,
-    floodColor: '#ffe8cc',
-    rimColor: '#3366cc',
+    floodColor: '#d6dcff',
+    rimColor: '#7c4dff',
     // Crowd
     showCrowd: true,
     crowdColors: ['#e53935', '#1e88e5', '#ffd740', '#ff7043', '#66bb6a', '#ab47bc', '#ffffff'],
@@ -46,8 +47,9 @@ export const STADIUMS = {
 
   table: {
     id: 'table',
-    name: 'Classic Table',
-    label: 'Felt board on the kitchen table',
+    name: 'Kitchen Table',
+    tableColor: '#8a5a30', // the table the board sits on (venue picker preview)
+    label: 'Felt board, wooden table',
     surface: 'felt',
     floodIntensity: 0.45,
     grass1: '#256b2c',
@@ -59,9 +61,9 @@ export const STADIUMS = {
     trimColor: '#d4a74a',
     baseColor: '#3e2814',
     baseTrimColor: '#d4a74a',
-    bgColor: '#140d08',
-    fogColor: '#140d08',
-    fogDensity: 0.009,
+    bgColor: '#2a1f16',
+    fogColor: '#2a1f16',
+    fogDensity: 0.0055,
     groundGlow: '#1a1510',
     ambientColor: '#ffe8c0',
     ambientIntensity: 0.6,
@@ -78,8 +80,9 @@ export const STADIUMS = {
 
   street: {
     id: 'street',
-    name: 'Street Court',
-    label: 'Night-time lot, fences and graffiti',
+    name: 'Street Corner',
+    tableColor: '#d9d9d2', // the table the board sits on (venue picker preview)
+    label: 'Folding table, night-time pavement',
     surface: 'asphalt',
     floodIntensity: 0.6,
     grass1: '#3b3d42',
@@ -93,7 +96,7 @@ export const STADIUMS = {
     baseTrimColor: '#2a2c30',
     bgColor: '#090b14',
     fogColor: '#0d1019',
-    fogDensity: 0.0065,
+    fogDensity: 0.005,
     groundGlow: '#151518',
     ambientColor: '#e0e0e8',
     ambientIntensity: 0.55,
@@ -110,8 +113,9 @@ export const STADIUMS = {
 
   gravel: {
     id: 'gravel',
-    name: 'Village Pitch',
-    label: 'Dusty ground at sunset',
+    name: 'Garden Table',
+    tableColor: '#7a5a3a', // the table the board sits on (venue picker preview)
+    label: 'Picnic table at sunset',
     surface: 'dirt',
     floodIntensity: 0.2,
     grass1: '#8b7355',
@@ -125,7 +129,7 @@ export const STADIUMS = {
     baseTrimColor: '#8b7050',
     bgColor: '#e0905c',
     fogColor: '#8f6250',
-    fogDensity: 0.0045,
+    fogDensity: 0.003,
     groundGlow: '#1a1408',
     ambientColor: '#b4a0d8',
     ambientIntensity: 0.6,
