@@ -9,6 +9,7 @@ import { playFlick } from '../audio/SoundManager'
 import { haptic } from './haptics'
 import { classifyContact } from '../game/rules'
 import { predictShot, createShot, createPrediction, capBounds, goalFor } from '../game/predict'
+import { holdCamera } from '../scene/camera'
 
 const DOT_SPACING = 0.5
 // A finger picks up the nearest cap within this many screen pixels of the touch…
@@ -117,10 +118,13 @@ export function useFlickController(meshRefs, trajectoryRef) {
     const endDrag = () => {
       dragCapId.current = null
       dragCurrent.current = null
+      holdCamera(false)
     }
 
     const handlePointerDown = (e) => {
       if (e.button !== undefined && e.button !== 0) return // right/middle = camera
+      // A second finger joining in is a pinch/slide of the camera, not an aim
+      if (!e.isPrimary) return
       const state = useMatchStore.getState()
       if (state.paused || !INPUT_PHASES.includes(state.phase)) return
       // Only the teams this client controls (not the CPU's, not the online opponent's)
@@ -148,6 +152,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
 
       dragCapId.current = capId
       dragCurrent.current = worldPos.clone()
+      // This drag aims the cap: keep the camera where it is until release
+      holdCamera(true)
       state.selectCap(capId)
       if (state.gameMode === 'online' && !getIsHost()) sendSelect(capId)
     }

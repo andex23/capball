@@ -8,6 +8,7 @@ import { onlineInterrupted } from '../multiplayer/reconnect'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer } from '../audio/SoundManager'
 import Icon from './Icon'
+import CameraStick from './CameraStick'
 import Modal from './Modal'
 import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
@@ -299,6 +300,7 @@ export default function HUD() {
 
       <div className="hud-corner br">
         {camLabel && <span className="chip" style={{ cursor: 'default', background: 'var(--surface)' }}>{camLabel}</span>}
+        <CameraStick />
         <button className="icon-btn" onClick={cycleCamera} aria-label="Change camera view"><Icon name="camera" size={20} /></button>
       </div>
 
@@ -308,8 +310,8 @@ export default function HUD() {
       {!paused && <Banner />}
 
       <div className="hint">
-        <span className="hint-mouse">Drag back from a cap to aim · Right-drag to rotate · Scroll to zoom · P to pause</span>
-        <span className="hint-touch">Drag back from a cap to aim · Two fingers to turn or zoom the view</span>
+        <span className="hint-mouse">Drag back from a cap to aim · Drag the pitch to turn the view · Scroll to zoom · P to pause</span>
+        <span className="hint-touch">Drag back from a cap to aim · Drag the pitch or the stick to turn the view · Pinch to zoom</span>
       </div>
 
       {paused && !connectionLost && <PauseMenu onClose={() => setPaused(false)} />}

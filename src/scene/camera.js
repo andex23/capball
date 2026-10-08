@@ -224,3 +224,59 @@ export function setCameraPose({ position, target }) {
   _controlsRef.target.set(...target)
   _controlsRef.update()
 }
+
+/* ── Moving the view by hand (camera stick, buttons) ── */
+
+/** Is a camera move being driven by the on-screen stick right now? */
+let _stickActive = false
+export const setStickActive = (v) => { _stickActive = !!v }
+export const isStickActive = () => _stickActive
+
+/**
+ * Swing the camera round the point it looks at: dTheta turns it round the
+ * pitch (radians), dPhi tilts it up/down. Respects the controls' limits.
+ * Plain trigonometry so the HUD needn't load three.js.
+ */
+export function orbitBy(dTheta, dPhi) {
+  if (!_controlsRef || !_cameraRef) return
+  cancelTurn()
+  const t = _controlsRef.target
+  const p = _cameraRef.position
+  const ox = p.x - t.x
+  const oy = p.y - t.y
+  const oz = p.z - t.z
+  const r = Math.hypot(ox, oy, oz)
+  if (!(r > 0)) return
+  let theta = Math.atan2(ox, oz)
+  let phi = Math.acos(Math.min(1, Math.max(-1, oy / r)))
+  theta += dTheta
+  const minPhi = Math.max(0.05, _controlsRef.minPolarAngle ?? 0)
+  const maxPhi = Math.min(Math.PI - 0.05, _controlsRef.maxPolarAngle ?? Math.PI / 2)
+  phi = Math.min(maxPhi, Math.max(minPhi, phi + dPhi))
+  const sinPhi = Math.sin(phi)
+  p.set(t.x + r * sinPhi * Math.sin(theta), t.y + r * Math.cos(phi), t.z + r * sinPhi * Math.cos(theta))
+  _cameraRef.lookAt(t.x, t.y, t.z)
+  _controlsRef.update()
+}
+
+/** Move closer (factor < 1) or further (factor > 1), within the zoom limits. */
+export function zoomBy(factor) {
+  if (!_controlsRef || !_cameraRef) return
+  cancelTurn()
+  const t = _controlsRef.target
+  const p = _cameraRef.position
+  const r = p.distanceTo(t)
+  const next = Math.min(_controlsRef.maxDistance ?? Infinity, Math.max(_controlsRef.minDistance ?? 0, r * factor))
+  const k = next / r
+  p.set(t.x + (p.x - t.x) * k, t.y + (p.y - t.y) * k, t.z + (p.z - t.z) * k)
+  _controlsRef.update()
+}
+
+/**
+ * While a finger or the mouse is aiming a cap, the camera must not move
+ * with it. The flick controller switches the orbit controls off for the
+ * length of the drag.
+ */
+export function holdCamera(hold) {
+  if (_controlsRef) _controlsRef.enabled = !hold
+}

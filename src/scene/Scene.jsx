@@ -434,15 +434,20 @@ function GameWorld() {
         enableRotate={true}
         enableZoom={true}
         enablePan={true}
+        // Drag the pitch (anywhere but on one of your caps) to turn the view;
+        // pinch to zoom, two fingers to slide it. Pressing one of your caps
+        // aims instead — the flick controller holds the camera still for that.
         mouseButtons={{
-          LEFT: null,
+          LEFT: THREE.MOUSE.ROTATE,
           MIDDLE: THREE.MOUSE.DOLLY,
-          RIGHT: THREE.MOUSE.ROTATE,
+          RIGHT: THREE.MOUSE.PAN,
         }}
         touches={{
-          ONE: null,
-          TWO: THREE.TOUCH.DOLLY_ROTATE,
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN,
         }}
+        rotateSpeed={0.6}
+        screenSpacePanning={false}
         minDistance={10}
         maxDistance={80}
         maxPolarAngle={Math.PI / 2.1}
