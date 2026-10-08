@@ -190,9 +190,11 @@ export function useFlickController(meshRefs, trajectoryRef) {
       const capMesh = meshRefs.current[capId]
       if (!capMesh) return
 
-      // Slingshot: drag BACK from the cap, it shoots the opposite way
-      const dx = capMesh.position.x - dragPos.x
-      const dz = capMesh.position.z - dragPos.z
+      // Slingshot: drag BACK from the cap, it shoots the opposite way.
+      // Swipe aiming: the cap goes the way the finger went.
+      const sign = state.swipeAim ? -1 : 1
+      const dx = (capMesh.position.x - dragPos.x) * sign
+      const dz = (capMesh.position.z - dragPos.z) * sign
       const dragDist = Math.hypot(dx, dz)
       const pull = pullOf(capMesh)
 
@@ -277,8 +279,9 @@ export function useFlickController(meshRefs, trajectoryRef) {
 
     const cx = capMesh.position.x
     const cz = capMesh.position.z
-    const dx = cx - dragCurrent.current.x
-    const dz = cz - dragCurrent.current.z
+    const sign = state.swipeAim ? -1 : 1
+    const dx = (cx - dragCurrent.current.x) * sign
+    const dz = (cz - dragCurrent.current.z) * sign
     const dist = Math.sqrt(dx * dx + dz * dz)
 
     const pull = pullOf(capMesh)

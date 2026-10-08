@@ -8,7 +8,7 @@ const SECTIONS = [
     title: 'How to play',
     items: [
       'Teams take turns. On your turn, flick one of your caps.',
-      'Press on a cap, drag back like a slingshot, and let go. Longer drag = more power.',
+      'Press on a cap, drag back like a slingshot, and let go. Longer drag = more power. (Prefer swiping forward? Switch it in Settings → Aiming.)',
       'The arrow shows where your cap goes; the blue ring shows where the ball will be hit.',
       'Your turn ends when everything stops moving.',
       'If the shot clock is on and runs out, you lose the turn (or the free kick or penalty).',

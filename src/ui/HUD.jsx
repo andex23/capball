@@ -76,7 +76,7 @@ function useTurnText() {
       if (isCpu) return 'CPU is thinking…'
       if (isOpp) return `${name} to play`
       if (s.freeKickCapId) return `${who === 'Your' ? 'Your' : who} kick — drag the highlighted cap`
-      return `${who} turn — drag back from a cap to flick`
+      return `${who} turn — ${s.swipeAim ? 'swipe' : 'drag back'} from a cap to flick`
     case PHASE.AIM:
       return isCpu ? 'CPU is lining up…' : isOpp ? `${name} is aiming…` : 'Release to flick'
     case PHASE.RESOLVE: return 'Waiting for everything to stop…'
@@ -218,6 +218,7 @@ function PauseMenu({ onClose }) {
 
 export default function HUD() {
   const phase = useMatchStore((s) => s.phase)
+  const aimHint = useMatchStore((s) => (s.swipeAim ? 'Swipe' : 'Drag back'))
   const paused = useMatchStore((s) => s.paused)
   const activeTeam = useMatchStore((s) => s.activeTeam)
   const teamConfig = useMatchStore((s) => s.teamConfig)
@@ -313,8 +314,8 @@ export default function HUD() {
       {!paused && <Banner />}
 
       <div className="hint">
-        <span className="hint-mouse">Drag back from a cap to aim · Drag the pitch to turn the view · Scroll to zoom · P to pause</span>
-        <span className="hint-touch">Drag back from a cap to aim · Drag the pitch or the stick to turn the view · Pinch to zoom</span>
+        <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn the view · Scroll to zoom · P to pause</span>
+        <span className="hint-touch">{aimHint} from a cap to aim · Drag the pitch or the stick to turn the view · Pinch to zoom</span>
       </div>
 
       {paused && !connectionLost && <PauseMenu onClose={() => setPaused(false)} />}

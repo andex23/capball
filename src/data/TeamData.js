@@ -39,7 +39,7 @@ export const PHYSICS = {
   settleSpeed: 0.02,     // settle detection
   settleTime: 300,       // quick settle check
   subSteps: 8,           // good collision stability
-  timeScale: 0.16,       // physics frames per real 60 Hz frame: a full flick glides for ~1.3 s, the ball rolls on for 2-3 s
+  timeScale: 0.3,        // physics frames per real 60 Hz frame: a full flick slides for ~0.7 s, a struck ball rolls on for 1-1.5 s
 }
 
 // Default teams
