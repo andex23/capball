@@ -494,8 +494,8 @@ function clampInPitch(x, y, r = CAP_RADIUS) {
  * - Wall: stands on the line from the ball to the goal it protects, square to
  *   that line, FREE_KICK_WALL_DISTANCE back from the ball (closer only when the
  *   goal itself is nearer than that, never under FREE_KICK_WALL_MIN)
- *   - Far from box: 3 wall caps
- *   - Near box / goal: 2 wall caps
+ *   - Near the goal (within FREE_KICK_TWO_CAP_WALL_WITHIN of the line): 2 wall caps
+ *   - Further out: 1 wall cap
  * - ALL other caps pushed to their own half, far from ball
  * - After placement: no cap but the kicker may stand closer to the ball than the wall
  */
@@ -504,6 +504,8 @@ function clampInPitch(x, y, r = CAP_RADIUS) {
 export const FREE_KICK_WALL_DISTANCE = 8
 // Never closer than this, even right by the goal
 export const FREE_KICK_WALL_MIN = 5
+// A free kick this close to the defending goal line gets a two-cap wall
+export const FREE_KICK_TWO_CAP_WALL_WITHIN = 13
 // The kicker's own teammates just keep out of the kicker's way
 const TEAMMATE_CLEARANCE = 4
 
@@ -523,8 +525,9 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   // How much space is there between ball and the defending goal line?
   const spaceToGoal = Math.abs(defHome * halfW - bx)
   // Decide wall size: more space = more wall caps
-  // (never fewer than two: right by the goal is exactly when a wall matters)
-  const wallCount = spaceToGoal < 12 ? 2 : 3
+  // Close to goal is when a wall matters: two caps there, one further out
+  // (only four outfield caps a side, and the keeper never joins the wall)
+  const wallCount = spaceToGoal < FREE_KICK_TWO_CAP_WALL_WITHIN ? 2 : 1
 
   // ── KICKER: on the line from ball to goal center, BEHIND the ball ──
   // Calculate angle from ball to the center of the goal being attacked
