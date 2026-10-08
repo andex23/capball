@@ -1,13 +1,13 @@
 /**
- * The world around the board, one per venue:
- *   arena  — a floodlit bowl: tiered stands full of fans, a roof, LED boards, light towers
- *   table  — a big wooden table in a warm room, a pendant lamp and a few props
- *   street — an asphalt lot at night: chain-link fence, graffiti walls, street lamps, a skyline
- *   gravel — a village pitch at dusk: sky, low sun, hills, trees, a wooden fence, a few locals
+ * The world around the board. CapBall is a tabletop game, so every venue is
+ * a table somewhere:
+ *   arena  — Game Room: a glossy black table with LED trim, neon signs, trophies, an arcade cabinet
+ *   table  — Kitchen Table: a wooden table, tiled floor, cupboards, a mug, spare caps, the score pad
+ *   street — Street Corner: a folding table on the pavement at night, graffiti walls, street lamps
+ *   gravel — Garden Table: a picnic table on the patio at sunset, string lights, trees, hills
  *
- * Everything is simple geometry and small canvas textures made once per
- * venue, with the many repeated pieces (fans, trees, windows) instanced, so it
- * stays light enough for phones.
+ * Simple geometry and small canvas textures made once per venue, with
+ * repeated pieces instanced, so it stays light enough for phones.
  */
 import { useMemo, useLayoutEffect, useRef, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
@@ -105,251 +105,7 @@ function Glow({ position, color = '#fff3d0', size = 0.6, halo = 2.4, opacity = 0
   )
 }
 
-/* ── Arena ───────────────────────────────────────────── */
-
-// Generic sponsor-style boards: game words, no real brands
-const LED_WORDS = ['CAPBALL', 'FLICK IT', 'TOP BINS', 'CAPBALL', 'GOAL!', 'TABLETOP FOOTBALL']
-const LED_COLORS = ['#00e5ff', '#ffd740', '#ff4081', '#69f0ae', '#ffffff', '#ff9100']
-
-function ledTexture() {
-  return canvasTexture(2048, 64, (ctx, w, h) => {
-    ctx.fillStyle = '#05070f'
-    ctx.fillRect(0, 0, w, h)
-    let x = 0
-    let i = 0
-    ctx.font = 'italic 900 40px "Barlow Condensed", "Arial Narrow", sans-serif'
-    ctx.textBaseline = 'middle'
-    while (x < w) {
-      const word = LED_WORDS[i % LED_WORDS.length]
-      const color = LED_COLORS[i % LED_COLORS.length]
-      const tw = ctx.measureText(word).width
-      ctx.fillStyle = color
-      ctx.shadowColor = color
-      ctx.shadowBlur = 10
-      ctx.fillText(word, x + 30, h / 2 + 2)
-      x += tw + 90
-      i++
-    }
-    // LED pixel grid
-    ctx.shadowBlur = 0
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'
-    for (let gx = 0; gx < w; gx += 4) ctx.fillRect(gx, 0, 1, h)
-    for (let gy = 0; gy < h; gy += 4) ctx.fillRect(0, gy, w, 1)
-  }, { repeat: [1, 1] })
-}
-
-function apronTexture() {
-  return canvasTexture(512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#1f6e27'
-    ctx.fillRect(0, 0, w, h)
-    for (let i = 0; i < 8; i++) {
-      ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.05)'
-      ctx.fillRect((i * w) / 8, 0, w / 8, h)
-    }
-    speckle(ctx, w, h, 3000, ['rgba(0,0,0,0.08)', 'rgba(255,255,255,0.05)'], 0.6, rand(3), 1.4)
-  }, { repeat: [6, 5] })
-}
-
-function lightPanelTexture() {
-  return canvasTexture(128, 96, (ctx, w, h) => {
-    ctx.fillStyle = '#20232c'
-    ctx.fillRect(0, 0, w, h)
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 6; c++) {
-        const g = ctx.createRadialGradient(10 + c * 21, 12 + r * 23, 1, 10 + c * 21, 12 + r * 23, 10)
-        g.addColorStop(0, '#ffffff')
-        g.addColorStop(0.5, '#fff6dc')
-        g.addColorStop(1, 'rgba(255,240,200,0)')
-        ctx.fillStyle = g
-        ctx.fillRect(c * 21, r * 23, 21, 23)
-      }
-    }
-  })
-}
-
-// One long stand: stepped concrete terraces with fans, under a roof.
-// Built along +x, facing -z (towards the pitch); placed with position/rotation.
-function useStand(length, rows, seed, colors) {
-  return useMemo(() => {
-    const rnd = rand(seed)
-    const fans = []
-    const spacing = 0.62
-    const n = Math.floor(length / spacing)
-    for (let r = 0; r < rows; r++) {
-      for (let i = 0; i < n; i++) {
-        if (rnd() < 0.12) continue // an empty seat here and there
-        fans.push({
-          x: -length / 2 + (i + 0.5) * spacing + (rnd() - 0.5) * 0.12,
-          y: r * 0.62 + 0.55 + rnd() * 0.06,
-          z: r * 0.9 + 0.3,
-          sy: 0.85 + rnd() * 0.3,
-          color: colors[Math.floor(rnd() * colors.length)],
-        })
-      }
-    }
-    return fans
-  }, [length, rows, seed, colors])
-}
-
-function Stand({ length, rows = 12, position, rotationY, seed, colors, roofColor = '#141826' }) {
-  const fans = useStand(length, rows, seed, colors)
-  const depth = rows * 0.9
-  const top = rows * 0.62
-  return (
-    <group position={position} rotation-y={rotationY}>
-      {/* Terraces */}
-      {Array.from({ length: rows }, (_, r) => (
-        <mesh key={r} position={[0, r * 0.62 + 0.05, r * 0.9 + 0.45]} receiveShadow>
-          <boxGeometry args={[length, 0.62 + r * 0.0, 0.9]} />
-          <meshStandardMaterial color={r % 2 ? '#2a2f3f' : '#252a38'} roughness={0.95} />
-        </mesh>
-      ))}
-      {/* The solid block under the terraces */}
-      <mesh position={[0, top / 2 - 0.3, depth / 2 + 0.5]}>
-        <boxGeometry args={[length, top - 0.4, depth - 0.6]} />
-        <meshStandardMaterial color="#151927" roughness={1} />
-      </mesh>
-      {/* Fans: a body and a head */}
-      <Instances items={fans}>
-        <boxGeometry args={[0.38, 0.55, 0.3]} />
-        <meshStandardMaterial roughness={0.85} />
-      </Instances>
-      {/* Back wall and roof */}
-      <mesh position={[0, top + 1.6, depth + 0.6]}>
-        <boxGeometry args={[length + 1, 4.5, 0.4]} />
-        <meshStandardMaterial color="#10131e" roughness={1} />
-      </mesh>
-      <mesh position={[0, top + 3.6, depth * 0.55]} rotation-x={-0.12}>
-        <boxGeometry args={[length + 1.4, 0.35, depth + 2.8]} />
-        <meshStandardMaterial color={roofColor} roughness={0.7} metalness={0.3} />
-      </mesh>
-      {/* A strip of light under the roof edge */}
-      <mesh position={[0, top + 3.2, -0.5]}>
-        <boxGeometry args={[length, 0.08, 0.08]} />
-        <meshBasicMaterial color="#e8f0ff" toneMapped={false} />
-      </mesh>
-    </group>
-  )
-}
-
-function LightTower({ position }) {
-  const panel = useMemo(lightPanelTexture, [])
-  const [x, , z] = position
-  const face = Math.atan2(-x, -z)
-  return (
-    <group position={position}>
-      <mesh position={[0, 13, 0]}>
-        <cylinderGeometry args={[0.35, 0.6, 26, 8]} />
-        <meshStandardMaterial color="#3a3f4c" metalness={0.6} roughness={0.45} />
-      </mesh>
-      <group position={[0, 26.5, 0]} rotation-y={face}>
-        <mesh rotation-x={0.45}>
-          <boxGeometry args={[5, 3.6, 0.4]} />
-          <meshStandardMaterial color="#2a2e38" metalness={0.5} roughness={0.5} />
-        </mesh>
-        <mesh position={[0, -0.18, 0.21]} rotation-x={0.45}>
-          <planeGeometry args={[4.7, 3.3]} />
-          <meshBasicMaterial map={panel} toneMapped={false} fog={false} />
-        </mesh>
-        <Glow position={[0, -0.6, 1.4]} size={0.01} halo={4.5} opacity={0.12} color="#fff1cf" />
-      </group>
-    </group>
-  )
-}
-
-function LedBoards() {
-  const tex = useMemo(ledTexture, [])
-  const sideTex = useMemo(() => { const t = tex.clone(); t.needsUpdate = true; t.wrapS = THREE.RepeatWrapping; t.repeat.set(0.6, 1); return t }, [tex])
-  const H = 0.9
-  const y = -0.3 + H / 2
-  return (
-    <group>
-      {[-1, 1].map((s) => (
-        <mesh key={`l${s}`} position={[0, y, s * 13.6]} rotation-y={s > 0 ? Math.PI : 0}>
-          <boxGeometry args={[36, H, 0.25]} />
-          <meshBasicMaterial attach="material-4" map={tex} toneMapped={false} />
-          <meshBasicMaterial attach="material-5" map={tex} toneMapped={false} />
-          <meshStandardMaterial attach="material-0" color="#0b0d14" />
-          <meshStandardMaterial attach="material-1" color="#0b0d14" />
-          <meshStandardMaterial attach="material-2" color="#0b0d14" />
-          <meshStandardMaterial attach="material-3" color="#0b0d14" />
-        </mesh>
-      ))}
-      {[-1, 1].map((s) => (
-        <group key={`e${s}`}>
-          {[-1, 1].map((k) => (
-            <mesh key={k} position={[s * 20.2, y, k * 7.6]} rotation-y={Math.PI / 2}>
-              <boxGeometry args={[11, H, 0.25]} />
-              <meshBasicMaterial attach="material-4" map={sideTex} toneMapped={false} />
-              <meshBasicMaterial attach="material-5" map={sideTex} toneMapped={false} />
-              <meshStandardMaterial attach="material-0" color="#0b0d14" />
-              <meshStandardMaterial attach="material-1" color="#0b0d14" />
-              <meshStandardMaterial attach="material-2" color="#0b0d14" />
-              <meshStandardMaterial attach="material-3" color="#0b0d14" />
-            </mesh>
-          ))}
-        </group>
-      ))}
-    </group>
-  )
-}
-
-function Dugouts() {
-  return (
-    <group>
-      {[-6, 6].map((x) => (
-        <group key={x} position={[x, -0.3, 15.6]}>
-          <mesh position={[0, 0.9, 0]}>
-            <boxGeometry args={[5, 1.8, 1.6]} />
-            <meshStandardMaterial color="#1b2333" transparent opacity={0.85} roughness={0.2} metalness={0.3} />
-          </mesh>
-          <mesh position={[0, 1.85, -0.2]}>
-            <boxGeometry args={[5.2, 0.1, 2]} />
-            <meshStandardMaterial color="#c9d4e6" roughness={0.3} metalness={0.4} transparent opacity={0.5} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  )
-}
-
-function Arena({ crowdColors }) {
-  const apron = useMemo(apronTexture, [])
-  const colors = useMemo(() => crowdColors.map((c) => '#' + new THREE.Color(c).lerp(new THREE.Color('#1a2033'), 0.45).getHexString()), [crowdColors])
-  return (
-    <group>
-      {/* Grass all round the board */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.3, 0]} receiveShadow>
-        <planeGeometry args={[46, 32]} />
-        <meshStandardMaterial map={apron} roughness={0.9} />
-      </mesh>
-      {/* Concourse floor beyond */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.32, 0]}>
-        <planeGeometry args={[220, 220]} />
-        <meshStandardMaterial color="#0b0e18" roughness={1} />
-      </mesh>
-      <LedBoards />
-      <Dugouts />
-      {/* Four stands */}
-      <Stand length={46} position={[0, -0.3, -16.2]} rotationY={Math.PI} seed={11} colors={colors} />
-      <Stand length={46} position={[0, -0.3, 16.8]} rotationY={0} seed={12} colors={colors} rows={10} />
-      <Stand length={32} position={[-23.4, -0.3, 0]} rotationY={-Math.PI / 2} seed={13} colors={colors} />
-      <Stand length={32} position={[23.4, -0.3, 0]} rotationY={Math.PI / 2} seed={14} colors={colors} />
-      {/* Corner fillers */}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-        <mesh key={`${sx}${sz}`} position={[sx * 30, 4, sz * 23]} rotation-y={Math.atan2(sx, sz)}>
-          <boxGeometry args={[12, 9, 6]} />
-          <meshStandardMaterial color="#121624" roughness={1} />
-        </mesh>
-      ))}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-        <LightTower key={`t${sx}${sz}`} position={[sx * 31, 0, sz * 25]} />
-      ))}
-    </group>
-  )
-}
-
-/* ── Table ───────────────────────────────────────────── */
+/* ── Reused textures and props ──────────────────── */
 
 function woodTexture() {
   return canvasTexture(1024, 512, (ctx, w, h) => {
@@ -456,53 +212,6 @@ function SpareCaps({ position }) {
   )
 }
 
-function Table() {
-  const wood = useMemo(woodTexture, [])
-  const note = useMemo(notepadTexture, [])
-  return (
-    <group>
-      {/* The table top and its edge */}
-      <mesh position={[0, -0.8, 0]} receiveShadow>
-        <boxGeometry args={[66, 1, 46]} />
-        <meshStandardMaterial map={wood} roughness={0.45} metalness={0.05} />
-      </mesh>
-      {/* Legs */}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-        <mesh key={`${sx}${sz}`} position={[sx * 30, -12, sz * 20]}>
-          <boxGeometry args={[2, 22, 2]} />
-          <meshStandardMaterial color="#3a2414" roughness={0.6} />
-        </mesh>
-      ))}
-      {/* Floor and walls of a dim room */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, -23, 0]}>
-        <planeGeometry args={[300, 300]} />
-        <meshStandardMaterial color="#1a120c" roughness={1} />
-      </mesh>
-      {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((r) => (
-        <mesh key={r} rotation-y={r} position={[Math.sin(r) * -70, 10, Math.cos(r) * -70]}>
-          <planeGeometry args={[160, 70]} />
-          <meshStandardMaterial color="#2a1c14" roughness={1} />
-        </mesh>
-      ))}
-      {/* Props */}
-      <Mug position={[-24, -0.3, -14]} />
-      <SpareCaps position={[23, -0.3, 13]} />
-      <group position={[24, -0.28, -13]} rotation-y={0.25}>
-        <mesh rotation-x={-Math.PI / 2} receiveShadow>
-          <planeGeometry args={[4.2, 5.4]} />
-          <meshStandardMaterial map={note} roughness={0.9} />
-        </mesh>
-        <mesh position={[2.6, 0.12, 0.3]} rotation-z={Math.PI / 2} rotation-y={0.5}>
-          <cylinderGeometry args={[0.1, 0.1, 5, 6]} />
-          <meshStandardMaterial color="#f2b632" roughness={0.5} />
-        </mesh>
-      </group>
-    </group>
-  )
-}
-
-/* ── Street ──────────────────────────────────────────── */
-
 function asphaltTexture() {
   return canvasTexture(512, 512, (ctx, w, h) => {
     const rnd = rand(21)
@@ -518,18 +227,6 @@ function asphaltTexture() {
       ctx.fillRect(0, 0, w, h)
     }
   }, { repeat: [14, 14] })
-}
-
-function fenceTexture() {
-  return canvasTexture(64, 64, (ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h)
-    ctx.strokeStyle = 'rgba(190,198,210,0.9)'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(0, 0); ctx.lineTo(w, h)
-    ctx.moveTo(w, 0); ctx.lineTo(0, h)
-    ctx.stroke()
-  }, { repeat: [40, 6] })
 }
 
 const GRAFFITI = ['CAP', 'FLICK', 'GOAL', 'KICK', 'BALLER', 'TOP BIN']
@@ -575,45 +272,6 @@ function wallTexture(seed) {
   })
 }
 
-function windowsTexture() {
-  return canvasTexture(64, 128, (ctx, w, h) => {
-    const rnd = rand(31)
-    ctx.fillStyle = '#0d0f18'
-    ctx.fillRect(0, 0, w, h)
-    for (let y = 4; y < h; y += 10) {
-      for (let x = 4; x < w; x += 10) {
-        if (rnd() < 0.42) {
-          ctx.fillStyle = rnd() < 0.7 ? '#ffd58a' : '#9ad1ff'
-          ctx.globalAlpha = 0.5 + rnd() * 0.5
-          ctx.fillRect(x, y, 5, 6)
-        }
-      }
-    }
-    ctx.globalAlpha = 1
-  }, { repeat: [2, 3] })
-}
-
-function StreetLamp({ position, facing }) {
-  return (
-    <group position={position} rotation-y={facing}>
-      <mesh position={[0, 6, 0]}>
-        <cylinderGeometry args={[0.15, 0.22, 12, 8]} />
-        <meshStandardMaterial color="#2f3540" metalness={0.6} roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 12, 1.2]} rotation-x={Math.PI / 2}>
-        <cylinderGeometry args={[0.1, 0.1, 2.6, 6]} />
-        <meshStandardMaterial color="#2f3540" metalness={0.6} roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 11.85, 2.4]}>
-        <boxGeometry args={[0.9, 0.25, 1.4]} />
-        <meshStandardMaterial color="#232830" />
-      </mesh>
-      <Glow position={[0, 11.65, 2.4]} size={0.32} halo={2.6} opacity={0.22} color="#ffb85c" />
-      <pointLight position={[0, 11, 2.4]} color="#ffad4f" intensity={0.6} distance={26} decay={1.4} />
-    </group>
-  )
-}
-
 function Cone({ position }) {
   return (
     <group position={position}>
@@ -633,123 +291,6 @@ function Cone({ position }) {
   )
 }
 
-function Street() {
-  const asphalt = useMemo(asphaltTexture, [])
-  const fence = useMemo(fenceTexture, [])
-  const fenceEnd = useMemo(() => { const t = fence.clone(); t.needsUpdate = true; t.repeat.set(28, 6); return t }, [fence])
-  const wallA = useMemo(() => wallTexture(41), [])
-  const wallB = useMemo(() => wallTexture(42), [])
-  const wallC = useMemo(() => wallTexture(43), [])
-  const windows = useMemo(windowsTexture, [])
-  const buildings = useMemo(() => {
-    const rnd = rand(77)
-    const out = []
-    for (let i = 0; i < 26; i++) {
-      const a = (i / 26) * Math.PI * 2 + rnd() * 0.1
-      const d = 70 + rnd() * 30
-      const h = 18 + rnd() * 40
-      out.push({ x: Math.cos(a) * d, y: h / 2 - 0.3, z: Math.sin(a) * d, sx: 10 + rnd() * 10, sy: h, sz: 10 + rnd() * 8, ry: -a })
-    }
-    return out
-  }, [])
-  const H = 7
-  return (
-    <group>
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.3, 0]} receiveShadow>
-        <planeGeometry args={[260, 260]} />
-        <meshStandardMaterial map={asphalt} roughness={0.92} />
-      </mesh>
-      {/* Painted bays and a kerb around the court */}
-      {[-1, 1].map((s) => (
-        <mesh key={s} rotation-x={-Math.PI / 2} position={[0, -0.29, s * 14.5]}>
-          <planeGeometry args={[40, 0.25]} />
-          <meshBasicMaterial color="#d9c84a" transparent opacity={0.7} />
-        </mesh>
-      ))}
-      {/* Chain-link fence with posts */}
-      {[-1, 1].map((s) => (
-        <mesh key={`f${s}`} position={[0, H / 2 - 0.3, s * 18]}>
-          <planeGeometry args={[52, H]} />
-          <meshStandardMaterial map={fence} transparent alphaTest={0.3} side={THREE.DoubleSide} metalness={0.5} roughness={0.5} />
-        </mesh>
-      ))}
-      {[-1, 1].map((s) => (
-        <mesh key={`g${s}`} position={[s * 26, H / 2 - 0.3, 0]} rotation-y={Math.PI / 2}>
-          <planeGeometry args={[36, H]} />
-          <meshStandardMaterial map={fenceEnd} transparent alphaTest={0.3} side={THREE.DoubleSide} metalness={0.5} roughness={0.5} />
-        </mesh>
-      ))}
-      {Array.from({ length: 14 }, (_, i) => {
-        const pts = []
-        const x = -26 + i * 4
-        pts.push([x, -18], [x, 18])
-        return pts.map(([px, pz]) => (
-          <mesh key={`${px}${pz}`} position={[px, H / 2 - 0.3, pz]}>
-            <cylinderGeometry args={[0.09, 0.09, H, 6]} />
-            <meshStandardMaterial color="#8a929e" metalness={0.7} roughness={0.35} />
-          </mesh>
-        ))
-      })}
-      {[-1, 1].map((s) => (
-        <mesh key={`r${s}`} position={[0, H - 0.3, s * 18]} rotation-z={Math.PI / 2}>
-          <cylinderGeometry args={[0.07, 0.07, 52, 6]} />
-          <meshStandardMaterial color="#8a929e" metalness={0.7} roughness={0.35} />
-        </mesh>
-      ))}
-      {/* Graffiti walls behind */}
-      <mesh position={[0, 5.5, -27]}>
-        <boxGeometry args={[70, 12, 1]} />
-        <meshStandardMaterial attach="material-4" map={wallA} roughness={0.9} />
-        <meshStandardMaterial attach="material-5" map={wallA} roughness={0.9} />
-        <meshStandardMaterial attach="material-0" color="#3a2019" />
-        <meshStandardMaterial attach="material-1" color="#3a2019" />
-        <meshStandardMaterial attach="material-2" color="#3a2019" />
-        <meshStandardMaterial attach="material-3" color="#3a2019" />
-      </mesh>
-      <mesh position={[-36, 5.5, 0]} rotation-y={Math.PI / 2}>
-        <boxGeometry args={[56, 12, 1]} />
-        <meshStandardMaterial attach="material-4" map={wallB} roughness={0.9} />
-        <meshStandardMaterial attach="material-5" map={wallB} roughness={0.9} />
-        <meshStandardMaterial attach="material-0" color="#3a2019" />
-        <meshStandardMaterial attach="material-1" color="#3a2019" />
-        <meshStandardMaterial attach="material-2" color="#3a2019" />
-        <meshStandardMaterial attach="material-3" color="#3a2019" />
-      </mesh>
-      <mesh position={[36, 5.5, 0]} rotation-y={-Math.PI / 2}>
-        <boxGeometry args={[56, 12, 1]} />
-        <meshStandardMaterial attach="material-4" map={wallC} roughness={0.9} />
-        <meshStandardMaterial attach="material-5" map={wallC} roughness={0.9} />
-        <meshStandardMaterial attach="material-0" color="#3a2019" />
-        <meshStandardMaterial attach="material-1" color="#3a2019" />
-        <meshStandardMaterial attach="material-2" color="#3a2019" />
-        <meshStandardMaterial attach="material-3" color="#3a2019" />
-      </mesh>
-      {/* Skyline with lit windows */}
-      <Instances items={buildings}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial map={windows} color="#c9cbe0" />
-      </Instances>
-      {/* Lamps and a few cones */}
-      <StreetLamp position={[-21, -0.3, -16.5]} facing={0} />
-      <StreetLamp position={[21, -0.3, -16.5]} facing={0} />
-      <StreetLamp position={[-21, -0.3, 16.5]} facing={Math.PI} />
-      <StreetLamp position={[21, -0.3, 16.5]} facing={Math.PI} />
-      <Cone position={[-19, -0.3, 12.5]} />
-      <Cone position={[-17.6, -0.3, 13.6]} />
-      <Cone position={[19.5, -0.3, -12.8]} />
-      {/* A pile of tyres in the corner */}
-      {[0, 0.55, 1.1].map((y, i) => (
-        <mesh key={i} position={[22.5, -0.05 + y, 13.4]} rotation-x={Math.PI / 2}>
-          <torusGeometry args={[0.95, 0.38, 10, 20]} />
-          <meshStandardMaterial color="#141416" roughness={0.9} />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
-/* ── Gravel (village pitch at dusk) ──────────────────── */
-
 function skyTexture() {
   return canvasTexture(16, 512, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, 0, h)
@@ -765,144 +306,515 @@ function skyTexture() {
   })
 }
 
-function fieldTexture() {
-  return canvasTexture(512, 512, (ctx, w, h) => {
-    const rnd = rand(55)
-    ctx.fillStyle = '#6f5a3c'
-    ctx.fillRect(0, 0, w, h)
-    // dry grass clumps
-    for (let i = 0; i < 260; i++) {
-      const x = rnd() * w
-      const y = rnd() * h
-      const r = 6 + rnd() * 26
-      const g = ctx.createRadialGradient(x, y, 1, x, y, r)
-      g.addColorStop(0, `rgba(${110 + rnd() * 30},${115 + rnd() * 30},${55 + rnd() * 20},0.55)`)
-      g.addColorStop(1, 'rgba(100,110,50,0)')
-      ctx.fillStyle = g
-      ctx.fillRect(x - r, y - r, r * 2, r * 2)
-    }
-    speckle(ctx, w, h, 5000, ['#857053', '#5a4830', '#9b8562', '#4c3c26'], 0.5, rnd, 1.5)
-  }, { repeat: [24, 24] })
+/* ── Scale ───────────────────────────────────────────────
+   The board is a tabletop game: about 1.2 m long, so 1 m ≈ 25 world units.
+   Each venue is a table (in world units, its top just under the board) in a
+   room or a spot outdoors built in metres inside a group scaled by M. */
+
+const M = 25
+const TABLE_TOP = -0.3          // the board sits on this
+const TABLE_H = 19              // ~75 cm
+const FLOOR = TABLE_TOP - TABLE_H
+
+/** A room built in metres, standing on the floor. */
+function InMetres({ children }) {
+  return <group position={[0, FLOOR, 0]} scale={M}>{children}</group>
 }
 
-function Village() {
+/** A box with one textured face (+z by default) and plain sides. */
+function Panel({ args, position, rotation, map, color = '#222', face = 4, emissive = false, roughness = 0.9 }) {
+  const mats = [0, 1, 2, 3, 4, 5].map((i) => (i === face && map
+    ? (emissive
+      ? <meshBasicMaterial key={i} attach={`material-${i}`} map={map} toneMapped={false} />
+      : <meshStandardMaterial key={i} attach={`material-${i}`} map={map} roughness={roughness} />)
+    : <meshStandardMaterial key={i} attach={`material-${i}`} color={color} roughness={roughness} />))
+  return (
+    <mesh position={position} rotation={rotation}>
+      <boxGeometry args={args} />
+      {mats}
+    </mesh>
+  )
+}
+
+/** Four walls of a room (metres), each a plain colour or a texture. */
+function Walls({ w, d, h, color, maps = {} }) {
+  return (
+    <group>
+      <Panel args={[w, h, 0.1]} position={[0, h / 2, -d / 2]} map={maps.back} color={color} face={4} />
+      <Panel args={[w, h, 0.1]} position={[0, h / 2, d / 2]} map={maps.front} color={color} face={5} />
+      <Panel args={[0.1, h, d]} position={[-w / 2, h / 2, 0]} map={maps.left} color={color} face={0} />
+      <Panel args={[0.1, h, d]} position={[w / 2, h / 2, 0]} map={maps.right} color={color} face={1} />
+    </group>
+  )
+}
+
+/* ── Textures ──────────────────────────────────────── */
+
+function tilesTexture(a, b, grout = 'rgba(0,0,0,0.25)') {
+  return canvasTexture(256, 256, (ctx, w, h) => {
+    const n = 4
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      ctx.fillStyle = (x + y) % 2 ? a : b
+      ctx.fillRect((x * w) / n, (y * h) / n, w / n, h / n)
+    }
+    ctx.strokeStyle = grout
+    ctx.lineWidth = 2
+    for (let i = 0; i <= n; i++) {
+      ctx.beginPath(); ctx.moveTo((i * w) / n, 0); ctx.lineTo((i * w) / n, h); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(0, (i * h) / n); ctx.lineTo(w, (i * h) / n); ctx.stroke()
+    }
+    speckle(ctx, w, h, 900, ['rgba(0,0,0,0.05)', 'rgba(255,255,255,0.05)'], 0.6, rand(4), 1.6)
+  }, { repeat: [5, 5] })
+}
+
+function pavingTexture() {
+  return canvasTexture(256, 256, (ctx, w, h) => {
+    const rnd = rand(8)
+    ctx.fillStyle = '#6d6a66'
+    ctx.fillRect(0, 0, w, h)
+    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+      const l = 36 + rnd() * 8
+      ctx.fillStyle = `hsl(30, 5%, ${l}%)`
+      ctx.fillRect(x * 64 + 2, y * 64 + 2, 60, 60)
+    }
+    speckle(ctx, w, h, 2500, ['rgba(0,0,0,0.12)', 'rgba(255,255,255,0.06)'], 0.5, rnd, 1.5)
+  }, { repeat: [16, 16] })
+}
+
+function carpetTexture() {
+  return canvasTexture(256, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#1b1830'
+    ctx.fillRect(0, 0, w, h)
+    ctx.strokeStyle = 'rgba(120,90,255,0.10)'
+    ctx.lineWidth = 3
+    for (let i = -h; i < w; i += 32) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + h, h); ctx.stroke() }
+    speckle(ctx, w, h, 4000, ['rgba(0,0,0,0.15)', 'rgba(255,255,255,0.04)'], 0.5, rand(12), 1.2)
+  }, { repeat: [8, 8] })
+}
+
+function neonTexture(text, color, w = 512, h = 128) {
+  return canvasTexture(w, h, (ctx) => {
+    ctx.clearRect(0, 0, w, h)
+    ctx.font = `italic 900 ${Math.round(h * 0.62)}px "Barlow Condensed", "Arial Narrow", sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor = color
+    ctx.shadowBlur = 24
+    ctx.strokeStyle = color
+    ctx.lineWidth = 6
+    ctx.strokeText(text, w / 2, h / 2)
+    ctx.shadowBlur = 8
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 2
+    ctx.strokeText(text, w / 2, h / 2)
+  })
+}
+
+function posterTexture(seed) {
+  return canvasTexture(128, 180, (ctx, w, h) => {
+    const rnd = rand(seed)
+    const cols = ['#e53935', '#1e88e5', '#ffd740', '#43a047', '#8e24aa', '#fb8c00', '#ffffff']
+    ctx.fillStyle = cols[Math.floor(rnd() * cols.length)]
+    ctx.fillRect(0, 0, w, h)
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = cols[Math.floor(rnd() * cols.length)]
+      ctx.beginPath()
+      ctx.arc(rnd() * w, rnd() * h, 20 + rnd() * 40, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.75)'
+    ctx.font = 'italic 900 26px "Barlow Condensed", sans-serif'
+    ctx.fillText(['CUP', 'FINAL', 'DERBY', 'LEAGUE'][seed % 4], 10, h - 16)
+    ctx.strokeStyle = '#111'
+    ctx.lineWidth = 8
+    ctx.strokeRect(0, 0, w, h)
+  })
+}
+
+function plankTexture() {
+  return canvasTexture(512, 256, (ctx, w, h) => {
+    const rnd = rand(19)
+    const n = 6
+    for (let i = 0; i < n; i++) {
+      ctx.fillStyle = `hsl(${26 + rnd() * 8}, 38%, ${34 + rnd() * 8}%)`
+      ctx.fillRect(0, (i * h) / n, w, h / n - 5)
+      for (let g = 0; g < 14; g++) {
+        ctx.strokeStyle = `rgba(40,20,5,${0.06 + rnd() * 0.08})`
+        ctx.beginPath()
+        const y = (i * h) / n + rnd() * (h / n - 6)
+        ctx.moveTo(0, y)
+        ctx.bezierCurveTo(w / 3, y + (rnd() - 0.5) * 6, (2 * w) / 3, y + (rnd() - 0.5) * 6, w, y)
+        ctx.stroke()
+      }
+      ctx.fillStyle = 'rgba(20,10,3,0.85)'
+      ctx.fillRect(0, ((i + 1) * h) / n - 5, w, 5)
+    }
+  })
+}
+
+/* ── Tables (world units) ──────────────────────────── */
+
+const TOP_W = 46
+const TOP_D = 34
+
+function TableTop({ map, color, roughness = 0.5, metalness = 0.05, thick = 1, edge }) {
+  return (
+    <group>
+      <mesh position={[0, TABLE_TOP - thick / 2, 0]} receiveShadow castShadow>
+        <boxGeometry args={[TOP_W, thick, TOP_D]} />
+        <meshStandardMaterial map={map} color={map ? '#ffffff' : color} roughness={roughness} metalness={metalness} />
+      </mesh>
+      {edge}
+    </group>
+  )
+}
+
+function Legs({ color = '#3a2414', size = 2, inset = 3, metal = false }) {
+  return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
+    <mesh key={`${sx}${sz}`} position={[sx * (TOP_W / 2 - inset), FLOOR + TABLE_H / 2 - 0.5, sz * (TOP_D / 2 - inset)]}>
+      {metal ? <cylinderGeometry args={[size / 2, size / 2, TABLE_H - 1, 10]} /> : <boxGeometry args={[size, TABLE_H - 1, size]} />}
+      <meshStandardMaterial color={color} roughness={metal ? 0.35 : 0.6} metalness={metal ? 0.8 : 0} />
+    </mesh>
+  ))
+}
+
+/* ── Kitchen table ─────────────────────────────────── */
+
+function Chair({ position, rotation = 0, color = '#7a4b28' }) {
+  return (
+    <group position={position} rotation-y={rotation}>
+      <mesh position={[0, 0.45, 0]}><boxGeometry args={[0.45, 0.05, 0.45]} /><meshStandardMaterial color={color} roughness={0.6} /></mesh>
+      <mesh position={[0, 0.72, 0.2]}><boxGeometry args={[0.45, 0.5, 0.05]} /><meshStandardMaterial color={color} roughness={0.6} /></mesh>
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
+        <mesh key={`${x}${z}`} position={[x * 0.19, 0.22, z * 0.19]}><boxGeometry args={[0.04, 0.45, 0.04]} /><meshStandardMaterial color={color} roughness={0.6} /></mesh>
+      ))}
+    </group>
+  )
+}
+
+function KitchenRoom() {
+  const floor = useMemo(() => tilesTexture('#d9cbb0', '#9e5b3c'), [])
+  return (
+    <InMetres>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[9, 8]} />
+        <meshStandardMaterial map={floor} roughness={0.7} />
+      </mesh>
+      <Walls w={9} d={8} h={2.8} color="#e8dcc0" />
+      {/* Wainscot */}
+      {[[0, -3.94, 0], [0, 3.94, 0]].map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.5, z]}><boxGeometry args={[9, 1, 0.04]} /><meshStandardMaterial color="#6b4a2c" roughness={0.6} /></mesh>
+      ))}
+      {/* Counter and cupboards along the back wall */}
+      <mesh position={[0.5, 0.45, -3.6]}><boxGeometry args={[5, 0.9, 0.6]} /><meshStandardMaterial color="#5c7a6e" roughness={0.6} /></mesh>
+      <mesh position={[0.5, 0.92, -3.6]}><boxGeometry args={[5.05, 0.05, 0.65]} /><meshStandardMaterial color="#e0dcd4" roughness={0.3} /></mesh>
+      <mesh position={[0.5, 2.0, -3.75]}><boxGeometry args={[5, 0.75, 0.35]} /><meshStandardMaterial color="#5c7a6e" roughness={0.6} /></mesh>
+      {[-1.5, -0.25, 1, 2.25].map((x) => (
+        <mesh key={x} position={[x + 0.25, 0.45, -3.29]}><boxGeometry args={[1.1, 0.75, 0.02]} /><meshStandardMaterial color="#6e8d80" roughness={0.5} /></mesh>
+      ))}
+      {/* Fridge */}
+      <mesh position={[-2.9, 0.9, -3.55]}><boxGeometry args={[0.8, 1.8, 0.7]} /><meshStandardMaterial color="#f1f1ee" roughness={0.3} /></mesh>
+      {/* Window with a night sky */}
+      <mesh position={[3.1, 1.6, -3.94]}><planeGeometry args={[1.4, 1]} /><meshBasicMaterial color="#1c2a4a" /></mesh>
+      <mesh position={[3.1, 1.6, -3.93]}><boxGeometry args={[1.5, 0.06, 0.03]} /><meshStandardMaterial color="#f4efe6" /></mesh>
+      <mesh position={[3.1, 1.6, -3.93]}><boxGeometry args={[0.06, 1.1, 0.03]} /><meshStandardMaterial color="#f4efe6" /></mesh>
+      {/* Pendant lamp, high over the table */}
+      <mesh position={[0, 2.55, 0]}><cylinderGeometry args={[0.005, 0.005, 0.5, 4]} /><meshStandardMaterial color="#111" /></mesh>
+      <mesh position={[0, 2.25, 0]}><coneGeometry args={[0.25, 0.2, 24, 1, true]} /><meshStandardMaterial color="#c0392b" roughness={0.4} side={THREE.DoubleSide} /></mesh>
+      <Glow position={[0, 2.18, 0]} size={0.05} halo={0.16} opacity={0.4} color="#ffe2a8" />
+      <Chair position={[0, 0, -0.95]} />
+      <Chair position={[0, 0, 0.95]} rotation={Math.PI} />
+      <Chair position={[-1.15, 0, 0]} rotation={-Math.PI / 2} />
+    </InMetres>
+  )
+}
+
+function KitchenTable() {
+  const wood = useMemo(woodTexture, [])
+  const note = useMemo(notepadTexture, [])
+  return (
+    <group>
+      <TableTop map={wood} roughness={0.45} />
+      <Legs color="#4a2e18" />
+      <Mug position={[-19, TABLE_TOP, -13.5]} />
+      <SpareCaps position={[19, TABLE_TOP, 13.5]} />
+      <group position={[19.5, TABLE_TOP + 0.02, -13]} rotation-y={0.25}>
+        <mesh rotation-x={-Math.PI / 2} receiveShadow><planeGeometry args={[4.2, 5.4]} /><meshStandardMaterial map={note} roughness={0.9} /></mesh>
+        <mesh position={[2.6, 0.12, 0.3]} rotation-z={Math.PI / 2} rotation-y={0.5}><cylinderGeometry args={[0.1, 0.1, 5, 6]} /><meshStandardMaterial color="#f2b632" roughness={0.5} /></mesh>
+      </group>
+      <KitchenRoom />
+    </group>
+  )
+}
+
+/* ── Game room ─────────────────────────────────────── */
+
+function Trophy({ position, s = 1 }) {
+  return (
+    <group position={position} scale={s}>
+      <mesh position={[0, 0.04, 0]}><boxGeometry args={[0.12, 0.08, 0.12]} /><meshStandardMaterial color="#2b2b2b" /></mesh>
+      <mesh position={[0, 0.14, 0]}><cylinderGeometry args={[0.015, 0.025, 0.12, 8]} /><meshStandardMaterial color="#d4a017" metalness={0.9} roughness={0.25} /></mesh>
+      <mesh position={[0, 0.25, 0]}><cylinderGeometry args={[0.07, 0.03, 0.12, 16]} /><meshStandardMaterial color="#e8b923" metalness={0.9} roughness={0.2} /></mesh>
+    </group>
+  )
+}
+
+function GameRoom() {
+  const carpet = useMemo(carpetTexture, [])
+  const neonA = useMemo(() => neonTexture('CAPBALL', '#ff2bd6'), [])
+  const neonB = useMemo(() => neonTexture('FLICK IT', '#00e5ff'), [])
+  const posters = useMemo(() => [1, 2, 3].map(posterTexture), [])
+  return (
+    <InMetres>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[10, 8]} />
+        <meshStandardMaterial map={carpet} roughness={1} />
+      </mesh>
+      <Walls w={10} d={8} h={3} color="#141a33" />
+      {/* Neon signs */}
+      <mesh position={[0, 2.1, -3.93]}><planeGeometry args={[2.4, 0.6]} /><meshBasicMaterial map={neonA} transparent toneMapped={false} /></mesh>
+      <mesh position={[-4.93, 2.0, -0.5]} rotation-y={Math.PI / 2}><planeGeometry args={[2, 0.5]} /><meshBasicMaterial map={neonB} transparent toneMapped={false} /></mesh>
+      {/* LED strip round the skirting */}
+      {[[0, -3.93, 10, 0], [0, 3.93, 10, 0]].map(([x, z, l], i) => (
+        <mesh key={i} position={[x, 0.08, z]}><boxGeometry args={[l, 0.02, 0.02]} /><meshBasicMaterial color="#7c4dff" toneMapped={false} /></mesh>
+      ))}
+      {/* Posters */}
+      {posters.map((p, i) => (
+        <mesh key={i} position={[4.93, 1.7, -1.5 + i * 1.3]} rotation-y={-Math.PI / 2}><planeGeometry args={[0.7, 1]} /><meshStandardMaterial map={p} roughness={0.6} /></mesh>
+      ))}
+      {/* Trophy shelf */}
+      <mesh position={[2.4, 1.3, -3.85]}><boxGeometry args={[2, 0.05, 0.25]} /><meshStandardMaterial color="#3b2a1a" /></mesh>
+      {[1.7, 2.2, 2.7, 3.1].map((x, i) => <Trophy key={x} position={[x, 1.33, -3.85]} s={i === 1 ? 1.4 : 1} />)}
+      {/* Arcade cabinet */}
+      <group position={[-3.6, 0, -3.4]}>
+        <mesh position={[0, 0.85, 0]}><boxGeometry args={[0.7, 1.7, 0.7]} /><meshStandardMaterial color="#1d1d2b" roughness={0.5} /></mesh>
+        <mesh position={[0, 1.25, 0.36]} rotation-x={-0.2}><planeGeometry args={[0.55, 0.42]} /><meshBasicMaterial color="#2bd9ff" toneMapped={false} /></mesh>
+        <mesh position={[0, 1.62, 0.36]}><planeGeometry args={[0.6, 0.14]} /><meshBasicMaterial color="#ff2bd6" toneMapped={false} /></mesh>
+      </group>
+      {/* Bean bags */}
+      {[[-3.2, 2.6, '#e53935'], [3.4, 2.8, '#1e88e5']].map(([x, z, c]) => (
+        <mesh key={c} position={[x, 0.25, z]} scale={[1, 0.55, 1]}><sphereGeometry args={[0.45, 20, 14]} /><meshStandardMaterial color={c} roughness={0.8} /></mesh>
+      ))}
+      <Glow position={[0, 2.7, 0]} size={0.06} halo={0.25} opacity={0.25} color="#cfd8ff" />
+    </InMetres>
+  )
+}
+
+function GameTable() {
+  return (
+    <group>
+      <TableTop color="#2b2f3a" roughness={0.22} metalness={0.5} thick={1.4} />
+      {/* LED strip under the lip */}
+      {[[0, TOP_D / 2 + 0.05, TOP_W, 0], [0, -TOP_D / 2 - 0.05, TOP_W, 0]].map(([x, z, l], i) => (
+        <mesh key={i} position={[x, TABLE_TOP - 1.3, z]}><boxGeometry args={[l, 0.25, 0.1]} /><meshBasicMaterial color="#00e5ff" toneMapped={false} /></mesh>
+      ))}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (TOP_W / 2 + 0.05), TABLE_TOP - 1.3, 0]}><boxGeometry args={[0.1, 0.25, TOP_D]} /><meshBasicMaterial color="#00e5ff" toneMapped={false} /></mesh>
+      ))}
+      {/* Pedestal base */}
+      <mesh position={[0, FLOOR + TABLE_H / 2, 0]}><boxGeometry args={[TOP_W - 12, TABLE_H - 1.4, TOP_D - 12]} /><meshStandardMaterial color="#0c0e13" roughness={0.4} metalness={0.4} /></mesh>
+      <Trophy position={[-19.5, TABLE_TOP, -13]} s={M * 0.3} />
+      {/* A couple of drinks cans */}
+      {[[19, 13, '#e53935'], [21, 11.5, '#1e88e5']].map(([x, z, c]) => (
+        <mesh key={c} position={[x, TABLE_TOP + 1.5, z]}><cylinderGeometry args={[0.85, 0.85, 3, 20]} /><meshStandardMaterial color={c} metalness={0.7} roughness={0.25} /></mesh>
+      ))}
+      <GameRoom />
+    </group>
+  )
+}
+
+/* ── Street corner ─────────────────────────────────── */
+
+function StreetLampM({ position, facing }) {
+  return (
+    <group position={position} rotation-y={facing}>
+      <mesh position={[0, 2.5, 0]}><cylinderGeometry args={[0.05, 0.08, 5, 8]} /><meshStandardMaterial color="#2f3540" metalness={0.6} roughness={0.4} /></mesh>
+      <mesh position={[0, 5, 0.4]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.03, 0.03, 0.9, 6]} /><meshStandardMaterial color="#2f3540" /></mesh>
+      <Glow position={[0, 4.92, 0.85]} size={0.1} halo={0.6} opacity={0.25} color="#ffb85c" />
+    </group>
+  )
+}
+
+function StreetCorner() {
+  const paving = useMemo(pavingTexture, [])
+  const asphalt = useMemo(asphaltTexture, [])
+  const wallA = useMemo(() => wallTexture(41), [])
+  const wallB = useMemo(() => wallTexture(42), [])
+  const sky = useMemo(() => canvasTexture(8, 256, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, 0, h)
+    g.addColorStop(0, '#060814'); g.addColorStop(0.45, '#151a33'); g.addColorStop(0.5, '#3b2a40'); g.addColorStop(1, '#0b0b10')
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h)
+  }), [])
+  return (
+    <group>
+      {/* Night sky, inside the far plane */}
+      <mesh><sphereGeometry args={[185, 24, 12]} /><meshBasicMaterial map={sky} side={THREE.BackSide} fog={false} depthWrite={false} /></mesh>
+      <InMetres>
+        {/* Pavement, kerb and road */}
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0, -0.5]} receiveShadow><planeGeometry args={[14, 7]} /><meshStandardMaterial map={paving} roughness={0.95} /></mesh>
+        <mesh position={[0, 0.06, 3]}><boxGeometry args={[14, 0.12, 0.25]} /><meshStandardMaterial color="#8d8a86" roughness={0.9} /></mesh>
+        <mesh rotation-x={-Math.PI / 2} position={[0, -0.05, 6.5]}><planeGeometry args={[30, 7]} /><meshStandardMaterial map={asphalt} roughness={0.95} /></mesh>
+        <mesh rotation-x={-Math.PI / 2} position={[0, -0.04, 6.5]}><planeGeometry args={[30, 0.12]} /><meshBasicMaterial color="#d9c84a" /></mesh>
+        {/* Graffiti walls behind and to the side */}
+        <Panel args={[14, 4, 0.3]} position={[0, 2, -4]} map={wallA} color="#3a2019" face={4} />
+        <Panel args={[0.3, 4, 7]} position={[-7, 2, -0.5]} map={wallB} color="#3a2019" face={1} />
+        <StreetLampM position={[4.5, 0, 2.7]} facing={Math.PI} />
+        <StreetLampM position={[-4.5, 0, 2.7]} facing={Math.PI} />
+        {/* Crates for stools, a few cones, tyres */}
+        {[[-1.25, 0], [1.25, 0.2]].map(([x, z]) => (
+          <mesh key={x} position={[x, 0.17, z]}><boxGeometry args={[0.4, 0.34, 0.4]} /><meshStandardMaterial color="#1565c0" roughness={0.7} /></mesh>
+        ))}
+        <group scale={0.3}>
+          <Cone position={[8, 0, 7.3]} />
+          <Cone position={[9.6, 0, 8]} />
+          <Cone position={[-10.6, 0, -8]} />
+        </group>
+        {[0, 0.2].map((y, i) => (
+          <mesh key={i} position={[-5.8, 0.1 + y, -3.3]} rotation-x={Math.PI / 2}><torusGeometry args={[0.33, 0.12, 10, 20]} /><meshStandardMaterial color="#141416" roughness={0.9} /></mesh>
+        ))}
+      </InMetres>
+    </group>
+  )
+}
+
+function FoldingTable() {
+  return (
+    <group>
+      <TableTop color="#e9e9e4" roughness={0.75} thick={1.2} />
+      {/* X-frame legs */}
+      {[-1, 1].map((s) => (
+        <group key={s} position={[s * (TOP_W / 2 - 5), FLOOR + TABLE_H / 2, 0]}>
+          {[-1, 1].map((k) => (
+            <mesh key={k} rotation-x={k * 0.75}><cylinderGeometry args={[0.45, 0.45, TABLE_H * 1.35, 8]} /><meshStandardMaterial color="#9aa1aa" metalness={0.8} roughness={0.3} /></mesh>
+          ))}
+        </group>
+      ))}
+      {[[17, 12, '#e53935'], [19.5, 13.5, '#43a047']].map(([x, z, c]) => (
+        <mesh key={c} position={[x, TABLE_TOP + 1.5, z]}><cylinderGeometry args={[0.85, 0.85, 3, 20]} /><meshStandardMaterial color={c} metalness={0.7} roughness={0.25} /></mesh>
+      ))}
+      <StreetCorner />
+    </group>
+  )
+}
+
+/* ── Garden at sunset ──────────────────────────────── */
+
+function grassTexture() {
+  return canvasTexture(256, 256, (ctx, w, h) => {
+    const rnd = rand(66)
+    ctx.fillStyle = '#4c6b2c'
+    ctx.fillRect(0, 0, w, h)
+    speckle(ctx, w, h, 6000, ['#5b7d35', '#3e5a24', '#6a8a3e', '#45632a'], 0.6, rnd, 1.8)
+  }, { repeat: [30, 30] })
+}
+
+function Garden() {
   const sky = useMemo(skyTexture, [])
-  const field = useMemo(fieldTexture, [])
+  const grass = useMemo(grassTexture, [])
+  const paving = useMemo(pavingTexture, [])
   const trees = useMemo(() => {
     const rnd = rand(91)
     const trunks = []
     const tops = []
-    for (let i = 0; i < 46; i++) {
+    for (let i = 0; i < 22; i++) {
       const a = rnd() * Math.PI * 2
-      const d = 34 + rnd() * 50
+      const d = 4.2 + rnd() * 2.6
       const x = Math.cos(a) * d
       const z = Math.sin(a) * d
-      const h = 3 + rnd() * 4
-      const s = 2.4 + rnd() * 2.8
-      trunks.push({ x, y: h / 2 - 0.3, z, sy: h })
-      tops.push({ x, y: h + s * 0.55 - 0.3, z, sx: s, sy: s * (0.8 + rnd() * 0.5), sz: s, ry: rnd() * 6, color: rnd() < 0.5 ? '#2f4a22' : '#3d5a28' })
+      const h = 1.2 + rnd() * 1.2
+      const s = 0.7 + rnd() * 0.7
+      trunks.push({ x, y: h / 2, z, sx: 1, sy: h, sz: 1 })
+      tops.push({ x, y: h + s * 0.5, z, sx: s, sy: s * (0.8 + rnd() * 0.5), sz: s, ry: rnd() * 6, color: rnd() < 0.5 ? '#2f4a22' : '#3d5a28' })
     }
     return { trunks, tops }
   }, [])
   const hills = useMemo(() => {
     const rnd = rand(17)
-    return Array.from({ length: 12 }, (_, i) => {
-      const a = (i / 12) * Math.PI * 2 + rnd() * 0.3
-      const d = 120 + rnd() * 20
-      const s = 30 + rnd() * 30
-      return { x: Math.cos(a) * d, y: -s * 0.55, z: Math.sin(a) * d, sx: s * 1.6, sy: s, sz: s, color: rnd() < 0.5 ? '#2b2a2a' : '#352d2b' }
+    return Array.from({ length: 10 }, (_, i) => {
+      const a = (i / 10) * Math.PI * 2 + rnd() * 0.3
+      const s = 1.2 + rnd() * 1.4
+      return { x: Math.cos(a) * 7, y: -s * 0.5, z: Math.sin(a) * 7, sx: s * 2, sy: s, sz: s, color: '#2c2826' }
     })
   }, [])
-  const locals = useMemo(() => {
-    const rnd = rand(61)
-    const cols = ['#c62828', '#f9a825', '#1565c0', '#ffffff', '#2e7d32', '#6d4c41', '#ad1457']
+  const bulbs = useMemo(() => {
     const out = []
-    for (let i = 0; i < 26; i++) {
-      const side = i % 2 ? 1 : -1
-      out.push({ x: -20 + rnd() * 40, y: 0.55, z: side * (19.5 + rnd() * 1.2), sy: 0.9 + rnd() * 0.25, color: cols[Math.floor(rnd() * cols.length)] })
+    for (const z of [-1.6, 1.6]) {
+      for (let i = 0; i <= 14; i++) {
+        const t = i / 14
+        out.push({ x: -2.6 + t * 5.2, y: 2.5 - Math.sin(t * Math.PI) * 0.35, z })
+      }
     }
-    return out
-  }, [])
-  const posts = useMemo(() => {
-    const out = []
-    for (let x = -26; x <= 26; x += 3.25) { out.push({ x, y: 0.6, z: -18 }, { x, y: 0.6, z: 18 }) }
-    for (let z = -15; z <= 15; z += 3) { out.push({ x: -26, y: 0.6, z }, { x: 26, y: 0.6, z }) }
     return out
   }, [])
   return (
     <group>
-      {/* Sky dome — fog would wash it out, so it ignores fog */}
-      <mesh>
-        <sphereGeometry args={[170, 32, 16]} />
-        <meshBasicMaterial map={sky} side={THREE.BackSide} fog={false} depthWrite={false} />
-      </mesh>
-      {/* Low sun */}
-      <Glow position={[-120, 4, -110]} size={9} halo={22} opacity={0.25} color="#ffd59a" />
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.3, 0]} receiveShadow>
-        <planeGeometry args={[400, 400]} />
-        <meshStandardMaterial map={field} roughness={1} />
-      </mesh>
-      <Instances items={hills}>
-        <sphereGeometry args={[1, 16, 10]} />
-        <meshBasicMaterial />
-      </Instances>
-      <Instances items={trees.trunks}>
-        <cylinderGeometry args={[0.25, 0.35, 1, 6]} />
-        <meshStandardMaterial color="#4a3423" roughness={1} />
-      </Instances>
-      <Instances items={trees.tops}>
-        <icosahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial roughness={1} flatShading />
-      </Instances>
-      {/* A rough wooden fence and the regulars leaning on it */}
-      <Instances items={posts}>
-        <boxGeometry args={[0.3, 1.8, 0.3]} />
-        <meshStandardMaterial color="#6b4f33" roughness={1} />
-      </Instances>
-      {[-18, 18].map((z) => (
-        <group key={z}>
-          {[0.5, 1.2].map((y) => (
-            <mesh key={y} position={[0, y, z]}>
-              <boxGeometry args={[52, 0.16, 0.12]} />
-              <meshStandardMaterial color="#7a5a3a" roughness={1} />
-            </mesh>
-          ))}
-        </group>
-      ))}
-      {[-26, 26].map((x) => (
-        <group key={x}>
-          {[0.5, 1.2].map((y) => (
-            <mesh key={y} position={[x, y, 0]}>
-              <boxGeometry args={[0.12, 0.16, 36]} />
-              <meshStandardMaterial color="#7a5a3a" roughness={1} />
-            </mesh>
-          ))}
-        </group>
-      ))}
-      <Instances items={locals}>
-        <capsuleGeometry args={[0.32, 1, 4, 8]} />
-        <meshStandardMaterial roughness={0.9} />
-      </Instances>
-      {/* A goat-proof bench and a bucket of water, for character */}
-      <mesh position={[-22, 0.2, -15.5]}>
-        <boxGeometry args={[4, 0.15, 0.8]} />
-        <meshStandardMaterial color="#7a5a3a" roughness={1} />
-      </mesh>
-      <mesh position={[21.5, 0.25, 14.8]}>
-        <cylinderGeometry args={[0.6, 0.5, 1.1, 14]} />
-        <meshStandardMaterial color="#5c6b78" metalness={0.5} roughness={0.5} />
-      </mesh>
+      <mesh><sphereGeometry args={[185, 32, 16]} /><meshBasicMaterial map={sky} side={THREE.BackSide} fog={false} depthWrite={false} /></mesh>
+      <Glow position={[-120, 6, -120]} size={9} halo={20} opacity={0.25} color="#ffd59a" />
+      <InMetres>
+        <mesh rotation-x={-Math.PI / 2} position={[0, -0.01, 0]} receiveShadow><planeGeometry args={[16, 16]} /><meshStandardMaterial map={grass} roughness={1} /></mesh>
+        <mesh rotation-x={-Math.PI / 2} receiveShadow><planeGeometry args={[3.4, 2.8]} /><meshStandardMaterial map={paving} roughness={0.95} /></mesh>
+        <Instances items={hills}><sphereGeometry args={[1, 16, 10]} /><meshBasicMaterial /></Instances>
+        <Instances items={trees.trunks}><cylinderGeometry args={[0.06, 0.09, 1, 6]} /><meshStandardMaterial color="#4a3423" roughness={1} /></Instances>
+        <Instances items={trees.tops}><icosahedronGeometry args={[1, 0]} /><meshStandardMaterial roughness={1} flatShading /></Instances>
+        {/* Benches either side of the picnic table */}
+        {[-1, 1].map((s) => (
+          <group key={s} position={[0, 0, s * 0.95]}>
+            <mesh position={[0, 0.44, 0]}><boxGeometry args={[1.7, 0.05, 0.3]} /><meshStandardMaterial color="#8a6a45" roughness={0.9} /></mesh>
+            {[-0.7, 0.7].map((x) => <mesh key={x} position={[x, 0.22, 0]}><boxGeometry args={[0.06, 0.44, 0.28]} /><meshStandardMaterial color="#7a5a3a" roughness={0.9} /></mesh>)}
+          </group>
+        ))}
+        {/* Fence at the bottom of the garden */}
+        {Array.from({ length: 21 }, (_, i) => (
+          <mesh key={i} position={[-5 + i * 0.5, 0.5, -3.6]}><boxGeometry args={[0.08, 1, 0.04]} /><meshStandardMaterial color="#b49a78" roughness={1} /></mesh>
+        ))}
+        <mesh position={[0, 0.8, -3.62]}><boxGeometry args={[10.2, 0.08, 0.03]} /><meshStandardMaterial color="#a88d6a" roughness={1} /></mesh>
+        {/* Pots */}
+        {[[-1.4, -1.1, '#b5522e'], [1.5, 1.2, '#9c4a2a'], [1.6, -1.15, '#b5522e']].map(([x, z, c]) => (
+          <group key={`${x}${z}`} position={[x, 0, z]}>
+            <mesh position={[0, 0.15, 0]}><cylinderGeometry args={[0.16, 0.12, 0.3, 14]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
+            <mesh position={[0, 0.42, 0]}><icosahedronGeometry args={[0.24, 0]} /><meshStandardMaterial color="#3f6b2a" roughness={1} flatShading /></mesh>
+          </group>
+        ))}
+        {/* String lights */}
+        <Instances items={bulbs}><sphereGeometry args={[0.035, 8, 6]} /><meshBasicMaterial color="#ffd27a" toneMapped={false} /></Instances>
+      </InMetres>
     </group>
   )
 }
 
-/* ── Picking the venue ───────────────────────────────── */
+function PicnicTable() {
+  const planks = useMemo(plankTexture, [])
+  return (
+    <group>
+      <TableTop map={planks} roughness={0.85} thick={1.2} />
+      {/* A-frame legs */}
+      {[-1, 1].map((s) => (
+        <group key={s} position={[s * (TOP_W / 2 - 6), FLOOR + TABLE_H / 2, 0]}>
+          {[-1, 1].map((k) => (
+            <mesh key={k} rotation-x={k * 0.42}><boxGeometry args={[1.4, TABLE_H * 1.1, 1.4]} /><meshStandardMaterial color="#7a5a3a" roughness={0.9} /></mesh>
+          ))}
+        </group>
+      ))}
+      {/* Lemonade and glasses */}
+      <mesh position={[-19.5, TABLE_TOP + 2.5, -12.5]}>
+        <cylinderGeometry args={[1.3, 1.5, 5, 20]} />
+        <meshStandardMaterial color="#ffe27a" transparent opacity={0.55} roughness={0.1} />
+      </mesh>
+      {[[-16.5, -13.8], [-17.2, -11]].map(([x, z]) => (
+        <mesh key={x} position={[x, TABLE_TOP + 1.2, z]}><cylinderGeometry args={[0.7, 0.6, 2.4, 16]} /><meshStandardMaterial color="#e0f4ff" transparent opacity={0.4} roughness={0.05} /></mesh>
+      ))}
+      <Garden />
+    </group>
+  )
+}
 
-export default function Venue({ stadium, config }) {
+/* ── Picking the venue ─────────────────────────────── */
+
+export default function Venue({ stadium }) {
   switch (stadium) {
-    case 'table': return <Table />
-    case 'street': return <Street />
-    case 'gravel': return <Village />
-    default: return <Arena crowdColors={config.crowdColors} />
+    case 'table': return <KitchenTable />
+    case 'street': return <FoldingTable />
+    case 'gravel': return <PicnicTable />
+    default: return <GameTable />
   }
 }

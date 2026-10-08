@@ -19,8 +19,11 @@ function SurfacePreview({ stadium, size = 180 }) {
           <stop offset="100%" stopColor={s.grass1} />
         </linearGradient>
       </defs>
-      {/* Surface */}
-      <rect width={w} height={h} fill={`url(#sp-${s.id})`} />
+      {/* The table under the board, then the board's surface */}
+      <rect width={w} height={h} fill={s.tableColor || '#5a3e28'} />
+      <g transform={`translate(${w * 0.08} ${h * 0.1}) scale(0.84 0.8)`}>
+      <rect width={w} height={h} fill={s.woodColor} rx={4} />
+      <rect x={4} y={4} width={w - 8} height={h - 8} fill={`url(#sp-${s.id})`} />
       {/* Mow stripes */}
       {Array.from({ length: 6 }).map((_, i) => (
         <rect key={i} x={i * (w / 6)} y={0} width={w / 12} height={h} fill={`rgba(255,255,255,${s.stripeAlpha})`} />
@@ -35,7 +38,8 @@ function SurfacePreview({ stadium, size = 180 }) {
       <rect x={3} y={h * 0.3} width={w * 0.12} height={h * 0.4} fill="none" stroke={s.lineColor} strokeWidth={1} rx={1} opacity={0.4} />
       <rect x={w - 3 - w * 0.12} y={h * 0.3} width={w * 0.12} height={h * 0.4} fill="none" stroke={s.lineColor} strokeWidth={1} rx={1} opacity={0.4} />
       {/* Wood frame overlay */}
-      <rect x={0} y={0} width={w} height={h} fill="none" stroke={s.trimColor} strokeWidth={3} rx={8} opacity={0.4} />
+      <rect x={0} y={0} width={w} height={h} fill="none" stroke={s.trimColor} strokeWidth={3} rx={4} opacity={0.6} />
+      </g>
     </svg>
   )
 }
@@ -58,8 +62,8 @@ export default function StadiumSelectScreen() {
   return (
     <SetupShell
       step={1}
-      title="Choose the venue"
-      subtitle={isGuest ? 'The host picks the venue, match length and shot clock.' : 'Pick a pitch, the ends, and how long to play.'}
+      title="Choose the table"
+      subtitle={isGuest ? 'The host picks the venue, match length and shot clock.' : 'Pick where you play, the ends, and how long.'}
       onBack={() => goToScreen(SCREEN.TEAM_SELECT)}
       next={{ label: 'Formations', onClick: () => goToScreen(SCREEN.FORMATION) }}
       onBothReady={() => goToScreen(SCREEN.FORMATION)}
