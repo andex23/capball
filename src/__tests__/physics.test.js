@@ -130,7 +130,7 @@ describe('set pieces', () => {
     useMatchStore.setState({ team1Side: 'left' })
     resetToKickoff('team1')
     setupFreeKick({ x: -8, y: 3 }, 'team1') // team1 attacks the right goal from its own half
-    const wall = ['team2_def1', 'team2_def2', 'team2_atk1']
+    const wall = ['team2_def1'] // far out: a one-cap wall
     for (const id of wall) {
       const d = Math.hypot(pos(id).x + 8, pos(id).y - 3)
       expect(d, `${id} wall distance`).toBeGreaterThan(FREE_KICK_WALL_DISTANCE - 1.5)
@@ -192,6 +192,12 @@ describe('set pieces', () => {
     const between = capIds().filter((id) => id.startsWith('team2_') && id !== 'team2_gk')
       .filter((id) => pos(id).x > 8 && pos(id).x < PITCH.halfW)
     expect(between.length).toBeGreaterThanOrEqual(2)
+    // …and further out, just one cap stands in the wall's spot
+    resetToKickoff('team1')
+    setupFreeKick({ x: -4, y: 0 }, 'team1')
+    const inLine = capIds().filter((id) => id.startsWith('team2_') && id !== 'team2_gk')
+      .filter((id) => Math.abs(pos(id).y) < 1.5 && pos(id).x > -4 && pos(id).x < 6)
+    expect(inLine.length).toBe(1)
     expectNoOverlaps()
     expectInsidePitch()
   })
