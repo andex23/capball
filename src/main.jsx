@@ -17,4 +17,11 @@ initPersistence()
 // The install prompt can fire before the menu mounts, so catch it early
 initInstallPrompt()
 
-createRoot(document.getElementById('root')).render(<App />)
+// #dbcheck: a one-off live test of the online-tournament database
+if (location.hash === '#dbcheck') {
+  import('./online/DbCheckPage').then(({ default: DbCheckPage }) => {
+    createRoot(document.getElementById('root')).render(<DbCheckPage />)
+  })
+} else {
+  createRoot(document.getElementById('root')).render(<App />)
+}
