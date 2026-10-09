@@ -103,6 +103,10 @@ const CAT_GOAL_BLOCKER = 0x0002
 let engine = null
 let bodies = {}
 let lastBallTeam = null // 'team1' | 'team2' | null — last side to touch the ball
+// Has the ball come off a cushion since a cap last touched it? A goal that
+// goes in off the wall doesn't count (rules.judgeGoal → 'bank_shot').
+let ballBanked = false
+export const getBallBanked = () => ballBanked
 
 /** Direction of a team's own goal for the current half. -1 = left, +1 = right */
 function getTeamDir(team) {
@@ -301,7 +305,7 @@ export function createPhysicsWorld() {
       const b = pair.bodyB.label
       if (a !== 'ball' && b !== 'ball') continue
       const team = teamOf(a === 'ball' ? b : a)
-      if (team) lastBallTeam = team
+      if (team) { lastBallTeam = team; ballBanked = false } else ballBanked = true
     }
   })
 
@@ -532,6 +536,7 @@ function clampBodyMap(bodies, team1Side) {
    ═══════════════════════════════════════════════════════════ */
 
 export function placeBallAt(x, y) {
+  ballBanked = false
   const ball = bodies.ball
   if (ball) {
     Body.setPosition(ball, { x, y })
@@ -846,6 +851,7 @@ export function resetToKickoff(kickingTeam) {
   const { formations, team1Side } = useMatchStore.getState()
   stopAll()
   lastBallTeam = null
+  ballBanked = false
   placeBallAt(0, 0)
 
   for (const team of ['team1', 'team2']) {

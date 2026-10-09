@@ -79,3 +79,16 @@ describe('goalkeeper', () => {
     })
   })
 })
+
+describe('goals in off the wall', () => {
+  it('the CPU never rates a ball that goes in off a cushion as a goal', async () => {
+    const { simulateFlick } = await import('../ai/planner')
+    // team1 attacks the right goal; a cap fires the ball into the side cushion, angled at the goal
+    const positions = {
+      team1_atk1: { x: 6, y: -6, vx: 0, vy: 0 }, ball: { x: 7, y: -5.5, vx: 0, vy: 0 },
+    }
+    const ctx = makeContext({ positions, team: 'team1', team1Side: 'left' })
+    const out = simulateFlick(ctx, 'team1_atk1', { x: 1.2, y: 2.2 }, { maxFrames: 400 })
+    if (out?.verdict) expect(out.verdict.outcome).not.toBe('goal')
+  })
+})

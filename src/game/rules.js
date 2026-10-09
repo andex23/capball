@@ -52,13 +52,15 @@ export function scorerForBall(x, y, team1Side = 'left') {
  * Returns { outcome: 'goal' | 'kickoff_violation' | 'gk_violation', scorer }
  * or null when the ball isn't in a goal.
  */
-export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId }) {
+export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, banked = false }) {
   const scorer = scorerForBall(x, y, team1Side)
   if (!scorer) return null
   if (kickoffGuard) return { outcome: 'kickoff_violation', scorer }
   if (isGoalkeeper(lastFlickedCapId) && teamOf(lastFlickedCapId) === scorer) {
     return { outcome: 'gk_violation', scorer }
   }
+  // Straight off the wall into the net doesn't count: a goal kick to the defenders
+  if (banked) return { outcome: 'bank_shot', scorer }
   return { outcome: 'goal', scorer }
 }
 
