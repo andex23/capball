@@ -1947,3 +1947,4 @@ button { cursor: pointer; background: none; border: 0; }
 .squad-buy { min-height: 34px; padding: 4px 10px; font-size: 13px; }
 .squad-sign { margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--line-strong); display: flex; flex-direction: column; gap: 8px; }
 .squad-sign p { margin: 0; }
+.squad-window { color: var(--iss-yellow, #ffd23f); font-weight: 700; }
