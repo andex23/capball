@@ -89,13 +89,14 @@ export function clearMatchTimers() {
 }
 
 const emptyStats = () => ({
-  team1: { goals: 0, shots: 0, fouls: 0, turns: 0 },
-  team2: { goals: 0, shots: 0, fouls: 0, turns: 0 },
+  team1: { goals: 0, shots: 0, fouls: 0, turns: 0, onTarget: 0, saves: 0 },
+  team2: { goals: 0, shots: 0, fouls: 0, turns: 0, onTarget: 0, saves: 0 },
 })
 
 const clearTurn = {
   selectedCapId: null,
   lastFlickedCapId: null,
+  shotCalled: false,
   firstCollisionTracked: false,
   freeKickCapId: null,
   foulData: null,
@@ -231,6 +232,7 @@ export const useMatchStore = create((set, get) => ({
       matchKey: s.matchKey + 1,
       score: { team1: 0, team2: 0 },
       goalLog: [],
+      matchEvents: [],
       lastGoalCap: null,
       stats: emptyStats(),
       team1Side: s.chosenTeam1Side,
@@ -326,14 +328,34 @@ export const useMatchStore = create((set, get) => ({
   lastGoalOwn: false,
   lastGoalCap: null, // the cap that scored the last goal (its flick put the ball in)
   goalLog: [],       // this match's goals: { team, cap, own, shootout }
+  matchEvents: [],   // shots that nearly went in: { type: 'post'|'wide'|'save'|'block', cap, by }
+  shotCall: null,    // the latest near-miss call for the HUD: { type, cap, by, key }
   matchResult: null,
   score: { team1: 0, team2: 0 },
   lastScorer: null,
   stats: emptyStats(),
 
   bumpStat: (team, key) => set((s) => ({
-    stats: { ...s.stats, [team]: { ...s.stats[team], [key]: s.stats[team][key] + 1 } },
+    stats: { ...s.stats, [team]: { ...s.stats[team], [key]: (s.stats[team][key] || 0) + 1 } },
   })),
+
+  /**
+   * A shot nearly went in: off the post, just wide, saved or blocked. Once per
+   * flick. `cap` is the shooter, `by` the cap that kept it out.
+   */
+  callShot: (type, cap, by = null) => {
+    const s = get()
+    if (s.shotCalled || s.challenge || s.penaltyShootout) return
+    const team = cap?.split('_')[0]
+    const other = team === 'team1' ? 'team2' : 'team1'
+    set({
+      shotCalled: true,
+      matchEvents: [...(s.matchEvents || []), { type, cap, by }],
+      shotCall: { type, cap, by, key: (s.shotCall?.key || 0) + 1 },
+    })
+    if (team && (type === 'save' || type === 'post' || type === 'block')) get().bumpStat(team, 'onTarget')
+    if (type === 'save' && other) get().bumpStat(other, 'saves')
+  },
 
   // --- Turn state ---
   activeTeam: 'team1',
@@ -382,6 +404,7 @@ export const useMatchStore = create((set, get) => ({
       penaltyShootout: false,
       score: { team1: 0, team2: 0 },
       goalLog: [],
+      matchEvents: [],
       lastGoalCap: null,
       stats: emptyStats(),
       team1Side: 'left',
@@ -439,7 +462,7 @@ export const useMatchStore = create((set, get) => ({
       lastScorer: scoringTeam,
       lastGoalOwn: !!ownGoal,
       lastGoalCap: cap,
-      goalLog: [...(get().goalLog || []), { team: scoringTeam, cap, own: !!ownGoal, shootout: !!get().penaltyShootout }],
+      goalLog: [...(get().goalLog || []), { team: scoringTeam, cap, own: !!ownGoal, shootout: !!get().penaltyShootout, half: get().half, t: Math.round(get().timeRemaining) }],
       lastConceded: concedingTeam,
     })
     // First to N: that goal wins it
@@ -601,6 +624,9 @@ export const useMatchStore = create((set, get) => ({
   setMusicVolume: (v) => set({ musicVolume: v }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
 
+  // Spoken commentary (the phone's own voice)
+  voiceCommentary: true,
+  toggleVoiceCommentary: () => set((s) => ({ voiceCommentary: !s.voiceCommentary })),
   // Phone vibration on flicks, hard cushion hits, goals and fouls
   vibration: true,
   toggleVibration: () => set((s) => ({ vibration: !s.vibration })),

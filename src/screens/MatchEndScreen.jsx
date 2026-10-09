@@ -1,5 +1,8 @@
 import { useTournamentStore } from '../state/tournamentStore'
 import GoalClips from '../ui/GoalClips'
+import { HeadToHead, ShareResult } from '../ui/ShareResult'
+import { PlayerRatings } from '../ui/SquadPanel'
+import { useCareerStore } from '../state/careerStore'
 import { useMatchStore, SCREEN, isAuthority } from '../state/MatchStore'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { disconnect } from '../multiplayer/MultiplayerManager'
@@ -57,6 +60,7 @@ export default function MatchEndScreen() {
   const gameMode = useMatchStore((s) => s.gameMode)
   const authority = useMatchStore((s) => isAuthority(s))
   const tournament = useTournamentStore((s) => s.playing)
+  const careerNow = useCareerStore((s) => s.career)
   const tournamentError = useTournamentStore((s) => s.error)
 
   if (!matchResult) return null
@@ -106,6 +110,8 @@ export default function MatchEndScreen() {
         </div>
 
         <RecordNote />
+        <HeadToHead />
+        <ShareResult />
 
         {stats && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 20px', borderTop: '1px solid var(--line)' }}>
@@ -115,6 +121,7 @@ export default function MatchEndScreen() {
           </div>
         )}
 
+        {tournament?.kind === 'career' && <div style={{ padding: '0 20px 12px' }}><PlayerRatings career={careerNow} title="Player ratings" fixtureId={tournament.fixture?.id} /></div>}
         <GoalClips />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>

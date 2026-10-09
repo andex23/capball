@@ -16,9 +16,9 @@ import { useMatchStore, SCREEN } from './MatchStore'
 const SESSION_KEY = 'capball:account'
 // Everything that makes up a player's save (the device key lets online
 // tournament seats follow the player to a new phone)
-const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball.tutorialDone', 'capball.coached', 'capball.device']
+const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1', 'capball.tutorialDone', 'capball.coached', 'capball.device']
 // Progress that belongs to the account: cleared from the phone on sign out (it stays on the server)
-export const PROGRESS_KEYS = ['capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1']
+export const PROGRESS_KEYS = ['capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1']
 
 /** Is a player signed in on this phone? (Stats, streaks and rewards only count when they are.) */
 export const isSignedIn = () => !!useAccountStore.getState().username

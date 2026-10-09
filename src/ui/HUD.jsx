@@ -7,7 +7,7 @@ import { formatClock, otherTeam, SHOOTOUT_ROUNDS } from '../game/rules'
 import { sendPause, disconnect } from '../multiplayer/MultiplayerManager'
 import { onlineInterrupted } from '../multiplayer/reconnect'
 import { stopAllBodies } from '../physics/PhysicsWorld'
-import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer } from '../audio/SoundManager'
+import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer, playCrowdGroan, playCrowdMurmur } from '../audio/SoundManager'
 import Icon from './Icon'
 import CameraStick from './CameraStick'
 import Modal from './Modal'
@@ -16,6 +16,7 @@ import RulesPanel from './RulesPanel'
 import { displayColor, inkOn } from './color'
 import { canFullscreen, toggleFullscreen, typing } from './fullscreen'
 import { goalLine, line } from '../game/commentary'
+import { speak, stopSpeaking } from '../audio/voice'
 import { isCoached, markCoached, COACH_FLICKS } from '../game/tutorial'
 import { STADIUMS } from '../data/StadiumData'
 import CapPreview from './CapPreview'
@@ -122,6 +123,7 @@ function GoalMoment({ c }) {
   const kit = p ? teamConfig[p.team] : teamConfig[c.team]
   const shown = shootout ? pens : score
   const color = displayColor(teamConfig[c.team]?.primary)
+  useEffect(() => { speak(`${c.own ? 'Own goal!' : 'Goal!'} ${c.line}`, { big: true }) }, [c.line, c.own])
   return (
     <div className="goal-moment" role="status" style={{ '--team': color, '--team-ink': inkOn(teamConfig[c.team]?.primary) }}>
       <div className="goal-moment-burst" aria-hidden />
@@ -202,11 +204,53 @@ function Banner() {
     }
     default: return null
   }
+  return <BannerView b={b} phase={phase} colorOf={colorOf} />
+}
+
+// Moments worth saying out loud (corners and goal kicks just show)
+const SPOKEN = [PHASE.KICKOFF, PHASE.FOUL, PHASE.PENALTY_SETUP, PHASE.MISSED, PHASE.MATCH_OVER, PHASE.NO_GOAL]
+
+function BannerView({ b, phase, colorOf }) {
+  useEffect(() => {
+    if (SPOKEN.includes(phase) && b.sub) speak(b.sub, { big: phase === PHASE.MATCH_OVER || phase === PHASE.PENALTY_SETUP })
+  }, [phase, b.sub])
   return (
     <div className="banner" key={phase} role="status" style={{ '--team': colorOf(b.team) }}>
       <div className="banner-stripe" />
       <div className={`display banner-title ${b.tone || ''}`}>{b.title}</div>
       {b.sub && <div className="banner-sub">{b.sub}</div>}
+    </div>
+  )
+}
+
+const SHOT_TITLES = { post: 'Off the post!', wide: 'Just wide!', save: 'Saved!', block: 'Blocked!' }
+
+/** A quick call when a shot nearly goes in, with a line of commentary. */
+function ShotCall() {
+  const call = useMatchStore((s) => s.shotCall)
+  const teamConfig = useMatchStore((s) => s.teamConfig)
+  const matchKey = useMatchStore((s) => s.matchKey)
+  const [shown, setShown] = useState(null)
+  useEffect(() => {
+    if (!call) return undefined
+    setShown(call)
+    if (call.type === 'post' || call.type === 'wide') playCrowdGroan()
+    else playCrowdMurmur()
+    speak(line(call.type, { teamConfig: useMatchStore.getState().teamConfig, team: call.cap?.split('_')[0], cap: call.cap, by: call.by, seed: `${useMatchStore.getState().matchKey}:${call.key}` }))
+    const id = setTimeout(() => setShown(null), 2200)
+    return () => clearTimeout(id)
+  }, [call])
+  useEffect(() => { setShown(null) }, [matchKey])
+  const phase = useMatchStore((s) => s.phase)
+  if (!shown || phase === PHASE.GOAL) return null
+  const team = shown.cap?.split('_')[0]
+  const keeperTeam = shown.by?.split('_')[0]
+  const tone = shown.type === 'save' || shown.type === 'block' ? keeperTeam : team
+  const text = line(shown.type, { teamConfig, team, cap: shown.cap, by: shown.by, seed: `${matchKey}:${shown.key}` })
+  return (
+    <div className="shot-call" key={shown.key} data-type={shown.type} role="status" style={{ '--team': displayColor(teamConfig[tone]?.primary || '#ffd23f') }}>
+      <b className="shot-call-title">{SHOT_TITLES[shown.type]}</b>
+      <span className="shot-call-line">{text}</span>
     </div>
   )
 }
@@ -321,6 +365,7 @@ export default function HUD() {
   const turnText = useTurnText()
   const timeUp = useMatchStore(timedOut)
   const [camLabel, setCamLabel] = useState(null)
+  useEffect(() => () => stopSpeaking(), []) // leaving the match: stop mid-sentence
   const camTimer = useRef(null)
   const [notice, setNotice] = useState(null)
   const noticeTimer = useRef(null)
@@ -427,6 +472,7 @@ export default function HUD() {
 
       <PowerMeter />
       {!paused && <Banner />}
+      {!paused && <ShotCall />}
       <KeeperPick />
       <ChallengeHud />
       {!paused && <PenaltyTip />}

@@ -6,6 +6,7 @@ import TournamentHomeScreen from './screens/TournamentHomeScreen'
 import TournamentSetupScreen from './screens/TournamentSetupScreen'
 import TournamentHubScreen from './screens/TournamentHubScreen'
 import CareerScreen from './screens/CareerScreen'
+import AchievementToast from './ui/AchievementToast'
 import UnlockToast from './ui/UnlockToast'
 import { disconnect, isConnected } from './multiplayer/MultiplayerManager'
 import { fadeOutMenuMusic } from './audio/MusicManager'
@@ -133,6 +134,7 @@ export default function App() {
         <ConnectionLost />
         <PwaUpdateToast />
         <UnlockToast />
+        <AchievementToast />
       </ErrorBoundary>
     </div>
   )

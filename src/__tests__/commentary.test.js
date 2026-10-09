@@ -37,3 +37,11 @@ describe('commentary', () => {
     expect(line('fullTimeWin', { teamConfig, team: 'team1', winner: 'team1', score: { team1: 3, team2: 1 }, seed: 'a' })).toMatch(/Lagos Fizz|3–1/)
   })
 })
+
+describe('spoken commentary', () => {
+  it('reads like a commentator', async () => {
+    const { spoken } = await import('../audio/voice')
+    expect(spoken('#9 Okafor makes it 3–1. Lagos Fizz are rolling!')).toBe('Okafor makes it 3 1. Lagos Fizz are rolling!')
+    expect(spoken('Disaster — #4 Eze puts through their own goal!')).toBe('Disaster , Eze puts through their own goal!')
+  })
+})
