@@ -2,6 +2,7 @@ import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
 import { PHYSICS, PITCH } from '../data/TeamData'
 import { applyFlick, getBody, diveKeeper, radiusOf } from '../physics/PhysicsWorld'
 import { strikeDirection, crossingY, cpuDive } from './penalty'
+import { playDive } from '../audio/SoundManager'
 import { teamOf, isGoalkeeper, keeperCanPlay, teamHomeDir } from './rules'
 
 /**
@@ -58,6 +59,7 @@ function keeperDives(state, capId, velocity) {
     dive = cpuDive(yAt, state.aiDifficulty)
   }
   diveKeeper(keeperTeam, typeof dive === 'number' ? dive : 0)
+  if (dive) playDive()
 }
 
 /** Can this cap be picked up right now, as far as the keeper-range rule goes? */

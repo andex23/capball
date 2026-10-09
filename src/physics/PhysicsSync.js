@@ -109,6 +109,15 @@ export function usePhysicsSync(meshRefs) {
       mesh.position.z += (y - mesh.position.z) * blend
       // How fast it moved on screen this frame (teleports for set pieces don't count)
       const moved = Math.hypot(mesh.position.x - ox, mesh.position.z - oz)
+      // Keepers lean into a dive and settle back upright
+      if (id.endsWith('_gk') && delta > 0) {
+        const ok = moved < SNAP_DIST
+        const vx = ok ? (mesh.position.x - ox) / delta : 0
+        const vz = ok ? (mesh.position.z - oz) / delta : 0
+        const k = Math.min(1, delta * 12)
+        mesh.rotation.z += (Math.max(-0.45, Math.min(0.45, -vx * 0.03)) - mesh.rotation.z) * k
+        mesh.rotation.x += (Math.max(-0.45, Math.min(0.45, vz * 0.03)) - mesh.rotation.x) * k
+      }
       if (delta > 0 && moved < SNAP_DIST) {
         const v = moved / delta
         if (id === 'ball') ballSpeed = v

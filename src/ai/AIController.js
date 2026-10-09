@@ -4,6 +4,8 @@ import { getBodies } from '../physics/PhysicsWorld'
 import { performFlick, capSelectable } from '../game/flick'
 import { CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, PITCH } from '../data/TeamData'
 import { makeContext, readPositions, firstHit, chooseHeuristic, chooseBySimulation } from './planner'
+import { penaltyFlick } from '../game/penalty'
+import { teamHomeDir } from '../game/rules'
 
 /**
  * SMART AI CONTROLLER
@@ -81,6 +83,18 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
   const bodies = getBodies()
   if (!bodies.ball) return null
   const state = useMatchStore.getState()
+
+  // Penalty: pick a corner (or the middle) and strike it, more cleanly the higher the level
+  if (state.penaltyKick && requiredCapId && bodies[requiredCapId]) {
+    const keeperTeam = aiTeam === 'team1' ? 'team2' : 'team1'
+    const goalX = teamHomeDir(keeperTeam, state.team1Side || 'left') * PITCH.halfW
+    const v = penaltyFlick({
+      cap: bodies[requiredCapId].position, ball: bodies.ball.position,
+      rSum: CAP_RADIUS + BALL_RADIUS, goalX, goalWidth: PITCH.goalWidth,
+      level, maxSpeed: PHYSICS.maxFlickVelocity, rng,
+    })
+    return { capId: requiredCapId, velocity: { x: v.x, y: v.y }, kind: 'penalty' }
+  }
 
   if (diff.planner) {
     const ctx = makeContext({
