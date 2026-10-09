@@ -623,16 +623,22 @@ function clampInPitch(x, y, r = CAP_RADIUS) {
  */
 // How far the defending wall stands back from a free kick (world units; the
 // pitch is 30 long). Closer than this felt like the wall was on top of the ball.
-export const FREE_KICK_WALL_DISTANCE = 8
+export const FREE_KICK_WALL_DISTANCE = 6
 // Never closer than this, even right by the goal
-export const FREE_KICK_WALL_MIN = 5
+export const FREE_KICK_WALL_MIN = 3.6
 // A free kick this close to the defending goal line gets a two-cap wall
-export const FREE_KICK_TWO_CAP_WALL_WITHIN = 13
+export const FREE_KICK_TWO_CAP_WALL_WITHIN = 6.5
 // Opponents stand this far off a corner kick / goal kick
 const CORNER_CLEARANCE = 4.5
 const GOAL_KICK_CLEARANCE = 6
 // The kicker's own teammates just keep out of the kicker's way
 const TEAMMATE_CLEARANCE = 4
+
+const FREE_KICK_RUN_UP = 1.7
+// Free-kick set-up: the wall stands this share of the way to goal and, like the
+// keeper (shade < 0 = towards the near post), guards the near post — leaving the
+// far corner for a well-struck kick (about a quarter of the goal from central spots)
+export const FK_TUNE = { wallFrac: 0.45, gkShade: -0.6, twoWithin: FREE_KICK_TWO_CAP_WALL_WITHIN }
 
 export function setupFreeKick(foulSpot, fouledTeam) {
   const { halfW, halfH } = PITCH
@@ -652,7 +658,7 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   // Decide wall size: more space = more wall caps
   // Close to goal is when a wall matters: two caps there, one further out
   // (only four outfield caps a side, and the keeper never joins the wall)
-  const wallCount = spaceToGoal < FREE_KICK_TWO_CAP_WALL_WITHIN ? 2 : 1
+  const wallCount = spaceToGoal < FK_TUNE.twoWithin ? 2 : 1
 
   // ── KICKER: on the line from ball to goal center, BEHIND the ball ──
   // Calculate angle from ball to the center of the goal being attacked
@@ -664,8 +670,9 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   // Normalized direction FROM ball TO goal
   const nxToGoal = distToGoal > 0.1 ? dxToGoal / distToGoal : Math.sign(dxToGoal)
   const nyToGoal = distToGoal > 0.1 ? dyToGoal / distToGoal : 0
-  // Kicker placed BEHIND ball (opposite direction), 2.5 units back on the angle line
-  safePlace(`${fouledTeam}_atk1`, bx - nxToGoal * 2.5, by - nyToGoal * 2.5)
+  // Kicker placed BEHIND ball, a short run-up back on the angle line (close
+  // enough that the aim is controllable, like lining up a real set piece)
+  safePlace(`${fouledTeam}_atk1`, bx - nxToGoal * FREE_KICK_RUN_UP, by - nyToGoal * FREE_KICK_RUN_UP)
 
   // ── ALL other attacking caps: FAR on own half ──
   safePlace(`${fouledTeam}_atk2`, atkHome * halfW * 0.5, by > 0 ? -halfH * 0.35 : halfH * 0.35)
@@ -686,12 +693,21 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   // ── WALL: on the ball→goal line, a proper distance back from the ball ──
   // Stand off the full distance when there's room; close to the goal, stop a
   // little in front of the keeper instead of on top of the goal line
-  const wallDist = Math.max(FREE_KICK_WALL_MIN, Math.min(FREE_KICK_WALL_DISTANCE, distToGoal - 3.5))
-  const wallCx = bx + nxToGoal * wallDist
-  const wallCy = by + nyToGoal * wallDist
+  // Like a real wall it guards the NEAR post (the keeper leans that way too),
+  // so a well-placed shot round the wall or into the far corner can go in
+  const nearSide = Math.abs(by) > 1 ? Math.sign(by) : 1
+  const postY = nearSide * PITCH.goalWidth * 0.3
+  const wdx = goalCenterX - bx, wdy = postY - by
+  const wlen = Math.hypot(wdx, wdy) || 1
+  const wnx = wdx / wlen, wny = wdy / wlen
+  // About halfway to goal, as a real wall stands: room to bend it over or round
+  const wallDist = Math.max(FREE_KICK_WALL_MIN, Math.min(FREE_KICK_WALL_DISTANCE, distToGoal * FK_TUNE.wallFrac))
+  const wallCx = bx + wnx * wallDist
+  const wallCy = by + wny * wallDist
   // Wall caps line up square to the line of the kick, shoulder to shoulder
-  const perpX = -nyToGoal
-  const perpY = nxToGoal
+  const perpX = -wny
+  const perpY = wnx
+
 
   const defFieldCaps = [`${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_mid`, `${defTeam}_atk1`, `${defTeam}_atk2`]
   const wallSpacing = 2.2
@@ -702,10 +718,13 @@ export function setupFreeKick(foulSpot, fouledTeam) {
     safePlace(defFieldCaps[i], wallCx + perpX * off, wallCy + perpY * off)
   }
 
-  // Remaining defending field caps: far on their own half, spread out
+  // Remaining defending field caps: back behind the ball (towards halfway),
+  // spread across the pitch — out of the shooting lane but ready for a rebound
+  const backX = Math.max(-halfW + 2, Math.min(halfW - 2, bx - defHome * 5))
   for (let i = wallCount; i < defFieldCaps.length; i++) {
-    const spreadY = (i % 2 === 0 ? -1 : 1) * halfH * (0.25 + (i - wallCount) * 0.15)
-    safePlace(defFieldCaps[i], defHome * halfW * 0.5, spreadY)
+    const k = i - wallCount
+    const spreadY = (k % 2 === 0 ? -1 : 1) * halfH * (0.3 + Math.floor(k / 2) * 0.35)
+    safePlace(defFieldCaps[i], backX - defHome * Math.floor(k / 2) * 1.5, spreadY)
   }
 
   // Defending GK on goal line — slid along it if the ball sits right in front of him
@@ -714,6 +733,14 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   const gkDx = Math.abs(gkX - bx)
   const gkY = gkDx >= gkGap ? 0 : by + (by >= 0 ? -1 : 1) * Math.sqrt(gkGap * gkGap - gkDx * gkDx)
   safePlace(`${defTeam}_gk`, gkX, Math.abs(gkY) < 0.01 ? 0 : gkY)
+  // Right back on his line when there's room (safePlace keeps him off the
+  // wall), leaning to the near post: standing out would cover far too much
+  const fkGk = bodies[`${defTeam}_gk`]
+  if (fkGk && Math.abs(gkY) < 0.01) {
+    // (a two-cap wall right by goal covers the near post, so he takes the far side)
+    Body.setPosition(fkGk, { x: defHome * (halfW - GK_RADIUS - 0.05), y: wallCount === 2 ? -nearSide * 1.5 : -nearSide * FK_TUNE.gkShade })
+    Body.setVelocity(fkGk, { x: 0, y: 0 })
+  }
 
   // ── CLEAR ZONE: no opponent stands nearer the ball than the wall does ──
   // (a wall cap squeezed in by the touchline gets moved back out too). The
@@ -722,7 +749,7 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   const kickerId = `${fouledTeam}_atk1`
   for (const [id, body] of Object.entries(bodies)) {
     if (id === 'ball' || id === kickerId || id.endsWith('_gk')) continue
-    const radius = id.startsWith(defTeam) ? wallDist - 0.5 : TEAMMATE_CLEARANCE
+    const radius = id.startsWith(defTeam) ? Math.max(wallDist - 0.5, FREE_KICK_WALL_MIN) : TEAMMATE_CLEARANCE
     const dx = body.position.x - bx
     const dy = body.position.y - by
     const dist = Math.hypot(dx, dy)
@@ -734,9 +761,15 @@ export function setupFreeKick(foulSpot, fouledTeam) {
     const tries = [away, { x: -away.y, y: away.x }, { x: away.y, y: -away.x }, home, { x: -home.x, y: 0 }]
     const step = radius + 1
     let spot = null
-    for (const dir of tries) {
-      const p = clampInPitch(bx + dir.x * step, by + dir.y * step, CAP_RADIUS)
-      if (Math.hypot(p.x - bx, p.y - by) >= radius) { spot = p; break }
+    // …and never on top of a cap that's already been moved there
+    const free = (p) => Object.entries(bodies).every(([other, ob]) => other === id || other === 'ball' ||
+      Math.hypot(ob.position.x - p.x, ob.position.y - p.y) >= radiusOf(other) + CAP_RADIUS + 0.05)
+    for (const extra of [0, 1.6, -1.6, 3.2, -3.2]) {
+      for (const dir of tries) {
+        const p = clampInPitch(bx + dir.x * step - dir.y * extra, by + dir.y * step + dir.x * extra, CAP_RADIUS)
+        if (Math.hypot(p.x - bx, p.y - by) >= radius && free(p)) { spot = p; break }
+      }
+      if (spot) break
     }
     if (spot) safePlace(id, spot.x, spot.y)
   }

@@ -149,7 +149,8 @@ describe('set pieces', () => {
     useMatchStore.setState({ team1Side: 'left' })
     resetToKickoff('team1')
     setupFreeKick({ x: 4, y: -1 }, 'team1') // 11 from the goal line: the full distance doesn't fit
-    for (const id of ['team2_def1', 'team2_def2']) {
+    // 11 out: a one-cap wall (the rest wait back behind the ball)
+    for (const id of ['team2_def1']) {
       expect(pos(id).x, `${id} between ball and goal`).toBeGreaterThan(4)
       expect(Math.hypot(pos(id).x - 4, pos(id).y + 1), id).toBeGreaterThanOrEqual(FREE_KICK_WALL_MIN - 0.5)
     }
@@ -171,10 +172,10 @@ describe('set pieces', () => {
               if (id === `${team}_atk1` || id.endsWith('_gk')) continue // taker; keepers keep their line
               const d = Math.hypot(pos(id).x - b.x, pos(id).y - b.y)
               // Opponents stand at least as far back as the wall; teammates just give room
-              // (right by the goal there's no room, so only the old 3.5 is promised)
+              // (right by the goal the wall squeezes in beside the keeper: 3.2 is promised)
               const toGoal = PITCH.halfW - Math.abs(b.x)
               const nearGoal = toGoal < 9 && Math.sign(b.x) === (side === 'left' ? 1 : -1) * (team === 'team1' ? 1 : -1)
-              const min = id.startsWith(team) || nearGoal ? 3.5 : FREE_KICK_WALL_MIN - 0.5
+              const min = id.startsWith(team) ? 3.5 : nearGoal ? 3.2 : FREE_KICK_WALL_MIN - 0.5
               expect(d, `${id} at ${where}`).toBeGreaterThanOrEqual(min)
             }
             expectNoOverlaps()
@@ -188,9 +189,9 @@ describe('set pieces', () => {
   it('free kick close to goal: a two-cap wall between ball and goal', () => {
     useMatchStore.setState({ team1Side: 'left' })
     resetToKickoff('team1')
-    setupFreeKick({ x: 8, y: 2 }, 'team1') // 7 from team2's goal line
+    setupFreeKick({ x: 9, y: 2 }, 'team1') // 6 from team2's goal line
     const between = capIds().filter((id) => id.startsWith('team2_') && id !== 'team2_gk')
-      .filter((id) => pos(id).x > 8 && pos(id).x < PITCH.halfW)
+      .filter((id) => pos(id).x > 9 && pos(id).x < PITCH.halfW)
     expect(between.length).toBeGreaterThanOrEqual(2)
     // …and further out, just one cap stands in the wall's spot
     resetToKickoff('team1')
@@ -375,5 +376,22 @@ describe('pitch walls', () => {
     Matter.Body.setVelocity(getBodies().team1_atk1, { x: 0, y: -PHYSICS.maxFlickVelocity * 0.6 })
     simulate()
     expect(pos('ball').y).toBeLessThan(4.5)
+  })
+})
+
+describe('free kicks can be scored', () => {
+  it('a central free kick leaves a clear line into the far corner', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    createPhysicsWorld()
+    setupFreeKick({ x: 7.5, y: 0 }, 'team1')
+    const b = getBodies(); const ball = b.ball.position
+    const blockers = Object.entries(b).filter(([id]) => id.startsWith('team2')).map(([, x]) => ({ x: x.position.x, y: x.position.y, r: x.circleRadius + 0.48 }))
+    let open = 0
+    for (let ty = -2.5; ty <= 2.5; ty += 0.1) {
+      const dx = PITCH.halfW - ball.x, dy = ty - ball.y, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L
+      const hit = blockers.some((c) => { const fx = c.x - ball.x, fy = c.y - ball.y, t = fx * ux + fy * uy; return t > 0 && t < L && Math.hypot(fx - ux * t, fy - uy * t) < c.r })
+      if (!hit) open++
+    }
+    expect(open).toBeGreaterThan(5)
   })
 })
