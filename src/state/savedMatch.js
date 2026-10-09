@@ -32,6 +32,7 @@ export const EMPTY_CAREER = {
   played: 0, won: 0, drawn: 0, lost: 0,
   goalsFor: 0, goalsAgainst: 0, shots: 0, cleanSheets: 0,
   bestWin: null, // { for, against, vs }
+  week: null,    // this week's numbers for the leaderboard: { key, played, won, goals }
   local: 0,      // pass-and-play matches (two players on one phone: no win or loss for "you")
 }
 
@@ -158,11 +159,26 @@ function myTeamFor(s) {
   return null
 }
 
+/** ISO week key for a date, e.g. '2026-W41' (weeks start on Monday). */
+export function weekKey(date = new Date()) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const day = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - day)
+  const year = d.getUTCFullYear()
+  const week = Math.ceil(((d - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7)
+  return `${year}-W${String(week).padStart(2, '0')}`
+}
+
 /** Career totals after one more finished match. Pure, for testing. */
-export function addToCareer(prev, result, me, teamConfig = {}) {
+export function addToCareer(prev, result, me, teamConfig = {}, now = new Date()) {
   const c = { ...EMPTY_CAREER, ...(prev || {}) }
   c.played += 1
   if (!me) { c.local += 1; return c }
+  // This week's numbers (a new week starts from zero)
+  const wk = weekKey(now)
+  const w = c.week?.key === wk ? { ...c.week } : { key: wk, played: 0, won: 0, goals: 0 }
+  w.played += 1
+  w.goals += result.score?.[me] ?? 0
   const them = me === 'team1' ? 'team2' : 'team1'
   const gf = result.score?.[me] ?? 0
   const ga = result.score?.[them] ?? 0
@@ -174,12 +190,13 @@ export function addToCareer(prev, result, me, teamConfig = {}) {
   const pens = result.penaltyScore
   const won = gf > ga || (gf === ga && pens && pens[me] > pens[them])
   const lost = ga > gf || (gf === ga && pens && pens[them] > pens[me])
-  if (won) c.won += 1
+  if (won) { c.won += 1; w.won += 1 }
   else if (lost) c.lost += 1
   else c.drawn += 1
   if (gf > ga && (!c.bestWin || gf - ga > c.bestWin.for - c.bestWin.against || (gf - ga === c.bestWin.for - c.bestWin.against && gf > c.bestWin.for))) {
     c.bestWin = { for: gf, against: ga, vs: teamConfig?.[them]?.name || 'CPU' }
   }
+  c.week = w
   return c
 }
 

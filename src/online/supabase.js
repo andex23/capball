@@ -36,6 +36,8 @@ export function deviceToken(storage = typeof localStorage !== 'undefined' ? loca
 
 /** Readable messages for the errors the database functions raise. */
 const MESSAGES = {
+  'bad-stats': 'Those numbers don’t add up, so they weren’t posted.',
+  'bad-period': 'That leaderboard doesn’t exist.',
   'not-found': 'No tournament with that code.',
   'taken': 'Someone else already has that team.',
   'no-seat': 'That team is played by the computer.',

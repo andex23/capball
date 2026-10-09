@@ -3,7 +3,7 @@ import { useMatchStore, SCREEN } from '../state/MatchStore'
 import Modal from '../ui/Modal'
 import SettingsPanel from '../ui/SettingsPanel'
 import RulesPanel from '../ui/RulesPanel'
-import RecordsPanel from '../ui/RecordsPanel'
+import RankingsPanel from '../ui/RankingsPanel'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import InstallPrompt from '../pwa/InstallPrompt'
@@ -31,7 +31,7 @@ const MODES = [
 ]
 const OPTIONS = [
   { key: 'rules', title: 'How to play' },
-  { key: 'records', title: 'Records' },
+  { key: 'records', title: 'Rankings' },
   { key: 'settings', title: 'Settings' },
   { key: 'account', title: 'My games' },
 ]
@@ -213,8 +213,8 @@ export default function MenuScreen() {
         </Modal>
       )}
       {dialog === 'records' && (
-        <Modal title="Records" onClose={() => setDialog(null)}>
-          <RecordsPanel />
+        <Modal title="Rankings" onClose={() => setDialog(null)}>
+          <RankingsPanel onSignIn={() => { playButtonSelect(); setDialog('account') }} />
         </Modal>
       )}
       {dialog === 'account' && (
