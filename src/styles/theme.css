@@ -1572,3 +1572,15 @@ button { cursor: pointer; background: none; border: 0; }
 @media (min-width: 561px) and (max-height: 500px) {
   .match-length-card { margin-bottom: 8px; padding: 8px 12px; }
 }
+
+/* Account */
+.account { display: flex; flex-direction: column; gap: 10px; }
+.account-note { font-size: 13px; }
+.account-small { font-size: 12px; margin-top: -4px; }
+.account-pass { display: flex; gap: 6px; }
+.account-pass .field { flex: 1; }
+.account-who { display: flex; align-items: center; gap: 12px; }
+.account-who div { display: flex; flex-direction: column; }
+.account-who b { font-size: 18px; }
+.account-avatar { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-weight: 800; font-size: 24px; }
+.account-actions { display: flex; gap: 8px; flex-wrap: wrap; }

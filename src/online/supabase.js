@@ -47,6 +47,13 @@ const MESSAGES = {
   'host-only': 'Only the tournament’s host can do that.',
   'bad-setup': 'That tournament set-up isn’t valid.',
   'offline': 'You’re offline — check your connection.',
+  'username-taken': 'That username is taken. Try another.',
+  'bad-username': 'Usernames are 3–20 letters, numbers or _ (no spaces).',
+  'bad-password': 'Passwords need at least 6 characters.',
+  'wrong-login': 'Wrong username or password.',
+  'too-many-tries': 'Too many wrong tries. Wait 15 minutes and try again.',
+  'signed-out': 'You were signed out. Sign in again.',
+  'bad-save': 'Your save is too big to upload.',
 }
 
 export class ApiError extends Error {

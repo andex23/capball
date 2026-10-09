@@ -12,6 +12,7 @@ import App from './App'
 import { initPersistence } from './state/persistence'
 import { initTournamentWatch } from './state/tournamentStore'
 import { initAudioUnlock } from './audio/SoundManager'
+import { initAccount } from './state/accountStore'
 import { initInstallPrompt } from './pwa/install'
 
 // Restore saved teams, settings and records before the first render
@@ -19,6 +20,7 @@ initPersistence()
 // Tournament fixtures: record results as matches finish
 initTournamentWatch()
 initAudioUnlock()
+initAccount()
 // The install prompt can fire before the menu mounts, so catch it early
 initInstallPrompt()
 
