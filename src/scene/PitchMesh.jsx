@@ -195,42 +195,36 @@ function createPitchTexture(stadiumConfig) {
   ctx.arc(canvas.width / 2, canvas.height / 2, 6, 0, Math.PI * 2)
   ctx.fill()
 
-  // Goal areas (small boxes)
-  const goalAreaW = 3 * sx
-  const goalAreaH = 8 * sy
+  // Goal areas (the six-yard boxes): a third of the penalty area deep, two goal-area depths wider than the goal
+  const goalAreaDepth = PITCH.penAreaW / 3
+  const goalAreaW = goalAreaDepth * sx
+  const goalAreaH = (PITCH.goalWidth + goalAreaDepth * 2) * sy
   ctx.strokeRect(pad, (canvas.height - goalAreaH) / 2, goalAreaW, goalAreaH)
   ctx.strokeRect(canvas.width - goalAreaW - pad, (canvas.height - goalAreaH) / 2, goalAreaW, goalAreaH)
 
-  // Penalty areas (larger boxes)
-  const penAreaW = 6 * sx
-  const penAreaH = 12 * sy
+  // Penalty areas (the 18-yard boxes), from PITCH so the lines match the rules
+  const penAreaW = PITCH.penAreaW * sx
+  const penAreaH = PITCH.penAreaH * sy
   ctx.strokeRect(pad, (canvas.height - penAreaH) / 2, penAreaW, penAreaH)
   ctx.strokeRect(canvas.width - penAreaW - pad, (canvas.height - penAreaH) / 2, penAreaW, penAreaH)
 
-  // Penalty spots
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-  const penSpotX = 4.5 * sx
+  // Penalty spots: exactly where the ball is put for a penalty
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+  const penSpotX = PITCH.penSpotDist * sx
+  const spotR = Math.max(5, sx * 0.12)
   ctx.beginPath()
-  ctx.arc(penSpotX + pad, canvas.height / 2, 4, 0, Math.PI * 2)
+  ctx.arc(penSpotX + pad, canvas.height / 2, spotR, 0, Math.PI * 2)
   ctx.fill()
   ctx.beginPath()
-  ctx.arc(canvas.width - penSpotX - pad, canvas.height / 2, 4, 0, Math.PI * 2)
+  ctx.arc(canvas.width - penSpotX - pad, canvas.height / 2, spotR, 0, Math.PI * 2)
   ctx.fill()
 
-  // Penalty arcs — arc of radius from pen spot that extends outside the penalty area
-  // Real football: arc radius = 9.15m from pen spot, penalty area = 16.5m from goal line
-  // Our penalty area is 6 units wide from goal line, pen spot at 4.5 units
-  // Arc radius should reach just past the penalty area edge (6 - 4.5 = 1.5 units past pen spot)
-  // Use 3 * sx for the arc radius (visible, proportional)
-  const arcRadius = 3.2 * sx
-  // Calculate the angle where the arc intersects the penalty area edge
-  const arcAngle = Math.acos(Math.min(1, (penAreaW - penSpotX) * sx / arcRadius))
-
-  // Left penalty arc (outside the left penalty area, to the right)
+  // The "D": an arc round the penalty spot, drawn only where it's outside the box
+  const arcRadius = (PITCH.penAreaW * 1.22 - PITCH.penSpotDist) * sx
+  const arcAngle = Math.acos(Math.min(1, (penAreaW - penSpotX) / arcRadius))
   ctx.beginPath()
   ctx.arc(penSpotX + pad, canvas.height / 2, arcRadius, -arcAngle, arcAngle)
   ctx.stroke()
-  // Right penalty arc (outside the right penalty area, to the left)
   ctx.beginPath()
   ctx.arc(canvas.width - penSpotX - pad, canvas.height / 2, arcRadius, Math.PI - arcAngle, Math.PI + arcAngle)
   ctx.stroke()

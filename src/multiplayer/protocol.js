@@ -19,7 +19,7 @@ export const SYNC_KEYS = [
   'screen', 'matchKey', 'score', 'stats', 'activeTeam', 'phase', 'timeRemaining', 'half',
   'teamConfig', 'formations', 'stadium', 'team1Side', 'chosenTeam1Side', 'matchDuration', 'goalTarget',
   'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyKicks', 'matchResult',
-  'selectedCapId', 'freeKickCapId', 'paused', 'ballColor', 'lastScorer', 'lastGoalOwn', 'noGoalReason',
+  'selectedCapId', 'freeKickCapId', 'paused', 'ballColor', 'lastScorer', 'lastGoalOwn', 'noGoalReason', 'penaltyKick',
   'kickoffGuard', 'shotClock', 'shotClockRemaining',
 ]
 
@@ -104,6 +104,11 @@ export function validateGuestMessage(msg, state) {
       if (!CAP_ROLES.includes(data.capId.slice(GUEST_TEAM.length + 1))) return null
       if (state.freeKickCapId && data.capId !== state.freeKickCapId) return null
       return { type: 'select', capId: data.capId }
+    case 'keeperDive':
+      // Only the guest's own keeper, only while it's picking
+      if (state.phase !== 'KEEPER_PICK' || state.activeTeam === GUEST_TEAM) return null
+      if (![-1, 0, 1].includes(data.dive)) return null
+      return { type: 'keeperDive', dive: data.dive }
     case 'cancel':
       return state.phase === 'AIM' && state.activeTeam === GUEST_TEAM ? { type: 'cancel' } : null
     case 'flick': {

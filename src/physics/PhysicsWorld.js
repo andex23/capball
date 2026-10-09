@@ -806,6 +806,17 @@ export function getLastBallTeam() {
 
 const PENALTY_RUN_UP = 1.5
 
+// How fast a keeper throws himself sideways on a penalty: about the width of
+// half the goal before he stops
+const KEEPER_DIVE_SPEED = 1.8
+
+/** Throw a keeper across his line: dive -1 / 1 (pitch y), 0 stays put. */
+export function diveKeeper(keeperTeam, dive) {
+  const gk = bodies[`${keeperTeam}_gk`]
+  if (!gk || !dive) return
+  Body.setVelocity(gk, { x: 0, y: dive * KEEPER_DIVE_SPEED })
+}
+
 export function setupPenalty(fouledTeam) {
   const { halfW } = PITCH
   const defTeam = otherTeam(fouledTeam)
@@ -823,10 +834,13 @@ export function setupPenalty(fouledTeam) {
   safePlace(`${fouledTeam}_atk1`, penX + atkGkDir * PENALTY_RUN_UP, 0)
 
   // Both keepers on their own goal lines (they're confined to their boxes anyway)
-  // The keeper picks a side before the kick, like a real one guessing: he
-  // stands a little off-centre, so there's always a corner worth going for
-  const lean = (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 0.4)
-  safePlace(`${defTeam}_gk`, defGkDir * (halfW - GK_RADIUS - 0.02), lean)
+  // The keeper stands in the middle of his line; he dives (or not) as the ball is struck
+  // (right on the line: safePlace keeps a margin off the walls, which would push him out)
+  const keeper = bodies[`${defTeam}_gk`]
+  if (keeper) {
+    Body.setPosition(keeper, { x: defGkDir * (halfW - GK_RADIUS - 0.02), y: 0 })
+    Body.setVelocity(keeper, { x: 0, y: 0 })
+  }
   safePlace(`${fouledTeam}_gk`, atkGkDir * (halfW - 1.2), 0)
 
   // The 7 remaining outfield caps: spread in a line along the halfway line

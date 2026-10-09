@@ -153,7 +153,10 @@ describe('fouls', () => {
 describe('penalty shootout', () => {
   function kick(scored) {
     vi.advanceTimersByTime(TIMING.kickoff)
-    expect(get().phase).toBe(PHASE.SELECT)
+    // Pass-and-play: the keeper's side picks a dive first, then the kicker may shoot
+    expect(get()).toMatchObject({ phase: PHASE.KEEPER_PICK, penaltyKick: true })
+    get().pickKeeperDive(1)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, keeperDive: 1 })
     get().penaltyAttemptResult(scored)
     vi.advanceTimersByTime(TIMING.shootoutResult)
   }
@@ -168,6 +171,20 @@ describe('penalty shootout', () => {
     kick(false) // t2 2-0, team2 has one kick left → can't catch up
     expect(get().phase).toBe(PHASE.MATCH_OVER)
     expect(get().matchResult).toMatchObject({ winner: 'team1', penaltyScore: { team1: 2, team2: 0 } })
+  })
+
+  it('a computer keeper never makes the kicker wait', () => {
+    useMatchStore.setState({ gameMode: 'ai', aiTeam: 'team2' })
+    get().startPenaltyShootout()
+    vi.advanceTimersByTime(TIMING.kickoff)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, keeperDive: 'auto' })
+  })
+
+  it('ignores a dive that is not left, middle or right', () => {
+    get().startPenaltyShootout()
+    vi.advanceTimersByTime(TIMING.kickoff)
+    get().pickKeeperDive(5)
+    expect(get().phase).toBe(PHASE.KEEPER_PICK)
   })
 
   it('does not run the match clock', () => {
@@ -293,9 +310,11 @@ describe('shot clock', () => {
   it('an expired shootout kick counts as a miss', () => {
     get().startPenaltyShootout()
     vi.advanceTimersByTime(TIMING.kickoff)
+    get().pickKeeperDive(0)
     get().tickShotClock(15)
     expect(get()).toMatchObject({ phase: PHASE.MISSED, penaltyKicks: { team1: 1, team2: 0 }, penaltyScores: { team1: 0, team2: 0 } })
     vi.advanceTimersByTime(TIMING.shootoutResult + TIMING.kickoff)
+    get().pickKeeperDive(0)
     expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2', shotClockRemaining: 15 })
   })
 

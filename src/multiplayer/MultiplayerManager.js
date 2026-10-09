@@ -150,6 +150,7 @@ function handleAsHost(msg) {
     case 'pause': store.setPaused(action.paused); break
     case 'select': store.selectCap(action.capId); break
     case 'cancel': store.cancelAim(); break
+    case 'keeperDive': store.pickKeeperDive(action.dive); break
     case 'flick': performFlick(action.capId, action.velocity, GUEST_TEAM); break
     case 'bye': connectionLost('bye'); break
   }
@@ -471,6 +472,7 @@ export function sendFormation(key) { send('formation', { key }) }
 export function sendSelect(capId) { send('select', { capId }) }
 export function sendFlick(capId, velocity) { send('flick', { capId, velocity }) }
 export function sendCancel() { send('cancel', {}) }
+export function sendKeeperDive(dive) { send('keeperDive', { dive }) }
 export function sendPause(paused) { send('pause', { paused }) }
 /** Either side: my ready state. On the full-time screen, `choice` is 'rematch' or 'penalties'. */
 export function sendReady(ready, choice) { send('ready', ready && choice ? { ready, choice } : { ready }) }
