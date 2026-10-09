@@ -133,7 +133,7 @@ export const useMatchStore = create((set, get) => ({
     teamConfig: { ...s.teamConfig, [team]: { ...s.teamConfig[team], ...config } },
   })),
 
-  ballColor: '#c0c0c0',
+  ballColor: '#EFE6D2', // a white carrom coin
   setBallColor: (color) => set({ ballColor: color }),
 
   stadium: 'arena',
