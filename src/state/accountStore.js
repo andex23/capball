@@ -164,7 +164,11 @@ export function initAccount() {
   // Back up right after each match (records and tournament results just changed)
   useMatchStore.subscribe((m, prev) => {
     if (m.screen === SCREEN.MATCH_END && prev.screen !== SCREEN.MATCH_END) {
-      setTimeout(() => useAccountStore.getState().save(), 3000)
+      setTimeout(() => {
+        useAccountStore.getState().save()
+        // and onto the leaderboard (signed in only)
+        import('./boardStore').then((m) => m.postMine()).catch(() => {})
+      }, 3000)
     }
   })
 }

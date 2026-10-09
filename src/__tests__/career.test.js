@@ -20,3 +20,16 @@ describe('career totals', () => {
     expect(c).toMatchObject({ played: 1, local: 1, won: 0, lost: 0, goalsFor: 0 })
   })
 })
+
+describe('weekly numbers for the leaderboard', () => {
+  it('counts this week and starts again next week', async () => {
+    const { weekKey } = await import('../state/savedMatch')
+    expect(weekKey(new Date(2026, 9, 9))).toBe('2026-W41')
+    expect(weekKey(new Date(2027, 0, 1))).toBe('2026-W53')
+    let c = addToCareer(EMPTY_CAREER, res(2, 0), 'team1', {}, new Date(2026, 9, 9))
+    c = addToCareer(c, res(1, 1), 'team1', {}, new Date(2026, 9, 10))
+    expect(c.week).toEqual({ key: '2026-W41', played: 2, won: 1, goals: 3 })
+    c = addToCareer(c, res(3, 0), 'team1', {}, new Date(2026, 9, 13))
+    expect(c.week).toEqual({ key: '2026-W42', played: 1, won: 1, goals: 3 })
+  })
+})
