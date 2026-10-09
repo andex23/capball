@@ -4,7 +4,7 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { newCareer, recordCareerResult, finishSeason, sanitizeCareer, seasonOver } from '../game/career'
+import { newCareer, recordCareerResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer } from '../game/career'
 import { allFixtures } from '../game/tournament'
 import { useAccountStore } from './accountStore'
 
@@ -66,6 +66,18 @@ export const useCareerStore = create((set, get) => ({
     const next = { ...career, club, league: { ...career.league, teams } }
     save(next)
     set({ career: next })
+  },
+
+  /** Sign a player from the open transfer window into `role`. True if the deal went through. */
+  buy(playerId, role) {
+    const { career } = get()
+    if (!career) return false
+    const next = buyPlayer(career, playerId, role)
+    if (!next) return false
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+    return true
   },
 
   retire() {

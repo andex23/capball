@@ -347,6 +347,8 @@ function CameraRefCapture() {
   useEffect(() => {
     setCameraRefs({ camera, canvas: gl.domElement })
     resetCameraPreset()
+    // Dev only: lets the colour check script find caps on screen
+    if (import.meta.env.DEV) window.__capballCam = camera
   }, [camera, gl])
   // Re-fit when the screen size/orientation changes
   useEffect(() => {

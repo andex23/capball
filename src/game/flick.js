@@ -1,5 +1,6 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
 import { PHYSICS, PITCH } from '../data/TeamData'
+import { flickScale } from './squad'
 import { applyFlick, getBody, diveKeeper, radiusOf } from '../physics/PhysicsWorld'
 import { strikeDirection, crossingY, cpuDive } from './penalty'
 import { playDive } from '../audio/SoundManager'
@@ -30,13 +31,23 @@ export function flickError(state, { capId, velocity, byTeam = null, ball = null 
   return null
 }
 
+/** How hard this cap flicks compared with an average player: 1 unless the team has ratings. */
+export function flickScaleFor(state, capId) {
+  const i = capId.indexOf('_')
+  const team = capId.slice(0, i)
+  const role = capId.slice(i + 1)
+  return flickScale(state.teamConfig?.[team]?.ratings?.[role])
+}
+
 /** Validate and apply a flick. Returns null on success or the reason it was refused. */
 export function performFlick(capId, velocity, byTeam = null) {
   const state = useMatchStore.getState()
   const err = flickError(state, { capId, velocity, byTeam, ball: getBody('ball')?.position || null })
   if (err) return err
   if (!getBody(capId)) return 'no-body'
-  applyFlick(capId, velocity) // clamps to max power
+  // A better player flicks harder (career squads); scale the power and its cap together
+  const scale = flickScaleFor(state, capId)
+  applyFlick(capId, { x: velocity.x * scale, y: velocity.y * scale }, PHYSICS.maxFlickVelocity * scale) // clamps to max power
   if (state.penaltyKick) keeperDives(state, capId, velocity)
   state.commitFlick(capId)
   return null

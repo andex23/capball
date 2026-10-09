@@ -13,7 +13,7 @@ import CameraStick from './CameraStick'
 import Modal from './Modal'
 import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
-import { displayColor } from './color'
+import { displayColor, inkOn } from './color'
 import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
 import KeeperPick, { PenaltyTip } from './KeeperPick'
 import ChallengeHud from './ChallengeHud'
@@ -42,7 +42,7 @@ function ScoreBug() {
   const popping = phase === PHASE.GOAL
 
   const round = Math.min(kicks.team1, kicks.team2) + 1
-  const team = (key) => ({ '--team': displayColor(teamConfig[key].primary) })
+  const team = (key) => ({ '--team': displayColor(teamConfig[key].primary), '--team-ink': inkOn(teamConfig[key].primary), '--team-shadow': inkOn(teamConfig[key].primary) === '#ffffff' ? undefined : 'none' })
 
   return (
     <div className="scorebug" role="group" aria-label="Scoreboard">

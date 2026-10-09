@@ -104,11 +104,15 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   const body = createBodyTexture(color, edgeColor, pattern, size).image
   ctx.drawImage(body, 0, 0)
   // Printed ring near the rim, like the lettering band on a real crown cap
-  ctx.strokeStyle = edgeColor === color ? 'rgba(255,255,255,0.55)' : edgeColor
+  // Same as the kit editor's preview: the pattern colour (white on a one-colour cap), slightly see-through
+  ctx.save()
+  ctx.globalAlpha = 0.85
+  ctx.strokeStyle = edgeColor === color ? '#ffffff' : edgeColor
   ctx.lineWidth = size * 0.025
   ctx.beginPath()
   ctx.arc(size / 2, size / 2, size * 0.43, 0, Math.PI * 2)
   ctx.stroke()
+  ctx.restore()
   // The team's own text, arched over the top inside the printed ring
   const text = (capText || '').trim().toUpperCase()
   if (text) {
@@ -147,9 +151,10 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   ctx.restore()
   // A soft sheen across the top
   const sheen = ctx.createRadialGradient(size * 0.36, size * 0.3, 0, size / 2, size / 2, size / 2)
-  sheen.addColorStop(0, 'rgba(255,255,255,0.22)')
-  sheen.addColorStop(0.45, 'rgba(255,255,255,0)')
-  sheen.addColorStop(1, 'rgba(0,0,0,0.18)')
+  sheen.addColorStop(0, 'rgba(255,255,255,0.14)')
+  sheen.addColorStop(0.4, 'rgba(255,255,255,0)')
+  sheen.addColorStop(0.7, 'rgba(0,0,0,0)')
+  sheen.addColorStop(1, 'rgba(0,0,0,0.16)')
   ctx.fillStyle = sheen
   ctx.fillRect(0, 0, size, size)
   const t = new THREE.CanvasTexture(c)
@@ -158,13 +163,18 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   return t
 }
 
-// Finish presets
+// Finish presets. The printed top always shows the exact colours picked; the
+// finish only changes the shine laid over it (shine/shineMetal) and the skirt.
 const FINISH_MAP = {
-  matte:  { metalness: 0.2, roughness: 0.7, emissiveIntensity: 0.03, envMapIntensity: 0.5 },
-  satin:  { metalness: 0.35, roughness: 0.45, emissiveIntensity: 0.05, envMapIntensity: 0.7 },
-  gloss:  { metalness: 0.5, roughness: 0.18, emissiveIntensity: 0.07, envMapIntensity: 0.9 },
-  chrome: { metalness: 0.92, roughness: 0.05, emissiveIntensity: 0.08, envMapIntensity: 1.3 },
+  matte:  { metalness: 0.04, roughness: 0.6, envMapIntensity: 0.5, shine: 0.08, shineMetal: 0 },
+  satin:  { metalness: 0.08, roughness: 0.4, envMapIntensity: 0.7, shine: 0.12, shineMetal: 0 },
+  gloss:  { metalness: 0.12, roughness: 0.2, envMapIntensity: 0.9, shine: 0.2, shineMetal: 0 },
+  chrome: { metalness: 0.92, roughness: 0.12, envMapIntensity: 1.3, shine: 0.45, shineMetal: 0.6 },
 }
+// Skirt and shoulder: a base of their true colour plus some light for shape
+const SKIRT_BASE = 0.6
+const SKIRT_LIT_K = 0.22
+const SKIRT_LIT = new THREE.Color(SKIRT_LIT_K, SKIRT_LIT_K, SKIRT_LIT_K)
 
 // 0 (black) .. 1 (white): how light a #rrggbb colour looks
 function luminance(hex) {
@@ -203,7 +213,7 @@ function createDomeTexture(color, edgeColor, badge, number, size = 256, { bare =
   ctx.fill()
 
   // Badge
-  const badgeColor = edgeColor === color ? '#FFFFFFBB' : `${edgeColor}DD`
+  const badgeColor = edgeColor === color ? '#FFFFFF' : edgeColor
   const bs = number != null ? r * 0.26 : r * 0.38
   const badgeY = number != null ? cy - r * 0.42 : cy
   ctx.fillStyle = badgeColor
@@ -325,7 +335,7 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   switch (pattern) {
     case 'stripe':
       ctx.fillStyle = boldColor
-      ctx.fillRect(cx - r * 0.1, 0, r * 0.2, size)
+      ctx.fillRect(cx - r * 0.12, 0, r * 0.24, size)
       break
     case 'split':
       ctx.fillStyle = edgeColor
@@ -333,15 +343,15 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
       break
     case 'ring':
       ctx.strokeStyle = boldColor
-      ctx.lineWidth = r * 0.07
+      ctx.lineWidth = r * 0.1
       ctx.beginPath()
-      ctx.arc(cx, cy, r * 0.6, 0, Math.PI * 2)
+      ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2)
       ctx.stroke()
       break
     case 'cross':
       ctx.fillStyle = patColor
-      ctx.fillRect(cx - r * 0.06, cy - r * 0.55, r * 0.12, r * 1.1)
-      ctx.fillRect(cx - r * 0.55, cy - r * 0.06, r * 1.1, r * 0.12)
+      ctx.fillRect(cx - r * 0.08, cy - r * 0.7, r * 0.16, r * 1.4)
+      ctx.fillRect(cx - r * 0.7, cy - r * 0.08, r * 1.4, r * 0.16)
       break
     case 'wave':
       ctx.fillStyle = `${edgeColor}CC`
@@ -411,37 +421,61 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
   })
 
   const halfH = CAP_H / 2
-  // Painted tin: a little metal always shows through, more on gloss and chrome finishes
-  const metal = Math.max(0.35, fp.metalness)
+  // Paint on tin: only the chrome finish looks like bare metal
+  const metal = fp.metalness
   const rough = Math.min(0.5, fp.roughness)
+  const shoulderLit = useMemo(() => new THREE.Color(color).multiplyScalar(SKIRT_LIT_K), [color])
 
   return (
     <group ref={ref} position={[0, halfH, 0]}>
-      {/* Crimped skirt */}
+      {/* Crimped skirt: lit so the cap looks solid, with a base of its true colour
+          so the venue's lights don't grey or tint the kit */}
       <mesh geometry={skirt} castShadow receiveShadow>
-        <meshStandardMaterial map={skirtTexture} metalness={metal} roughness={rough} envMapIntensity={fp.envMapIntensity} side={THREE.DoubleSide} />
+        <meshStandardMaterial
+          map={skirtTexture}
+          color={SKIRT_LIT}
+          emissive="#ffffff"
+          emissiveMap={skirtTexture}
+          emissiveIntensity={SKIRT_BASE}
+          metalness={metal}
+          roughness={rough}
+          envMapIntensity={fp.envMapIntensity}
+          side={THREE.DoubleSide}
+          toneMapped={false}
+          fog={false}
+        />
       </mesh>
 
       {/* Rounded shoulder where the top meets the skirt */}
       <mesh position={[0, halfH - 0.02, 0]} rotation-x={Math.PI / 2}>
         <torusGeometry args={[topR, 0.022, 8, 64]} />
-        <meshStandardMaterial color={color} metalness={metal} roughness={rough} />
+        <meshStandardMaterial color={shoulderLit} emissive={color} emissiveIntensity={SKIRT_BASE} metalness={metal} roughness={rough} toneMapped={false} fog={false} />
       </mesh>
 
       {/* Printed top, very slightly domed */}
       <mesh position={[0, halfH - 0.03, 0]} scale={[1, 0.08, 1]}>
         <sphereGeometry args={[topR, 48, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={color} metalness={metal} roughness={rough} />
+        <meshBasicMaterial color={color} toneMapped={false} fog={false} />
       </mesh>
+      {/* The print shows exactly the colours picked, whatever the venue's lighting */}
       <mesh position={[0, halfH - 0.03 + topR * 0.08 + 0.002, 0]} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[topR * 0.985, 64]} />
+        <meshBasicMaterial map={topTexture} toneMapped={false} fog={false} />
+      </mesh>
+      {/* The finish: only the shine of the light on it, added over the print */}
+      <mesh position={[0, halfH - 0.03 + topR * 0.08 + 0.004, 0]} rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[topR * 0.985, 64]} />
         <meshStandardMaterial
-          map={topTexture}
-          metalness={metal * 0.8}
-          roughness={rough}
-          emissive={color}
-          emissiveIntensity={fp.emissiveIntensity * 0.5}
+          color="#000000"
+          metalness={fp.shineMetal}
+          roughness={fp.roughness}
           envMapIntensity={fp.envMapIntensity}
+          transparent
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          opacity={fp.shine}
+          toneMapped={false}
+          fog={false}
         />
       </mesh>
 

@@ -30,3 +30,8 @@ export function luminance(hex) {
 export function displayColor(hex) {
   return luminance(hex) < 0.03 ? lightenHex(hex, 0.35) : hex
 }
+
+/** Readable text colour on top of a team colour: dark ink on light kits, white on the rest. */
+export function inkOn(hex) {
+  return luminance(hex) > 0.45 ? '#0b0830' : '#ffffff'
+}
