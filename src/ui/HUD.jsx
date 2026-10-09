@@ -14,6 +14,7 @@ import Modal from './Modal'
 import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
 import { displayColor, inkOn } from './color'
+import { canFullscreen, toggleFullscreen, typing } from './fullscreen'
 import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
 import KeeperPick, { PenaltyTip } from './KeeperPick'
 import ChallengeHud from './ChallengeHud'
@@ -313,7 +314,24 @@ export default function HUD() {
     clearTimeout(camTimer.current)
     camTimer.current = setTimeout(() => setCamLabel(null), 1200)
   }
+  const cycleCameraRef = useRef(cycleCamera)
+  cycleCameraRef.current = cycleCamera
   useEffect(() => () => clearTimeout(camTimer.current), [])
+
+  // C changes the camera (desktop)
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e)) cycleCameraRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  const [isFull, setIsFull] = useState(() => typeof document !== 'undefined' && !!document.fullscreenElement)
+  useEffect(() => {
+    const on = () => setIsFull(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', on)
+    return () => document.removeEventListener('fullscreenchange', on)
+  }, [])
 
   useEffect(() => { if (timeUp) playShotClockBuzzer() }, [timeUp])
 
@@ -339,7 +357,12 @@ export default function HUD() {
       <div className="hud-corner br">
         {camLabel && <span className="chip" style={{ cursor: 'default', background: 'var(--surface)' }}>{camLabel}</span>}
         <CameraStick />
-        <button className="icon-btn" onClick={cycleCamera} aria-label="Change camera view"><Icon name="camera" size={20} /></button>
+        {canFullscreen() && (
+          <button className="icon-btn desktop-only" onClick={() => { playButtonSelect(); toggleFullscreen() }} aria-label={isFull ? 'Leave full screen' : 'Full screen'} title={isFull ? 'Leave full screen (F)' : 'Full screen (F)'}>
+            <Icon name="fullscreen" size={20} />
+          </button>
+        )}
+        <button className="icon-btn" onClick={cycleCamera} aria-label="Change camera view" title="Change camera (C)"><Icon name="camera" size={20} /></button>
       </div>
 
       {notice && !paused && <div className="hud-notice" role="status">{notice}</div>}
@@ -351,7 +374,7 @@ export default function HUD() {
       {!paused && <PenaltyTip />}
 
       <div className="hint">
-        <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn the view · Scroll to zoom · P to pause</span>
+        <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn · Scroll to zoom · C camera · F full screen · P pause</span>
         <span className="hint-touch">{aimHint} from a cap to aim · Drag the pitch or the stick to turn the view · Pinch to zoom</span>
       </div>
 
