@@ -109,31 +109,83 @@ function TieRow({ team, goals, pens, won, lost, bye }) {
   )
 }
 
+// Bracket layout (px): every tie is a card of TIE_H; each round's ties sit
+// centred between the two ties that feed them, joined by elbow lines.
+const TIE_W = 172
+const TIE_H = 62
+const ROW_GAP = 18
+const COL_GAP = 46
+const HEAD_H = 28
+const TROPHY_W = 120
+
 function Bracket({ t, nextId, actionFor, onAct }) {
   const count = t.rounds.length
+  const first = t.rounds[0].length
+  const slot = TIE_H + ROW_GAP
+  const height = HEAD_H + first * slot
+  const width = count * (TIE_W + COL_GAP) + TROPHY_W
+  const centreY = (r, m) => HEAD_H + (m + 0.5) * slot * 2 ** r
+  const left = (r) => r * (TIE_W + COL_GAP)
+  const champ = teamById(t, t.championId)
+
+  // Connector lines: from each tie's right edge to the tie it feeds
+  const lines = []
+  t.rounds.forEach((round, r) => {
+    if (r + 1 >= count) return
+    round.forEach((tie, m) => {
+      const x1 = left(r) + TIE_W
+      const y1 = centreY(r, m)
+      const x2 = left(r + 1)
+      const y2 = centreY(r + 1, Math.floor(m / 2))
+      const xm = x1 + COL_GAP / 2
+      const next = t.rounds[r + 1][Math.floor(m / 2)]
+      const through = !!tie.winner && (next.home === tie.winner || next.away === tie.winner)
+      lines.push({ d: `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`, through, key: tie.id })
+    })
+  })
+  // The final into the trophy
+  const finalTie = t.rounds[count - 1][0]
+  const fx = left(count - 1) + TIE_W
+  const fy = centreY(count - 1, 0)
+  lines.push({ d: `M ${fx} ${fy} H ${fx + COL_GAP}`, through: !!finalTie?.winner, key: 'final' })
+
   return (
-    <div className="t-bracket" style={{ '--rounds': count }}>
-      {t.rounds.map((round, r) => (
-        <div className="t-round" key={r}>
-          <div className="eyebrow t-round-name">{roundName(r, count)}</div>
-          <div className="t-round-ties">
-            {round.map((tie) => {
-              const home = teamById(t, tie.home)
-              const away = teamById(t, tie.away)
-              const bye = r === 0 && tie.home && !tie.away
-              const res = tie.result
-              const action = actionFor(tie)
-              return (
-                <div className="t-tie" key={tie.id} data-next={tie.id === nextId ? 'true' : undefined} data-bye={bye ? 'true' : undefined}>
-                  <TieRow team={home} goals={res?.home} pens={res?.pens?.home} won={tie.winner && tie.winner === tie.home && !bye} lost={tie.winner && tie.winner !== tie.home} />
-                  <TieRow team={away} goals={res?.away} pens={res?.pens?.away} won={tie.winner && tie.winner === tie.away} lost={tie.winner && tie.winner !== tie.away && !!away} bye={bye} />
-                  <ActButton fixture={{ ...tie, homeTeam: home, awayTeam: away }} action={action} onAct={onAct} className="t-tie-play" />
-                </div>
-              )
-            })}
-          </div>
+    <div className="tb-scroll">
+      <div className="tb" style={{ width, height }}>
+        <svg className="tb-lines" width={width} height={height} aria-hidden="true">
+          {lines.map((l) => <path key={l.key} d={l.d} data-through={l.through ? 'true' : undefined} />)}
+        </svg>
+        {t.rounds.map((round, r) => (
+          <div key={`h${r}`} className="eyebrow tb-head" style={{ left: left(r), width: TIE_W }}>{roundName(r, count)}</div>
+        ))}
+        {t.rounds.map((round, r) => round.map((tie, m) => {
+          const home = teamById(t, tie.home)
+          const away = teamById(t, tie.away)
+          const bye = r === 0 && tie.home && !tie.away
+          const res = tie.result
+          const action = actionFor(tie)
+          return (
+            <div
+              className="t-tie tb-tie"
+              key={tie.id}
+              style={{ left: left(r), top: centreY(r, m) - TIE_H / 2, width: TIE_W, height: TIE_H }}
+              data-next={tie.id === nextId ? 'true' : undefined}
+              data-bye={bye ? 'true' : undefined}
+            >
+              <TieRow team={home} goals={res?.home} pens={res?.pens?.home} won={tie.winner && tie.winner === tie.home && !bye} lost={tie.winner && tie.winner !== tie.home} />
+              <TieRow team={away} goals={res?.away} pens={res?.pens?.away} won={tie.winner && tie.winner === tie.away} lost={tie.winner && tie.winner !== tie.away && !!away} bye={bye} />
+              <ActButton fixture={{ ...tie, homeTeam: home, awayTeam: away }} action={action} onAct={onAct} className="t-tie-play tb-play" />
+            </div>
+          )
+        }))}
+        {/* The trophy at the end of the tree */}
+        <div className="tb-trophy" style={{ left: left(count - 1) + TIE_W + COL_GAP, top: fy - 52, width: TROPHY_W - 12 }} data-won={champ ? 'true' : undefined}>
+          <span className="tb-cup"><Icon name="trophy" size={34} /></span>
+          {champ
+            ? <TeamTag team={champ} size={20} strong />
+            : <span className="eyebrow">Champion</span>}
         </div>
-      ))}
+      </div>
     </div>
   )
 }
