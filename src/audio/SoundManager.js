@@ -183,6 +183,73 @@ function knock(modes, { vol = 0.3, click = null, pitch = 1, delay = 0 } = {}) {
 // How hard something hit (0..1) → how loud the knock is
 const hitVol = (base, intensity = 0.6) => base * (0.25 + 0.75 * Math.min(1, Math.max(0, intensity)))
 
+
+/* ── Unlocking sound on phones ──
+   iPhones mute Web Audio when the ring/silent switch is on silent, and
+   suspend it after calls or app switches. Marking the page as media playback
+   and resuming on every touch keeps the game's sounds on. */
+let unlocked = false
+export function initAudioUnlock() {
+  if (unlocked || typeof window === 'undefined') return
+  unlocked = true
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback' } catch { /* not supported */ }
+  const wake = () => {
+    const ctx = getCtx()
+    if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {})
+  }
+  for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, wake, { passive: true })
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake() })
+}
+
+/* ── Rolling ──
+   A soft continuous rumble while things slide across the board: the ball's
+   roll (brighter) and the caps' slide (lower), following their speeds. */
+let roll = null
+function startRoll(ctx) {
+  const src = ctx.createBufferSource()
+  src.buffer = noiseBuffer(ctx)
+  src.loop = true
+  const ballF = ctx.createBiquadFilter()
+  ballF.type = 'bandpass'
+  ballF.frequency.value = 900
+  ballF.Q.value = 0.8
+  const capF = ctx.createBiquadFilter()
+  capF.type = 'lowpass'
+  capF.frequency.value = 380
+  const ballG = ctx.createGain()
+  const capG = ctx.createGain()
+  ballG.gain.value = 0
+  capG.gain.value = 0
+  src.connect(ballF); ballF.connect(ballG); ballG.connect(output(ctx))
+  src.connect(capF); capF.connect(capG); capG.connect(output(ctx))
+  src.start()
+  roll = { src, ballG, capG, ballF }
+}
+
+/**
+ * Set the rolling sound from how fast the ball and the fastest cap are going
+ * (0..1 of a full-power flick). 0, 0 fades it out.
+ */
+export function setRolling(ball, cap) {
+  const v = getVolume()
+  const ctx = audioCtx
+  if (!ctx || (!roll && ball < 0.01 && cap < 0.01)) return
+  if (!roll) { if (v <= 0) return; startRoll(ctx) }
+  const t = ctx.currentTime
+  const b = Math.min(1, Math.max(0, ball))
+  const c = Math.min(1, Math.max(0, cap))
+  roll.ballG.gain.setTargetAtTime(v * 0.22 * Math.sqrt(b), t, 0.05)
+  roll.capG.gain.setTargetAtTime(v * 0.3 * Math.sqrt(c), t, 0.05)
+  roll.ballF.frequency.setTargetAtTime(600 + 900 * b, t, 0.08)
+}
+
+export function stopRolling() {
+  if (!roll || !audioCtx) return
+  const t = audioCtx.currentTime
+  roll.ballG.gain.setTargetAtTime(0, t, 0.05)
+  roll.capG.gain.setTargetAtTime(0, t, 0.05)
+}
+
 // --- Exported sound functions ---
 
 /** Start screen: a soft two-note chime. */
@@ -229,7 +296,7 @@ export function playFlick(power = 0.7) {
     { f: 2100, d: 0.012, a: 0.5 },
     { f: 3400, d: 0.008, a: 0.3 },
     { f: 210, d: 0.035, a: 0.7, drop: 0.7 },
-  ], { vol: hitVol(0.5, power), click: { f: 4200, q: 0.7, d: 0.018, a: 1 } })
+  ], { vol: hitVol(0.85, power), click: { f: 4200, q: 0.7, d: 0.018, a: 1 } })
 }
 
 /** Cap on ball: a bright plastic clack, louder the harder the hit. */
@@ -239,7 +306,7 @@ export function playBallHit(intensity = 0.6) {
     { f: 2950, d: 0.016, a: 0.45 },
     { f: 4600, d: 0.009, a: 0.25 },
     { f: 780, d: 0.03, a: 0.35 },
-  ], { vol: hitVol(0.55, intensity), click: { f: 3800, q: 1, d: 0.01, a: 0.9 } })
+  ], { vol: hitVol(0.95, intensity), click: { f: 3800, q: 1, d: 0.01, a: 0.9 } })
 }
 
 /** Cap on cap: the same plastic, a bit lower and duller. */
@@ -248,7 +315,7 @@ export function playCapHit(intensity = 0.6) {
     { f: 1250, d: 0.02, a: 0.7 },
     { f: 2150, d: 0.014, a: 0.4 },
     { f: 560, d: 0.03, a: 0.4 },
-  ], { vol: hitVol(0.45, intensity), click: { f: 2600, q: 1, d: 0.01, a: 0.7 } })
+  ], { vol: hitVol(0.8, intensity), click: { f: 2600, q: 1, d: 0.01, a: 0.7 } })
 }
 
 /** Into the wooden board edge: a woody knock. */
@@ -258,7 +325,7 @@ export function playWallHit(intensity = 0.6) {
     { f: 420, d: 0.045, a: 0.5 },
     { f: 730, d: 0.03, a: 0.3 },
     { f: 1450, d: 0.015, a: 0.15 },
-  ], { vol: hitVol(0.5, intensity), click: { f: 1100, type: 'lowpass', q: 0.7, d: 0.02, a: 0.8 } })
+  ], { vol: hitVol(0.85, intensity), click: { f: 1100, type: 'lowpass', q: 0.7, d: 0.02, a: 0.8 } })
 }
 
 /** Goal: the whistle, then a warm rising chord (the crowd roars on top). */

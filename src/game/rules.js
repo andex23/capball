@@ -105,8 +105,18 @@ export function cornerRestart(ex, lastTouchTeam, team1Side = 'left') {
     : { kind: 'goalKick', team: defending }
 }
 
-// How far outside his own penalty area the ball can be and the keeper still come for it
-export const KEEPER_REACH = 3
+// How far outside his own penalty area the ball can be and the keeper still come for it.
+// The keeper can't leave his box, so this is just the ball's own radius and a
+// whisker: any further out and he could never actually touch it.
+export const KEEPER_REACH = 0.7
+
+/** The area a keeper's centre is confined to (his penalty box, less his radius). */
+export function keeperZone(homeDir, r) {
+  const { halfW, penAreaW, penAreaH } = PITCH
+  return homeDir === -1
+    ? { minX: -halfW + r, maxX: -halfW + penAreaW - r, minY: -penAreaH / 2 + r, maxY: penAreaH / 2 - r }
+    : { minX: halfW - penAreaW + r, maxX: halfW - r, minY: -penAreaH / 2 + r, maxY: penAreaH / 2 - r }
+}
 
 /**
  * A goalkeeper may only be flicked while the ball is in or near his own

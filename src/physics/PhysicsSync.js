@@ -8,7 +8,7 @@ import { ballInCorner, cornerRestart } from '../game/rules'
 import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 import { PHYSICS } from '../data/TeamData'
-import { playGoal, playTurnChange, playWhistle } from '../audio/SoundManager'
+import { playGoal, playTurnChange, playWhistle, setRolling, stopRolling } from '../audio/SoundManager'
 import { useGoalReplay } from '../scene/useGoalReplay'
 
 // A turn never waits longer than this for everything to stop rolling.
@@ -22,6 +22,9 @@ const MAX_CLOCK_STEP_S = 0.1
 const MAX_FRAME_MS = 50
 // Further than this between two sub-steps is a teleport (kick-off, set piece), not motion
 const SNAP_DIST = 1.5
+// On-screen speeds (world units a second) that count as "flat out" for the rolling sound
+const ROLL_FULL_BALL = 60
+const ROLL_FULL_CAP = 45
 
 export function usePhysicsSync(meshRefs) {
   const settledMs = useRef(0)
@@ -34,6 +37,7 @@ export function usePhysicsSync(meshRefs) {
   const prevPos = useRef({})
   const interp = useRef(0)
   const replayFrame = useGoalReplay(meshRefs)
+  const rolling = useRef(false)
 
   useFrame((_, delta) => {
     const store = useMatchStore.getState()
@@ -87,9 +91,13 @@ export function usePhysicsSync(meshRefs) {
     // frames; draw each body the matching fraction of the way between its
     // last two sub-steps so motion is smooth instead of stepping.
     const a = authority ? interp.current : 1
+    let ballSpeed = 0
+    let capSpeed = 0
     for (const [id, body] of Object.entries(bodies)) {
       const mesh = meshRefs.current[id]
       if (!mesh) continue
+      const ox = mesh.position.x
+      const oz = mesh.position.z
       let x = body.position.x
       let y = body.position.y
       const p = authority && prevPos.current[id]
@@ -99,6 +107,21 @@ export function usePhysicsSync(meshRefs) {
       }
       mesh.position.x += (x - mesh.position.x) * blend
       mesh.position.z += (y - mesh.position.z) * blend
+      // How fast it moved on screen this frame (teleports for set pieces don't count)
+      const moved = Math.hypot(mesh.position.x - ox, mesh.position.z - oz)
+      if (delta > 0 && moved < SNAP_DIST) {
+        const v = moved / delta
+        if (id === 'ball') ballSpeed = v
+        else if (v > capSpeed) capSpeed = v
+      }
+    }
+    // The rumble of things sliding across the board
+    if (store.phase === PHASE.RESOLVE && !store.paused) {
+      setRolling(ballSpeed / ROLL_FULL_BALL, capSpeed / ROLL_FULL_CAP)
+      rolling.current = true
+    } else if (rolling.current) {
+      stopRolling()
+      rolling.current = false
     }
     // Record this frame for goal replays — or, during one, redraw the past
     replayFrame(delta)

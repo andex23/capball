@@ -157,7 +157,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
         const gk = meshRefs.current[`${state.activeTeam}_gk`]
         const r = GK_RADIUS + Math.max(0.3, reach - GK_RADIUS)
         if (gk && Math.hypot(worldPos.x - gk.position.x, worldPos.z - gk.position.z) < r) {
-          window.dispatchEvent(new CustomEvent('capball:notice', { detail: 'Your keeper only plays when the ball is near his box' }))
+          window.dispatchEvent(new CustomEvent('capball:notice', { detail: 'Your keeper can only play the ball inside his box' }))
         }
         return
       }
