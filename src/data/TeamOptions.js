@@ -115,14 +115,66 @@ export const isUnlocked = (design, progress) => {
 /** Placeholder team names that shouldn't be printed on caps. */
 const DEFAULT_NAMES = /^(team\s*[12]|defenders|my team|my club)$/i
 
+/** What goes round the top of the caps: each player's name, the team name, or nothing. */
+export const CAP_NAME_MODES = ['player', 'team', 'none']
+export const PLAYER_NAME_MAX = 12
+
+// Made-up surnames for squads nobody has named yet
+const SURNAMES = [
+  'Adeyemi', 'Okafor', 'Mensah', 'Silva', 'Costa', 'Rossi', 'Moreno', 'Novak', 'Haddad', 'Tanaka', 'Diallo', 'Bakare',
+  'Eze', 'Obi', 'Nwosu', 'Ferreira', 'Santos', 'Lopez', 'Dubois', 'Weber', 'Jansen', 'Larsen', 'Byrne', 'Walsh',
+  'Reid', 'Hughes', 'Price', 'Kariuki', 'Owusu', 'Pereira', 'Fizzwell', 'Corker', 'Crimp', 'Bottley', 'Capper', 'Ringer',
+  'Spinner', 'Tapps', 'Rimmer', 'Seltzer', 'Pops', 'Glassby', 'Brewer', 'Shaker', 'Flick', 'Twist', 'Bubbles', 'Clinks',
+]
+
+function seeded(seed) {
+  let h = 2166136261
+  for (const ch of String(seed)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619)
+  let a = h >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let r = Math.imul(a ^ (a >>> 15), 1 | a)
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** Six different made-up surnames, the same every time for the same seed. */
+export function dummyNames(seed = 'capball') {
+  const rng = seeded(`names:${seed}`)
+  const pool = [...SURNAMES]
+  const out = {}
+  for (const role of CAP_ROLES) out[role] = pool.splice(Math.floor(rng() * pool.length), 1)[0]
+  return out
+}
+
+/** Clean up a typed player name (letters, spaces, dots, apostrophes and hyphens). */
+export function sanitizePlayerName(v) {
+  return typeof v === 'string' ? v.replace(/[^\p{L}\p{N} .'-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, PLAYER_NAME_MAX) : ''
+}
+
+/** A team's six player names: its own where set, made-up ones for the rest. */
+export function playerNames(config) {
+  const made = dummyNames(config?.name || 'capball')
+  const own = config?.players && typeof config.players === 'object' ? config.players : {}
+  const out = {}
+  for (const role of CAP_ROLES) out[role] = sanitizePlayerName(own[role]) || made[role]
+  return out
+}
+
+/** How the caps are labelled: player names unless the team chose otherwise. */
+export const capNameMode = (config) => (CAP_NAME_MODES.includes(config?.capNames) ? config.capNames : 'player')
+
 /**
- * What's printed round the top of a team's caps: their own cap text, or else
- * the team name (not the placeholder "Team 1" / "Team 2").
+ * What's printed round the top of one cap: the player's name (default), or
+ * the team's own cap text / team name, or nothing.
  */
-export function capLabel(config) {
+export function capLabel(config, role = 'atk1') {
+  const mode = capNameMode(config)
+  if (mode === 'none') return ''
+  if (mode === 'player') return playerNames(config)[role].toUpperCase()
   const own = typeof config?.capText === 'string' ? config.capText.trim() : ''
   if (own) return own
-  if (config?.showName === false) return ''
   const name = typeof config?.name === 'string' ? config.name.trim() : ''
   if (!name || DEFAULT_NAMES.test(name)) return ''
   return name.slice(0, CAP_TEXT_MAX)

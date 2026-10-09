@@ -151,6 +151,9 @@ export const useMatchStore = create((set, get) => ({
 
   stadium: 'arena',
   setStadium: (id) => set({ stadium: id }),
+  // 'table': lines chalked on the table itself (default) · 'grass': a green pitch
+  pitchStyle: 'table',
+  setPitchStyle: (v) => set({ pitchStyle: v === 'grass' ? 'grass' : 'table' }),
 
   // Side team1 starts on (chosen in setup) vs. the side it's on right now
   // (flips at half time).
@@ -227,6 +230,8 @@ export const useMatchStore = create((set, get) => ({
       screen: SCREEN.PLAYING,
       matchKey: s.matchKey + 1,
       score: { team1: 0, team2: 0 },
+      goalLog: [],
+      lastGoalCap: null,
       stats: emptyStats(),
       team1Side: s.chosenTeam1Side,
       activeTeam: s.firstHalfKicker,
@@ -319,6 +324,8 @@ export const useMatchStore = create((set, get) => ({
   },
 
   lastGoalOwn: false,
+  lastGoalCap: null, // the cap that scored the last goal (its flick put the ball in)
+  goalLog: [],       // this match's goals: { team, cap, own, shootout }
   matchResult: null,
   score: { team1: 0, team2: 0 },
   lastScorer: null,
@@ -374,6 +381,8 @@ export const useMatchStore = create((set, get) => ({
       gameMode: 'local',
       penaltyShootout: false,
       score: { team1: 0, team2: 0 },
+      goalLog: [],
+      lastGoalCap: null,
       stats: emptyStats(),
       team1Side: 'left',
       activeTeam: 'team1',
@@ -422,12 +431,15 @@ export const useMatchStore = create((set, get) => ({
     }
     const concedingTeam = otherTeam(scoringTeam)
     get().bumpStat(scoringTeam, 'goals')
+    const cap = get().lastFlickedCapId
     set({
       ...clearTurn,
       score: { ...score, [scoringTeam]: score[scoringTeam] + 1 },
       phase: PHASE.GOAL,
       lastScorer: scoringTeam,
       lastGoalOwn: !!ownGoal,
+      lastGoalCap: cap,
+      goalLog: [...(get().goalLog || []), { team: scoringTeam, cap, own: !!ownGoal, shootout: !!get().penaltyShootout }],
       lastConceded: concedingTeam,
     })
     // First to N: that goal wins it
@@ -496,7 +508,7 @@ export const useMatchStore = create((set, get) => ({
     set({
       ...clearTurn,
       phase: PHASE.FOUL,
-      foulData: { foulSpot, fouledTeam, inPenaltyBox },
+      foulData: { foulSpot, fouledTeam, inPenaltyBox, byCap: get().lastFlickedCapId },
       kickoffGuard: false,
     })
     later(() => {
@@ -544,12 +556,16 @@ export const useMatchStore = create((set, get) => ({
     const { activeTeam, penaltyKicks, penaltyScores } = get()
     const kicks = { ...penaltyKicks, [activeTeam]: penaltyKicks[activeTeam] + 1 }
     const goals = { ...penaltyScores, [activeTeam]: penaltyScores[activeTeam] + (scored ? 1 : 0) }
+    const kicker = get().lastFlickedCapId
     set({
       ...clearTurn,
       penaltyKicks: kicks,
       penaltyScores: goals,
       phase: scored ? PHASE.GOAL : PHASE.MISSED,
       lastScorer: scored ? activeTeam : null,
+      lastGoalOwn: false,
+      lastGoalCap: kicker,
+      lastKicker: kicker,
     })
     later(() => {
       const status = shootoutStatus(kicks, goals)

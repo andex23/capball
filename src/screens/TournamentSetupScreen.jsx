@@ -87,7 +87,7 @@ function summary(format, legs, teams, online) {
 }
 
 /** Edit a team: optional name, kit, and squad (numbers, name on caps). */
-export function KitEditor({ team, onUpdate, onClose, withName = false }) {
+export function KitEditor({ team, onUpdate, onClose, withName = false, squadNames = null }) {
   return (
     <Modal
       title="Edit team"
@@ -138,7 +138,7 @@ export function KitEditor({ team, onUpdate, onClose, withName = false }) {
           ))}
         </div>
       </div>
-      <SquadEditor config={team} onUpdate={onUpdate} />
+      <SquadEditor config={team} onUpdate={onUpdate} fixedNames={squadNames} />
     </Modal>
   )
 }

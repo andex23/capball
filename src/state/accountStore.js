@@ -16,7 +16,12 @@ import { useMatchStore, SCREEN } from './MatchStore'
 const SESSION_KEY = 'capball:account'
 // Everything that makes up a player's save (the device key lets online
 // tournament seats follow the player to a new phone)
-const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball.tutorialDone', 'capball.device']
+const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball.tutorialDone', 'capball.coached', 'capball.device']
+// Progress that belongs to the account: cleared from the phone on sign out (it stays on the server)
+export const PROGRESS_KEYS = ['capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1']
+
+/** Is a player signed in on this phone? (Stats, streaks and rewards only count when they are.) */
+export const isSignedIn = () => !!useAccountStore.getState().username
 const AUTOSAVE_MS = 45_000
 
 const storage = () => {
@@ -134,11 +139,14 @@ export const useAccountStore = create((set, get) => ({
     }
   },
 
+  /** Save, sign out, and take this account's progress off the phone (it stays on the server). */
   async signOut() {
     const { token } = get()
-    await get().save()
+    await get().save({ force: true })
     rpc('cb_account_logout', { p_token: token }).catch(() => {})
     get().forget()
+    for (const key of PROGRESS_KEYS) { try { storage()?.removeItem(key) } catch { /* blocked */ } }
+    if (typeof window !== 'undefined') window.location.reload()
   },
 
   /** Drop the session on this phone (the save stays on the server). */

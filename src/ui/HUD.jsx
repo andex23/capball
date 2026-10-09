@@ -15,6 +15,10 @@ import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
 import { displayColor, inkOn } from './color'
 import { canFullscreen, toggleFullscreen, typing } from './fullscreen'
+import { goalLine, line } from '../game/commentary'
+import { isCoached, markCoached, COACH_FLICKS } from '../game/tutorial'
+import { STADIUMS } from '../data/StadiumData'
+import CapPreview from './CapPreview'
 import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
 import KeeperPick, { PenaltyTip } from './KeeperPick'
 import ChallengeHud from './ChallengeHud'
@@ -85,7 +89,7 @@ function useTurnText() {
       if (isCpu) return 'CPU is thinking…'
       if (isOpp) return `${name} to play`
       if (s.freeKickCapId) return `${who === 'Your' ? 'Your' : who} kick — drag the highlighted cap`
-      return `${who} turn — ${s.swipeAim ? 'swipe' : 'drag back'} from a cap to flick`
+      return isCoached() ? `${who} turn` : `${who} turn — ${s.swipeAim ? 'swipe' : 'drag back'} from a cap to flick`
     case PHASE.AIM:
       return isCpu ? 'CPU is lining up…' : isOpp ? `${name} is aiming…` : 'Release to flick'
     case PHASE.RESOLVE: return 'Waiting for everything to stop…'
@@ -108,51 +112,94 @@ function ShotClock() {
   )
 }
 
-function Banner() {
-  const phase = useMatchStore((s) => s.phase)
-  const activeTeam = useMatchStore((s) => s.activeTeam)
+/** The scorer's moment: a big GOAL!, their cap, number and name, the new score and a line of commentary. */
+function GoalMoment({ c }) {
   const teamConfig = useMatchStore((s) => s.teamConfig)
-  const lastGoalOwn = useMatchStore((s) => s.lastGoalOwn)
-  const lastScorer = useMatchStore((s) => s.lastScorer)
-  const foulData = useMatchStore((s) => s.foulData)
-  const noGoalReason = useMatchStore((s) => s.noGoalReason)
-  const restart = useMatchStore((s) => s.restart)
-  const half = useMatchStore((s) => s.half)
+  const score = useMatchStore((s) => s.score)
+  const pens = useMatchStore((s) => s.penaltyScores)
   const shootout = useMatchStore((s) => s.penaltyShootout)
-  const kicks = useMatchStore((s) => s.penaltyKicks)
-  const freeKickCapId = useMatchStore((s) => s.freeKickCapId)
-  const timeUp = useMatchStore(timedOut)
+  const p = c.player
+  const kit = p ? teamConfig[p.team] : teamConfig[c.team]
+  const shown = shootout ? pens : score
+  const color = displayColor(teamConfig[c.team]?.primary)
+  return (
+    <div className="goal-moment" role="status" style={{ '--team': color, '--team-ink': inkOn(teamConfig[c.team]?.primary) }}>
+      <div className="goal-moment-burst" aria-hidden />
+      <div className="goal-moment-word" data-own={c.own ? 'true' : undefined}>{c.own ? 'OWN GOAL!' : 'GOAL!'}</div>
+      <div className="goal-moment-card">
+        {kit && <CapPreview config={kit} size={72} number={p?.number ?? null} role={p?.role || 'atk1'} />}
+        <div className="goal-moment-who">
+          {p ? (
+            <>
+              <b className="goal-moment-name">{p.number != null && <span className="goal-moment-num">{p.number}</span>}{p.name}</b>
+              <small>{kit?.name}{c.own ? ' · own goal' : shootout ? ' · penalty' : ''}</small>
+            </>
+          ) : <b className="goal-moment-name">{teamConfig[c.team]?.name}</b>}
+        </div>
+        <div className="goal-moment-score" aria-label={`${teamConfig.team1.name} ${shown.team1}, ${teamConfig.team2.name} ${shown.team2}`}>
+          <span style={{ '--t': displayColor(teamConfig.team1.primary) }}>{shown.team1}</span>
+          <i>–</i>
+          <span style={{ '--t': displayColor(teamConfig.team2.primary) }}>{shown.team2}</span>
+        </div>
+      </div>
+      <p className="goal-moment-line">{c.line}</p>
+    </div>
+  )
+}
 
+function Banner() {
+  const s = useMatchStore()
+  const { phase, activeTeam, teamConfig, lastGoalOwn, lastScorer, foulData, noGoalReason, restart, half, penaltyKicks: kicks, freeKickCapId, matchKey, goalLog = [], score, stadium } = s
+  const shootout = s.penaltyShootout
+  const timeUp = timedOut(s)
   const nameOf = (t) => teamConfig[t]?.name || ''
   const colorOf = (t) => (t ? displayColor(teamConfig[t].primary) : undefined)
+  // One seed per moment, so a line stays put while it's on screen
+  const seed = `${matchKey}:${phase}:${goalLog.length}:${kicks.team1 + kicks.team2}:${s.stats?.team1?.fouls || 0}:${s.stats?.team2?.fouls || 0}`
+  const ctx = { teamConfig, team: activeTeam, seed, venue: STADIUMS[stadium]?.name?.toLowerCase(), score }
   let b
   switch (phase) {
-    case PHASE.KICKOFF:
-      b = shootout
-        ? { title: kicks.team1 + kicks.team2 === 0 ? 'Penalties' : 'Next kick', sub: `${nameOf(activeTeam)} to shoot`, team: activeTeam }
-        : { title: 'Kick off', sub: `${half === 2 ? 'Second half · ' : ''}${nameOf(activeTeam)} to start`, team: activeTeam }
+    case PHASE.KICKOFF: {
+      if (shootout) {
+        b = { title: kicks.team1 + kicks.team2 === 0 ? 'Penalties' : 'Next kick', sub: line(kicks.team1 + kicks.team2 === 0 ? 'shootout' : 'nextKick', ctx), team: activeTeam }
+        break
+      }
+      const halfStart = s.timeRemaining >= Math.floor(s.matchDuration / 2) - 0.01 && !s.goalTarget
+      const kind = half === 2 && halfStart ? 'secondHalf' : score.team1 + score.team2 > 0 && s.lastConceded === activeTeam ? 'restartAfterGoal' : 'kickoff'
+      b = { title: half === 2 && halfStart ? 'Second half' : 'Kick off', sub: line(kind, ctx), team: activeTeam }
       break
-    case PHASE.GOAL: b = lastGoalOwn && !shootout
-      ? { title: 'Own goal!', tone: 'gold', sub: `${nameOf(otherTeam(lastScorer))} put it in their own net — ${nameOf(lastScorer)} score`, team: lastScorer }
-      : { title: 'Goal!', tone: 'gold', sub: `${nameOf(lastScorer)} score${shootout ? ' the penalty' : ''}`, team: lastScorer }; break
+    }
+    case PHASE.GOAL: {
+      const own = lastGoalOwn && !shootout
+      const late = !shootout && !s.goalTarget && half === 2 && s.timeRemaining <= 20
+      const winner = !shootout && !!s.goalTarget && score[lastScorer] >= s.goalTarget
+      const g = goalLine({ teamConfig, scorerTeam: lastScorer, cap: s.lastGoalCap, own, shootout, score, goalLog, late, winner, seed })
+      return <GoalMoment c={{ ...g, own, team: lastScorer }} />
+    }
     case PHASE.MISSED: b = timeUp
-      ? { title: 'Time’s up', tone: 'bad', sub: `${nameOf(activeTeam)} miss the penalty` }
-      : { title: 'Saved!', sub: `${nameOf(activeTeam)} miss the penalty` }; break
+      ? { title: 'Time’s up', tone: 'bad', sub: line('penTimeUp', ctx) }
+      : { title: 'Saved!', sub: line('saved', { ...ctx, cap: s.lastKicker }) }; break
     case PHASE.TIMEOUT: b = {
       title: 'Time’s up',
       tone: 'bad',
-      sub: freeKickCapId ? `${nameOf(activeTeam)} lose the ${foulData?.inPenaltyBox ? 'penalty' : 'free kick'}` : `Over to ${nameOf(otherTeam(activeTeam))}`,
+      sub: freeKickCapId ? `${nameOf(activeTeam)} lose the ${foulData?.inPenaltyBox ? 'penalty' : 'free kick'}` : line('timeout', ctx),
       team: otherTeam(activeTeam),
     }; break
     case PHASE.NO_GOAL: b = { title: 'No goal', tone: 'bad', sub: NO_GOAL_TEXT[noGoalReason] || 'Doesn’t count' }; break
-    case PHASE.FOUL: b = { title: 'Foul!', tone: 'bad', sub: foulData?.inPenaltyBox ? 'Penalty kick' : 'Free kick', team: foulData?.fouledTeam }; break
-    case PHASE.FREE_KICK_SETUP: b = { title: 'Free kick', sub: `${nameOf(activeTeam)} · the wall is set`, team: activeTeam }; break
-    case PHASE.CORNER_SETUP: b = { title: 'Corner', sub: `${nameOf(activeTeam)} · corner kick`, team: activeTeam }; break
+    case PHASE.FOUL: b = { title: foulData?.inPenaltyBox ? 'Penalty!' : 'Foul!', tone: 'bad', sub: line(foulData?.inPenaltyBox ? 'foulBox' : 'foul', { ...ctx, team: foulData?.fouledTeam, cap: foulData?.byCap }), team: foulData?.fouledTeam }; break
+    case PHASE.FREE_KICK_SETUP: b = { title: 'Free kick', sub: line('freeKick', ctx), team: activeTeam }; break
+    case PHASE.CORNER_SETUP: b = { title: 'Corner', sub: line('corner', ctx), team: activeTeam }; break
     case PHASE.GOAL_KICK_SETUP: b = restart?.reason === 'bank'
-      ? { title: 'No goal', tone: 'bad', sub: `In off the wall — goal kick to ${nameOf(activeTeam)}`, team: activeTeam }
-      : { title: 'Goal kick', sub: `${nameOf(activeTeam)} restart from the box`, team: activeTeam }; break
-    case PHASE.PENALTY_SETUP: b = { title: 'Penalty', sub: `${nameOf(activeTeam)} step up`, team: activeTeam }; break
-    case PHASE.MATCH_OVER: b = { title: shootout ? 'Shootout over' : 'Full time' }; break
+      ? { title: 'No goal', tone: 'bad', sub: line('bank', ctx), team: activeTeam }
+      : { title: 'Goal kick', sub: line('goalKick', ctx), team: activeTeam }; break
+    case PHASE.PENALTY_SETUP: b = { title: 'Penalty', sub: line('penalty', ctx), team: activeTeam }; break
+    case PHASE.MATCH_OVER: {
+      const r = s.matchResult
+      if (shootout) { b = { title: 'Shootout over', sub: r?.winner ? line('shootoutOver', { ...ctx, winner: r.winner }) : '' }; break }
+      const w = score.team1 === score.team2 ? null : score.team1 > score.team2 ? 'team1' : 'team2'
+      b = { title: 'Full time', sub: line(w ? 'fullTimeWin' : 'fullTimeDraw', { ...ctx, winner: w }), team: w || undefined }
+      break
+    }
     default: return null
   }
   return (
@@ -254,6 +301,17 @@ function PauseMenu({ onClose }) {
 export default function HUD() {
   const phase = useMatchStore((s) => s.phase)
   const aimHint = useMatchStore((s) => (s.swipeAim ? 'Swipe' : 'Drag back'))
+  // The how-to-flick hints go once the player has the hang of it
+  const [coached, setCoached] = useState(isCoached)
+  useEffect(() => {
+    if (coached) return undefined
+    let flicks = 0
+    return useMatchStore.subscribe((st, prev) => {
+      const human = st.gameMode !== 'ai' || prev.activeTeam !== st.aiTeam
+      if (prev.phase === PHASE.AIM && st.phase === PHASE.RESOLVE && human) flicks += 1
+      if (flicks >= COACH_FLICKS || st.phase === PHASE.MATCH_OVER) { markCoached(); setCoached(true) }
+    })
+  }, [coached])
   const paused = useMatchStore((s) => s.paused)
   const activeTeam = useMatchStore((s) => s.activeTeam)
   const teamConfig = useMatchStore((s) => s.teamConfig)
@@ -373,10 +431,10 @@ export default function HUD() {
       <ChallengeHud />
       {!paused && <PenaltyTip />}
 
-      <div className="hint">
+      {!coached && <div className="hint">
         <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn · Scroll to zoom · C camera · F full screen · P pause</span>
         <span className="hint-touch">{aimHint} from a cap to aim · Drag the pitch or the stick to turn the view · Pinch to zoom</span>
-      </div>
+      </div>}
 
       {paused && !connectionLost && <PauseMenu onClose={() => setPaused(false)} />}
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CAP_DESIGNS, RARE_DESIGNS, designPatch, isDesign, isUnlocked } from '../data/TeamOptions'
 import { useProgress } from '../state/unlocks'
+import { useAccountStore } from '../state/accountStore'
 import { playButtonSelect } from '../audio/SoundManager'
 import CapPreview from './CapPreview'
 import Icon from './Icon'
@@ -8,6 +9,7 @@ import Icon from './Icon'
 /** Ready-made drink-cap designs, then the rare ones you earn. Tap one to put it on your caps. */
 export default function CapDesigns({ config, onPick, disabled = false }) {
   const progress = useProgress()
+  const signedIn = !!useAccountStore((s) => s.username)
   const [hint, setHint] = useState(null)
   const pick = (d) => { playButtonSelect(); setHint(null); onPick(designPatch(d)) }
   return (
@@ -20,7 +22,7 @@ export default function CapDesigns({ config, onPick, disabled = false }) {
           </button>
         ))}
       </div>
-      <div className="eyebrow" style={{ margin: '12px 0 8px' }}>Rare caps — earn these</div>
+      <div className="eyebrow" style={{ margin: '12px 0 8px' }}>{signedIn ? 'Rare caps — earn these' : 'Rare caps — sign in to earn these'}</div>
       <div className="cap-designs" role="group" aria-label="Rare designs">
         {RARE_DESIGNS.map((d) => {
           const open = isUnlocked(d, progress)

@@ -11,6 +11,7 @@ import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from 
 import { startMenuMusic } from '../audio/MusicManager'
 import { useSavedStore, resumeSavedMatch, describeSave } from '../state/savedMatch'
 import { useTournamentStore } from '../state/tournamentStore'
+import { allFixtures } from '../game/tournament'
 import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 import { useDailyStore, playDaily, liveStreak } from '../state/dailyStore'
 import { challengeFor, dayKey } from '../game/daily'
@@ -51,6 +52,10 @@ export default function MenuScreen() {
   const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
   const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
   const username = useAccountStore((s) => s.username)
+  const localT = useTournamentStore((s) => s.local)
+  const localFixtures = localT ? allFixtures(localT) : []
+  const localDone = localFixtures.filter((f) => f.result).length
+  const localTotal = localFixtures.length
   const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | 'records' | 'account' | 'daily' | null
   const [started, setStarted] = useState(pressedStart)
   const [cursor, setCursor] = useState(0)
@@ -97,10 +102,15 @@ export default function MenuScreen() {
   const PAGES = {
     main: [
       ...(saved ? [{ key: 'continue', title: 'Continue', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
+      ...(localT && !localT.championId ? [{
+        key: 'continueT', title: `Continue ${localT.format === 'league' ? 'league' : 'cup'}`,
+        sub: `${localT.teams.length} teams · ${localDone}/${localTotal} played — saved`, tag: 'SAVE',
+        action: () => { playConfirm(); useTournamentStore.getState().openHub('local') },
+      }] : []),
       { key: 'play', title: 'Quick Match', sub: 'Vs computer, two players, online', tag: '►', action: () => go('play') },
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: 'Leagues and cups, here or online', tag: '►', action: () => go('tournament') },
-      { key: 'daily', title: 'Daily Challenge', sub: doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: doneToday, action: () => openDialog('daily') },
+      { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
     ],
     play: [
@@ -212,6 +222,12 @@ export default function MenuScreen() {
         const c = challengeFor(dayKey())
         return (
           <Modal title="Daily challenge" onClose={() => setDialog(null)}>
+            {!username ? (
+              <div className="daily-panel">
+                <p className="t-note">The daily challenge counts towards your streak and rewards, so it needs an account. Sign in or create one — it only takes a username and a password.</p>
+                <AccountPanel formOnly />
+              </div>
+            ) : (
             <div className="daily-panel">
               <div className="eyebrow">Today · {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</div>
               <h3 className="display daily-name">{c.name}</h3>
@@ -224,6 +240,7 @@ export default function MenuScreen() {
               <p className="muted t-note">Beat it 7 days running to unlock the Lucky Seven cap.</p>
               <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); setDialog(null); playDaily() }}>Play today’s challenge</button>
             </div>
+            )}
           </Modal>
         )
       })()}

@@ -18,7 +18,7 @@ const VERSION = 1
 const MAX_BYTES = 200_000
 
 export const PREF_KEYS = [
-  'teamConfig', 'ballColor', 'stadium', 'formations', 'matchDuration', 'chosenTeam1Side',
+  'teamConfig', 'ballColor', 'stadium', 'pitchStyle', 'formations', 'matchDuration', 'chosenTeam1Side',
   'aiDifficulty', 'masterVolume', 'sfxVolume', 'musicVolume', 'muted',
 ]
 /**
@@ -66,6 +66,7 @@ export function sanitizePrefs(input, defaults = {}) {
   }
   if (typeof input.ballColor === 'string' && HEX_COLOR.test(input.ballColor)) out.ballColor = input.ballColor
   if (typeof input.stadium === 'string' && Object.hasOwn(STADIUMS, input.stadium)) out.stadium = input.stadium
+  if (input.pitchStyle === 'table' || input.pitchStyle === 'grass') out.pitchStyle = input.pitchStyle
   if (isObj(input.formations)) {
     const formations = {}
     for (const team of ['team1', 'team2']) {

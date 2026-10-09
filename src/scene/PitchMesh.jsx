@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { PITCH } from '../data/TeamData'
 import { useMatchStore } from '../state/MatchStore'
-import { STADIUMS } from '../data/StadiumData'
+import { STADIUMS, surfaceFor } from '../data/StadiumData'
 
 // A cylinder connecting two 3D points (for sloped goal bars)
 function SlopeBar({ from, to, radius, matProps }) {
@@ -77,6 +77,86 @@ function paintSurface(ctx, sc, w, h) {
   ctx.fillRect(0, 0, w, h)
 
   switch (sc.surface) {
+    case 'wood':
+    case 'planks': {
+      // Wood grain: long wavy streaks along the table, a few knots, and (planks) seams
+      const planks = sc.surface === 'planks' ? 7 : 3
+      for (let p = 0; p < planks; p++) {
+        const y0 = (p * h) / planks
+        const ph = h / planks
+        ctx.fillStyle = `rgba(${p % 2 ? '255,230,200' : '60,30,10'},${0.04 + rnd() * 0.05})`
+        ctx.fillRect(0, y0, w, ph)
+        for (let g = 0; g < 46; g++) {
+          const y = y0 + rnd() * ph
+          ctx.strokeStyle = `rgba(55,28,10,${0.06 + rnd() * 0.16})`
+          ctx.lineWidth = 1 + rnd() * 3
+          ctx.beginPath()
+          const amp = 3 + rnd() * 10
+          const freq = 0.002 + rnd() * 0.004
+          const phase = rnd() * 10
+          for (let x = 0; x <= w; x += 24) ctx.lineTo(x, y + Math.sin(x * freq + phase) * amp)
+          ctx.stroke()
+        }
+        if (sc.surface === 'planks' && p > 0) {
+          ctx.fillStyle = 'rgba(30,15,5,0.55)'
+          ctx.fillRect(0, y0 - 3, w, 6)
+          ctx.fillStyle = 'rgba(255,240,220,0.12)'
+          ctx.fillRect(0, y0 + 3, w, 2)
+        }
+      }
+      for (let k = 0; k < (sc.surface === 'planks' ? 9 : 5); k++) {
+        const x = rnd() * w, y = rnd() * h, r = 10 + rnd() * 22
+        const g = ctx.createRadialGradient(x, y, 1, x, y, r)
+        g.addColorStop(0, 'rgba(50,25,8,0.55)')
+        g.addColorStop(0.5, 'rgba(70,35,12,0.25)')
+        g.addColorStop(1, 'rgba(70,35,12,0)')
+        ctx.fillStyle = g
+        ctx.beginPath(); ctx.ellipse(x, y, r * 2.2, r, 0, 0, Math.PI * 2); ctx.fill()
+      }
+      if (sc.top?.varnish) {
+        // A glossy pool of light down the middle of a varnished bar top
+        const v = ctx.createLinearGradient(0, 0, 0, h)
+        v.addColorStop(0, 'rgba(255,220,180,0)')
+        v.addColorStop(0.45, 'rgba(255,220,180,0.12)')
+        v.addColorStop(0.55, 'rgba(255,220,180,0.12)')
+        v.addColorStop(1, 'rgba(255,220,180,0)')
+        ctx.fillStyle = v
+        ctx.fillRect(0, 0, w, h)
+      }
+      break
+    }
+    case 'laminate': {
+      // Smooth plastic or melamine: fine speckle, a few scuffs, soft light falloff
+      dots(ctx, w, h, 40000, ['rgba(0,0,0,0.05)', 'rgba(255,255,255,0.04)'], 0.5, 1.2, rnd)
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)'
+      for (let i = 0; i < 26; i++) {
+        ctx.lineWidth = 0.8 + rnd() * 1.4
+        const x = rnd() * w, y = rnd() * h, len = 30 + rnd() * 120, a = rnd() * Math.PI
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); ctx.stroke()
+      }
+      const v = ctx.createRadialGradient(w / 2, h / 2, h * 0.2, w / 2, h / 2, w * 0.65)
+      v.addColorStop(0, 'rgba(255,255,255,0.05)')
+      v.addColorStop(1, 'rgba(0,0,0,0.18)')
+      ctx.fillStyle = v
+      ctx.fillRect(0, 0, w, h)
+      break
+    }
+    case 'towel': {
+      // Beach towel: broad stripes across, terry loops, a fringe-darkened edge
+      const stripes = sc.top?.stripes || ['#ff7a59', '#ffffff']
+      const n = 14
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = stripes[i % stripes.length]
+        ctx.fillRect((i * w) / n, 0, w / n + 1, h)
+      }
+      dots(ctx, w, h, 120000, ['rgba(0,0,0,0.07)', 'rgba(255,255,255,0.08)'], 0.8, 1.8, rnd)
+      const v = ctx.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, w * 0.6)
+      v.addColorStop(0, 'rgba(0,0,0,0)')
+      v.addColorStop(1, 'rgba(0,0,0,0.14)')
+      ctx.fillStyle = v
+      ctx.fillRect(0, 0, w, h)
+      break
+    }
     case 'felt': {
       // Fine woven nap and a soft vignette
       dots(ctx, w, h, 60000, ['rgba(0,0,0,0.06)', 'rgba(255,255,255,0.035)'], 0.6, 1.4, rnd)
@@ -190,7 +270,7 @@ function createPitchTexture(stadiumConfig) {
   ctx.stroke()
 
   // Center spot
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+  ctx.fillStyle = sc.lineColor
   ctx.beginPath()
   ctx.arc(canvas.width / 2, canvas.height / 2, 6, 0, Math.PI * 2)
   ctx.fill()
@@ -209,7 +289,7 @@ function createPitchTexture(stadiumConfig) {
   ctx.strokeRect(canvas.width - penAreaW - pad, (canvas.height - penAreaH) / 2, penAreaW, penAreaH)
 
   // Penalty spots: exactly where the ball is put for a penalty
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+  ctx.fillStyle = sc.lineColor
   const penSpotX = PITCH.penSpotDist * sx
   const spotR = Math.max(5, sx * 0.12)
   ctx.beginPath()
@@ -231,7 +311,7 @@ function createPitchTexture(stadiumConfig) {
 
   // Goal openings (highlight with brighter, thicker line)
   const goalH = PITCH.goalWidth * sy
-  ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)'
+  ctx.strokeStyle = sc.lineColor
   ctx.lineWidth = 5
   ctx.beginPath()
   ctx.moveTo(0, (canvas.height - goalH) / 2)
@@ -243,7 +323,7 @@ function createPitchTexture(stadiumConfig) {
   ctx.stroke()
 
   // Corner arcs
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)'
+  ctx.strokeStyle = sc.lineColor
   ctx.lineWidth = 3
   const cornerR = 1.2 * sx
   // Top-left
@@ -263,7 +343,9 @@ function createPitchTexture(stadiumConfig) {
 
 export default function PitchMesh() {
   const stadiumId = useMatchStore((s) => s.stadium)
-  const sc = STADIUMS[stadiumId] || STADIUMS.arena
+  const pitchStyle = useMatchStore((s) => s.pitchStyle)
+  const venue = STADIUMS[stadiumId] || STADIUMS.arena
+  const sc = useMemo(() => surfaceFor(venue, pitchStyle), [venue, pitchStyle])
   const texture = useMemo(() => createPitchTexture(sc), [sc])
 
   return (

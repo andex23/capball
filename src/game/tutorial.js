@@ -206,3 +206,18 @@ export function onTutorialRearm(fn) {
   listeners.add(fn)
   return () => listeners.delete(fn)
 }
+
+/* ── "Knows the controls" flag ──
+   Once a player has made a few flicks (or finished a match), the turn bar and
+   the hint line stop explaining how to flick. */
+export const COACHED_KEY = 'capball.coached'
+export const COACH_FLICKS = 6
+let memoryCoached = false
+export function isCoached(storage = defaultStorage()) {
+  if (memoryCoached) return true
+  try { return storage?.getItem(COACHED_KEY) === '1' } catch { return false }
+}
+export function markCoached(storage = defaultStorage()) {
+  memoryCoached = true
+  try { storage?.setItem(COACHED_KEY, '1') } catch { /* in-memory flag only */ }
+}

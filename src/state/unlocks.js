@@ -6,6 +6,7 @@ import { useSavedStore } from './savedMatch'
 import { useCareerStore } from './careerStore'
 import { useTournamentStore } from './tournamentStore'
 import { RARE_DESIGNS, isUnlocked } from '../data/TeamOptions'
+import { useAccountStore, isSignedIn } from './accountStore'
 
 const SEEN_KEY = 'capball:unlocks-seen:v1'
 let dailyStreak = () => 0
@@ -13,6 +14,8 @@ let dailyStreak = () => 0
 export function setStreakSource(fn) { dailyStreak = fn }
 
 export function currentProgress() {
+  // Rewards are for signed-in players
+  if (!isSignedIn()) return { won: 0, goalsFor: 0, cleanSheets: 0, promotions: 0, titles: 0, cups: 0, streak: 0 }
   const totals = useSavedStore.getState().career || {}
   const career = useCareerStore.getState().career
   const cups = useTournamentStore.getState().history?.length || 0
@@ -29,6 +32,7 @@ export function currentProgress() {
 
 /** React hook: the progress object, refreshed when any source changes. */
 export function useProgress() {
+  useAccountStore((s) => s.username)
   useSavedStore((s) => s.career)
   useCareerStore((s) => s.career)
   useTournamentStore((s) => s.history)

@@ -7,7 +7,7 @@
  * before the host acts on it. Anything else is dropped.
  */
 
-import { BADGES, PATTERNS, FINISHES, CAP_ROLES, TEAM_NAME_MAX, sanitizeCapText } from '../data/TeamOptions'
+import { BADGES, PATTERNS, FINISHES, CAP_ROLES, TEAM_NAME_MAX, sanitizeCapText, CAP_NAME_MODES, sanitizePlayerName } from '../data/TeamOptions'
 import { FORMATIONS } from '../data/TeamData'
 import { teamOf } from '../game/rules'
 
@@ -56,6 +56,12 @@ export function sanitizeTeamConfig(input) {
   if (FINISH_KEYS.has(input.finish)) out.finish = input.finish
   if (typeof input.capText === 'string') out.capText = sanitizeCapText(input.capText)
   if (typeof input.showName === 'boolean') out.showName = input.showName
+  if (CAP_NAME_MODES.includes(input.capNames)) out.capNames = input.capNames
+  if (isObj(input.players)) {
+    const players = {}
+    for (const role of CAP_ROLES) { const n = sanitizePlayerName(input.players[role]); if (n) players[role] = n }
+    out.players = players
+  }
   if (isObj(input.numbers)) {
     const numbers = {}
     for (const role of CAP_ROLES) {

@@ -1,13 +1,14 @@
 import { useMatchStore, SCREEN, SHOT_CLOCKS } from '../state/MatchStore'
-import { STADIUMS, STADIUM_KEYS } from '../data/StadiumData'
+import { STADIUMS, STADIUM_KEYS, surfaceFor } from '../data/StadiumData'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
 import MatchLengthPicker from '../ui/MatchLengthPicker'
 import Icon from '../ui/Icon'
 
 /* Mini pitch preview showing the surface colors */
-function SurfacePreview({ stadium, size = 180 }) {
-  const s = stadium
+function SurfacePreview({ stadium, size = 180, pitchStyle = 'table' }) {
+  const s = surfaceFor(stadium, pitchStyle)
+  const towel = s.surface === 'towel' ? s.top.stripes : null
   const w = size
   const h = size * 0.65
   return (
@@ -24,7 +25,13 @@ function SurfacePreview({ stadium, size = 180 }) {
       <g transform={`translate(${w * 0.08} ${h * 0.1}) scale(0.84 0.8)`}>
       <rect width={w} height={h} fill={s.woodColor} rx={4} />
       <rect x={4} y={4} width={w - 8} height={h - 8} fill={`url(#sp-${s.id})`} />
-      {/* Mow stripes */}
+      {/* Towel stripes, or mow stripes on grass */}
+      {towel && Array.from({ length: 14 }).map((_, i) => (
+        <rect key={`t${i}`} x={4 + i * ((w - 8) / 14)} y={4} width={(w - 8) / 14 + 0.5} height={h - 8} fill={towel[i % towel.length]} />
+      ))}
+      {(s.surface === 'wood' || s.surface === 'planks') && Array.from({ length: 9 }).map((_, i) => (
+        <line key={`g${i}`} x1={4} x2={w - 4} y1={6 + i * ((h - 12) / 8)} y2={8 + i * ((h - 12) / 8)} stroke="rgba(60,30,10,0.25)" strokeWidth={s.surface === 'planks' && i % 2 ? 2 : 0.8} />
+      ))}
       {Array.from({ length: 6 }).map((_, i) => (
         <rect key={i} x={i * (w / 6)} y={0} width={w / 12} height={h} fill={`rgba(255,255,255,${s.stripeAlpha})`} />
       ))}
@@ -53,6 +60,8 @@ export default function StadiumSelectScreen() {
   const setShotClock = useMatchStore((s) => s.setShotClock)
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const goToScreen = useMatchStore((s) => s.goToScreen)
+  const pitchStyle = useMatchStore((s) => s.pitchStyle)
+  const setPitchStyle = useMatchStore((s) => s.setPitchStyle)
   const isGuest = useMatchStore((s) => s.gameMode === 'online' && s.onlineMyTeam === 'team2')
 
   const pick = (fn) => () => { playButtonSelect(); fn() }
@@ -66,6 +75,14 @@ export default function StadiumSelectScreen() {
       next={{ label: 'Formations', onClick: () => goToScreen(SCREEN.FORMATION) }}
       onBothReady={() => goToScreen(SCREEN.FORMATION)}
     >
+      <div className="pitch-style">
+        <div className="eyebrow">Playing surface</div>
+        <div className="segmented" role="group" aria-label="Playing surface">
+          <button aria-pressed={pitchStyle === 'table'} onClick={pick(() => setPitchStyle('table'))}>Table top</button>
+          <button aria-pressed={pitchStyle === 'grass'} onClick={pick(() => setPitchStyle('grass'))}>Green pitch</button>
+        </div>
+        <small className="muted">{pitchStyle === 'table' ? 'Lines chalked or taped straight onto the table.' : 'A painted green pitch on every table.'}</small>
+      </div>
       <div className="venue-grid">
         {STADIUM_KEYS.map((key) => {
           const st = STADIUMS[key]
@@ -79,10 +96,10 @@ export default function StadiumSelectScreen() {
               onMouseEnter={playHoverTick}
               onClick={pick(() => setStadium(key))}
             >
-              <SurfacePreview stadium={st} size={240} />
+              <SurfacePreview stadium={st} size={240} pitchStyle={pitchStyle} />
               <div>
                 <div className="venue-name">{st.name}</div>
-                <div className="muted venue-label">{st.label}</div>
+                <div className="muted venue-label">{pitchStyle === 'table' && st.top?.note ? st.top.note : st.label}</div>
               </div>
               {selected && <span className="check"><Icon name="check" size={14} strokeWidth={3} /></span>}
             </button>

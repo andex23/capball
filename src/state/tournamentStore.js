@@ -17,7 +17,7 @@ import {
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected } from '../multiplayer/MultiplayerManager'
 import { useCareerStore } from './careerStore'
-import { squadRatings, clubRatings } from '../game/squad'
+import { squadRatings, clubRatings, squadSurnames } from '../game/squad'
 
 const STORAGE_KEY = 'capball:tournaments:v1'
 const HISTORY_MAX = 30
@@ -60,7 +60,7 @@ function save(state) {
 }
 
 /** Match kit for a tournament team. */
-function kitFor(team, side, ratings = null) {
+function kitFor(team, side, ratings = null, players = null) {
   const base = DEFAULT_TEAM_CONFIG[side]
   return {
     ratings,
@@ -74,6 +74,8 @@ function kitFor(team, side, ratings = null) {
     finish: team.finish || 'matte',
     capText: team.capText || '',
     showName: team.showName !== false,
+    capNames: team.capNames || 'player',
+    players: players || team.players || {},
     numbers: { ...base.numbers, ...(team.numbers || {}) },
   }
 }
@@ -240,8 +242,10 @@ export const useTournamentStore = create((set, get) => ({
     // Career: your squad's ratings and the computer clubs' set how hard each cap flicks
     const career = kind === 'career' ? useCareerStore.getState().career : null
     const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : clubRatings(career.level, team.name))
+    // Career: your players' own names go on your caps
+    const playersOf = (team) => (career && team.id === 'T1' ? squadSurnames(career.squad) : null)
     useMatchStore.setState({
-      teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home)), team2: kitFor(away, 'team2', ratingsOf(away)) },
+      teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home), playersOf(home)), team2: kitFor(away, 'team2', ratingsOf(away), playersOf(away)) },
       gameMode: cpuSide ? 'ai' : 'local',
       aiTeam: cpuSide || ms.aiTeam,
       aiDifficulty: cpuTeam?.difficulty || ms.aiDifficulty,

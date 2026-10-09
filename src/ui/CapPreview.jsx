@@ -128,10 +128,10 @@ function isLight(hex) {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.55
 }
 
-export default function CapPreview({ config, size = 120, number = null }) {
+export default function CapPreview({ config, size = 120, number = null, role = 'atk1' }) {
   const { primary, edge, badge, pattern, finish } = config
   const skirtBase = config.skirtColor || primary
-  const capText = capLabel(config)
+  const capText = capLabel(config, role)
   const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}-${config.textColor || ''}-${size}`.replace(/[^a-z0-9-]/gi, '')
 
   // A crown cap seen from a little above, like one sitting on the table:
