@@ -1,4 +1,5 @@
 import { useTournamentStore } from '../state/tournamentStore'
+import GoalClips from '../ui/GoalClips'
 import { useMatchStore, SCREEN, isAuthority } from '../state/MatchStore'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { disconnect } from '../multiplayer/MultiplayerManager'
@@ -113,6 +114,8 @@ export default function MatchEndScreen() {
             ))}
           </div>
         )}
+
+        <GoalClips />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>
           {tournament ? (

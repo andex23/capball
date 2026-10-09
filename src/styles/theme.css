@@ -1895,3 +1895,12 @@ button { cursor: pointer; background: none; border: 0; }
 .rankings-num { display: flex; flex-direction: column; align-items: flex-end; min-width: 44px; }
 .rankings-num b { font: 700 16px/1 var(--font-pixel); }
 .rankings-num small { font-size: 10.5px; color: var(--text-3); }
+
+/* Goal clips */
+.goal-clips { display: flex; flex-direction: column; gap: 8px; padding: 0 20px 12px; }
+.goal-clips-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.goal-clip { display: flex; flex-direction: column; gap: 6px; }
+.goal-clip-thumb, .goal-clip-video { width: 100%; aspect-ratio: 16 / 10; border: 2px solid var(--line-strong); background: #050a2e; object-fit: cover; }
+.goal-clip-thumb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #fff; cursor: pointer; font: 700 11px/1 var(--font-pixel); text-transform: uppercase;
+  background: repeating-linear-gradient(90deg, #1d7a2c 0 18px, #279437 18px 36px); }
+.goal-clip-share { min-height: 38px; font-size: 13px; }

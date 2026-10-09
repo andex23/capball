@@ -280,3 +280,6 @@ export function zoomBy(factor) {
 export function holdCamera(hold) {
   if (_controlsRef) _controlsRef.enabled = !hold
 }
+
+/** The 3D canvas element (for recording goal clips), or null. */
+export const getCanvas = () => _canvasRef || null
