@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
-import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS } from '../data/TeamOptions'
+import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText } from '../data/TeamOptions'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
@@ -19,7 +19,7 @@ const BALL_COLORS = [
 
 const TABS = [
   { key: 'colors', label: 'Colours' },
-  { key: 'badge', label: 'Badge' },
+  { key: 'badge', label: 'Text & badge' },
   { key: 'style', label: 'Finish' },
 ]
 
@@ -68,6 +68,12 @@ function Chips({ label, options, value, onPick, disabled }) {
 function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
   const [tab, setTab] = useState('colors')
   const [draftName, setDraftName] = useState(null)
+  const [draftText, setDraftText] = useState(null)
+  const commitText = () => {
+    if (draftText === null) return
+    onUpdate({ capText: sanitizeCapText(draftText) })
+    setDraftText(null)
+  }
   const teamColor = displayColor(config.primary)
 
   const commitName = () => {
@@ -113,12 +119,28 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
           <div className="card-pad kit-options">
             {tab === 'colors' && (
               <>
-                <Swatches label="Body" value={config.primary} onPick={(c) => onUpdate({ primary: c })} />
-                <Swatches label="Rim" value={config.edge} onPick={(c) => onUpdate({ edge: c })} />
+                <Swatches label="Main colour" value={config.primary} onPick={(c) => onUpdate({ primary: c })} />
+                <Swatches label="Print colour" value={config.edge} onPick={(c) => onUpdate({ edge: c })} />
               </>
             )}
             {tab === 'badge' && (
-              <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} />
+              <>
+                <div>
+                  <label className="eyebrow" htmlFor={`cap-text-${teamKey}`} style={{ display: 'block', marginBottom: 8 }}>Text on your caps</label>
+                  <input
+                    id={`cap-text-${teamKey}`}
+                    className="field"
+                    value={draftText ?? config.capText ?? ''}
+                    maxLength={CAP_TEXT_MAX}
+                    placeholder="e.g. LIONS FC"
+                    autoComplete="off"
+                    onChange={(e) => setDraftText(e.target.value)}
+                    onBlur={commitText}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  />
+                </div>
+                <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} />
+              </>
             )}
             {tab === 'style' && (
               <>

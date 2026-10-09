@@ -102,8 +102,8 @@ function KitEditor({ team, onUpdate, onClose }) {
       footer={<button className="btn btn-gold btn-block" onClick={() => { playConfirm(); onClose() }}>Done <Icon name="check" size={18} /></button>}
     >
       <div className="t-kit-preview"><CapPreview config={team} size={96} /></div>
-      <Swatches label="Body" value={team.primary} onPick={(c) => onUpdate({ primary: c })} />
-      <Swatches label="Rim" value={team.edge} onPick={(c) => onUpdate({ edge: c })} />
+      <Swatches label="Main colour" value={team.primary} onPick={(c) => onUpdate({ primary: c })} />
+      <Swatches label="Print colour" value={team.edge} onPick={(c) => onUpdate({ edge: c })} />
       <div>
         <div className="eyebrow" style={{ marginBottom: 8 }}>Badge</div>
         <div className="chip-row" role="group" aria-label="Badge">

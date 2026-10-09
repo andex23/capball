@@ -18,6 +18,8 @@ export const PATTERNS = [
   { key: 'ring', label: 'Ring' },
   { key: 'cross', label: 'Cross' },
   { key: 'dots', label: 'Dots' },
+  { key: 'wave', label: 'Wave' },
+  { key: 'rays', label: 'Rays' },
 ]
 
 export const FINISHES = [
@@ -38,3 +40,12 @@ export const COLOR_PRESETS = [
   '#F57F17', '#E65100', '#FFD700', '#FFFFFF',
   '#424242', '#000000',
 ]
+
+/** Text a team can print on its caps (arched over the top, like a brand on a real cap). */
+export const CAP_TEXT_MAX = 12
+
+/** Clean cap text: letters, numbers, spaces and a little punctuation, at most CAP_TEXT_MAX. */
+export function sanitizeCapText(input) {
+  if (typeof input !== 'string') return ''
+  return input.replace(/[^\p{L}\p{N} .!'&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, CAP_TEXT_MAX)
+}
