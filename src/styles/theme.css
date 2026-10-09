@@ -1803,3 +1803,11 @@ button { cursor: pointer; background: none; border: 0; }
 .keeper-pick-note { font-size: 12.5px; color: var(--text-2); margin: 6px 0 0; }
 .keeper-pick-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
 .keeper-pick-row .btn { padding: 0 6px; min-height: 52px; }
+.penalty-tip {
+  position: absolute; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); z-index: 30;
+  width: min(360px, calc(100% - 32px)); padding: 12px 14px; text-align: center;
+  background: var(--window); border: 3px solid #fff; box-shadow: var(--window-edge);
+}
+.penalty-tip b { font: 700 15px/1 var(--font-pixel); text-transform: uppercase; color: var(--accent); text-shadow: 2px 2px 0 var(--ink); }
+.penalty-tip p { font-size: 13px; color: var(--text-2); margin: 6px 0 10px; }
+.penalty-tip .btn { min-height: 40px; }

@@ -284,6 +284,12 @@ export function playWhistle() {
   whistle(0.14, { delay: 360 })
 }
 
+/** A keeper throwing himself across the goal: a quick whoosh of air. */
+export function playDive() {
+  noise({ dur: 0.38, vol: 0.32, type: 'bandpass', freq: 700, q: 0.7, attack: 0.07 })
+  noise({ dur: 0.26, vol: 0.16, type: 'bandpass', freq: 2100, q: 0.9, attack: 0.05, delay: 50 })
+}
+
 export function playFinalWhistle() {
   whistle(0.3)
   whistle(0.3, { delay: 420 })

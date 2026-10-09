@@ -78,3 +78,30 @@ export default function KeeperPick() {
     </div>
   )
 }
+
+const TIP_KEY = 'capball.tip.penalty'
+const tipSeen = () => { try { return localStorage.getItem(TIP_KEY) === '1' } catch { return true } }
+
+/** First penalty only: how the guessing game works, for the kicker. */
+export function PenaltyTip() {
+  const phase = useMatchStore((s) => s.phase)
+  const penaltyKick = useMatchStore((s) => s.penaltyKick)
+  const activeTeam = useMatchStore((s) => s.activeTeam)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const aiTeam = useMatchStore((s) => s.aiTeam)
+  const myTeam = useMatchStore((s) => s.onlineMyTeam)
+  const [hidden, setHidden] = useState(tipSeen)
+  const myKick = gameMode === 'online' ? myTeam === activeTeam : gameMode === 'ai' ? aiTeam !== activeTeam : true
+  if (hidden || !penaltyKick || phase !== PHASE.SELECT || !myKick) return null
+  const close = () => {
+    try { localStorage.setItem(TIP_KEY, '1') } catch { /* fine */ }
+    setHidden(true)
+  }
+  return (
+    <div className="penalty-tip" role="note">
+      <b>Penalty!</b>
+      <p>The keeper has already picked a side in secret. Aim for a corner to beat a keeper who stays; go down the middle if you think he’ll dive.</p>
+      <button className="btn btn-gold" onClick={close}>Got it</button>
+    </div>
+  )
+}
