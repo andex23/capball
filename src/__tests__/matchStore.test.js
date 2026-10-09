@@ -324,3 +324,22 @@ describe('shot clock', () => {
     expect(get()).toMatchObject({ phase: PHASE.TIMEOUT, activeTeam: 'team1' })
   })
 })
+
+describe('first to N goals', () => {
+  it('ends the match the moment a side reaches the target, and has no clock', () => {
+    const s = () => useMatchStore.getState()
+    s().setGoalTarget(3)
+    s().startGame()
+    vi.advanceTimersByTime(TIMING.kickoff + 100)
+    // The clock doesn't run
+    const before = s().timeRemaining
+    s().tickTimer(30)
+    expect(s().timeRemaining).toBe(before)
+    useMatchStore.setState({ score: { team1: 2, team2: 1 } })
+    s().scoreGoal('team1')
+    vi.advanceTimersByTime(TIMING.goal + 100)
+    expect(s().phase).toBe(PHASE.MATCH_OVER)
+    expect(s().matchResult.winner).toBe('team1')
+    s().setGoalTarget(0)
+  })
+})

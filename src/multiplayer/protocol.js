@@ -17,7 +17,7 @@ export const HOST_TEAM = 'team1'
 /** Store keys the host mirrors to the guest. */
 export const SYNC_KEYS = [
   'screen', 'matchKey', 'score', 'stats', 'activeTeam', 'phase', 'timeRemaining', 'half',
-  'teamConfig', 'formations', 'stadium', 'team1Side', 'chosenTeam1Side', 'matchDuration',
+  'teamConfig', 'formations', 'stadium', 'team1Side', 'chosenTeam1Side', 'matchDuration', 'goalTarget',
   'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyKicks', 'matchResult',
   'selectedCapId', 'freeKickCapId', 'paused', 'ballColor', 'lastScorer', 'noGoalReason',
   'kickoffGuard', 'shotClock', 'shotClockRemaining',

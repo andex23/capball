@@ -25,7 +25,7 @@ export const PREF_KEYS = [
  * Settings other features may add to the store. Saved only if the store
  * actually has them, and only as a boolean or a small number.
  */
-export const OPTIONAL_PREF_KEYS = ['shotClock', 'vibration', 'haptics', 'turnView', 'swipeAim', 'musicTrack']
+export const OPTIONAL_PREF_KEYS = ['shotClock', 'vibration', 'haptics', 'turnView', 'swipeAim', 'musicTrack', 'goalTarget']
 
 /** Prefs the online host mirrors onto the guest's store (so not the guest's own). */
 export const isSyncedPref = (key) => SYNC_KEYS.includes(key)

@@ -41,6 +41,8 @@ export const CLOCK_PHASES = [PHASE.SELECT, PHASE.AIM, PHASE.RESOLVE]
 
 // Match duration options (seconds, whole match)
 export const MATCH_DURATIONS = [60, 90, 120, 150, 180] // up to 3 minutes: longer games drag
+// Or no clock: the first side to this many goals wins
+export const GOAL_TARGETS = [3, 5]
 // Shot clock options (seconds per turn, 0 = off)
 export const SHOT_CLOCKS = [0, 10, 15, 20]
 
@@ -156,6 +158,9 @@ export const useMatchStore = create((set, get) => ({
   half: 1,
   firstHalfKicker: 'team1',
   setMatchDuration: (d) => set({ matchDuration: d }),
+  // 0 = timed match; 3 or 5 = first to that many goals, no clock
+  goalTarget: 0,
+  setGoalTarget: (n) => set({ goalTarget: GOAL_TARGETS.includes(n) ? n : 0 }),
 
   // --- Shot clock (per turn; only runs while the active team can act) ---
   shotClock: 15,
@@ -185,7 +190,8 @@ export const useMatchStore = create((set, get) => ({
   setTutorialHold: (hold) => { if (get().tutorialHold !== hold) set({ tutorialHold: hold }) },
 
   tickTimer: (dt) => {
-    const { timeRemaining, timerRunning, paused, tutorialHold, phase, half } = get()
+    const { timeRemaining, timerRunning, paused, tutorialHold, phase, half, goalTarget } = get()
+    if (goalTarget) return // first-to-N matches have no clock
     if (!timerRunning || paused || tutorialHold || !CLOCK_PHASES.includes(phase)) return
     const next = Math.max(0, timeRemaining - dt)
     set({ timeRemaining: next })
@@ -335,6 +341,12 @@ export const useMatchStore = create((set, get) => ({
       lastScorer: scoringTeam,
       lastConceded: concedingTeam,
     })
+    // First to N: that goal wins it
+    const { goalTarget } = get()
+    if (goalTarget && score[scoringTeam] + 1 >= goalTarget && !get().penaltyShootout) {
+      goalTimer = later(() => get().endMatch(), TIMING.goal)
+      return
+    }
     goalTimer = later(() => get().startKickoff(concedingTeam), TIMING.goal)
   },
 
