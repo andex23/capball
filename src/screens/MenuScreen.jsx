@@ -4,6 +4,8 @@ import Modal from '../ui/Modal'
 import SettingsPanel from '../ui/SettingsPanel'
 import RulesPanel from '../ui/RulesPanel'
 import RecordsPanel from '../ui/RecordsPanel'
+import AccountPanel from '../ui/AccountPanel'
+import { useAccountStore } from '../state/accountStore'
 import Icon from '../ui/Icon'
 import TabletopBackdrop from '../ui/TabletopBackdrop'
 import InstallPrompt from '../pwa/InstallPrompt'
@@ -24,7 +26,8 @@ export default function MenuScreen() {
   const setGameMode = useMatchStore((s) => s.setGameMode)
   const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
   const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
-  const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | 'records' | null
+  const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | 'records' | 'account' | null
+  const username = useAccountStore((s) => s.username)
 
   useEffect(() => { startMenuMusic() }, [])
 
@@ -85,6 +88,7 @@ export default function MenuScreen() {
             <button className="menu-link" onClick={() => open('rules')}><Icon name="help" size={18} /> How to play</button>
             <button className="menu-link" onClick={() => open('records')}><Icon name="trophy" size={18} /> Records</button>
             <button className="menu-link" onClick={() => open('settings')}><Icon name="settings" size={18} /> Settings</button>
+            <button className="menu-link" onClick={() => open('account')}><Icon name="users" size={18} /> {username || 'Sign in'}</button>
           </footer>
           <InstallPrompt />
         </main>
@@ -98,6 +102,11 @@ export default function MenuScreen() {
       {dialog === 'records' && (
         <Modal title="Records" onClose={() => setDialog(null)}>
           <RecordsPanel />
+        </Modal>
+      )}
+      {dialog === 'account' && (
+        <Modal title={username ? 'Your account' : 'Save your game'} onClose={() => setDialog(null)}>
+          <AccountPanel />
         </Modal>
       )}
       {dialog === 'rules' && (
