@@ -3,7 +3,7 @@ import Matter from 'matter-js'
 import {
   createPhysicsWorld, getBodies, resetToKickoff, setupFreeKick, setupPenalty,
   FREE_KICK_WALL_DISTANCE, FREE_KICK_WALL_MIN, setupCorner, setupGoalKick,
-  clampAllBodies, stepPhysics, allBodiesSettled, radiusOf, snapshotBodies, applyBodySnapshot,
+  clampAllBodies, stepPhysics, allBodiesSettled, radiusOf, snapshotBodies, applyBodySnapshot, getEngine,
 } from '../physics/PhysicsWorld'
 import { checkGoal } from '../physics/GoalDetector'
 import { useMatchStore, PHASE, clearMatchTimers } from '../state/MatchStore'
@@ -354,5 +354,26 @@ describe('online snapshots', () => {
     expect(pos('team1_atk1').x).toBeCloseTo(snap.team1_atk1[0], 2)
     expect(Number.isFinite(pos('ball').x)).toBe(true)
     expect(getBodies().hacker).toBeUndefined()
+  })
+})
+
+describe('pitch walls', () => {
+  it('no wall reaches onto the pitch (the goal side-nets start at the goal line)', () => {
+    createPhysicsWorld()
+    const statics = Matter.Composite.allBodies(getEngine().world).filter((b) => b.isStatic)
+    for (const w of statics) {
+      const { min, max } = w.bounds
+      const intrudes = min.x < PITCH.halfW - 0.01 && max.x > -PITCH.halfW + 0.01 && min.y < PITCH.halfH - 0.01 && max.y > -PITCH.halfH + 0.01
+      expect(intrudes).toBe(false)
+    }
+  })
+
+  it('a corner played straight along the end line runs down to the goal mouth', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    createPhysicsWorld()
+    setupCorner('team1', 1, 1)
+    Matter.Body.setVelocity(getBodies().team1_atk1, { x: 0, y: -PHYSICS.maxFlickVelocity * 0.6 })
+    simulate()
+    expect(pos('ball').y).toBeLessThan(4.5)
   })
 })
