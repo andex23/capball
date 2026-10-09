@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText, CLEAR_TO } from '../data/TeamOptions'
 import CapDesigns from '../ui/CapDesigns'
+import ColorPicker from '../ui/ColorPicker'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
@@ -22,27 +23,6 @@ const TABS = [
   { key: 'badge', label: 'Text' },
   { key: 'style', label: 'Finish' },
 ]
-
-function Swatches({ label, value, onPick, disabled }) {
-  return (
-    <div>
-      <div className="eyebrow" style={{ marginBottom: 8 }}>{label}</div>
-      <div className="swatches" role="group" aria-label={label}>
-        {COLOR_PRESETS.map((c) => (
-          <button
-            key={c}
-            className="swatch"
-            style={{ background: c }}
-            aria-pressed={value === c}
-            aria-label={`${label} ${c}`}
-            disabled={disabled}
-            onClick={() => { playButtonSelect(); onPick(c) }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // Tapping the chosen option again clears it (back to `clearTo`)
 function Chips({ label, options, value, onPick, disabled, clearTo }) {
@@ -126,8 +106,10 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
             )}
             {tab === 'colors' && (
               <>
-                <Swatches label="Main colour" value={config.primary} onPick={(c) => onUpdate({ primary: c })} />
-                <Swatches label="Print colour" value={config.edge} onPick={(c) => onUpdate({ edge: c })} />
+                <ColorPicker label="Top colour" value={config.primary} onPick={(c) => onUpdate({ primary: c || config.primary })} />
+                <ColorPicker label="Pattern & ring colour" value={config.edge} onPick={(c) => onUpdate({ edge: c || config.edge })} />
+                <ColorPicker label="Text & badge colour" value={config.textColor || ''} allowDefault onPick={(c) => onUpdate({ textColor: c })} />
+                <ColorPicker label="Sides colour" value={config.skirtColor || ''} allowDefault autoLabel="Same as top" onPick={(c) => onUpdate({ skirtColor: c })} />
               </>
             )}
             {tab === 'badge' && (

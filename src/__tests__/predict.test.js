@@ -205,11 +205,11 @@ describe('prediction vs matter-js', () => {
     createPhysicsWorld()
     useMatchStore.setState({ phase: PHASE.SELECT, activeTeam: 'team1', team1Side: 'left', kickoffGuard: false })
     // Park everyone else along the bottom cushion, keepers at home
-    let x = -10
+    let x = -11
     for (const id of Object.keys(getBodies())) {
       if (id === 'ball' || id.endsWith('_gk')) continue
       place(id, x, -8.8)
-      x += 2.5
+      x += 2
     }
     place('team1_gk', -PITCH.halfW + 1.2, 0)
     place('team2_gk', PITCH.halfW - 1.2, 5)

@@ -11,7 +11,7 @@ export const PITCH = {
   penAreaH: 12,  // penalty area height (y = ±6)
   centerCircleR: 3,
   goalDepth: 1.8,
-  penSpotDist: 4.5, // penalty spot distance from the goal line
+  penSpotDist: 5.6, // penalty spot distance from the goal line (inside the 6-deep box)
 }
 
 // Cap radii
@@ -58,10 +58,10 @@ export const TEAMS = {
 
 // Formation presets
 export const FORMATIONS = {
-  default: { name: '2-2', description: 'Balanced' },
-  diamond: { name: 'Diamond', description: '1-2-1' },
-  line: { name: 'Line', description: '1-3' },
-  parkTheBus: { name: 'Park the Bus', description: '3-1' },
+  default: { name: '2-1-2', description: 'Balanced' },
+  diamond: { name: 'Diamond', description: '1-3-1' },
+  line: { name: 'Line', description: '1-1-3' },
+  parkTheBus: { name: 'Park the Bus', description: '3-1-1' },
 }
 
 // Formation position generators
@@ -70,19 +70,22 @@ const FORMATION_POSITIONS = {
     gk: { x: dir * hw * 0.9, y: 0 },
     def1: { x: dir * hw * 0.42, y: -hh * 0.45 },
     def2: { x: dir * hw * 0.42, y: hh * 0.45 },
+    mid: { x: dir * hw * 0.3, y: 0 },
     atk1: { x: dir * hw * 0.12, y: -hh * 0.38 },
     atk2: { x: dir * hw * 0.12, y: hh * 0.38 },
   }),
   diamond: (dir, hw, hh) => ({
     gk: { x: dir * hw * 0.9, y: 0 },
-    def1: { x: dir * hw * 0.58, y: 0 },
-    def2: { x: dir * hw * 0.32, y: -hh * 0.45 },
-    atk1: { x: dir * hw * 0.32, y: hh * 0.45 },
-    atk2: { x: dir * hw * 0.06, y: 0 },
+    def1: { x: dir * hw * 0.6, y: 0 },
+    def2: { x: dir * hw * 0.34, y: -hh * 0.5 },
+    mid: { x: dir * hw * 0.34, y: 0 },
+    atk1: { x: dir * hw * 0.34, y: hh * 0.5 },
+    atk2: { x: dir * hw * 0.08, y: 0 },
   }),
   line: (dir, hw, hh) => ({
     gk: { x: dir * hw * 0.9, y: 0 },
-    def1: { x: dir * hw * 0.52, y: 0 },
+    def1: { x: dir * hw * 0.55, y: 0 },
+    mid: { x: dir * hw * 0.34, y: 0 },
     def2: { x: dir * hw * 0.16, y: -hh * 0.5 },
     atk1: { x: dir * hw * 0.16, y: 0 },
     atk2: { x: dir * hw * 0.16, y: hh * 0.5 },
@@ -92,7 +95,8 @@ const FORMATION_POSITIONS = {
     def1: { x: dir * hw * 0.52, y: -hh * 0.45 },
     def2: { x: dir * hw * 0.52, y: 0 },
     atk1: { x: dir * hw * 0.52, y: hh * 0.45 },
-    atk2: { x: dir * hw * 0.12, y: 0 },
+    mid: { x: dir * hw * 0.3, y: 0 },
+    atk2: { x: dir * hw * 0.1, y: 0 },
   }),
 }
 

@@ -94,7 +94,8 @@ function createSkirtTexture(color) {
 }
 
 /** The printed top: paint and pattern, a thin printed ring near the edge, then badge and number. */
-function createTopTexture(color, edgeColor, badge, number, pattern, capText = '') {
+function createTopTexture(color, edgeColor, badge, number, pattern, capText = '', textColor = '') {
+  const ink = textColor || (edgeColor === color ? '#ffffff' : edgeColor)
   const size = 512
   const c = document.createElement('canvas')
   c.width = size
@@ -114,7 +115,7 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
     const fontPx = size * 0.09
     ctx.save()
     ctx.font = `italic 900 ${fontPx}px 'Barlow Condensed', 'Impact', 'Arial Narrow', sans-serif`
-    ctx.fillStyle = edgeColor === color ? '#ffffff' : edgeColor
+    ctx.fillStyle = ink
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     const R = size * 0.27 // well inside the printed ring (0.43), so the letters never touch it
@@ -136,7 +137,7 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
     ctx.restore()
   }
   // Badge and number, the size of the old centre plate (a little lower under text)
-  const plate = createDomeTexture(color, edgeColor, badge, number, size, { bare: true }).image
+  const plate = createDomeTexture(color, ink, badge, number, size, { bare: true }).image
   const k = text ? 0.56 : 0.78
   ctx.save()
   ctx.beginPath()
@@ -318,15 +319,16 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   ctx.fillRect(0, 0, size, size)
 
   // Pattern
-  const patColor = `${edgeColor}55`
-  const boldColor = `${edgeColor}77`
+  // Printed in the pattern colour itself, so what you pick is what you get
+  const patColor = `${edgeColor}D9`
+  const boldColor = `${edgeColor}F2`
   switch (pattern) {
     case 'stripe':
       ctx.fillStyle = boldColor
       ctx.fillRect(cx - r * 0.1, 0, r * 0.2, size)
       break
     case 'split':
-      ctx.fillStyle = `${edgeColor}2A`
+      ctx.fillStyle = edgeColor
       ctx.fillRect(cx, 0, r, size)
       break
     case 'ring':
@@ -367,12 +369,16 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
       break
     }
     case 'dots': {
+      // Polka dots: an even grid of round dots over the whole top
       ctx.fillStyle = boldColor
-      for (let i = 0; i < 8; i++) {
-        const a = (Math.PI * 2 / 8) * i
-        ctx.beginPath()
-        ctx.arc(cx + Math.cos(a) * r * 0.5, cy + Math.sin(a) * r * 0.5, r * 0.055, 0, Math.PI * 2)
-        ctx.fill()
+      const step = r * 0.3
+      for (let row = -4; row <= 4; row++) {
+        const off = row % 2 ? step / 2 : 0
+        for (let col = -4; col <= 4; col++) {
+          ctx.beginPath()
+          ctx.arc(cx + col * step + off, cy + row * step * 0.87, r * 0.075, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
       break
     }
@@ -383,7 +389,7 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   return texture
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected, badge, number, pattern, finish, capText }, ref) {
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, isSelected, badge, number, pattern, finish, capText }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -391,10 +397,10 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected
   const edge = edgeColor || color
 
   const topTexture = useMemo(
-    () => createTopTexture(color, edge, badge, number, pattern, capText),
-    [color, edge, badge, number, pattern, capText]
+    () => createTopTexture(color, edge, badge, number, pattern, capText, textColor),
+    [color, edge, badge, number, pattern, capText, textColor]
   )
-  const skirtTexture = useMemo(() => createSkirtTexture(color), [color])
+  const skirtTexture = useMemo(() => createSkirtTexture(skirtColor || color), [skirtColor, color])
   const skirt = useMemo(() => createSkirtGeometry(radius), [radius])
 
   useFrame((state) => {

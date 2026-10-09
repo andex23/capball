@@ -173,7 +173,7 @@ export function eligibleCaps(ctx) {
   const { positions, team, requiredCapId } = ctx
   if (requiredCapId) return positions[requiredCapId] ? [requiredCapId] : []
   const ball = positions.ball
-  return ['atk1', 'atk2', 'def1', 'def2', 'gk']
+  return ['atk1', 'atk2', 'mid', 'def1', 'def2', 'gk']
     .map((r) => `${team}_${r}`)
     .filter((id) => positions[id])
     .filter((id) => !isGoalkeeper(id) || keeperCanPlay(ball.x, ball.y, ctx.homeDir))

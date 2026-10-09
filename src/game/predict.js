@@ -136,7 +136,7 @@ export function createPrediction() {
 }
 
 /** Plain input object for predictShot (make once, fill each frame). */
-export function createShot(maxBodies = 10) {
+export function createShot(maxBodies = 16) {
   const bodies = []
   for (let i = 0; i < maxBodies; i++) bodies.push({ x: 0, y: 0, r: CAP_RADIUS, contact: 'foul' })
   return {

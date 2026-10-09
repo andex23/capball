@@ -47,6 +47,10 @@ export function sanitizeTeamConfig(input) {
   if (name) out.name = name
   if (typeof input.primary === 'string' && HEX_COLOR.test(input.primary)) out.primary = input.primary
   if (typeof input.edge === 'string' && HEX_COLOR.test(input.edge)) out.edge = input.edge
+  // Optional extra colours: '' means "use the default"
+  for (const k of ['textColor', 'skirtColor']) {
+    if (input[k] === '' || (typeof input[k] === 'string' && HEX_COLOR.test(input[k]))) out[k] = input[k]
+  }
   if (BADGE_KEYS.has(input.badge)) out.badge = input.badge
   if (PATTERN_KEYS.has(input.pattern)) out.pattern = input.pattern
   if (FINISH_KEYS.has(input.finish)) out.finish = input.finish

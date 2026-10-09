@@ -14,8 +14,8 @@ import { PITCH } from '../data/TeamData'
    layout. */
 
 const IDS = [
-  'team1_gk', 'team1_def1', 'team1_def2', 'team1_atk1', 'team1_atk2',
-  'team2_gk', 'team2_def1', 'team2_def2', 'team2_atk1', 'team2_atk2',
+  'team1_gk', 'team1_def1', 'team1_def2', 'team1_mid', 'team1_atk1', 'team1_atk2',
+  'team2_gk', 'team2_def1', 'team2_def2', 'team2_mid', 'team2_atk1', 'team2_atk2',
   'ball',
 ]
 const BALL = IDS.indexOf('ball')

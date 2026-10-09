@@ -44,7 +44,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const myTeam = { name: 'Night Owls', primary: '#112233', edge: '#FFFFFF', badge: 'star', pattern: 'ring', finish: 'gloss', capText: 'OWLS', numbers: { gk: 12, def1: 2, def2: 3, atk1: 8, atk2: 99 } }
+const myTeam = { name: 'Night Owls', primary: '#112233', edge: '#FFFFFF', badge: 'star', pattern: 'ring', finish: 'gloss', capText: 'OWLS', textColor: '#FFD23F', skirtColor: '', numbers: { gk: 12, def1: 2, def2: 3, mid: 6, atk1: 8, atk2: 99 } }
 
 describe('preferences', () => {
   it('round-trips through storage', () => {
