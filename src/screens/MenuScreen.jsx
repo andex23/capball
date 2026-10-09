@@ -12,6 +12,8 @@ import { startMenuMusic } from '../audio/MusicManager'
 import { useSavedStore, resumeSavedMatch, describeSave } from '../state/savedMatch'
 import { useTournamentStore } from '../state/tournamentStore'
 import { RetroBackdrop, RetroLogo } from '../ui/Retro'
+import { useDailyStore, playDaily, liveStreak } from '../state/dailyStore'
+import { challengeFor, dayKey } from '../game/daily'
 
 /**
  * Home screen in the style of a 16-bit console football game: a title card
@@ -25,6 +27,7 @@ const MODES = [
   { key: 'local', title: 'Local Match', tag: '2P' },
   { key: 'online', title: 'Online Match', tag: 'NET' },
   { key: 'tournament', title: 'Tournament' },
+  { key: 'daily', title: 'Daily Challenge' },
 ]
 const OPTIONS = [
   { key: 'rules', title: 'How to play' },
@@ -63,6 +66,9 @@ export default function MenuScreen() {
   const [cursor, setCursor] = useState(0)
   const saved = useSavedStore((s) => s.saved)
   const setupFormat = useTournamentStore((s) => s.setupFormat)
+  const daily = useDailyStore()
+  const doneToday = !!daily.tries?.[dayKey()]?.won
+  const streak = liveStreak(daily)
   // A saved match goes at the top of the list
   const modes = saved ? [{ key: 'continue', title: 'Continue', tag: 'SAVE' }, ...MODES] : MODES
   const ITEMS = [...modes.map((m) => m.key), ...OPTIONS.map((o) => o.key)]
@@ -104,6 +110,7 @@ export default function MenuScreen() {
     if (key === 'continue') { resumeSavedMatch(); return }
     if (key === 'tournament') { goToScreen(SCREEN.TOURNAMENT_HOME); return }
     if (key === 'career') { goToScreen(SCREEN.CAREER); return }
+    if (key === 'daily') { setDialog('daily'); return }
     if (key === 'online') { goToScreen(SCREEN.ONLINE); return }
     setGameMode(key)
     goToScreen(SCREEN.TEAM_SELECT)
@@ -170,7 +177,9 @@ export default function MenuScreen() {
                       <button className="iss-arrow" aria-label="League or cup" onClick={() => { setCursor(i); shiftFormat() }}>►</button>
                     </span>
                   ) : (
-                    <span className="iss-tag">{m.tag}</span>
+                    <span className="iss-tag" data-done={m.key === 'daily' && doneToday ? 'true' : undefined}>
+                      {m.key === 'daily' ? (doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW') : m.tag}
+                    </span>
                   )}
                 </li>
               ))}
@@ -213,6 +222,25 @@ export default function MenuScreen() {
           <AccountPanel />
         </Modal>
       )}
+      {dialog === 'daily' && (() => {
+        const c = challengeFor(dayKey())
+        return (
+          <Modal title="Daily challenge" onClose={() => setDialog(null)}>
+            <div className="daily-panel">
+              <div className="eyebrow">Today · {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+              <h3 className="display daily-name">{c.name}</h3>
+              <p>{c.text} Score with your caps in <b>{c.flicks} flick{c.flicks === 1 ? '' : 's'}</b>. Everyone gets the same one today.</p>
+              <div className="career-grid daily-stats">
+                <div className="career-stat" data-tone="gold"><b>{streak}</b><small>Day streak</small></div>
+                <div className="career-stat"><b>{daily.best}</b><small>Best streak</small></div>
+                <div className="career-stat" data-tone={doneToday ? 'good' : undefined}><b>{doneToday ? '✓' : daily.tries?.[dayKey()]?.tries || 0}</b><small>{doneToday ? 'Beaten' : 'Tries today'}</small></div>
+              </div>
+              <p className="muted t-note">Beat it 7 days running to unlock the Lucky Seven cap.</p>
+              <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); setDialog(null); playDaily() }}>Play today’s challenge</button>
+            </div>
+          </Modal>
+        )
+      })()}
       {dialog === 'rules' && (
         <Modal title="How to play" onClose={() => setDialog(null)}>
           <RulesPanel />

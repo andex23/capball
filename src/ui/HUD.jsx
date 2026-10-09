@@ -16,6 +16,8 @@ import RulesPanel from './RulesPanel'
 import { displayColor } from './color'
 import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
 import KeeperPick, { PenaltyTip } from './KeeperPick'
+import ChallengeHud from './ChallengeHud'
+import { playDaily } from '../state/dailyStore'
 
 const NO_GOAL_TEXT = {
   kickoff_violation: 'You can’t score straight from kick-off',
@@ -68,12 +70,15 @@ function useTurnText() {
   const s = useMatchStore(useShallow((st) => ({
     phase: st.phase, activeTeam: st.activeTeam, teamConfig: st.teamConfig, gameMode: st.gameMode,
     aiTeam: st.aiTeam, onlineMyTeam: st.onlineMyTeam, freeKickCapId: st.freeKickCapId,
-    foulData: st.foulData, penaltyShootout: st.penaltyShootout,
+    foulData: st.foulData, penaltyShootout: st.penaltyShootout, challenge: st.challenge,
   })))
   const name = s.teamConfig[s.activeTeam]?.name || 'Team'
   const isCpu = s.gameMode === 'ai' && s.activeTeam === s.aiTeam
   const isOpp = s.gameMode === 'online' && s.activeTeam !== s.onlineMyTeam
   const who = isCpu ? 'CPU' : isOpp ? name : s.gameMode === 'online' || s.gameMode === 'ai' ? 'Your' : `${name}’s`
+  if (s.challenge && [PHASE.SELECT, PHASE.AIM, PHASE.RESOLVE].includes(s.phase)) {
+    return s.phase === PHASE.RESOLVE ? 'Waiting for everything to stop…' : `${s.challenge.flicksLeft} flick${s.challenge.flicksLeft === 1 ? '' : 's'} left — score!`
+  }
   switch (s.phase) {
     case PHASE.SELECT:
       if (isCpu) return 'CPU is thinking…'
@@ -91,7 +96,7 @@ function useTurnText() {
 /** Seconds left to flick, inside the turn pill. Ticks through the last three. */
 function ShotClock() {
   const secs = useMatchStore((s) => Math.ceil(s.shotClockRemaining))
-  const live = useMatchStore((s) => s.shotClock > 0 && !s.paused && INPUT_PHASES.includes(s.phase))
+  const live = useMatchStore((s) => s.shotClock > 0 && !s.challenge && !s.paused && INPUT_PHASES.includes(s.phase))
   useEffect(() => {
     if (live && secs > 0 && secs <= 3) playShotClockTick()
   }, [secs, live])
@@ -195,7 +200,8 @@ function PauseMenu({ onClose }) {
     playWhistle()
     stopAllBodies()
     const s = useMatchStore.getState()
-    if (shootout) s.startPenaltyShootout()
+    if (s.challenge) playDaily()
+    else if (shootout) s.startPenaltyShootout()
     else s.startGame()
   }
 
@@ -341,6 +347,7 @@ export default function HUD() {
       <PowerMeter />
       {!paused && <Banner />}
       <KeeperPick />
+      <ChallengeHud />
       {!paused && <PenaltyTip />}
 
       <div className="hint">
