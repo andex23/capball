@@ -29,11 +29,13 @@ describe('flickError', () => {
   it('keepers only play with the ball in or near their own box', () => {
     const left = { ...ok, team1Side: 'left' } // team1 defends the left goal
     const nearOwnBox = { x: -PITCH.halfW + 4, y: 1 }
-    const edgeOfReach = { x: -PITCH.halfW + PITCH.penAreaW + 2, y: 0 } // just outside the box
+    const edgeOfReach = { x: -PITCH.halfW + PITCH.penAreaW + 0.4, y: 0 } // just over the edge of the box: he can still touch it
     const midfield = { x: 0, y: 0 }
+    const outOfReach = { x: -PITCH.halfW + PITCH.penAreaW + 2, y: 0 } // he can't leave his box, so he could never touch this
     const otherEnd = { x: PITCH.halfW - 3, y: 0 }
     expect(flickError(left, { capId: 'team1_gk', velocity: v, ball: nearOwnBox })).toBeNull()
     expect(flickError(left, { capId: 'team1_gk', velocity: v, ball: edgeOfReach })).toBeNull()
+    expect(flickError(left, { capId: 'team1_gk', velocity: v, ball: outOfReach })).toBe('keeper-out-of-range')
     expect(flickError(left, { capId: 'team1_gk', velocity: v, ball: midfield })).toBe('keeper-out-of-range')
     expect(flickError(left, { capId: 'team1_gk', velocity: v, ball: otherEnd })).toBe('keeper-out-of-range')
     // Outfield caps are unaffected

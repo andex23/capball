@@ -1,7 +1,7 @@
 import Matter from 'matter-js'
 import { createSimulationWorld, radiusOf } from '../physics/PhysicsWorld'
 import { PITCH, PHYSICS, BALL_RADIUS } from '../data/TeamData'
-import { teamHomeDir, teamOf, otherTeam, isGoalkeeper, classifyContact, judgeGoal, isInPenaltyArea, keeperCanPlay } from '../game/rules'
+import { teamHomeDir, teamOf, otherTeam, isGoalkeeper, classifyContact, judgeGoal, isInPenaltyArea, keeperCanPlay, keeperZone } from '../game/rules'
 
 /**
  * CPU SHOT PLANNER
@@ -98,8 +98,15 @@ export function firstHit(positions, capId, dir, maxDist = Infinity) {
   return best
 }
 
+/** Can this cap's centre be at (x, y)? Keepers never leave their own box. */
+function reachable(ctx, capId, x, y) {
+  if (!isGoalkeeper(capId)) return true
+  const z = keeperZone(ctx.homeDir, radiusOf(capId))
+  return x >= z.minX - 0.05 && x <= z.maxX + 0.05 && y >= z.minY - 0.05 && y <= z.maxY + 0.05
+}
+
 /** Flick direction that sends the ball along u, or null if the cap can't get behind it. */
-function aimFor(positions, capId, u) {
+function aimFor(positions, capId, u, ctx = null) {
   const c = positions[capId]
   const b = positions.ball
   const reach = radiusOf(capId) + BALL_RADIUS
@@ -108,6 +115,8 @@ function aimFor(positions, capId, u) {
   // The cap can't get between the ball and a cushion
   const lim = radiusOf(capId) + 0.05 // cap fully on the pitch, not grazing the cushion
   if (Math.abs(px) > PITCH.halfW - lim || Math.abs(py) > PITCH.halfH - lim) return null
+  // A keeper can only play it if he can get there without leaving his box
+  if (ctx && !reachable(ctx, capId, px, py)) return null
   const dist = hyp(px - c.x, py - c.y)
   if (dist < 0.05) return null
   const dir = { x: (px - c.x) / dist, y: (py - c.y) / dist }
@@ -215,7 +224,7 @@ export function generateCandidates(ctx, { powers = [1.5], banks = false, blocks 
     for (const { u, tag } of dirs) {
       // The keeper may only clear, never shoot
       if (isGoalkeeper(capId) && (tag !== 'field' || u.x * ctx.attackDir < 0.2)) continue
-      const aim = aimFor(positions, capId, u)
+      const aim = aimFor(positions, capId, u, ctx)
       if (!aim) continue
       const hit = firstHit(positions, capId, aim.dir)
       if (!hit || hit.id !== 'ball') continue
@@ -238,7 +247,7 @@ export function generateCandidates(ctx, { powers = [1.5], banks = false, blocks 
   // reachable, so a ball jammed against a cushion can still be played.
   for (const capId of eligibleCaps(ctx)) {
     for (const k of offsets) {
-      const aim = aimAcross(positions, capId, k)
+      const aim = aimAcross(positions, capId, k, ctx)
       if (!aim) continue
       if (isGoalkeeper(capId) && aim.u.x * ctx.attackDir < 0.2) continue
       const hit = firstHit(positions, capId, aim.dir)
@@ -264,7 +273,7 @@ export function generateCandidates(ctx, { powers = [1.5], banks = false, blocks 
 }
 
 /** Aim at the ball with a sideways offset k (-1..1 of the combined radius). */
-function aimAcross(positions, capId, k) {
+function aimAcross(positions, capId, k, ctx = null) {
   const c = positions[capId]
   const b = positions.ball
   const R = radiusOf(capId) + BALL_RADIUS
@@ -282,6 +291,7 @@ function aimAcross(positions, capId, k) {
   const py = c.y + dir.y * t
   const lim = radiusOf(capId) + 0.05 // cap fully on the pitch, not grazing the cushion
   if (Math.abs(px) > PITCH.halfW - lim || Math.abs(py) > PITCH.halfH - lim) return null
+  if (ctx && !reachable(ctx, capId, px, py)) return null
   const u = unit(b.x - px, b.y - py)
   const cut = dir.x * u.x + dir.y * u.y
   if (cut < MIN_CUT) return null
@@ -338,7 +348,9 @@ function keeperCandidates(ctx) {
   const ball = positions.ball
   if (!k || !ball || !keeperCanPlay(ball.x, ball.y, ctx.homeDir)) return []
   if (dangerLevel(ctx) < 0.2) return []
-  const spot = keeperSpot(ctx)
+  const raw = keeperSpot(ctx)
+  const z = keeperZone(ctx.homeDir, radiusOf(id))
+  const spot = { x: Math.max(z.minX, Math.min(z.maxX, raw.x)), y: Math.max(z.minY, Math.min(z.maxY, raw.y)) }
   const dist = hyp(spot.x - k.x, spot.y - k.y)
   if (dist < 0.6) return [] // already there
   const dir = { x: (spot.x - k.x) / dist, y: (spot.y - k.y) / dist }

@@ -21,7 +21,7 @@ const SECTIONS = [
       'You can’t score straight from a kick-off flick.',
       'Goalkeepers can’t score (own goals still count).',
       'Goalkeepers must stay inside their penalty area.',
-      'You can only flick your goalkeeper when the ball is in or near his penalty area.',
+      'You can only flick your goalkeeper when the ball is inside his penalty area (where he can reach it).',
       'Teams swap ends at half time.',
     ],
   },
