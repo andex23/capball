@@ -83,3 +83,31 @@ export function isDesign(config, design) {
 
 /** What an option goes back to when you tap it again to clear it. */
 export const CLEAR_TO = { pattern: 'none', badge: 'none', finish: 'gloss' }
+
+/**
+ * Rare designs you earn. `need` reads the player's progress
+ * ({ won, goalsFor, cleanSheets, promotions, titles, cups, streak }) and
+ * says how far along they are: [have, target].
+ */
+export const RARE_DESIGNS = [
+  { key: 'silver', name: 'Silver Star', primary: '#CFD8DC', edge: '#0D47A1', pattern: 'ring', badge: 'star', finish: 'chrome', capText: 'SILVER',
+    hint: 'Win 10 matches', need: (p) => [p.won, 10] },
+  { key: 'gold', name: 'Golden Crown', primary: '#D4AF37', edge: '#FFF3B0', pattern: 'rays', badge: 'crown', finish: 'chrome', capText: 'GOLD',
+    hint: 'Win promotion in Career', need: (p) => [p.promotions, 1] },
+  { key: 'boot', name: 'Golden Boot', primary: '#1A1A1A', edge: '#FFD700', pattern: 'stripe', badge: 'bolt', finish: 'gloss', capText: 'BOOT',
+    hint: 'Score 50 goals', need: (p) => [p.goalsFor, 50] },
+  { key: 'wall', name: 'Iron Wall', primary: '#37474F', edge: '#B0BEC5', pattern: 'cross', badge: 'shield', finish: 'satin', capText: 'IRON WALL',
+    hint: 'Keep 5 clean sheets', need: (p) => [p.cleanSheets, 5] },
+  { key: 'cup', name: 'Cup Winner', primary: '#8E0000', edge: '#FFD700', pattern: 'split', badge: 'crown', finish: 'gloss', capText: 'WINNERS',
+    hint: 'Win a tournament', need: (p) => [p.cups, 1] },
+  { key: 'lucky', name: 'Lucky Seven', primary: '#00A651', edge: '#FFFFFF', pattern: 'dots', badge: 'star', finish: 'gloss', capText: 'LUCKY 7',
+    hint: 'Beat the daily challenge 7 days running', need: (p) => [p.streak, 7] },
+  { key: 'royal', name: 'Royal Purple', primary: '#4A148C', edge: '#FFD700', pattern: 'ring', badge: 'crown', finish: 'chrome', capText: 'ROYAL',
+    hint: 'Win the Premier Cap League', need: (p) => [p.titles, 1] },
+]
+
+/** Is a rare design unlocked for this progress? */
+export const isUnlocked = (design, progress) => {
+  const [have, target] = design.need(progress)
+  return (have || 0) >= target
+}
