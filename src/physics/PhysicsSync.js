@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
-  stopAllBodies, placeBallAt, deOverlapBodies, getLastBallTeam,
+  stopAllBodies, placeBallAt, deOverlapBodies, getLastBallTeam, clearKeeperDive,
 } from './PhysicsWorld'
 import { ballInCorner, cornerRestart, otherTeam } from '../game/rules'
 import { checkGoal } from './GoalDetector'
@@ -45,6 +45,7 @@ export function usePhysicsSync(meshRefs) {
     const frameMs = Math.min(delta * 1000, MAX_FRAME_MS)
 
     if (store.phase !== PHASE.RESOLVE) {
+      clearKeeperDive()
       resolved.current = false
       settledMs.current = 0
       resolveMs.current = 0

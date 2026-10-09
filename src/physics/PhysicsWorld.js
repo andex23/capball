@@ -147,11 +147,16 @@ function createWallBodies() {
   // Goal back walls — thick to prevent tunneling
   const backThick = 3
   const leftGoalBack = Bodies.rectangle(-halfW - goalDepth - backThick / 2, 0, backThick, goalWidth + 2, wallOpts)
-  const leftGoalTop = Bodies.rectangle(-halfW - goalDepth / 2, -goalHalf - wallThick / 2, goalDepth + wallThick, wallThick, wallOpts)
-  const leftGoalBottom = Bodies.rectangle(-halfW - goalDepth / 2, goalHalf + wallThick / 2, goalDepth + wallThick, wallThick, wallOpts)
+  // Side nets: from the goal line backwards only. (They used to be centred on
+  // the net, which pushed half their thickness 1.5 units out onto the pitch
+  // beside each post: an invisible block that stopped corners and shots along
+  // the end line.)
+  const sideLen = goalDepth + wallThick
+  const leftGoalTop = Bodies.rectangle(-halfW - sideLen / 2, -goalHalf - wallThick / 2, sideLen, wallThick, wallOpts)
+  const leftGoalBottom = Bodies.rectangle(-halfW - sideLen / 2, goalHalf + wallThick / 2, sideLen, wallThick, wallOpts)
   const rightGoalBack = Bodies.rectangle(halfW + goalDepth + backThick / 2, 0, backThick, goalWidth + 2, wallOpts)
-  const rightGoalTop = Bodies.rectangle(halfW + goalDepth / 2, -goalHalf - wallThick / 2, goalDepth + wallThick, wallThick, wallOpts)
-  const rightGoalBottom = Bodies.rectangle(halfW + goalDepth / 2, goalHalf + wallThick / 2, goalDepth + wallThick, wallThick, wallOpts)
+  const rightGoalTop = Bodies.rectangle(halfW + sideLen / 2, -goalHalf - wallThick / 2, sideLen, wallThick, wallOpts)
+  const rightGoalBottom = Bodies.rectangle(halfW + sideLen / 2, goalHalf + wallThick / 2, sideLen, wallThick, wallOpts)
 
   // Goal blockers — invisible walls that block CAPS but allow BALL through
   const blockerOpts = {
@@ -241,6 +246,7 @@ function attachKeeperGrip(eng, bodyMap) {
    ═══════════════════════════════════════════════════════════ */
 
 export function createPhysicsWorld() {
+  diveStop = null
   // Destroy previous engine if exists
   if (engine) {
     World.clear(engine.world)
@@ -484,14 +490,16 @@ function clampBodyMap(bodies, team1Side) {
       const onLeft = homeDir === -1
       const xMin = onLeft ? (-halfW + r) : (halfW - PEN_AREA_W + r)
       const xMax = onLeft ? (-halfW + PEN_AREA_W - r) : (halfW - r)
-      const yMin = -penHalfH + r
-      const yMax = penHalfH - r
+      let yMin = -penHalfH + r
+      let yMax = penHalfH - r
+      if (diveStop?.id === id) { yMin = Math.max(yMin, -diveStop.maxAbsY); yMax = Math.min(yMax, diveStop.maxAbsY) }
 
       let cx = x, cy = y, nvx = vx, nvy = vy, fix = false
       if (x < xMin) { cx = xMin + 0.1; if (vx < 0) nvx = Math.abs(vx) * bounce; fix = true }
       if (x > xMax) { cx = xMax - 0.1; if (vx > 0) nvx = -Math.abs(vx) * bounce; fix = true }
-      if (y < yMin) { cy = yMin + 0.1; if (vy < 0) nvy = Math.abs(vy) * bounce; fix = true }
-      if (y > yMax) { cy = yMax - 0.1; if (vy > 0) nvy = -Math.abs(vy) * bounce; fix = true }
+      const dived = diveStop?.id === id
+      if (y < yMin) { cy = yMin + (dived ? 0 : 0.1); nvy = dived ? 0 : (vy < 0 ? Math.abs(vy) * bounce : vy); fix = true }
+      if (y > yMax) { cy = yMax - (dived ? 0 : 0.1); nvy = dived ? 0 : (vy > 0 ? -Math.abs(vy) * bounce : vy); fix = true }
       if (fix) {
         Body.setPosition(body, { x: cx, y: cy })
         Body.setVelocity(body, { x: nvx, y: nvy })
@@ -811,13 +819,21 @@ const PENALTY_RUN_UP = 1.5
 const KEEPER_DIVE_SPEED = 1.8
 
 /** Throw a keeper across his line: dive -1 / 1 (pitch y), 0 stays put. */
+// A diving keeper stops at the post, covering his corner, instead of sliding on past it
+let diveStop = null // { id, maxAbsY } for the current penalty
+
+/** The penalty's over: the keeper may use his whole box again. */
+export function clearKeeperDive() { diveStop = null }
+
 export function diveKeeper(keeperTeam, dive) {
   const gk = bodies[`${keeperTeam}_gk`]
   if (!gk || !dive) return
+  diveStop = { id: `${keeperTeam}_gk`, maxAbsY: PITCH.goalWidth / 2 - 0.35 }
   Body.setVelocity(gk, { x: 0, y: dive * KEEPER_DIVE_SPEED })
 }
 
 export function setupPenalty(fouledTeam) {
+  diveStop = null
   const { halfW } = PITCH
   const defTeam = otherTeam(fouledTeam)
   const atkGkDir = getTeamDir(fouledTeam)
@@ -870,6 +886,7 @@ export function setupPenalty(fouledTeam) {
  * the centre circle, and the kicker next to the ball.
  */
 export function resetToKickoff(kickingTeam) {
+  diveStop = null
   const { formations, team1Side } = useMatchStore.getState()
   stopAll()
   lastBallTeam = null
