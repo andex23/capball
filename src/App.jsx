@@ -4,6 +4,7 @@ import { useTournamentStore } from './state/tournamentStore'
 import TournamentHomeScreen from './screens/TournamentHomeScreen'
 import TournamentSetupScreen from './screens/TournamentSetupScreen'
 import TournamentHubScreen from './screens/TournamentHubScreen'
+import CareerScreen from './screens/CareerScreen'
 import { disconnect, isConnected } from './multiplayer/MultiplayerManager'
 import { fadeOutMenuMusic } from './audio/MusicManager'
 import SplashScreen from './screens/SplashScreen'
@@ -93,6 +94,7 @@ function Screen({ screen }) {
     case SCREEN.TOURNAMENT_HOME: return <TournamentHomeScreen />
     case SCREEN.TOURNAMENT_SETUP: return <TournamentSetupScreen />
     case SCREEN.TOURNAMENT_HUB: return <TournamentHubScreen />
+    case SCREEN.CAREER: return <CareerScreen />
     default: return <MenuScreen />
   }
 }
