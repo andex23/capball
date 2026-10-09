@@ -1994,7 +1994,7 @@ button { cursor: pointer; background: none; border: 0; }
 @keyframes goal-burst-spin { to { transform: rotate(360deg); } }
 @keyframes goal-fade-in { from { opacity: 0; } }
 .goal-moment-word {
-  font: italic 900 clamp(84px, 22vw, 168px)/0.9 var(--font-display); letter-spacing: -0.01em;
+  font: italic 800 clamp(84px, 22vw, 168px)/0.9 var(--font-display); letter-spacing: -0.01em;
   background: linear-gradient(180deg, #fff6b0 0%, #ffd23f 38%, #ff9a1f 62%, #e53935 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
   -webkit-text-stroke: clamp(6px, 1.4vw, 10px) #0b0830; paint-order: stroke fill; filter: drop-shadow(8px 10px 0 rgba(11, 8, 48, 0.85));
   animation: goal-slam 520ms cubic-bezier(0.2, 1.6, 0.4, 1) both; transform: rotate(-5deg);
@@ -2012,7 +2012,7 @@ button { cursor: pointer; background: none; border: 0; }
 .goal-moment-who { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .goal-moment-name {
   display: flex; align-items: center; gap: 10px; min-width: 0;
-  font: italic 900 clamp(28px, 7vw, 40px)/1 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #0b0830;
+  font: italic 800 clamp(28px, 7vw, 40px)/1 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #0b0830;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .goal-moment-num {
@@ -2020,7 +2020,7 @@ button { cursor: pointer; background: none; border: 0; }
   font-style: normal; font-size: 0.82em; color: var(--team-ink, #0b0830); background: var(--team, #ffd23f); box-shadow: 0 0 0 3px #0b0830; text-shadow: none;
 }
 .goal-moment-who small { font: 700 12px/1.2 var(--font-pixel, monospace); letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.goal-moment-score { display: flex; align-items: center; gap: 6px; font: 900 clamp(26px, 6vw, 34px)/1 var(--font-display); color: #fff; }
+.goal-moment-score { display: flex; align-items: center; gap: 6px; font: 800 clamp(26px, 6vw, 34px)/1 var(--font-display); color: #fff; }
 .goal-moment-score span { min-width: 1.3em; padding: 4px 6px; text-align: center; background: #0b0830; box-shadow: inset 0 -4px 0 var(--t, #fff); }
 .goal-moment-score i { font-style: normal; opacity: 0.7; }
 .goal-moment-line {
@@ -2034,3 +2034,61 @@ button { cursor: pointer; background: none; border: 0; }
 .pitch-style { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
 .pitch-style .eyebrow { margin: 0; }
 .pitch-style small { flex-basis: 100%; }
+
+/* ===== Tournament finale ===== */
+.finale {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; overflow-y: auto;
+  padding: calc(var(--safe-top, 0px) + 16px) 16px calc(var(--safe-bottom, 0px) + 16px);
+  background: radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--team) 45%, #0b0830) 0%, #0b0830 70%);
+  animation: goal-fade-in 260ms ease both;
+}
+.finale[data-outcome='knockedOut'], .finale[data-outcome='placed'] { background: radial-gradient(ellipse at 50% 30%, #1a2a6a 0%, #07061f 75%); }
+.finale-rays {
+  position: fixed; left: 50%; top: 28%; width: 220vmax; height: 220vmax; margin: -110vmax 0 0 -110vmax; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 210, 63, 0.14) 0 7deg, transparent 7deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 40%); mask-image: radial-gradient(circle, #000 0, transparent 40%);
+  animation: goal-burst-spin 14s linear infinite;
+}
+.finale[data-outcome='knockedOut'] .finale-rays, .finale[data-outcome='placed'] .finale-rays { opacity: 0.25; }
+.finale-confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.finale-confetti i { position: absolute; top: -20px; height: 12px; animation: confetti-fall linear infinite; }
+@keyframes confetti-fall { 0% { transform: translateY(-20px) rotate(0); } 100% { transform: translateY(110vh) rotate(720deg); } }
+.finale-card {
+  position: relative; width: min(520px, 100%); padding: 22px 20px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(30, 64, 210, 0.96), rgba(10, 27, 110, 0.97));
+  box-shadow: 0 0 0 4px #0b0830, inset 0 0 0 3px #0b0830, inset 0 6px 0 3px var(--team), 10px 10px 0 4px rgba(0, 0, 0, 0.5);
+  animation: goal-card-in 520ms 120ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+.finale-top { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin-top: -6px; }
+.finale-trophy { width: 96px; height: 112px; filter: drop-shadow(5px 6px 0 rgba(11, 8, 48, 0.7)); animation: trophy-rise 700ms 300ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes trophy-rise { from { transform: translateY(40px) scale(0.6); opacity: 0; } }
+.finale-cap { animation: trophy-rise 600ms 150ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.finale-title {
+  font: italic 800 clamp(50px, 14vw, 88px)/0.92 var(--font-display); letter-spacing: -0.01em; text-transform: uppercase; transform: rotate(-3deg);
+  background: linear-gradient(180deg, #fff6b0 0%, #ffd23f 40%, #ff9a1f 65%, #e53935 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 5px #0b0830; paint-order: stroke fill; filter: drop-shadow(6px 7px 0 rgba(11, 8, 48, 0.85));
+  animation: goal-slam 560ms 200ms cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+.finale[data-outcome='runnerUp'] .finale-title { background: linear-gradient(180deg, #ffffff 0%, #dfe5f0 45%, #8f99ae 100%); -webkit-background-clip: text; background-clip: text; }
+.finale[data-outcome='knockedOut'] .finale-title, .finale[data-outcome='placed'] .finale-title { background: linear-gradient(180deg, #ffffff 0%, #b9c6ff 100%); -webkit-background-clip: text; background-clip: text; }
+.finale-headline { margin: 2px 0 0; font: italic 800 clamp(24px, 6.4vw, 32px)/1.05 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #0b0830; }
+.finale-line { margin: 0; max-width: 42ch; font: 600 16px/1.4 var(--font-ui); color: rgba(255, 255, 255, 0.92); }
+.finale-record { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; width: 100%; margin-top: 6px; }
+.finale-record span { display: flex; flex-direction: column; gap: 2px; padding: 8px 2px; background: rgba(5, 10, 46, 0.6); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12); }
+.finale-record b { font: 800 24px/1 var(--font-display); color: #fff; }
+.finale-record span[data-tone='good'] b { color: #6dff9b; }
+.finale-record span[data-tone='bad'] b { color: #ff8c9a; }
+.finale-record small { font: 700 9px/1 var(--font-pixel, monospace); letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
+.finale-scorer, .finale-champ { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 0; padding: 8px 12px; font: 600 14px/1.3 var(--font-ui); color: #fff; background: rgba(11, 8, 48, 0.75); box-shadow: 0 0 0 2px #ffd23f; }
+.finale-champ { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3); }
+.finale-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; width: 100%; }
+.finale-actions .btn { flex: 1 1 200px; }
+@media (max-width: 420px) { .finale-record { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) {
+  .finale-rays, .finale-confetti i, .finale-trophy, .finale-cap, .finale-title, .finale-card { animation: none; }
+}
+.t-champion-actions { display: flex; flex-direction: column; gap: 6px; }
+.install-guide { display: flex; flex-direction: column; gap: 12px; }
+.install-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.install-steps li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; background: rgba(5, 10, 46, 0.45); border: 2px solid var(--line); line-height: 1.4; }
+.install-step-n { flex: none; display: grid; place-items: center; width: 26px; height: 26px; font: 700 14px/1 var(--font-pixel, monospace); color: #0b0830; background: #ffd23f; }

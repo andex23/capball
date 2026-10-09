@@ -8,6 +8,7 @@ import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundMana
 import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
+import TournamentFinale from '../ui/TournamentFinale'
 import { TeamTag, scoreText, ProgressBar } from '../ui/TournamentBits'
 import { displayColor } from '../ui/color'
 
@@ -69,7 +70,7 @@ function NextMatch({ t, fixture, action, onAct }) {
   )
 }
 
-function Champion({ t, onNew }) {
+function Champion({ t, onNew, onReplay }) {
   const champ = teamById(t, t.championId)
   const runner = teamById(t, t.runnerUpId)
   if (!champ) return null
@@ -81,7 +82,10 @@ function Champion({ t, onNew }) {
         <h2 className="display t-champion-name">{champ.name}</h2>
         {runner && <p className="muted">{t.format === 'league' ? 'Runners-up' : 'Beat'} {runner.name}{t.format === 'league' ? '' : ' in the final'}</p>}
       </div>
-      <button className="btn btn-gold" onClick={onNew} onMouseEnter={playHoverTick}>New tournament</button>
+      <div className="t-champion-actions">
+        <button className="btn btn-gold" onClick={onNew} onMouseEnter={playHoverTick}>New tournament</button>
+        <button className="btn btn-ghost" onClick={onReplay}>Watch the ending again</button>
+      </div>
     </section>
   )
 }
@@ -374,6 +378,8 @@ export default function TournamentHubScreen() {
   const [tab, setTab] = useState('table')
 
   const isOnline = kind === 'online'
+  const finaleSeen = useTournamentStore((s) => s.finaleSeen)
+  const [finale, setFinale] = useState(false)
   // Local tournaments are kept on this phone after every result (and on the account when signed in)
   const saveAndExit = () => {
     playConfirm()
@@ -448,7 +454,7 @@ export default function TournamentHubScreen() {
           {storeError && !playing && <p className="t-warn t-hub-error" role="alert">{storeError}</p>}
 
           {t.championId
-            ? <Champion t={t} onNew={() => { playButtonSelect(); store.startSetup(kind) }} />
+            ? <Champion t={t} onNew={() => { playButtonSelect(); store.startSetup(kind) }} onReplay={() => { playButtonSelect(); setFinale(true) }} />
             : (
               <div className="t-hub-top">
                 {next && <NextMatch t={t} fixture={next.f} action={next.a} onAct={act} />}
@@ -519,6 +525,14 @@ export default function TournamentHubScreen() {
         </footer>
       </div>
 
+      {t?.championId && (finale || !finaleSeen.includes(t.id)) && (
+        <TournamentFinale
+          t={t}
+          mine={mine}
+          onClose={() => { store.markFinaleSeen(t.id); setFinale(false) }}
+          onNew={() => { store.markFinaleSeen(t.id); setFinale(false); store.startSetup(kind) }}
+        />
+      )}
       {isOnline && <LiveWait t={t} playing={playing} onCancel={() => { playButtonSelect(); store.cancelLive() }} />}
     </div>
   )
