@@ -282,6 +282,7 @@ export const useMatchStore = create((set, get) => ({
     set({ ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false })
   },
 
+  lastGoalOwn: false,
   matchResult: null,
   score: { team1: 0, team2: 0 },
   lastScorer: null,
@@ -330,7 +331,8 @@ export const useMatchStore = create((set, get) => ({
     set({ ...clearTurn, activeTeam: otherTeam(activeTeam), phase: PHASE.SELECT, kickoffGuard: false, shotClockRemaining: get().shotClock })
   },
 
-  scoreGoal: (scoringTeam) => {
+  // ownGoal: the last cap to touch the ball was the conceding side's
+  scoreGoal: (scoringTeam, { ownGoal = false } = {}) => {
     const { score } = get()
     const concedingTeam = otherTeam(scoringTeam)
     get().bumpStat(scoringTeam, 'goals')
@@ -339,6 +341,7 @@ export const useMatchStore = create((set, get) => ({
       score: { ...score, [scoringTeam]: score[scoringTeam] + 1 },
       phase: PHASE.GOAL,
       lastScorer: scoringTeam,
+      lastGoalOwn: !!ownGoal,
       lastConceded: concedingTeam,
     })
     // First to N: that goal wins it

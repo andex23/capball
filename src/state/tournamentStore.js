@@ -90,6 +90,9 @@ export const useTournamentStore = create((set, get) => ({
   // Which tournament the hub shows, and which kind the set-up screen makes
   hubKind: 'local',
   setupKind: 'local',
+  // Format picked on the menu (League or Cup) for the next new tournament
+  setupFormat: 'knockout',
+  setSetupFormat(f) { set({ setupFormat: f === 'league' ? 'league' : 'knockout' }) },
   // Fixture being played: { kind: 'local' | 'online', code?, fixture, knockout, live?, recorded? }
   playing: null,
   stash: null,

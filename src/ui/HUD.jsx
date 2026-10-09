@@ -14,6 +14,7 @@ import Modal from './Modal'
 import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
 import { displayColor } from './color'
+import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
 
 const NO_GOAL_TEXT = {
   kickoff_violation: 'You can’t score straight from kick-off',
@@ -103,6 +104,7 @@ function Banner() {
   const phase = useMatchStore((s) => s.phase)
   const activeTeam = useMatchStore((s) => s.activeTeam)
   const teamConfig = useMatchStore((s) => s.teamConfig)
+  const lastGoalOwn = useMatchStore((s) => s.lastGoalOwn)
   const lastScorer = useMatchStore((s) => s.lastScorer)
   const foulData = useMatchStore((s) => s.foulData)
   const noGoalReason = useMatchStore((s) => s.noGoalReason)
@@ -122,7 +124,9 @@ function Banner() {
         ? { title: kicks.team1 + kicks.team2 === 0 ? 'Penalties' : 'Next kick', sub: `${nameOf(activeTeam)} to shoot`, team: activeTeam }
         : { title: 'Kick off', sub: `${half === 2 ? 'Second half · ' : ''}${nameOf(activeTeam)} to start`, team: activeTeam }
       break
-    case PHASE.GOAL: b = { title: 'Goal!', tone: 'gold', sub: `${nameOf(lastScorer)} score${shootout ? ' the penalty' : ''}`, team: lastScorer }; break
+    case PHASE.GOAL: b = lastGoalOwn && !shootout
+      ? { title: 'Own goal!', tone: 'gold', sub: `${nameOf(otherTeam(lastScorer))} put it in their own net — ${nameOf(lastScorer)} score`, team: lastScorer }
+      : { title: 'Goal!', tone: 'gold', sub: `${nameOf(lastScorer)} score${shootout ? ' the penalty' : ''}`, team: lastScorer }; break
     case PHASE.MISSED: b = timeUp
       ? { title: 'Time’s up', tone: 'bad', sub: `${nameOf(activeTeam)} miss the penalty` }
       : { title: 'Saved!', sub: `${nameOf(activeTeam)} miss the penalty` }; break
@@ -202,6 +206,16 @@ function PauseMenu({ onClose }) {
     useMatchStore.getState().quitMatch(SCREEN.MENU)
   }
 
+  // Save the match to carry on later (one save slot), then leave
+  const saveBlock = gameMode === 'online' ? 'online' : cantSaveReason()
+  const saveAndQuit = () => {
+    if (!saveCurrentMatch()) return
+    playButtonSelect()
+    stopAllBodies()
+    if (useTournamentStore.getState().playing) { useTournamentStore.getState().backToHub(); return }
+    useMatchStore.getState().quitMatch(SCREEN.MENU)
+  }
+
   if (view === 'settings') return <Modal title="Sound" onClose={() => setView('main')}><SettingsPanel /></Modal>
   if (view === 'rules') return <Modal title="How to play" onClose={() => setView('main')}><RulesPanel /></Modal>
 
@@ -214,6 +228,14 @@ function PauseMenu({ onClose }) {
       </div>
       {authority && gameMode !== 'online' && (
         <button className="btn btn-orange btn-block" onClick={restart}><Icon name="restart" size={18} /> Restart {shootout ? 'shootout' : 'match'}</button>
+      )}
+      {saveBlock !== 'online' && (
+        <>
+          <button className="btn btn-gold btn-block" onClick={saveAndQuit} disabled={!!saveBlock}><Icon name="check" size={18} /> Save &amp; quit</button>
+          <p className="muted" style={{ margin: '-4px 0 0', fontSize: 12.5, textAlign: 'center' }}>
+            {saveBlock || 'Carry on later from the menu, or on another phone when you’re signed in.'}
+          </p>
+        </>
       )}
       <button className="btn btn-danger btn-block" onClick={quit}><Icon name="exit" size={18} /> {gameMode === 'online' ? 'Leave match' : 'Quit to menu'}</button>
     </Modal>

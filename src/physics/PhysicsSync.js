@@ -141,7 +141,8 @@ export function usePhysicsSync(meshRefs) {
       } else if (verdict.outcome === 'goal') {
         stopBall()
         playGoal()
-        s.scoreGoal(verdict.scorer)
+        const touched = getLastBallTeam()
+        s.scoreGoal(verdict.scorer, { ownGoal: !s.penaltyShootout && !!touched && touched !== verdict.scorer })
       } else if (verdict.outcome === 'bank_shot') {
         // In off the wall: no goal, the defending side restarts with a goal kick
         stopAllBodies()

@@ -19,7 +19,7 @@ export const SYNC_KEYS = [
   'screen', 'matchKey', 'score', 'stats', 'activeTeam', 'phase', 'timeRemaining', 'half',
   'teamConfig', 'formations', 'stadium', 'team1Side', 'chosenTeam1Side', 'matchDuration', 'goalTarget',
   'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyKicks', 'matchResult',
-  'selectedCapId', 'freeKickCapId', 'paused', 'ballColor', 'lastScorer', 'noGoalReason',
+  'selectedCapId', 'freeKickCapId', 'paused', 'ballColor', 'lastScorer', 'lastGoalOwn', 'noGoalReason',
   'kickoffGuard', 'shotClock', 'shotClockRemaining',
 ]
 

@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
-import StadiumBackground from '../ui/StadiumBackground'
+import { RetroBackdrop, RetroLogo } from '../ui/Retro'
+import { markStarted } from './MenuScreen'
 
+/** Title card: "Press start". Audio can only begin after a tap, which is why this screen exists. */
 export default function SplashScreen() {
   const goToScreen = useMatchStore((s) => s.goToScreen)
-  const [imgFailed, setImgFailed] = useState(false)
 
   useEffect(() => {
-    // Audio can only start after a user gesture, which is why this screen exists
     const start = () => {
       playCoinInsert()
       startMenuMusic()
+      markStarted()
       // Invite links go straight in: ?room=CODE to the online lobby,
       // ?tournament=CODE to tournaments (which opens that one)
       const params = new URLSearchParams(window.location.search)
@@ -27,17 +28,12 @@ export default function SplashScreen() {
   }, [goToScreen])
 
   return (
-    <div className="screen" style={{ display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
-      {imgFailed ? <StadiumBackground /> : <img className="screen-photo" src="/assets/menu-bg.jpg" alt="" onError={() => setImgFailed(true)} />}
-      <div className="screen-shade" style={{ background: 'radial-gradient(ellipse at center, rgba(6,9,19,0.35) 0%, rgba(6,9,19,0.88) 75%)' }} />
-      <div className="screen-content" style={{ textAlign: 'center', padding: 'var(--gutter)' }}>
-        <div className="eyebrow" style={{ color: 'var(--accent)' }}>Tabletop football</div>
-        <h1 className="display" style={{ fontSize: 'clamp(72px, 16vw, 168px)', textShadow: '0 10px 40px rgba(0,0,0,0.6)' }}>
-          Cap<span style={{ color: 'var(--accent)' }}>ball</span>
-        </h1>
-        <p style={{ marginTop: 28, fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: 13, animation: 'blink 1.8s ease-in-out infinite' }}>
-          Tap anywhere to start
-        </p>
+    <div className="screen iss" style={{ cursor: 'pointer' }}>
+      <RetroBackdrop />
+      <div className="iss-layout">
+        <RetroLogo />
+        <p className="iss-press" role="button">Press start</p>
+        <footer className="iss-foot"><span>© 2026 Capball</span></footer>
       </div>
     </div>
   )

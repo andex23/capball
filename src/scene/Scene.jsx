@@ -15,6 +15,7 @@ import { usePhysicsSync } from '../physics/PhysicsSync'
 import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
+import { applyPendingBodies } from '../state/savedMatch'
 import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty, setupCorner, setupGoalKick } from '../physics/PhysicsWorld'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
@@ -191,6 +192,7 @@ function GameWorld() {
     if (!isAuthority(s)) return
     if (s.penaltyShootout) setupPenalty(s.activeTeam)
     else resetToKickoff(s.activeTeam)
+    applyPendingBodies() // a saved match being picked back up
   }, [])
 
   // Place the caps whenever play restarts. Only the authority does this; an
