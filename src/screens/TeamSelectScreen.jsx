@@ -8,13 +8,11 @@ import CapPreview from '../ui/CapPreview'
 import Icon from '../ui/Icon'
 import { displayColor } from '../ui/color'
 
+// The ball is a carrom coin: white or black, or the red queen
 const BALL_COLORS = [
-  { color: '#c0c0c0', label: 'Silver' },
-  { color: '#FFD700', label: 'Gold' },
-  { color: '#FFFFFF', label: 'White' },
-  { color: '#FF6F00', label: 'Orange' },
-  { color: '#76FF03', label: 'Neon' },
-  { color: '#E91E63', label: 'Pink' },
+  { color: '#EFE6D2', label: 'White' },
+  { color: '#1C1B1A', label: 'Black' },
+  { color: '#B71C1C', label: 'Red' },
 ]
 
 const TABS = [
