@@ -2,6 +2,7 @@ import { useTournamentStore } from '../state/tournamentStore'
 import { useSavedStore, resumeSavedMatch, deleteSavedMatch, describeSave } from '../state/savedMatch'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Icon from './Icon'
+import { allFixtures } from '../game/tournament'
 
 const MODE_LABEL = { ai: 'Vs computer', local: 'Local', online: 'Online' }
 
@@ -25,8 +26,9 @@ export default function SavedGames() {
   const won = useTournamentStore((s) => s.history)
   const { openHub, openOnline } = useTournamentStore.getState()
 
+  const fixtures = local ? allFixtures(local) : []
   const localLabel = local
-    ? `${local.format === 'league' ? 'League' : 'Cup'} · ${local.teams.length} teams${local.championId ? ' · finished' : ` · ${local.fixtures.filter((f) => f.result).length}/${local.fixtures.length} played`}`
+    ? `${local.format === 'league' ? 'League' : 'Cup'} · ${local.teams.length} teams${local.championId ? ' · finished' : ` · ${fixtures.filter((f) => f.result).length}/${fixtures.length} played`}`
     : null
 
   return (
