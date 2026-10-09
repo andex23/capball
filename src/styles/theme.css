@@ -1904,3 +1904,11 @@ button { cursor: pointer; background: none; border: 0; }
 .goal-clip-thumb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #fff; cursor: pointer; font: 700 11px/1 var(--font-pixel); text-transform: uppercase;
   background: repeating-linear-gradient(90deg, #1d7a2c 0 18px, #279437 18px 36px); }
 .goal-clip-share { min-height: 38px; font-size: 13px; }
+
+/* Menu pages */
+.iss-row.is-small { min-height: 40px; }
+.iss-row.is-small .iss-item { font-size: clamp(12px, 3.4vw, 14px); color: var(--text-2); }
+.iss-row.is-small.is-on .iss-item { color: var(--iss-yellow); }
+.iss-tag[data-arrow='true'] { background: none; box-shadow: none; color: var(--iss-yellow); font-size: 14px; }
+.iss-row .iss-sub { white-space: nowrap; }
+.iss-window { animation: iss-open 160ms steps(4, end) both; }

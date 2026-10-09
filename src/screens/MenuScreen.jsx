@@ -14,6 +14,8 @@ import { useTournamentStore } from '../state/tournamentStore'
 import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 import { useDailyStore, playDaily, liveStreak } from '../state/dailyStore'
 import { challengeFor, dayKey } from '../game/daily'
+import { useCareerStore } from '../state/careerStore'
+import { DIVISIONS } from '../game/career'
 
 /**
  * Home screen in the style of a 16-bit console football game: a title card
@@ -21,22 +23,10 @@ import { challengeFor, dayKey } from '../game/daily'
  * moves with taps, the mouse or the arrow keys.
  */
 
-const MODES = [
-  { key: 'ai', title: 'Vs Computer', tag: '1P' },
-  { key: 'career', title: 'Career', tag: 'PRO' },
-  { key: 'local', title: 'Local Match', tag: '2P' },
-  { key: 'online', title: 'Online Match', tag: 'NET' },
-  { key: 'tournament', title: 'Tournament' },
-  { key: 'daily', title: 'Daily Challenge' },
-]
-const OPTIONS = [
-  { key: 'rules', title: 'How to play' },
-  { key: 'records', title: 'Rankings' },
-  { key: 'settings', title: 'Settings' },
-  { key: 'account', title: 'My games' },
-]
+// The menu is a few short pages, like an old console game: the main page,
+// and one page each for quick matches, tournaments and options
+const PAGE_TITLES = { main: 'Main menu', play: 'Quick match', tournament: 'Tournament', options: 'Options' }
 const DIFFICULTIES = ['easy', 'medium', 'hard']
-const FORMATS = [{ key: 'league', label: 'League' }, { key: 'knockout', label: 'Cup' }]
 
 // The title card shows once per visit; coming back from a match goes straight to the menu
 let pressedStart = false
@@ -61,18 +51,15 @@ export default function MenuScreen() {
   const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
   const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
   const username = useAccountStore((s) => s.username)
-  const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | 'records' | 'account' | null
+  const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | 'records' | 'account' | 'daily' | null
   const [started, setStarted] = useState(pressedStart)
   const [cursor, setCursor] = useState(0)
   const saved = useSavedStore((s) => s.saved)
-  const setupFormat = useTournamentStore((s) => s.setupFormat)
+  const career = useCareerStore((s) => s.career)
   const daily = useDailyStore()
   const doneToday = !!daily.tries?.[dayKey()]?.won
   const streak = liveStreak(daily)
-  // A saved match goes at the top of the list
-  const modes = saved ? [{ key: 'continue', title: 'Continue', tag: 'SAVE' }, ...MODES] : MODES
-  const ITEMS = [...modes.map((m) => m.key), ...OPTIONS.map((o) => o.key)]
-
+  const [page, setPage] = useState('main')
   useEffect(() => { startMenuMusic() }, [])
 
   const start = useCallback(() => {
@@ -95,26 +82,47 @@ export default function MenuScreen() {
     setAiDifficulty(next)
   }
 
-  const shiftFormat = () => {
-    playButtonSelect()
-    useTournamentStore.getState().setSetupFormat(setupFormat === 'league' ? 'knockout' : 'league')
-  }
-
-  const activate = (key) => {
-    if (OPTIONS.some((o) => o.key === key)) {
-      playMenuNavigate()
-      setDialog(key)
-      return
-    }
+  const go = (p) => { playMenuNavigate(); setPage(p); setCursor(0) }
+  const openDialog = (d) => { playMenuNavigate(); setDialog(d) }
+  const play = (mode) => { playConfirm(); setGameMode(mode); goToScreen(SCREEN.TEAM_SELECT) }
+  const tournament = (format) => {
     playConfirm()
-    if (key === 'continue') { resumeSavedMatch(); return }
-    if (key === 'tournament') { goToScreen(SCREEN.TOURNAMENT_HOME); return }
-    if (key === 'career') { goToScreen(SCREEN.CAREER); return }
-    if (key === 'daily') { setDialog('daily'); return }
-    if (key === 'online') { goToScreen(SCREEN.ONLINE); return }
-    setGameMode(key)
-    goToScreen(SCREEN.TEAM_SELECT)
+    useTournamentStore.getState().setSetupFormat(format)
+    goToScreen(SCREEN.TOURNAMENT_HOME)
   }
+  const level = aiDifficulty[0].toUpperCase() + aiDifficulty.slice(1)
+  const back = { key: 'back', title: '◄ Back', small: true, action: () => go('main') }
+
+  // Each item: key, title, optional sub (a line under it), right (a tag or picker), action
+  const PAGES = {
+    main: [
+      ...(saved ? [{ key: 'continue', title: 'Continue', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
+      { key: 'play', title: 'Quick Match', sub: 'Vs computer, two players, online', tag: '►', action: () => go('play') },
+      { key: 'career', title: 'Career', sub: career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
+      { key: 'tournament', title: 'Tournament', sub: 'Leagues and cups, here or online', tag: '►', action: () => go('tournament') },
+      { key: 'daily', title: 'Daily Challenge', sub: doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: doneToday, action: () => openDialog('daily') },
+      { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
+    ],
+    play: [
+      { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
+      { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
+      { key: 'online', title: 'Online Match', sub: 'Play a friend on their own phone', tag: 'NET', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
+      back,
+    ],
+    tournament: [
+      { key: 'league', title: 'League', sub: 'Everyone plays everyone; most points wins', action: () => tournament('league') },
+      { key: 'cup', title: 'Cup', sub: 'Knockout ties; lose and you’re out', action: () => tournament('knockout') },
+      back,
+    ],
+    options: [
+      { key: 'records', title: 'Rankings', sub: 'Leaderboards and your records', action: () => openDialog('records') },
+      { key: 'account', title: username ? `My games · ${username}` : 'My games', sub: username ? 'Saved match, career totals, results' : 'Save your games to an account', action: () => openDialog('account') },
+      { key: 'settings', title: 'Settings', sub: 'Sound, music, aiming', action: () => openDialog('settings') },
+      { key: 'rules', title: 'How to play', action: () => openDialog('rules') },
+      back,
+    ],
+  }
+  const items = PAGES[page]
 
   // Arrow keys / Enter, like a pad
   useEffect(() => {
@@ -125,22 +133,21 @@ export default function MenuScreen() {
         if (['Enter', ' ', 'Spacebar'].includes(e.key)) { e.preventDefault(); start() }
         return
       }
-      const n = ITEMS.length
+      const n = items.length
+      const item = items[Math.min(cursor, n - 1)]
       if (e.key === 'ArrowDown') { e.preventDefault(); playMenuNavigate(); setCursor((c) => (c + 1) % n) }
       else if (e.key === 'ArrowUp') { e.preventDefault(); playMenuNavigate(); setCursor((c) => (c - 1 + n) % n) }
-      else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && ITEMS[cursor] === 'ai') {
+      else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && item?.picker === 'level') {
         e.preventDefault(); shiftLevel(e.key === 'ArrowLeft' ? -1 : 1)
-      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && ITEMS[cursor] === 'tournament') {
-        e.preventDefault(); shiftFormat()
+      } else if ((e.key === 'Escape' || e.key === 'Backspace') && page !== 'main') {
+        e.preventDefault(); go('main')
       } else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) {
-        e.preventDefault(); activate(ITEMS[cursor])
+        e.preventDefault(); item?.action()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
-
-  const level = aiDifficulty[0].toUpperCase() + aiDifficulty.slice(1)
 
   return (
     <div className={`screen iss${started ? ' is-started' : ''}`} onClick={!started ? start : undefined}>
@@ -154,48 +161,27 @@ export default function MenuScreen() {
             Press start
           </button>
         ) : (
-          <main className="iss-window" aria-label="Mode select">
-            <div className="iss-window-tab">Mode select</div>
+          <main className="iss-window" aria-label={PAGE_TITLES[page]} key={page}>
+            <div className="iss-window-tab">{PAGE_TITLES[page]}</div>
             <ul className="iss-list" role="menu">
-              {modes.map((m, i) => (
-                <li key={m.key} role="none" className={`iss-row${cursor === i ? ' is-on' : ''}`} onPointerEnter={(e) => e.pointerType === 'mouse' && moveTo(i)}>
+              {items.map((m, i) => (
+                <li key={m.key} role="none" className={`iss-row${m.small ? ' is-small' : ''}${cursor === i ? ' is-on' : ''}`} onPointerEnter={(e) => e.pointerType === 'mouse' && moveTo(i)}>
                   {cursor === i && <CapCursor />}
-                  <button role="menuitem" className="iss-item" onClick={() => activate(m.key)} onFocus={() => setCursor(i)}>
+                  <button role="menuitem" className="iss-item" onClick={m.action} onFocus={() => setCursor(i)}>
                     {m.title}
-                    {m.key === 'continue' && <small className="iss-sub">{describeSave(saved)}</small>}
+                    {m.sub && <small className="iss-sub">{m.sub}</small>}
                   </button>
-                  {m.key === 'ai' ? (
+                  {m.picker === 'level' ? (
                     <span className="iss-level" role="group" aria-label="Computer level">
                       <button className="iss-arrow" aria-label="Easier" onClick={() => { setCursor(i); shiftLevel(-1) }}>◄</button>
                       <span className="iss-level-name" data-level={aiDifficulty}>{level}</span>
                       <button className="iss-arrow" aria-label="Harder" onClick={() => { setCursor(i); shiftLevel(1) }}>►</button>
                     </span>
-                  ) : m.key === 'tournament' ? (
-                    <span className="iss-level" role="group" aria-label="League or cup">
-                      <button className="iss-arrow" aria-label="League or cup" onClick={() => { setCursor(i); shiftFormat() }}>◄</button>
-                      <span className="iss-level-name" data-level="format">{FORMATS.find((f) => f.key === setupFormat)?.label || 'Cup'}</span>
-                      <button className="iss-arrow" aria-label="League or cup" onClick={() => { setCursor(i); shiftFormat() }}>►</button>
-                    </span>
-                  ) : (
-                    <span className="iss-tag" data-done={m.key === 'daily' && doneToday ? 'true' : undefined}>
-                      {m.key === 'daily' ? (doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW') : m.tag}
-                    </span>
-                  )}
+                  ) : m.tag ? (
+                    <span className="iss-tag" data-done={m.done ? 'true' : undefined} data-arrow={m.tag === '►' ? 'true' : undefined}>{m.tag}</span>
+                  ) : null}
                 </li>
               ))}
-            </ul>
-            <div className="iss-rule" aria-hidden="true" />
-            <ul className="iss-options" role="menu">
-              {OPTIONS.map((o, j) => {
-                const i = modes.length + j
-                const title = o.key === 'account' && username ? `${username}` : o.title
-                return (
-                  <li key={o.key} role="none" className={`iss-opt${cursor === i ? ' is-on' : ''}`} onPointerEnter={(e) => e.pointerType === 'mouse' && moveTo(i)}>
-                    {cursor === i && <CapCursor />}
-                    <button role="menuitem" className="iss-item" onClick={() => activate(o.key)} onFocus={() => setCursor(i)}>{title}</button>
-                  </li>
-                )
-              })}
             </ul>
             <InstallPrompt />
           </main>
@@ -203,7 +189,7 @@ export default function MenuScreen() {
 
         <footer className="iss-foot">
           <span>© 2026 Capball</span>
-          <span className="iss-keys">▲▼ Select &nbsp; Enter OK</span>
+          <span className="iss-keys">▲▼ Select &nbsp; Enter OK &nbsp; Esc Back</span>
         </footer>
       </div>
 
