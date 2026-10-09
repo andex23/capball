@@ -4,7 +4,7 @@ import { useTournamentStore } from '../state/tournamentStore'
 import { MIN_TEAMS, MAX_TEAMS } from '../game/tournament'
 import { AI_DIFFICULTIES } from '../game/records'
 import { formatClock } from '../game/rules'
-import { BADGES, TEAM_NAME_MAX, COLOR_PRESETS } from '../data/TeamOptions'
+import { BADGES, PATTERNS, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
@@ -51,6 +51,7 @@ function initialTeams(own, online) {
     badge: own?.badge || 'none',
     pattern: own?.pattern || 'none',
     finish: own?.finish || 'matte',
+    capText: own?.capText || '',
     numbers: own?.numbers,
     cpu: false,
     mine: true,
@@ -101,9 +102,30 @@ function KitEditor({ team, onUpdate, onClose }) {
       onClose={onClose}
       footer={<button className="btn btn-gold btn-block" onClick={() => { playConfirm(); onClose() }}>Done <Icon name="check" size={18} /></button>}
     >
-      <div className="t-kit-preview"><CapPreview config={team} size={96} /></div>
+      <div className="t-kit-preview"><CapPreview config={team} size={110} number={team.numbers?.atk1 ?? 10} /></div>
       <Swatches label="Main colour" value={team.primary} onPick={(c) => onUpdate({ primary: c })} />
       <Swatches label="Print colour" value={team.edge} onPick={(c) => onUpdate({ edge: c })} />
+      <div>
+        <label className="eyebrow" htmlFor="kit-cap-text" style={{ display: 'block', marginBottom: 8 }}>Text on the caps</label>
+        <input
+          id="kit-cap-text"
+          className="field"
+          value={team.capText || ''}
+          maxLength={CAP_TEXT_MAX}
+          placeholder="e.g. LIONS FC"
+          autoComplete="off"
+          onChange={(e) => onUpdate({ capText: e.target.value.slice(0, CAP_TEXT_MAX) })}
+          onBlur={(e) => onUpdate({ capText: sanitizeCapText(e.target.value) })}
+        />
+      </div>
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>Print</div>
+        <div className="chip-row" role="group" aria-label="Print">
+          {PATTERNS.map((p) => (
+            <button key={p.key} className="chip" aria-pressed={(team.pattern || 'none') === p.key} onClick={() => { playButtonSelect(); onUpdate({ pattern: p.key }) }}>{p.label}</button>
+          ))}
+        </div>
+      </div>
       <div>
         <div className="eyebrow" style={{ marginBottom: 8 }}>Badge</div>
         <div className="chip-row" role="group" aria-label="Badge">

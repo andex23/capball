@@ -40,7 +40,7 @@ export const INPUT_PHASES = [PHASE.SELECT, PHASE.AIM]
 export const CLOCK_PHASES = [PHASE.SELECT, PHASE.AIM, PHASE.RESOLVE]
 
 // Match duration options (seconds, whole match)
-export const MATCH_DURATIONS = [120, 180, 300]
+export const MATCH_DURATIONS = [60, 90, 120, 150, 180] // up to 3 minutes: longer games drag
 // Shot clock options (seconds per turn, 0 = off)
 export const SHOT_CLOCKS = [0, 10, 15, 20]
 

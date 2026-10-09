@@ -433,7 +433,7 @@ export function sanitizeTournament(input) {
     id: typeof input.id === 'string' ? input.id.slice(0, 40) : 'saved',
     format: input.format,
     legs: input.legs === 2 ? 2 : 1,
-    matchDuration: [120, 180, 300].includes(input.matchDuration) ? input.matchDuration : 180,
+    matchDuration: [60, 90, 120, 150, 180].includes(input.matchDuration) ? input.matchDuration : 180,
     createdAt: Number.isFinite(input.createdAt) ? input.createdAt : 0,
     teams,
     championId: ids.has(input.championId) ? input.championId : null,

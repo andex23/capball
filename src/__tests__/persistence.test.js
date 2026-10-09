@@ -53,7 +53,7 @@ describe('preferences', () => {
     get().setBallColor('#FFD700')
     get().setStadium('street')
     get().setFormation('team2', 'diamond')
-    get().setMatchDuration(300)
+    get().setMatchDuration(90)
     get().setTeam1Side('right')
     get().setAiDifficulty('hard')
     get().setMasterVolume(0.25)
@@ -66,7 +66,7 @@ describe('preferences', () => {
     useMatchStore.setState(initial, true)
     start(storage)
     expect(get()).toMatchObject({
-      ballColor: '#FFD700', stadium: 'street', matchDuration: 300, chosenTeam1Side: 'right', team1Side: 'right',
+      ballColor: '#FFD700', stadium: 'street', matchDuration: 90, chosenTeam1Side: 'right', team1Side: 'right',
       aiDifficulty: 'hard', masterVolume: 0.25, muted: true, formations: { team1: 'default', team2: 'diamond' },
     })
     expect(get().teamConfig.team1).toEqual(myTeam)
