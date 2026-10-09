@@ -35,11 +35,28 @@ describe('weekly numbers for the leaderboard', () => {
 })
 
 describe('cap label', () => {
-  it('prints the team name unless it is a placeholder; own cap text wins', async () => {
+  it('team mode prints the team name unless it is a placeholder; own cap text wins', async () => {
     const { capLabel } = await import('../data/TeamOptions')
-    expect(capLabel({ name: 'Lions' })).toBe('Lions')
-    expect(capLabel({ name: 'Team 1' })).toBe('')
-    expect(capLabel({ name: 'Team 2', capText: 'COLA' })).toBe('COLA')
-    expect(capLabel({ name: 'Northside Rovers FC' })).toHaveLength(12)
+    const team = (c) => ({ ...c, capNames: 'team' })
+    expect(capLabel(team({ name: 'Lions' }))).toBe('Lions')
+    expect(capLabel(team({ name: 'Team 1' }))).toBe('')
+    expect(capLabel(team({ name: 'Team 2', capText: 'COLA' }))).toBe('COLA')
+    expect(capLabel(team({ name: 'Northside Rovers FC' }))).toHaveLength(12)
+    expect(capLabel({ name: 'Lions', capNames: 'none' })).toBe('')
+  })
+
+  it('by default each cap prints its own player, from made-up names that stay the same', async () => {
+    const { capLabel, playerNames, dummyNames, CAP_ROLES } = await import('../data/TeamOptions')
+    const lions = { name: 'Lions' }
+    const names = playerNames(lions)
+    expect(new Set(Object.values(names)).size).toBe(6)
+    expect(playerNames(lions)).toEqual(names)
+    expect(capLabel(lions, 'gk')).toBe(names.gk.toUpperCase())
+    expect(dummyNames('Tigers')).not.toEqual(dummyNames('Lions'))
+    // Own names win and are cleaned up; gaps are filled with made-up ones
+    const mine = playerNames({ name: 'Lions', players: { atk1: '  Okon <b>', gk: '' } })
+    expect(mine.atk1).toBe('Okon b')
+    expect(mine.gk).toBe(names.gk)
+    for (const r of CAP_ROLES) expect(mine[r].length).toBeLessThanOrEqual(12)
   })
 })

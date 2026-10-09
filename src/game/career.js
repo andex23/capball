@@ -73,7 +73,7 @@ export function createSeason(club, level, matchDuration = 120, now = Date.now())
 }
 
 /** A brand-new career for `club` (a kit: name, colours, badge...). */
-export function newCareer(club, { matchDuration = 120, now = Date.now() } = {}) {
+export function newCareer(club, { matchDuration = 120, now = Date.now(), squad = null } = {}) {
   return {
     v: CAREER_VERSION,
     club,
@@ -84,7 +84,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now() } = {}) 
     past: [],          // finished seasons, newest first
     promotions: 0,
     titles: 0,         // top-division wins
-    squad: startingSquad(now),
+    squad: squad ? sanitizeSquad(squad, now) : startingSquad(now),
     coins: START_COINS,
     signed: { key: '', ids: [] }, // players already bought in the current window
   }

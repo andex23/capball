@@ -7,6 +7,7 @@ import { dayKey, nextStreak, previousDay, challengeFor, challengeBodies } from '
 import { useMatchStore } from './MatchStore'
 import { setPendingBodies } from './savedMatch'
 import { setStreakSource } from './unlocks'
+import { isSignedIn } from './accountStore'
 
 export const DAILY_KEY = 'capball:daily:v1'
 const EMPTY = { lastDone: null, streak: 0, best: 0, tries: {} }
@@ -33,6 +34,7 @@ export const useDailyStore = create((set, get) => ({
 
 /** Start (or restart) today's challenge. */
 export function playDaily() {
+  if (!isSignedIn()) return false
   const c = challengeFor(dayKey())
   setPendingBodies(challengeBodies(c))
   useMatchStore.getState().startChallenge(c)

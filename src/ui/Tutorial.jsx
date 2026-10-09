@@ -127,7 +127,11 @@ export default function Tutorial() {
     const tryStart = () => {
       if (isActive(tutRef.current)) return
       const s = useMatchStore.getState()
-      if (shouldAutoStart(s, isTutorialDone())) update(startTutorial(s.activeTeam))
+      if (shouldAutoStart(s, isTutorialDone())) {
+        // Once it has been shown it counts as seen: it never comes back by itself (Replay tutorial in settings still works)
+        markTutorialDone()
+        update(startTutorial(s.activeTeam))
+      }
     }
     tryStart()
     const unsubStore = useMatchStore.subscribe((s, prev) => {

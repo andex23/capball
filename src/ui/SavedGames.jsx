@@ -1,4 +1,5 @@
 import { useTournamentStore } from '../state/tournamentStore'
+import { useAccountStore } from '../state/accountStore'
 import { useSavedStore, resumeSavedMatch, deleteSavedMatch, describeSave } from '../state/savedMatch'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Icon from './Icon'
@@ -26,6 +27,7 @@ export default function SavedGames() {
   const recentOnline = useTournamentStore((s) => s.recentOnline)
   const won = useTournamentStore((s) => s.history)
   const { openHub, openOnline } = useTournamentStore.getState()
+  const signedIn = !!useAccountStore((s) => s.username)
 
   const fixtures = local ? allFixtures(local) : []
   const localLabel = local
@@ -36,7 +38,9 @@ export default function SavedGames() {
     <div className="saved-games">
       <section>
         <h3 className="saved-h">Career</h3>
-        {career.played === 0 ? (
+        {!signedIn ? (
+          <p className="muted saved-empty">Sign in to track your stats, build daily streaks and earn rare caps. Matches you play as a guest don’t count.</p>
+        ) : career.played === 0 ? (
           <p className="muted saved-empty">Play a match and your totals start here.</p>
         ) : (
           <>

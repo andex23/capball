@@ -64,6 +64,12 @@ export function squadRatings(squad) {
   return Object.fromEntries(CAP_ROLES.map((role) => [role, squad[role]?.rating ?? 50]))
 }
 
+/** Surnames by cap role, for printing on the caps. */
+export function squadSurnames(squad) {
+  if (!squad) return null
+  return Object.fromEntries(CAP_ROLES.map((role) => [role, String(squad[role]?.name || '').trim().split(/\s+/).pop().slice(0, 12)]))
+}
+
 /** A computer club's ratings, the same every time for that club in that division. */
 export function clubRatings(level, clubName) {
   const rng = seededRng(`club:${level}:${clubName}`)

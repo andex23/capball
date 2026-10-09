@@ -29,8 +29,8 @@ function save(career) {
 export const useCareerStore = create((set, get) => ({
   career: load(),
 
-  start(club, matchDuration) {
-    const career = newCareer(club, { matchDuration })
+  start(club, matchDuration, squad) {
+    const career = newCareer(club, { matchDuration, squad })
     save(career)
     set({ career })
     useAccountStore.getState().save({ force: true })

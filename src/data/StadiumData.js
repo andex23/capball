@@ -6,6 +6,8 @@
 export const STADIUMS = {
   arena: {
     id: 'arena',
+    // The table itself, with lines chalked or taped on (the default look)
+    top: { surface: 'laminate', c1: '#24262d', c2: '#2c2e36', line: 'rgba(110,225,255,0.92)', note: 'Black table, neon tape' },
     name: 'Game Room',
     tableColor: '#2b2f3a', // the table the board sits on (venue picker preview)
     label: 'Black table, neon lights',
@@ -47,6 +49,8 @@ export const STADIUMS = {
 
   table: {
     id: 'table',
+    // The table itself, with lines chalked or taped on (the default look)
+    top: { surface: 'wood', c1: '#a8743f', c2: '#bb8650', line: 'rgba(255,255,255,0.88)', note: 'Oak kitchen table, chalk lines' },
     name: 'Kitchen Table',
     tableColor: '#8a5a30', // the table the board sits on (venue picker preview)
     label: 'Felt board, wooden table',
@@ -80,6 +84,8 @@ export const STADIUMS = {
 
   street: {
     id: 'street',
+    // The table itself, with lines chalked or taped on (the default look)
+    top: { surface: 'laminate', c1: '#56595f', c2: '#606369', line: 'rgba(255,212,60,0.92)', note: 'Folding table, yellow tape' },
     name: 'Street Corner',
     tableColor: '#d9d9d2', // the table the board sits on (venue picker preview)
     label: 'Folding table, night-time pavement',
@@ -113,6 +119,8 @@ export const STADIUMS = {
 
   gravel: {
     id: 'gravel',
+    // The table itself, with lines chalked or taped on (the default look)
+    top: { surface: 'planks', c1: '#86603d', c2: '#977048', line: 'rgba(255,255,255,0.82)', note: 'Picnic table planks, chalk lines' },
     name: 'Garden Table',
     tableColor: '#7a5a3a', // the table the board sits on (venue picker preview)
     label: 'Picnic table at sunset',
@@ -145,6 +153,8 @@ export const STADIUMS = {
   },
   bar: {
     id: 'bar',
+    // The table itself, with lines chalked or taped on (the default look)
+    top: { surface: 'wood', c1: '#4b2516', c2: '#5c2e1b', varnish: true, line: 'rgba(255,226,170,0.9)', note: 'Varnished bar top' },
     name: 'Bar Counter',
     tableColor: '#4a2614',
     label: 'Polished bar, warm lamps',
@@ -178,6 +188,8 @@ export const STADIUMS = {
 
   desk: {
     id: 'desk',
+    // The table itself, with lines chalked or taped on (the default look)
+    top: { surface: 'laminate', c1: '#d6c096', c2: '#dfcaa2', line: 'rgba(28,58,160,0.8)', note: 'School desk, biro lines' },
     name: 'School Desk',
     tableColor: '#c79a5e',
     label: 'Classroom desk, break time',
@@ -211,6 +223,8 @@ export const STADIUMS = {
 
   beach: {
     id: 'beach',
+    // The table itself, with lines chalked or taped on (the default look)
+    top: { surface: 'towel', c1: '#ff7a59', c2: '#ffffff', stripes: ['#ff7a59', '#ffffff', '#2bb7c9', '#ffd35a', '#ffffff'], line: 'rgba(20,32,90,0.85)', note: 'Striped towel' },
     name: 'Beach Towel',
     tableColor: '#e8cf9a',
     label: 'Board on a towel, sun and sea',
@@ -245,3 +259,11 @@ export const STADIUMS = {
 
 export const STADIUM_KEYS = Object.keys(STADIUMS)
 export const DEFAULT_STADIUM = 'arena'
+
+/** The venue as painted: its own table top (default) or a green pitch. */
+export function surfaceFor(stadiumConfig, pitchStyle = 'table') {
+  const top = stadiumConfig.top
+  if (pitchStyle !== 'table' || !top) return stadiumConfig
+  return { ...stadiumConfig, surface: top.surface, grass1: top.c1, grass2: top.c2, lineColor: top.line, lineWidth: top.surface === 'towel' ? 7 : 4, stripeAlpha: 0 }
+}
+

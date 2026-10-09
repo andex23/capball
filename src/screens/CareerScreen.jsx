@@ -17,7 +17,7 @@ import Icon from '../ui/Icon'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import SquadPanel from '../ui/SquadPanel'
-import { seasonBonus } from '../game/squad'
+import { seasonBonus, startingSquad, squadSurnames } from '../game/squad'
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -39,11 +39,12 @@ function startingKit(teamConfig) {
 function StartCareer() {
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const [club, setClub] = useState(() => startingKit(teamConfig))
+  const [squad] = useState(() => startingSquad(Date.now()))
   const [duration, setDuration] = useState(120)
   const [kitOpen, setKitOpen] = useState(false)
   const start = () => {
     playConfirm()
-    useCareerStore.getState().start({ ...club, name: club.name.trim() || 'My Club' }, duration)
+    useCareerStore.getState().start({ ...club, name: club.name.trim() || 'My Club' }, duration, squad)
   }
   return (
     <div className="career-start">
@@ -51,7 +52,7 @@ function StartCareer() {
         <h2 className="saved-h">Your club</h2>
         <p className="muted t-note">Start in the {DIVISIONS[0].name} against five computer clubs. Finish in the top {PROMOTED} to go up a division. Finish bottom and you go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
         <div className="career-club">
-          <CapPreview config={club} size={96} number={club.numbers?.atk1 ?? 10} />
+          <CapPreview config={{ ...club, players: squadSurnames(squad) }} size={96} number={club.numbers?.atk1 ?? 10} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <label className="eyebrow" htmlFor="career-name" style={{ display: 'block', marginBottom: 6 }}>Club name</label>
             <input id="career-name" className="field" value={club.name} maxLength={TEAM_NAME_MAX} onChange={(e) => setClub({ ...club, name: e.target.value })} />
@@ -69,7 +70,7 @@ function StartCareer() {
         </div>
       </section>
       <button className="btn btn-gold btn-lg btn-block" onClick={start} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Start career</button>
-      {kitOpen && <KitEditor team={club} withName onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setKitOpen(false)} />}
+      {kitOpen && <KitEditor team={club} withName squadNames={squadSurnames(squad)} onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setKitOpen(false)} />}
     </div>
   )
 }
@@ -219,7 +220,7 @@ export default function CareerScreen() {
             <h1 className="display shell-title">{career.club.name}</h1>
           </div>
           <span className="career-kit">
-            <CapPreview config={career.club} size={52} />
+            <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={52} />
           </span>
         </header>
 
@@ -227,7 +228,7 @@ export default function CareerScreen() {
           <div className="career-col">
           <SaveBar />
           <section className="card card-pad career-kit-card">
-            <CapPreview config={career.club} size={64} number={career.club.numbers?.atk1 ?? 10} />
+            <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={64} number={career.club.numbers?.atk1 ?? 10} />
             <div>
               <h2 className="saved-h">Your team</h2>
               {kitOpen
@@ -292,6 +293,7 @@ export default function CareerScreen() {
       {editing && kitOpen && (
         <KitEditor
           team={career.club}
+          squadNames={squadSurnames(career.squad)}
           withName
           onUpdate={(patch) => useCareerStore.getState().updateClub(patch)}
           onClose={() => setEditing(false)}

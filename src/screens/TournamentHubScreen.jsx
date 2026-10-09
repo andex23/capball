@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
+import { useAccountStore } from '../state/accountStore'
 import { progress, teamById, readyFixtures, needsHuman, standings, roundName, allFixtures } from '../game/tournament'
 import { fixtureAction, myTeamIds, waitText } from '../game/onlineActions'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
@@ -373,6 +374,12 @@ export default function TournamentHubScreen() {
   const [tab, setTab] = useState('table')
 
   const isOnline = kind === 'online'
+  // Local tournaments are kept on this phone after every result (and on the account when signed in)
+  const saveAndExit = () => {
+    playConfirm()
+    useAccountStore.getState().save({ force: true })
+    useMatchStore.getState().goToScreen(SCREEN.MENU)
+  }
   const t = isOnline ? onlineView?.tournament : local
   const snapshot = isOnline ? onlineView?.snapshot : null
   const code = onlineView?.code
@@ -501,6 +508,11 @@ export default function TournamentHubScreen() {
             {isOnline && (
               <button className="btn btn-ghost" onClick={() => { playButtonSelect(); store.openOnline(code, { quiet: true }).catch(() => {}) }} disabled={busy}>
                 <Icon name="restart" size={18} /> Refresh
+              </button>
+            )}
+            {!isOnline && (
+              <button className="btn btn-primary" onClick={saveAndExit} onMouseEnter={playHoverTick}>
+                <Icon name="check" size={18} /> Save &amp; exit
               </button>
             )}
           </div>

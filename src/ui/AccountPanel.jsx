@@ -55,7 +55,7 @@ export default function AccountPanel({ formOnly = false }) {
     <div className="account">
     {!formOnly && <SavedGames />}
     <form className="account account-form" onSubmit={submit}>
-      <h3 className="saved-h">Keep your games on any phone</h3>
+      <h3 className="saved-h">Sign in to track stats and earn rewards</h3>
       <div className="segmented stretch" role="tablist">
         <button type="button" role="tab" aria-pressed={mode === 'signin'} aria-selected={mode === 'signin'} onClick={() => { playButtonSelect(); setMode('signin') }}>Sign in</button>
         <button type="button" role="tab" aria-pressed={mode === 'signup'} aria-selected={mode === 'signup'} onClick={() => { playButtonSelect(); setMode('signup') }}>Create account</button>

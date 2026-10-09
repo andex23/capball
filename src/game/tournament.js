@@ -17,7 +17,7 @@
  */
 
 import { AI_DIFFICULTIES } from './records'
-import { sanitizeCapText, CAP_ROLES } from '../data/TeamOptions'
+import { sanitizeCapText, CAP_ROLES, CAP_NAME_MODES, sanitizePlayerName } from '../data/TeamOptions'
 
 export const TOURNAMENT_VERSION = 1
 export const MIN_TEAMS = 3
@@ -164,6 +164,8 @@ export function sanitizeTeam(input, i = 0) {
     finish: typeof t.finish === 'string' ? t.finish.slice(0, 16) : 'matte',
     capText: sanitizeCapText(t.capText),
     showName: t.showName !== false,
+    capNames: CAP_NAME_MODES.includes(t.capNames) ? t.capNames : 'player',
+    players: Object.fromEntries(CAP_ROLES.map((r) => [r, sanitizePlayerName(isObj(t.players) ? t.players[r] : '')]).filter(([, n]) => n)),
     numbers,
     cpu: t.cpu === true,
     difficulty: AI_DIFFICULTIES.includes(t.difficulty) ? t.difficulty : 'medium',

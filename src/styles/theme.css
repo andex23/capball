@@ -1898,7 +1898,15 @@ button { cursor: pointer; background: none; border: 0; }
 .rankings-num small { font-size: 10.5px; color: var(--text-3); }
 
 /* Goal clips */
-.goal-clips { display: flex; flex-direction: column; gap: 8px; padding: 0 20px 12px; }
+.goal-clips { padding: 0 20px 12px; }
+.goal-clips[open] .goal-clips-row { margin-top: 8px; }
+.goal-clips-summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; cursor: pointer; list-style: none; background: rgba(5, 10, 46, 0.45); border: 2px solid var(--line); }
+.goal-clips-summary::-webkit-details-marker { display: none; }
+.goal-clips-summary .eyebrow { flex: 1; margin: 0; }
+.goal-clips-count { min-width: 26px; padding: 2px 6px; text-align: center; font-weight: 800; color: var(--ink, #0b0830); background: var(--iss-yellow, #ffd23f); }
+.goal-clips-summary svg { transition: transform 150ms ease; }
+.goal-clips[open] .goal-clips-summary svg { transform: rotate(90deg); }
+.goal-clips-summary:focus-visible { outline: 2px solid var(--iss-yellow, #ffd23f); outline-offset: 2px; }
 .goal-clips-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 .goal-clip { display: flex; flex-direction: column; gap: 6px; }
 .goal-clip-thumb, .goal-clip-video { width: 100%; aspect-ratio: 16 / 10; border: 2px solid var(--line-strong); background: #050a2e; object-fit: cover; }
@@ -1966,3 +1974,63 @@ button { cursor: pointer; background: none; border: 0; }
   .shell-head, .shell-body, .shell-foot-inner { zoom: 1.25; }
   .hud-top, .hud-corner, .banner, .keeper-pick, .hud-notice { zoom: 1.35; }
 }
+.squad-names-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.squad-names-head .eyebrow { margin: 0; }
+.squad-shuffle { min-height: 32px; font-size: 12px; }
+.squad-name-input { width: 100%; min-height: 34px; padding: 0 6px; text-align: center; font-size: 13px; font-weight: 700; }
+
+/* ===== Goal moment: GOAL!, the scorer's card, a line of commentary ===== */
+.goal-moment {
+  position: absolute; left: 50%; top: 50%; z-index: 30; width: min(560px, 92vw);
+  transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 14px;
+  pointer-events: none; text-align: center;
+}
+.goal-moment-burst {
+  position: absolute; left: 50%; top: 32%; width: 200vmax; height: 200vmax; margin: -100vmax 0 0 -100vmax; z-index: -1;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--team, #ffd23f) 34%, transparent) 0 8deg, transparent 8deg 22deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, rgba(0,0,0,0.6) 18%, transparent 46%); mask-image: radial-gradient(circle, #000 0, rgba(0,0,0,0.6) 18%, transparent 46%);
+  animation: goal-burst-spin 9s linear infinite, goal-fade-in 240ms ease both;
+}
+@keyframes goal-burst-spin { to { transform: rotate(360deg); } }
+@keyframes goal-fade-in { from { opacity: 0; } }
+.goal-moment-word {
+  font: italic 900 clamp(84px, 22vw, 168px)/0.9 var(--font-display); letter-spacing: -0.01em;
+  background: linear-gradient(180deg, #fff6b0 0%, #ffd23f 38%, #ff9a1f 62%, #e53935 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: clamp(6px, 1.4vw, 10px) #0b0830; paint-order: stroke fill; filter: drop-shadow(8px 10px 0 rgba(11, 8, 48, 0.85));
+  animation: goal-slam 520ms cubic-bezier(0.2, 1.6, 0.4, 1) both; transform: rotate(-5deg);
+}
+.goal-moment-word[data-own='true'] { font-size: clamp(64px, 16vw, 128px); background: linear-gradient(180deg, #ffffff 0%, #ffc1c8 45%, #ff5a6e 100%); -webkit-background-clip: text; background-clip: text; }
+@keyframes goal-slam { 0% { transform: scale(2.6) rotate(-5deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) rotate(-5deg); } }
+.goal-moment-card {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%;
+  padding: 12px 16px 12px 12px; text-align: left;
+  background: linear-gradient(180deg, rgba(30, 64, 210, 0.96), rgba(10, 27, 110, 0.97));
+  box-shadow: 0 0 0 4px #0b0830, inset 0 0 0 3px #0b0830, inset 6px 0 0 3px var(--team, #ffd23f), 8px 8px 0 4px rgba(0, 0, 0, 0.5);
+  animation: goal-card-in 420ms 260ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+@keyframes goal-card-in { from { transform: translateY(40px) scale(0.92); opacity: 0; } }
+.goal-moment-who { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.goal-moment-name {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  font: italic 900 clamp(28px, 7vw, 40px)/1 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #0b0830;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.goal-moment-num {
+  flex: none; display: inline-grid; place-items: center; min-width: 1.35em; height: 1.2em; padding: 0 0.15em;
+  font-style: normal; font-size: 0.82em; color: var(--team-ink, #0b0830); background: var(--team, #ffd23f); box-shadow: 0 0 0 3px #0b0830; text-shadow: none;
+}
+.goal-moment-who small { font: 700 12px/1.2 var(--font-pixel, monospace); letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goal-moment-score { display: flex; align-items: center; gap: 6px; font: 900 clamp(26px, 6vw, 34px)/1 var(--font-display); color: #fff; }
+.goal-moment-score span { min-width: 1.3em; padding: 4px 6px; text-align: center; background: #0b0830; box-shadow: inset 0 -4px 0 var(--t, #fff); }
+.goal-moment-score i { font-style: normal; opacity: 0.7; }
+.goal-moment-line {
+  margin: 0; padding: 8px 14px; max-width: 100%; background: rgba(11, 8, 48, 0.9); box-shadow: 0 0 0 3px #ffd23f;
+  font: 600 clamp(14px, 3.6vw, 17px)/1.35 var(--font-ui); color: #fff;
+  animation: goal-card-in 380ms 560ms ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .goal-moment-burst, .goal-moment-word, .goal-moment-card, .goal-moment-line { animation: none; }
+}
+.pitch-style { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
+.pitch-style .eyebrow { margin: 0; }
+.pitch-style small { flex-basis: 100%; }

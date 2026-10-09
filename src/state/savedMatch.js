@@ -8,6 +8,7 @@ import { useMatchStore, SCREEN, PHASE, INPUT_PHASES, clearMatchTimers } from './
 import { useTournamentStore } from './tournamentStore'
 import { snapshotBodies, applyBodySnapshot, stopAllBodies, deOverlapBodies } from '../physics/PhysicsWorld'
 import { formatClock } from '../game/rules'
+import { isSignedIn } from './accountStore'
 
 export const SAVED_MATCH_KEY = 'capball:savedMatch:v1'
 export const HISTORY_KEY = 'capball:history:v1'
@@ -58,7 +59,7 @@ export function cantSaveReason() {
   if (s.challenge) return 'The daily challenge can’t be saved.'
   if (s.penaltyShootout) return 'A shootout can’t be saved — finish it!'
   const p = useTournamentStore.getState().playing
-  if (p && p.kind !== 'local') return 'Online tournament matches can’t be saved.'
+  if (p && p.kind === 'online') return 'Online tournament matches are played live — they can’t be saved.'
   if (s.screen !== SCREEN.PLAYING || ![...INPUT_PHASES, PHASE.KICKOFF].includes(s.phase)) return 'Wait for the caps to stop, then save.'
   return null
 }
@@ -134,6 +135,8 @@ export function resumeSavedMatch() {
 /** Remember a finished match (newest first). */
 export function recordHistory(result, mode) {
   if (!result?.score) return
+  // Stats only count for signed-in players (they live on the account)
+  if (!isSignedIn()) return
   const s = useMatchStore.getState()
   const kit = (t) => ({ name: s.teamConfig[t]?.name || t, primary: s.teamConfig[t]?.primary || '#888888' })
   const entry = {

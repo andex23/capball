@@ -4,7 +4,7 @@ import { playButtonSelect } from '../audio/SoundManager'
 import Icon from './Icon'
 
 /** This match's goal replays, ready to share or save. */
-export default function GoalClips({ limit = 3 }) {
+export default function GoalClips({ limit = 3, open = false }) {
   const clips = useClipStore((s) => s.clips)
   const [note, setNote] = useState(null)
   const [playing, setPlaying] = useState(null)
@@ -15,8 +15,12 @@ export default function GoalClips({ limit = 3 }) {
     setNote(how === 'downloaded' ? 'Saved to your downloads.' : how === 'shared' ? 'Shared!' : null)
   }
   return (
-    <section className="goal-clips" aria-label="Goal clips">
-      <div className="eyebrow">Goal clips</div>
+    <details className="goal-clips" open={open || undefined} onToggle={(e) => { if (e.currentTarget.open) playButtonSelect() }}>
+      <summary className="goal-clips-summary">
+        <span className="eyebrow">Goal clips</span>
+        <span className="goal-clips-count">{Math.min(limit, clips.length)}</span>
+        <Icon name="next" size={14} />
+      </summary>
       <div className="goal-clips-row">
         {clips.slice(0, limit).map((c, i) => (
           <div className="goal-clip" key={c.url}>
@@ -33,6 +37,6 @@ export default function GoalClips({ limit = 3 }) {
         ))}
       </div>
       {note && <p className="muted t-note" role="status">{note}</p>}
-    </section>
+    </details>
   )
 }

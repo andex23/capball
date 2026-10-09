@@ -4,6 +4,7 @@
  * Clips live in memory for the current match only.
  */
 import { create } from 'zustand'
+import { playerOf } from './commentary'
 import { useMatchStore } from '../state/MatchStore'
 import { getCanvas } from '../scene/camera'
 
@@ -45,7 +46,8 @@ function stop() {
   const s = useMatchStore.getState()
   const name = (t) => s.teamConfig[t]?.name || t
   const title = `${name('team1')} ${s.score.team1}–${s.score.team2} ${name('team2')}`
-  const scorer = s.lastScorer ? name(s.lastScorer) : ''
+  const who = playerOf(s.teamConfig, s.lastGoalCap)
+  const scorer = who && !s.lastGoalOwn ? `${who.label} (${name(who.team)})` : s.lastScorer ? name(s.lastScorer) : ''
   r.onstop = () => {
     r.stream?.getTracks?.().forEach((t) => t.stop())
     const type = (r.mimeType || 'video/webm').split(';')[0]
