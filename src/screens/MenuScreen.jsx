@@ -9,6 +9,9 @@ import { useAccountStore } from '../state/accountStore'
 import InstallPrompt from '../pwa/InstallPrompt'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
+import { useSavedStore, resumeSavedMatch, describeSave } from '../state/savedMatch'
+import { useTournamentStore } from '../state/tournamentStore'
+import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 
 /**
  * Home screen in the style of a 16-bit console football game: a title card
@@ -20,19 +23,21 @@ const MODES = [
   { key: 'ai', title: 'Vs Computer', tag: '1P' },
   { key: 'local', title: 'Local Match', tag: '2P' },
   { key: 'online', title: 'Online Match', tag: 'NET' },
-  { key: 'tournament', title: 'Tournament', tag: 'CUP' },
+  { key: 'tournament', title: 'Tournament' },
 ]
 const OPTIONS = [
   { key: 'rules', title: 'How to play' },
   { key: 'records', title: 'Records' },
   { key: 'settings', title: 'Settings' },
-  { key: 'account', title: 'Sign in' },
+  { key: 'account', title: 'My games' },
 ]
-const ITEMS = [...MODES.map((m) => m.key), ...OPTIONS.map((o) => o.key)]
 const DIFFICULTIES = ['easy', 'medium', 'hard']
+const FORMATS = [{ key: 'league', label: 'League' }, { key: 'knockout', label: 'Cup' }]
 
 // The title card shows once per visit; coming back from a match goes straight to the menu
 let pressedStart = false
+/** The splash screen is the title card: once it's been tapped, go straight to the menu. */
+export function markStarted() { pressedStart = true }
 
 /** The cursor: a little pixel bottle cap. */
 function CapCursor() {
@@ -55,6 +60,11 @@ export default function MenuScreen() {
   const [dialog, setDialog] = useState(null) // 'settings' | 'rules' | 'records' | 'account' | null
   const [started, setStarted] = useState(pressedStart)
   const [cursor, setCursor] = useState(0)
+  const saved = useSavedStore((s) => s.saved)
+  const setupFormat = useTournamentStore((s) => s.setupFormat)
+  // A saved match goes at the top of the list
+  const modes = saved ? [{ key: 'continue', title: 'Continue', tag: 'SAVE' }, ...MODES] : MODES
+  const ITEMS = [...modes.map((m) => m.key), ...OPTIONS.map((o) => o.key)]
 
   useEffect(() => { startMenuMusic() }, [])
 
@@ -78,6 +88,11 @@ export default function MenuScreen() {
     setAiDifficulty(next)
   }
 
+  const shiftFormat = () => {
+    playButtonSelect()
+    useTournamentStore.getState().setSetupFormat(setupFormat === 'league' ? 'knockout' : 'league')
+  }
+
   const activate = (key) => {
     if (OPTIONS.some((o) => o.key === key)) {
       playMenuNavigate()
@@ -85,6 +100,7 @@ export default function MenuScreen() {
       return
     }
     playConfirm()
+    if (key === 'continue') { resumeSavedMatch(); return }
     if (key === 'tournament') { goToScreen(SCREEN.TOURNAMENT_HOME); return }
     if (key === 'online') { goToScreen(SCREEN.ONLINE); return }
     setGameMode(key)
@@ -105,6 +121,8 @@ export default function MenuScreen() {
       else if (e.key === 'ArrowUp') { e.preventDefault(); playMenuNavigate(); setCursor((c) => (c - 1 + n) % n) }
       else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && ITEMS[cursor] === 'ai') {
         e.preventDefault(); shiftLevel(e.key === 'ArrowLeft' ? -1 : 1)
+      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && ITEMS[cursor] === 'tournament') {
+        e.preventDefault(); shiftFormat()
       } else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) {
         e.preventDefault(); activate(ITEMS[cursor])
       }
@@ -117,18 +135,10 @@ export default function MenuScreen() {
 
   return (
     <div className={`screen iss${started ? ' is-started' : ''}`} onClick={!started ? start : undefined}>
-      <div className="iss-sky" aria-hidden="true" />
-      <div className="iss-pitch" aria-hidden="true" />
-      <div className="iss-scan" aria-hidden="true" />
+      <RetroBackdrop />
 
       <div className="iss-layout">
-        <header className="iss-brand">
-          <h1 className="iss-logo" aria-label="Capball">
-            <span className="iss-logo-depth" aria-hidden="true">CAPBALL</span>
-            <span className="iss-logo-word">CAPBALL</span>
-          </h1>
-          <div className="iss-ribbon">Tabletop Football</div>
-        </header>
+        <RetroLogo />
 
         {!started ? (
           <button className="iss-press" onClick={(e) => { e.stopPropagation(); start() }}>
@@ -138,17 +148,24 @@ export default function MenuScreen() {
           <main className="iss-window" aria-label="Mode select">
             <div className="iss-window-tab">Mode select</div>
             <ul className="iss-list" role="menu">
-              {MODES.map((m, i) => (
+              {modes.map((m, i) => (
                 <li key={m.key} role="none" className={`iss-row${cursor === i ? ' is-on' : ''}`} onPointerEnter={(e) => e.pointerType === 'mouse' && moveTo(i)}>
                   {cursor === i && <CapCursor />}
                   <button role="menuitem" className="iss-item" onClick={() => activate(m.key)} onFocus={() => setCursor(i)}>
                     {m.title}
+                    {m.key === 'continue' && <small className="iss-sub">{describeSave(saved)}</small>}
                   </button>
                   {m.key === 'ai' ? (
                     <span className="iss-level" role="group" aria-label="Computer level">
                       <button className="iss-arrow" aria-label="Easier" onClick={() => { setCursor(i); shiftLevel(-1) }}>◄</button>
                       <span className="iss-level-name" data-level={aiDifficulty}>{level}</span>
                       <button className="iss-arrow" aria-label="Harder" onClick={() => { setCursor(i); shiftLevel(1) }}>►</button>
+                    </span>
+                  ) : m.key === 'tournament' ? (
+                    <span className="iss-level" role="group" aria-label="League or cup">
+                      <button className="iss-arrow" aria-label="League or cup" onClick={() => { setCursor(i); shiftFormat() }}>◄</button>
+                      <span className="iss-level-name" data-level="format">{FORMATS.find((f) => f.key === setupFormat)?.label || 'Cup'}</span>
+                      <button className="iss-arrow" aria-label="League or cup" onClick={() => { setCursor(i); shiftFormat() }}>►</button>
                     </span>
                   ) : (
                     <span className="iss-tag">{m.tag}</span>
@@ -159,8 +176,8 @@ export default function MenuScreen() {
             <div className="iss-rule" aria-hidden="true" />
             <ul className="iss-options" role="menu">
               {OPTIONS.map((o, j) => {
-                const i = MODES.length + j
-                const title = o.key === 'account' && username ? username : o.title
+                const i = modes.length + j
+                const title = o.key === 'account' && username ? `${username}` : o.title
                 return (
                   <li key={o.key} role="none" className={`iss-opt${cursor === i ? ' is-on' : ''}`} onPointerEnter={(e) => e.pointerType === 'mouse' && moveTo(i)}>
                     {cursor === i && <CapCursor />}
@@ -190,7 +207,7 @@ export default function MenuScreen() {
         </Modal>
       )}
       {dialog === 'account' && (
-        <Modal title={username ? 'Your account' : 'Save your game'} onClose={() => setDialog(null)}>
+        <Modal title={username ? `${username} — my games` : 'My games'} onClose={() => setDialog(null)}>
           <AccountPanel />
         </Modal>
       )}

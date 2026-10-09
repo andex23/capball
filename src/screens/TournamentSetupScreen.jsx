@@ -9,6 +9,7 @@ import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundMana
 import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
+import CapDesigns from '../ui/CapDesigns'
 import { displayColor } from '../ui/color'
 
 /** Ready-made clubs for the extra teams (the first team is the player's own kit). */
@@ -103,6 +104,10 @@ function KitEditor({ team, onUpdate, onClose }) {
       footer={<button className="btn btn-gold btn-block" onClick={() => { playConfirm(); onClose() }}>Done <Icon name="check" size={18} /></button>}
     >
       <div className="t-kit-preview"><CapPreview config={team} size={110} number={team.numbers?.atk1 ?? 10} /></div>
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>Ready-made designs</div>
+        <CapDesigns config={team} onPick={onUpdate} />
+      </div>
       <Swatches label="Main colour" value={team.primary} onPick={(c) => onUpdate({ primary: c })} />
       <Swatches label="Print colour" value={team.edge} onPick={(c) => onUpdate({ edge: c })} />
       <div>
@@ -122,7 +127,7 @@ function KitEditor({ team, onUpdate, onClose }) {
         <div className="eyebrow" style={{ marginBottom: 8 }}>Print</div>
         <div className="chip-row" role="group" aria-label="Print">
           {PATTERNS.map((p) => (
-            <button key={p.key} className="chip" aria-pressed={(team.pattern || 'none') === p.key} onClick={() => { playButtonSelect(); onUpdate({ pattern: p.key }) }}>{p.label}</button>
+            <button key={p.key} className="chip" aria-pressed={(team.pattern || 'none') === p.key} onClick={() => { playButtonSelect(); onUpdate({ pattern: (team.pattern || 'none') === p.key ? 'none' : p.key }) }}>{p.label}</button>
           ))}
         </div>
       </div>
@@ -130,7 +135,7 @@ function KitEditor({ team, onUpdate, onClose }) {
         <div className="eyebrow" style={{ marginBottom: 8 }}>Badge</div>
         <div className="chip-row" role="group" aria-label="Badge">
           {BADGES.map((b) => (
-            <button key={b.key} className="chip" aria-pressed={team.badge === b.key} onClick={() => { playButtonSelect(); onUpdate({ badge: b.key }) }}>{b.label}</button>
+            <button key={b.key} className="chip" aria-pressed={team.badge === b.key} onClick={() => { playButtonSelect(); onUpdate({ badge: team.badge === b.key ? 'none' : b.key }) }}>{b.label}</button>
           ))}
         </div>
       </div>
@@ -200,7 +205,7 @@ export default function TournamentSetupScreen() {
   const online = useTournamentStore((s) => s.setupKind === 'online')
   const busy = useTournamentStore((s) => s.busy)
 
-  const [format, setFormat] = useState('knockout')
+  const [format, setFormat] = useState(() => useTournamentStore.getState().setupFormat || 'knockout')
   const [legs, setLegs] = useState(1)
   const [duration, setDuration] = useState(MATCH_DURATIONS.includes(savedDuration) ? savedDuration : 180)
   const [teams, setTeams] = useState(() => initialTeams(ownKit, online))

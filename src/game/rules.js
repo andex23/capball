@@ -5,7 +5,7 @@
  * rule can be unit tested directly and shared between the host and the AI.
  */
 
-import { PITCH } from '../data/TeamData'
+import { PITCH, BALL_RADIUS } from '../data/TeamData'
 
 export const SHOOTOUT_ROUNDS = 3
 
@@ -84,9 +84,11 @@ export function isInPenaltyArea(x, y, homeDir) {
     : x > PITCH.halfW - PITCH.penAreaW
 }
 
-// A ball that comes to rest this close to both an end wall and a side wall is
-// stuck in the corner: play restarts with a corner kick or a goal kick
-export const CORNER_ZONE = 2.6
+// Only a ball wedged right into the corner — touching both the end wall and the
+// side wall, where no cap can get behind it — is dead and restarts with a
+// corner kick or a goal kick. A ball (or a cap) merely resting near the corner
+// is still in play.
+export const CORNER_ZONE = BALL_RADIUS + 0.25
 
 /** The corner the ball is stuck in — { ex, ey } (signs of x and y) — or null. */
 export function ballInCorner(x, y, zone = CORNER_ZONE) {

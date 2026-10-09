@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
-import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText } from '../data/TeamOptions'
+import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText, CLEAR_TO } from '../data/TeamOptions'
+import CapDesigns from '../ui/CapDesigns'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
@@ -16,8 +17,9 @@ const BALL_COLORS = [
 ]
 
 const TABS = [
+  { key: 'designs', label: 'Designs' },
   { key: 'colors', label: 'Colours' },
-  { key: 'badge', label: 'Text & badge' },
+  { key: 'badge', label: 'Text' },
   { key: 'style', label: 'Finish' },
 ]
 
@@ -42,7 +44,8 @@ function Swatches({ label, value, onPick, disabled }) {
   )
 }
 
-function Chips({ label, options, value, onPick, disabled }) {
+// Tapping the chosen option again clears it (back to `clearTo`)
+function Chips({ label, options, value, onPick, disabled, clearTo }) {
   return (
     <div>
       <div className="eyebrow" style={{ marginBottom: 8 }}>{label}</div>
@@ -53,7 +56,7 @@ function Chips({ label, options, value, onPick, disabled }) {
             className="chip"
             aria-pressed={value === o.key}
             disabled={disabled}
-            onClick={() => { playButtonSelect(); onPick(o.key) }}
+            onClick={() => { playButtonSelect(); onPick(value === o.key && clearTo ? clearTo : o.key) }}
           >
             {o.label}
           </button>
@@ -64,7 +67,7 @@ function Chips({ label, options, value, onPick, disabled }) {
 }
 
 function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
-  const [tab, setTab] = useState('colors')
+  const [tab, setTab] = useState('designs')
   const [draftName, setDraftName] = useState(null)
   const [draftText, setDraftText] = useState(null)
   const commitText = () => {
@@ -115,6 +118,12 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
             ))}
           </div>
           <div className="card-pad kit-options">
+            {tab === 'designs' && (
+              <>
+                <p className="muted kit-note">Pick a drink-cap design, then change anything you like. Or build your own in the other tabs.</p>
+                <CapDesigns config={config} onPick={(patch) => { setDraftText(null); onUpdate(patch) }} />
+              </>
+            )}
             {tab === 'colors' && (
               <>
                 <Swatches label="Main colour" value={config.primary} onPick={(c) => onUpdate({ primary: c })} />
@@ -137,13 +146,13 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
                     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
                   />
                 </div>
-                <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} />
+                <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} clearTo={CLEAR_TO.badge} />
               </>
             )}
             {tab === 'style' && (
               <>
-                <Chips label="Pattern" options={PATTERNS} value={config.pattern} onPick={(k) => onUpdate({ pattern: k })} />
-                <Chips label="Finish" options={FINISHES} value={config.finish} onPick={(k) => onUpdate({ finish: k })} />
+                <Chips label="Pattern" options={PATTERNS} value={config.pattern} onPick={(k) => onUpdate({ pattern: k })} clearTo={CLEAR_TO.pattern} />
+                <Chips label="Finish" options={FINISHES} value={config.finish} onPick={(k) => onUpdate({ finish: k })} clearTo={CLEAR_TO.finish} />
               </>
             )}
           </div>

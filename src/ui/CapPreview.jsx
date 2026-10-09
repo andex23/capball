@@ -133,121 +133,128 @@ function isLight(hex) {
 export default function CapPreview({ config, size = 120, number = null }) {
   const { primary, edge, badge, pattern, finish } = config
   const capText = typeof config.capText === 'string' ? config.capText.trim() : ''
-  const cx = size / 2
-  const cy = size / 2
-  const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}`.replace(/[^a-z0-9-]/gi, '')
+  const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}-${size}`.replace(/[^a-z0-9-]/gi, '')
 
-  // A crown cap from above: crimped skirt round the outside, printed top inside
-  const outerR = cx - 3
-  const topR = outerR * 0.8
-  const ringR = topR * 0.84
+  // A crown cap seen from a little above, like one sitting on the table:
+  // the printed top tilted into an ellipse, the fluted skirt showing below
+  // it with its teeth at the bottom.
+  const cx = size / 2
+  const R = size * 0.44            // radius of the top
+  const K = 0.62                   // tilt: how round the top looks
+  const tc = size * 0.4            // centre of the top
+  const H = size * 0.15            // skirt height
+  const R2 = R * 1.09              // the skirt flares a little
+  const TOOTH = size * 0.04
   const PLEATS = 21
+  const topR = R * 0.97
+  const ringR = topR * 0.8
 
   const isChrome = finish === 'chrome'
-  const isGloss = finish === 'gloss'
-  const specAlpha = isChrome ? 0.5 : isGloss ? 0.35 : finish === 'satin' ? 0.2 : 0.12
-
-  // Scalloped outline of the crimp
-  const crimp = []
-  const steps = PLEATS * 6
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * Math.PI * 2
-    const r = outerR * (0.93 + 0.07 * Math.pow(Math.abs(Math.cos((a * PLEATS) / 2)), 0.6))
-    crimp.push(`${i ? 'L' : 'M'} ${(cx + Math.cos(a) * r).toFixed(2)} ${(cy + Math.sin(a) * r).toFixed(2)}`)
-  }
+  const isMatte = finish === 'matte'
+  const specAlpha = isChrome ? 0.55 : finish === 'gloss' ? 0.4 : finish === 'satin' ? 0.22 : 0.1
   const printColor = edge === primary ? '#ffffff' : edge
   const withText = capText.length > 0
+  const hasBadge = badge && badge !== 'none'
+
+  // Fluted skirt: each pleat is two folds, one catching the light, one in shade.
+  // Only the front half (towards the viewer) shows.
+  const top = (a, r = R) => [cx + Math.cos(a) * r, tc + Math.sin(a) * r * K]
+  const bot = (a, drop = 0) => [cx + Math.cos(a) * R2, tc + H + Math.sin(a) * R2 * K + drop]
+  const folds = []
+  const step = (Math.PI * 2) / PLEATS
+  for (let i = -1; i <= PLEATS; i++) {
+    const a0 = i * step + step * 0.25
+    for (const half of [0, 1]) {
+      let s0 = a0 + half * step / 2
+      let s1 = s0 + step / 2
+      if (s1 <= 0 || s0 >= Math.PI) continue
+      s0 = Math.max(0, s0); s1 = Math.min(Math.PI, s1)
+      const tipAt = half === 0 ? s1 : s0 // the tooth points down where the two folds meet
+      const p = [top(s0), top(s1), bot(s1, s1 === tipAt ? TOOTH : 0), bot(s0, s0 === tipAt ? TOOTH : 0)]
+      const facing = Math.cos((s0 + s1) / 2 + 0.5) // light from the front left
+      const lit = half === 0
+      const amt = (lit ? 0.1 : 0.32) + (1 - facing) * 0.18
+      folds.push({ d: `M${p.map((q) => q.map((v) => v.toFixed(2)).join(' ')).join(' L')} Z`, fill: darkenHex(primary, Math.min(0.7, amt)), shine: lit && facing > 0.2 })
+    }
+  }
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
       <defs>
-        <radialGradient id={`skirt-${uid}`} cx="50%" cy="50%" r="50%">
-          <stop offset="78%" stopColor={darkenHex(primary, 0.05)} />
-          <stop offset="92%" stopColor={darkenHex(primary, 0.35)} />
-          <stop offset="100%" stopColor="#c9ccd3" />
+        <radialGradient id={`top-${uid}`} cx="42%" cy="34%" r="70%">
+          <stop offset="0%" stopColor={lightenHex(primary, isChrome ? 0.32 : isMatte ? 0.04 : 0.16)} />
+          <stop offset="65%" stopColor={primary} />
+          <stop offset="100%" stopColor={darkenHex(primary, 0.22)} />
         </radialGradient>
-        <radialGradient id={`top-${uid}`} cx="40%" cy="36%" r="64%">
-          <stop offset="0%" stopColor={lightenHex(primary, isChrome ? 0.3 : 0.14)} />
-          <stop offset="60%" stopColor={primary} />
-          <stop offset="100%" stopColor={darkenHex(primary, 0.2)} />
-        </radialGradient>
+        <linearGradient id={`skirtShine-${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity={isMatte ? 0.08 : 0.28} />
+          <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
         <clipPath id={`topClip-${uid}`}>
-          <circle cx={cx} cy={cy} r={topR} />
+          <circle cx={cx} cy={tc} r={topR} />
         </clipPath>
         <clipPath id={`split-${uid}`}>
           <rect x={cx} y={0} width={cx + 2} height={size} />
         </clipPath>
-        {/* Path the custom text follows: the upper arc inside the printed ring */}
-        <path id={`arc-${uid}`} d={`M ${cx - ringR * 0.8} ${cy} A ${ringR * 0.8} ${ringR * 0.8} 0 0 1 ${cx + ringR * 0.8} ${cy}`} />
+        <path id={`arc-${uid}`} d={`M ${cx - ringR * 0.62} ${tc} A ${ringR * 0.62} ${ringR * 0.62} 0 0 1 ${cx + ringR * 0.62} ${tc}`} />
       </defs>
 
-      {/* Crimped skirt with its 21 pleats */}
-      <path d={crimp.join(' ') + ' Z'} fill={`url(#skirt-${uid})`} stroke={darkenHex(primary, 0.45)} strokeWidth={size * 0.006} />
-      {Array.from({ length: PLEATS }, (_, i) => {
-        const a = ((i + 0.5) / PLEATS) * Math.PI * 2
-        return (
-          <line
-            key={i}
-            x1={cx + Math.cos(a) * topR * 1.02} y1={cy + Math.sin(a) * topR * 1.02}
-            x2={cx + Math.cos(a) * outerR * 0.95} y2={cy + Math.sin(a) * outerR * 0.95}
-            stroke="rgba(0,0,0,0.35)" strokeWidth={size * 0.008} strokeLinecap="round"
+      {/* Shadow on the table */}
+      <ellipse cx={cx + size * 0.02} cy={tc + H + TOOTH + size * 0.02} rx={R2 * 1.02} ry={R2 * K * 0.95} fill="rgba(0,0,0,0.38)" />
+
+      {/* Fluted skirt */}
+      {folds.map((f, i) => (
+        <path key={i} d={f.d} fill={f.fill} stroke={darkenHex(primary, 0.55)} strokeWidth={size * 0.004} strokeLinejoin="round" />
+      ))}
+      {folds.filter((f) => f.shine).map((f, i) => <path key={`s${i}`} d={f.d} fill={`url(#skirtShine-${uid})`} />)}
+
+      {/* Rolled edge round the top */}
+      <ellipse cx={cx} cy={tc} rx={R} ry={R * K} fill={darkenHex(primary, 0.3)} />
+      <ellipse cx={cx} cy={tc} rx={R} ry={R * K} fill="none" stroke={lightenHex(primary, 0.35)} strokeOpacity={isMatte ? 0.3 : 0.7} strokeWidth={size * 0.012} />
+
+      {/* Printed top, drawn flat then tilted */}
+      <g transform={`matrix(1 0 0 ${K} 0 ${(tc * (1 - K)).toFixed(3)})`}>
+        <circle cx={cx} cy={tc} r={topR} fill={`url(#top-${uid})`} />
+        <g clipPath={`url(#topClip-${uid})`}>
+          {pattern === 'split' && <circle cx={cx} cy={tc} r={topR} fill={`${edge}40`} clipPath={`url(#split-${uid})`} />}
+          <PatternOverlay pattern={pattern} cx={cx} cy={tc} innerR={topR} edgeColor={edge} />
+        </g>
+        <circle cx={cx} cy={tc} r={ringR} fill="none" stroke={printColor} strokeOpacity="0.85" strokeWidth={size * 0.014} />
+        {withText && (
+          <text fill={printColor} fontSize={topR * 0.24} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
+            <textPath href={`#arc-${uid}`} startOffset="50%" textAnchor="middle">{capText.toUpperCase()}</textPath>
+          </text>
+        )}
+        {hasBadge && (
+          <BadgeIcon
+            badge={badge}
+            cx={cx}
+            cy={number != null ? tc - topR * 0.08 + (withText ? topR * 0.08 : 0) : tc + (withText ? topR * 0.12 : 0)}
+            size={topR * (number != null ? 0.34 : 0.5)}
+            color={printColor}
           />
-        )
-      })}
-
-      {/* Printed top */}
-      <circle cx={cx} cy={cy} r={topR} fill={`url(#top-${uid})`} />
-      <g clipPath={`url(#topClip-${uid})`}>
-        {pattern === 'split' && <circle cx={cx} cy={cy} r={topR} fill={`${edge}40`} clipPath={`url(#split-${uid})`} />}
-        <PatternOverlay pattern={pattern} cx={cx} cy={cy} innerR={topR} edgeColor={edge} />
+        )}
+        {number != null && (
+          <text
+            x={cx}
+            y={hasBadge ? tc + topR * 0.4 : tc + topR * (withText ? 0.22 : 0.06)}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill={isLight(primary) ? '#111111' : '#ffffff'}
+            stroke={isLight(primary) ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.55)'}
+            strokeWidth={topR * 0.05}
+            paintOrder="stroke"
+            fontSize={topR * (hasBadge ? 0.42 : withText ? 0.6 : 0.78)}
+            fontWeight="900"
+            fontFamily="'Barlow Condensed', 'Impact', sans-serif"
+          >
+            {number}
+          </text>
+        )}
       </g>
-      <circle cx={cx} cy={cy} r={topR} fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth={size * 0.01} />
-      <circle cx={cx} cy={cy} r={ringR} fill="none" stroke={printColor} strokeOpacity="0.8" strokeWidth={size * 0.012} />
 
-      {/* The team's own text, arched over the top */}
-      {withText && (
-        <text fill={printColor} fontSize={topR * 0.3} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
-          <textPath href={`#arc-${uid}`} startOffset="50%" textAnchor="middle">{capText.toUpperCase()}</textPath>
-        </text>
-      )}
-
-      {/* Badge */}
-      {badge && badge !== 'none' && (
-        <BadgeIcon
-          badge={badge}
-          cx={cx}
-          cy={number != null ? cy - topR * 0.12 + (withText ? topR * 0.1 : 0) : cy + (withText ? topR * 0.12 : 0)}
-          size={topR * (number != null ? 0.36 : 0.5)}
-          color={printColor}
-        />
-      )}
-
-      {/* Squad number */}
-      {number != null && (
-        <text
-          x={cx}
-          y={badge && badge !== 'none' ? cy + topR * 0.38 : cy + topR * (withText ? 0.2 : 0.06)}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill={isLight(primary) ? '#111111' : '#ffffff'}
-          stroke={isLight(primary) ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.55)'}
-          strokeWidth={topR * 0.05}
-          paintOrder="stroke"
-          fontSize={topR * (badge && badge !== 'none' ? 0.42 : withText ? 0.55 : 0.7)}
-          fontWeight="900"
-          fontFamily="'Barlow Condensed', 'Impact', sans-serif"
-        >
-          {number}
-        </text>
-      )}
-
-      {/* Light on the printed tin */}
-      <ellipse
-        cx={cx - topR * 0.3} cy={cy - topR * 0.4}
-        rx={topR * 0.45} ry={topR * 0.16}
-        fill={`rgba(255,255,255,${specAlpha * 0.5})`}
-        transform={`rotate(-28 ${cx - topR * 0.3} ${cy - topR * 0.4})`}
-      />
+      {/* Light on the tin */}
+      <ellipse cx={cx - R * 0.32} cy={tc - R * K * 0.42} rx={R * 0.42} ry={R * K * 0.16} fill={`rgba(255,255,255,${specAlpha * 0.55})`} transform={`rotate(-12 ${cx - R * 0.32} ${tc - R * K * 0.42})`} />
     </svg>
   )
 }

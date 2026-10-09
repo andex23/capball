@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAccountStore } from '../state/accountStore'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Icon from './Icon'
+import SavedGames from './SavedGames'
 
 function timeAgo(iso) {
   if (!iso) return null
@@ -31,7 +32,8 @@ export default function AccountPanel() {
             <small className="muted">{saving ? 'Saving…' : savedAt ? `Saved ${timeAgo(savedAt)}` : 'Signed in'}</small>
           </div>
         </div>
-        <p className="muted account-note">Your kits, settings, records and tournaments are saved to your account. Sign in with the same username on another phone to carry on there.</p>
+        <p className="muted account-note">Everything below is backed up to your account — sign in with the same username on another phone to carry on there.</p>
+        <SavedGames />
         {error && <p className="t-warn" role="alert">{error}</p>}
         <div className="account-actions">
           <button className="btn btn-primary" onClick={() => { playButtonSelect(); save({ force: true }) }} disabled={saving}><Icon name="check" size={18} /> Save now</button>
@@ -49,7 +51,10 @@ export default function AccountPanel() {
   }
 
   return (
-    <form className="account" onSubmit={submit}>
+    <div className="account">
+    <SavedGames />
+    <form className="account account-form" onSubmit={submit}>
+      <h3 className="saved-h">Keep your games on any phone</h3>
       <div className="segmented stretch" role="tablist">
         <button type="button" role="tab" aria-pressed={mode === 'signin'} aria-selected={mode === 'signin'} onClick={() => { playButtonSelect(); setMode('signin') }}>Sign in</button>
         <button type="button" role="tab" aria-pressed={mode === 'signup'} aria-selected={mode === 'signup'} onClick={() => { playButtonSelect(); setMode('signup') }}>Create account</button>
@@ -57,7 +62,7 @@ export default function AccountPanel() {
       <p className="muted account-note">
         {mode === 'signup'
           ? 'Just a username and a password — no email. Your game is saved to it so you can come back on any phone.'
-          : 'Sign in to load your saved game.'}
+          : 'Sign in to load your saved games, tournaments and results.'}
       </p>
       <label className="eyebrow" htmlFor="acc-name">Username</label>
       <input id="acc-name" className="field" value={name} onChange={(e) => setName(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={20} placeholder="e.g. dru_10" required />
@@ -72,5 +77,6 @@ export default function AccountPanel() {
         {busy ? 'One moment…' : mode === 'signup' ? 'Create account' : 'Sign in'}
       </button>
     </form>
+    </div>
   )
 }
