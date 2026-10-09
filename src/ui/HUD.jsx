@@ -15,6 +15,7 @@ import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
 import { displayColor } from './color'
 import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
+import KeeperPick from './KeeperPick'
 
 const NO_GOAL_TEXT = {
   kickoff_violation: 'You can’t score straight from kick-off',
@@ -82,6 +83,7 @@ function useTurnText() {
     case PHASE.AIM:
       return isCpu ? 'CPU is lining up…' : isOpp ? `${name} is aiming…` : 'Release to flick'
     case PHASE.RESOLVE: return 'Waiting for everything to stop…'
+    case PHASE.KEEPER_PICK: return 'Penalty — the keeper is picking a side…'
     default: return null
   }
 }
@@ -338,6 +340,7 @@ export default function HUD() {
 
       <PowerMeter />
       {!paused && <Banner />}
+      <KeeperPick />
 
       <div className="hint">
         <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn the view · Scroll to zoom · P to pause</span>

@@ -30,6 +30,7 @@ export const PHASE = {
   CORNER_SETUP: 'CORNER_SETUP',
   GOAL_KICK_SETUP: 'GOAL_KICK_SETUP',
   PENALTY_SETUP: 'PENALTY_SETUP',
+  KEEPER_PICK: 'KEEPER_PICK', // before a penalty: the keeper's side secretly picks a dive
   TIMEOUT: 'TIMEOUT',
   MATCH_OVER: 'MATCH_OVER',
 }
@@ -97,7 +98,12 @@ const clearTurn = {
   freeKickCapId: null,
   foulData: null,
   dragPower: 0,
+  penaltyKick: false,
+  keeperDive: null,
 }
+
+/** Dive directions for a penalty, in pitch y: -1, 0 (stay) or +1. 'auto' = the computer decides as the ball is struck. */
+export const KEEPER_DIVES = [-1, 0, 1]
 
 export const DEFAULT_TEAM_CONFIG = {
   team1: { name: 'Team 1', primary: '#D32F2F', edge: '#FFD700', badge: 'none', numbers: { gk: 1, def1: 4, def2: 5, mid: 8, atk1: 10, atk2: 9 }, pattern: 'none', finish: 'matte', capText: '', textColor: '', skirtColor: '' },
@@ -237,7 +243,30 @@ export const useMatchStore = create((set, get) => ({
   /** KICKOFF overlay done — hand control to the kicking team. */
   beginPlay: () => {
     if (get().phase !== PHASE.KICKOFF) return
-    set({ phase: PHASE.SELECT, timerRunning: !get().penaltyShootout, shotClockRemaining: get().shotClock })
+    if (get().penaltyShootout) { get().startPenaltyKick(); return }
+    set({ phase: PHASE.SELECT, timerRunning: true, shotClockRemaining: get().shotClock })
+  },
+
+  /**
+   * A penalty is about to be taken by activeTeam. The other side's keeper
+   * picks a dive first, in secret; a computer keeper decides as the ball is struck.
+   */
+  startPenaltyKick: () => {
+    const s = get()
+    const keeperTeam = otherTeam(s.activeTeam)
+    const cpuKeeper = s.gameMode === 'ai' && s.aiTeam === keeperTeam
+    if (cpuKeeper) {
+      set({ phase: PHASE.SELECT, penaltyKick: true, keeperDive: 'auto', timerRunning: !s.penaltyShootout, shotClockRemaining: s.shotClock })
+    } else {
+      set({ phase: PHASE.KEEPER_PICK, penaltyKick: true, keeperDive: null, timerRunning: false })
+    }
+  },
+
+  /** The keeper's side has picked (-1, 0 or 1): the kicker may now shoot. */
+  pickKeeperDive: (dive) => {
+    const s = get()
+    if (s.phase !== PHASE.KEEPER_PICK || !KEEPER_DIVES.includes(dive)) return
+    set({ phase: PHASE.SELECT, keeperDive: dive, timerRunning: !s.penaltyShootout, shotClockRemaining: s.shotClock })
   },
 
   startSecondHalf: () => {
@@ -414,7 +443,10 @@ export const useMatchStore = create((set, get) => ({
       // The scene places the caps as soon as the setup phase starts.
       later(() => {
         const s = get()
-        if (s.phase === PHASE.FREE_KICK_SETUP || s.phase === PHASE.PENALTY_SETUP) {
+        if (s.phase === PHASE.PENALTY_SETUP) {
+          set({ selectedCapId: null })
+          get().startPenaltyKick()
+        } else if (s.phase === PHASE.FREE_KICK_SETUP) {
           set({ phase: PHASE.SELECT, selectedCapId: null, shotClockRemaining: s.shotClock })
         }
       }, TIMING.setPiece)

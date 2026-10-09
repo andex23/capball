@@ -11,7 +11,7 @@ export const PITCH = {
   penAreaH: 12,  // penalty area height (y = ±6)
   centerCircleR: 3,
   goalDepth: 1.8,
-  penSpotDist: 5.6, // penalty spot distance from the goal line (inside the 6-deep box)
+  penSpotDist: 5.8, // penalty spot distance from the goal line (inside the 6-deep box)
 }
 
 // Cap radii
@@ -56,46 +56,56 @@ export const TEAMS = {
   },
 }
 
-// Formation presets
+// Formation presets — a keeper plus five outfield caps (the numbers count back to front)
 export const FORMATIONS = {
   default: { name: '2-1-2', description: 'Balanced' },
-  diamond: { name: 'Diamond', description: '1-3-1' },
-  line: { name: 'Line', description: '1-1-3' },
-  parkTheBus: { name: 'Park the Bus', description: '3-1-1' },
+  diamond: { name: '1-3-1', description: 'Diamond' },
+  line: { name: '2-2-1', description: 'Midfield' },
+  attack: { name: '1-2-2', description: 'Attack' },
+  parkTheBus: { name: '3-1-1', description: 'Park the bus' },
 }
 
-// Formation position generators
+// Formation position generators (x as a share of the half-length from the
+// centre, toward the team's own goal; y as a share of the half-width)
 const FORMATION_POSITIONS = {
   default: (dir, hw, hh) => ({
     gk: { x: dir * hw * 0.9, y: 0 },
-    def1: { x: dir * hw * 0.42, y: -hh * 0.45 },
-    def2: { x: dir * hw * 0.42, y: hh * 0.45 },
+    def1: { x: dir * hw * 0.5, y: -hh * 0.45 },
+    def2: { x: dir * hw * 0.5, y: hh * 0.45 },
     mid: { x: dir * hw * 0.3, y: 0 },
-    atk1: { x: dir * hw * 0.12, y: -hh * 0.38 },
-    atk2: { x: dir * hw * 0.12, y: hh * 0.38 },
+    atk1: { x: dir * hw * 0.12, y: -hh * 0.4 },
+    atk2: { x: dir * hw * 0.12, y: hh * 0.4 },
   }),
   diamond: (dir, hw, hh) => ({
     gk: { x: dir * hw * 0.9, y: 0 },
-    def1: { x: dir * hw * 0.6, y: 0 },
-    def2: { x: dir * hw * 0.34, y: -hh * 0.5 },
+    def1: { x: dir * hw * 0.58, y: 0 },
+    def2: { x: dir * hw * 0.34, y: -hh * 0.55 },
     mid: { x: dir * hw * 0.34, y: 0 },
-    atk1: { x: dir * hw * 0.34, y: hh * 0.5 },
+    atk1: { x: dir * hw * 0.34, y: hh * 0.55 },
     atk2: { x: dir * hw * 0.08, y: 0 },
   }),
   line: (dir, hw, hh) => ({
     gk: { x: dir * hw * 0.9, y: 0 },
+    def1: { x: dir * hw * 0.52, y: -hh * 0.42 },
+    def2: { x: dir * hw * 0.52, y: hh * 0.42 },
+    mid: { x: dir * hw * 0.28, y: -hh * 0.35 },
+    atk1: { x: dir * hw * 0.28, y: hh * 0.35 },
+    atk2: { x: dir * hw * 0.08, y: 0 },
+  }),
+  attack: (dir, hw, hh) => ({
+    gk: { x: dir * hw * 0.9, y: 0 },
     def1: { x: dir * hw * 0.55, y: 0 },
-    mid: { x: dir * hw * 0.34, y: 0 },
-    def2: { x: dir * hw * 0.16, y: -hh * 0.5 },
-    atk1: { x: dir * hw * 0.16, y: 0 },
-    atk2: { x: dir * hw * 0.16, y: hh * 0.5 },
+    def2: { x: dir * hw * 0.32, y: -hh * 0.45 },
+    mid: { x: dir * hw * 0.32, y: hh * 0.45 },
+    atk1: { x: dir * hw * 0.1, y: -hh * 0.38 },
+    atk2: { x: dir * hw * 0.1, y: hh * 0.38 },
   }),
   parkTheBus: (dir, hw, hh) => ({
     gk: { x: dir * hw * 0.9, y: 0 },
-    def1: { x: dir * hw * 0.52, y: -hh * 0.45 },
-    def2: { x: dir * hw * 0.52, y: 0 },
-    atk1: { x: dir * hw * 0.52, y: hh * 0.45 },
-    mid: { x: dir * hw * 0.3, y: 0 },
+    def1: { x: dir * hw * 0.55, y: -hh * 0.5 },
+    def2: { x: dir * hw * 0.58, y: 0 },
+    atk1: { x: dir * hw * 0.55, y: hh * 0.5 },
+    mid: { x: dir * hw * 0.32, y: 0 },
     atk2: { x: dir * hw * 0.1, y: 0 },
   }),
 }

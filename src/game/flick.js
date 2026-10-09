@@ -1,6 +1,7 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
-import { PHYSICS } from '../data/TeamData'
-import { applyFlick, getBody } from '../physics/PhysicsWorld'
+import { PHYSICS, PITCH } from '../data/TeamData'
+import { applyFlick, getBody, diveKeeper, radiusOf } from '../physics/PhysicsWorld'
+import { strikeDirection, crossingY, cpuDive } from './penalty'
 import { teamOf, isGoalkeeper, keeperCanPlay, teamHomeDir } from './rules'
 
 /**
@@ -35,8 +36,28 @@ export function performFlick(capId, velocity, byTeam = null) {
   if (err) return err
   if (!getBody(capId)) return 'no-body'
   applyFlick(capId, velocity) // clamps to max power
+  if (state.penaltyKick) keeperDives(state, capId, velocity)
   state.commitFlick(capId)
   return null
+}
+
+/**
+ * Penalty: the keeper throws himself the instant the kick is taken (the ball
+ * reaches him in a blink). A player's keeper goes where they picked; the
+ * computer's reads the kicker's strike and guesses right as often as its level allows.
+ */
+function keeperDives(state, capId, velocity) {
+  const keeperTeam = teamOf(capId) === 'team1' ? 'team2' : 'team1'
+  let dive = state.keeperDive
+  if (dive === 'auto') {
+    const cap = getBody(capId)?.position
+    const ball = getBody('ball')?.position
+    const dir = cap && ball ? strikeDirection(cap, velocity, ball, radiusOf(capId) + radiusOf('ball')) : null
+    const goalX = teamHomeDir(keeperTeam, state.team1Side || 'left') * PITCH.halfW
+    const yAt = dir && ball ? crossingY(ball.x, ball.y, dir.x, dir.y, goalX) : null
+    dive = cpuDive(yAt, state.aiDifficulty)
+  }
+  diveKeeper(keeperTeam, typeof dive === 'number' ? dive : 0)
 }
 
 /** Can this cap be picked up right now, as far as the keeper-range rule goes? */
