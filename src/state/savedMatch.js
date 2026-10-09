@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { useMatchStore, SCREEN, PHASE, INPUT_PHASES, clearMatchTimers } from './MatchStore'
 import { useTournamentStore } from './tournamentStore'
-import { snapshotBodies, applyBodySnapshot, stopAllBodies } from '../physics/PhysicsWorld'
+import { snapshotBodies, applyBodySnapshot, stopAllBodies, deOverlapBodies } from '../physics/PhysicsWorld'
 import { formatClock } from '../game/rules'
 
 export const SAVED_MATCH_KEY = 'capball:savedMatch:v1'
@@ -54,6 +54,7 @@ export const useSavedStore = create(() => ({
 export function cantSaveReason() {
   const s = useMatchStore.getState()
   if (s.gameMode === 'online') return 'Online matches can’t be saved.'
+  if (s.challenge) return 'The daily challenge can’t be saved.'
   if (s.penaltyShootout) return 'A shootout can’t be saved — finish it!'
   const p = useTournamentStore.getState().playing
   if (p && p.kind !== 'local') return 'Online tournament matches can’t be saved.'
@@ -87,10 +88,14 @@ export function deleteSavedMatch() {
 let pendingBodies = null
 
 /** Called by the scene right after it lays out a fresh world. */
+/** Put the caps at these positions when the next match scene builds its world. */
+export function setPendingBodies(snap) { pendingBodies = snap }
+
 export function applyPendingBodies() {
   if (!pendingBodies) return
   applyBodySnapshot(pendingBodies)
   stopAllBodies()
+  deOverlapBodies()
   pendingBodies = null
 }
 

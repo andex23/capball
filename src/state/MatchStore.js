@@ -31,7 +31,8 @@ export const PHASE = {
   CORNER_SETUP: 'CORNER_SETUP',
   GOAL_KICK_SETUP: 'GOAL_KICK_SETUP',
   PENALTY_SETUP: 'PENALTY_SETUP',
-  KEEPER_PICK: 'KEEPER_PICK', // before a penalty: the keeper's side secretly picks a dive
+  KEEPER_PICK: 'KEEPER_PICK',
+  CHALLENGE_DONE: 'CHALLENGE_DONE', // the daily challenge is won or lost // before a penalty: the keeper's side secretly picks a dive
   TIMEOUT: 'TIMEOUT',
   MATCH_OVER: 'MATCH_OVER',
 }
@@ -106,6 +107,9 @@ const clearTurn = {
 /** Dive directions for a penalty, in pitch y: -1, 0 (stay) or +1. 'auto' = the computer decides as the ball is struck. */
 export const KEEPER_DIVES = [-1, 0, 1]
 
+// The daily challenge's defenders: plain grey caps
+const CHALLENGE_DEFENDERS = { name: 'Defenders', primary: '#78909C', edge: '#ECEFF1', badge: 'none', numbers: { gk: 1, def1: 2, def2: 3, mid: 4, atk1: 5, atk2: 6 }, pattern: 'none', finish: 'satin', capText: '', textColor: '', skirtColor: '' }
+
 export const DEFAULT_TEAM_CONFIG = {
   team1: { name: 'Team 1', primary: '#D32F2F', edge: '#FFD700', badge: 'none', numbers: { gk: 1, def1: 4, def2: 5, mid: 8, atk1: 10, atk2: 9 }, pattern: 'none', finish: 'matte', capText: '', textColor: '', skirtColor: '' },
   team2: { name: 'Team 2', primary: '#1565C0', edge: '#FFFFFF', badge: 'none', numbers: { gk: 1, def1: 3, def2: 6, mid: 8, atk1: 7, atk2: 11 }, pattern: 'none', finish: 'matte', capText: '', textColor: '', skirtColor: '' },
@@ -175,8 +179,8 @@ export const useMatchStore = create((set, get) => ({
   setShotClock: (secs) => set({ shotClock: secs, shotClockRemaining: secs }),
 
   tickShotClock: (dt) => {
-    const { shotClock, shotClockRemaining, paused, phase, tutorialHold } = get()
-    if (!shotClock || paused || tutorialHold || !INPUT_PHASES.includes(phase)) return
+    const { shotClock, shotClockRemaining, paused, phase, tutorialHold, challenge } = get()
+    if (!shotClock || challenge || paused || tutorialHold || !INPUT_PHASES.includes(phase)) return
     const next = Math.max(0, shotClockRemaining - dt)
     set({ shotClockRemaining: next })
     if (next === 0) get().shotClockExpired()
@@ -219,6 +223,7 @@ export const useMatchStore = create((set, get) => ({
     const s = get()
     set({
       ...clearTurn,
+      challenge: null,
       screen: SCREEN.PLAYING,
       matchKey: s.matchKey + 1,
       score: { team1: 0, team2: 0 },
@@ -308,8 +313,9 @@ export const useMatchStore = create((set, get) => ({
 
   /** Leave the match (menu / disconnect). Cancels anything still scheduled. */
   quitMatch: (screen = SCREEN.MENU) => {
+    if (get().challenge) { get().leaveChallenge(screen); return }
     clearMatchTimers()
-    set({ ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false })
+    set({ ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false, challenge: null })
   },
 
   lastGoalOwn: false,
@@ -355,7 +361,51 @@ export const useMatchStore = create((set, get) => ({
     dragPower: 0,
   }),
 
+  // --- Daily challenge: your caps only, score within so many flicks ---
+  challenge: null, // { id, name, text, flicks, flicksLeft, won }
+  startChallenge: (c) => {
+    clearMatchTimers()
+    set({
+      ...clearTurn,
+      challenge: { id: c.id, name: c.name, text: c.text, flicks: c.flicks, flicksLeft: c.flicks, won: null, prevTeam2: get().challenge?.prevTeam2 || get().teamConfig.team2 },
+      teamConfig: { ...get().teamConfig, team2: CHALLENGE_DEFENDERS },
+      screen: SCREEN.PLAYING,
+      matchKey: get().matchKey + 1,
+      gameMode: 'local',
+      penaltyShootout: false,
+      score: { team1: 0, team2: 0 },
+      stats: emptyStats(),
+      team1Side: 'left',
+      activeTeam: 'team1',
+      phase: PHASE.SELECT,
+      kickoffGuard: false,
+      timerRunning: false,
+      paused: false,
+      matchResult: null,
+      shotClockRemaining: 0,
+    })
+  },
+  /** One flick of the challenge used up without a goal. */
+  challengeFlickUsed: () => {
+    const c = get().challenge
+    if (!c) return
+    const left = c.flicksLeft - 1
+    if (left <= 0) { get().endChallenge(false); return }
+    set({ ...clearTurn, challenge: { ...c, flicksLeft: left }, activeTeam: 'team1', phase: PHASE.SELECT, kickoffGuard: false })
+  },
+  endChallenge: (won) => {
+    const c = get().challenge
+    if (!c || c.won !== null) return
+    set({ ...clearTurn, challenge: { ...c, won }, phase: PHASE.CHALLENGE_DONE, timerRunning: false })
+  },
+  leaveChallenge: (screen = SCREEN.MENU) => {
+    clearMatchTimers()
+    const c = get().challenge
+    set({ ...clearTurn, challenge: null, screen, timerRunning: false, paused: false, ...(c?.prevTeam2 ? { teamConfig: { ...get().teamConfig, team2: c.prevTeam2 } } : {}) })
+  },
+
   switchTurn: () => {
+    if (get().challenge) { get().challengeFlickUsed(); return }
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'turns')
     set({ ...clearTurn, activeTeam: otherTeam(activeTeam), phase: PHASE.SELECT, kickoffGuard: false, shotClockRemaining: get().shotClock })
@@ -364,6 +414,12 @@ export const useMatchStore = create((set, get) => ({
   // ownGoal: the last cap to touch the ball was the conceding side's
   scoreGoal: (scoringTeam, { ownGoal = false } = {}) => {
     const { score } = get()
+    if (get().challenge) {
+      // Celebrate, then the challenge is done (into your own net is a fail)
+      set({ ...clearTurn, score: { ...score, [scoringTeam]: score[scoringTeam] + 1 }, phase: PHASE.GOAL, lastScorer: scoringTeam, lastGoalOwn: !!ownGoal, lastConceded: otherTeam(scoringTeam) })
+      goalTimer = later(() => get().endChallenge(scoringTeam === 'team1'), TIMING.goal)
+      return
+    }
     const concedingTeam = otherTeam(scoringTeam)
     get().bumpStat(scoringTeam, 'goals')
     set({
@@ -389,6 +445,7 @@ export const useMatchStore = create((set, get) => ({
     const s = get()
     if (s.phase !== PHASE.GOAL || s.penaltyShootout || s.gameMode === 'online') return
     cancelLater(goalTimer)
+    if (s.challenge) { s.endChallenge(s.lastScorer === 'team1'); return }
     s.startKickoff(s.lastConceded)
   },
 
@@ -398,6 +455,7 @@ export const useMatchStore = create((set, get) => ({
 
   /** A ball in the net that doesn't count. Possession passes over. */
   disallowGoal: (reason) => {
+    if (get().challenge) { get().challengeFlickUsed(); return }
     set({ ...clearTurn, phase: PHASE.NO_GOAL, noGoalReason: reason })
     later(() => get().switchTurn(), TIMING.noGoal)
   },
@@ -411,6 +469,7 @@ export const useMatchStore = create((set, get) => ({
   // --- Corner kicks / goal kicks (ball stuck in a corner) ---
   restart: null, // { kind: 'corner' | 'goalKick', team, ex, ey }
   awardRestart: ({ kind, team, ex, ey, reason = null }) => {
+    if (get().challenge) { get().challengeFlickUsed(); return }
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'turns')
     set({
@@ -431,6 +490,7 @@ export const useMatchStore = create((set, get) => ({
 
   // --- Fouls ---
   callFoul: (foulSpot, fouledTeam, inPenaltyBox) => {
+    if (get().challenge) { get().challengeFlickUsed(); return }
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'fouls')
     set({
@@ -465,6 +525,7 @@ export const useMatchStore = create((set, get) => ({
       ...clearTurn,
       screen: SCREEN.PLAYING,
       matchKey: get().matchKey + 1,
+      challenge: null,
       penaltyShootout: true,
       penaltyKicks: { team1: 0, team2: 0 },
       penaltyScores: { team1: 0, team2: 0 },

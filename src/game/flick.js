@@ -70,6 +70,7 @@ export function capSelectable(state, capId, ball) {
 
 /** Teams this client may control with the mouse/touch. */
 export function controllableTeams(state) {
+  if (state.challenge) return ['team1']
   if (state.gameMode === 'online') return state.onlineMyTeam ? [state.onlineMyTeam] : []
   if (state.gameMode === 'ai') return [state.aiTeam === 'team1' ? 'team2' : 'team1']
   return ['team1', 'team2']
