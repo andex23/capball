@@ -16,6 +16,7 @@ import { initTournamentWatch } from './state/tournamentStore'
 import { initAudioUnlock } from './audio/SoundManager'
 import { initAccount } from './state/accountStore'
 import { initSavedMatches } from './state/savedMatch'
+import { initClips } from './game/clips'
 import { initInstallPrompt } from './pwa/install'
 
 // Restore saved teams, settings and records before the first render
@@ -25,6 +26,7 @@ initTournamentWatch()
 initAudioUnlock()
 initAccount()
 initSavedMatches()
+initClips()
 // The install prompt can fire before the menu mounts, so catch it early
 initInstallPrompt()
 

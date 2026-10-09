@@ -4,6 +4,7 @@ import { useDailyStore, playDaily, liveStreak } from '../state/dailyStore'
 import { playButtonSelect, playConfirm, playGoal } from '../audio/SoundManager'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import Icon from './Icon'
+import GoalClips from './GoalClips'
 
 /** Daily challenge: what to do, flicks left, and the result at the end. */
 export default function ChallengeHud() {
@@ -45,6 +46,7 @@ export default function ChallengeHud() {
       <p>{challenge.won
         ? `${streak} day${streak === 1 ? '' : 's'} in a row. Best streak: ${daily.best}. Come back tomorrow for a new one.`
         : 'So close. Have another go — it only counts once you score.'}</p>
+      {challenge.won && <GoalClips limit={1} />}
       <div className="challenge-actions">
         <button className="btn btn-gold" onClick={() => { playConfirm(); stopAllBodies(); playDaily() }}><Icon name="restart" size={18} /> {challenge.won ? 'Play again' : 'Try again'}</button>
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); stopAllBodies(); useMatchStore.getState().leaveChallenge() }}><Icon name="exit" size={18} /> Menu</button>
