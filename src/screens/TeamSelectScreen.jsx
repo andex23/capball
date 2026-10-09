@@ -3,6 +3,7 @@ import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText, CLEAR_TO } from '../data/TeamOptions'
 import CapDesigns from '../ui/CapDesigns'
 import ColorPicker from '../ui/ColorPicker'
+import SquadEditor from '../ui/SquadEditor'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
@@ -22,6 +23,7 @@ const TABS = [
   { key: 'colors', label: 'Colours' },
   { key: 'badge', label: 'Text' },
   { key: 'style', label: 'Finish' },
+  { key: 'squad', label: 'Squad' },
 ]
 
 // Tapping the chosen option again clears it (back to `clearTo`)
@@ -131,6 +133,7 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
                 <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} clearTo={CLEAR_TO.badge} />
               </>
             )}
+            {tab === 'squad' && <SquadEditor config={config} teamKey={teamKey} onUpdate={onUpdate} />}
             {tab === 'style' && (
               <>
                 <Chips label="Pattern" options={PATTERNS} value={config.pattern} onPick={(k) => onUpdate({ pattern: k })} clearTo={CLEAR_TO.pattern} />

@@ -122,6 +122,7 @@ const DEFAULT_NAMES = /^(team\s*[12]|defenders|my team|my club)$/i
 export function capLabel(config) {
   const own = typeof config?.capText === 'string' ? config.capText.trim() : ''
   if (own) return own
+  if (config?.showName === false) return ''
   const name = typeof config?.name === 'string' ? config.name.trim() : ''
   if (!name || DEFAULT_NAMES.test(name)) return ''
   return name.slice(0, CAP_TEXT_MAX)

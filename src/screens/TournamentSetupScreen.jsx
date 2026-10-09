@@ -11,6 +11,7 @@ import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
 import CapDesigns from '../ui/CapDesigns'
 import ColorPicker from '../ui/ColorPicker'
+import SquadEditor from '../ui/SquadEditor'
 import { displayColor } from '../ui/color'
 
 /** Ready-made clubs for the extra teams (the first team is the player's own kit). */
@@ -85,14 +86,21 @@ function summary(format, legs, teams, online) {
   return `${rounds} round${rounds === 1 ? '' : 's'}, drawn at random.${byes ? ` ${byes} team${byes === 1 ? ' gets a bye' : 's get byes'} into round two.` : ''} Draws go to penalties.`
 }
 
-export function KitEditor({ team, onUpdate, onClose }) {
+/** Edit a team: optional name, kit, and squad (numbers, name on caps). */
+export function KitEditor({ team, onUpdate, onClose, withName = false }) {
   return (
     <Modal
-      title={team.name || 'Kit'}
+      title="Edit team"
       onClose={onClose}
       footer={<button className="btn btn-gold btn-block" onClick={() => { playConfirm(); onClose() }}>Done <Icon name="check" size={18} /></button>}
     >
       <div className="t-kit-preview"><CapPreview config={team} size={110} number={team.numbers?.atk1 ?? 10} /></div>
+      {withName && (
+        <div>
+          <label className="eyebrow" htmlFor="kit-team-name" style={{ display: 'block', marginBottom: 8 }}>Team name</label>
+          <input id="kit-team-name" className="field" value={team.name || ''} maxLength={TEAM_NAME_MAX} onChange={(e) => onUpdate({ name: e.target.value })} onBlur={(e) => onUpdate({ name: e.target.value.trim() || 'My Club' })} />
+        </div>
+      )}
       <div>
         <div className="eyebrow" style={{ marginBottom: 8 }}>Ready-made designs</div>
         <CapDesigns config={team} onPick={onUpdate} />
@@ -130,6 +138,7 @@ export function KitEditor({ team, onUpdate, onClose }) {
           ))}
         </div>
       </div>
+      <SquadEditor config={team} onUpdate={onUpdate} />
     </Modal>
   )
 }

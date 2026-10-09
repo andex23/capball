@@ -56,8 +56,8 @@ function StartCareer() {
           </div>
         </div>
         <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Kit</div>
-        <p className="muted t-note">Pick a design, or open the full kit editor for colours, pattern, badge and text. Your club keeps this kit all season — you can change it again before the next season kicks off.</p>
-        <button className="btn btn-secondary btn-block" style={{ margin: '8px 0 10px' }} onClick={() => { playButtonSelect(); setKitOpen(true) }}><Icon name="settings" size={18} /> Edit kit</button>
+        <p className="muted t-note">Pick a design, or open Edit team for colours, pattern, badge, text and squad numbers. Your club keeps this kit all season — you can change it again before the next season kicks off.</p>
+        <button className="btn btn-secondary btn-block" style={{ margin: '8px 0 10px' }} onClick={() => { playButtonSelect(); setKitOpen(true) }}><Icon name="settings" size={18} /> Edit team</button>
         <CapDesigns config={club} onPick={(patch) => setClub({ ...club, ...patch })} />
         <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Match length</div>
         <div className="segmented stretch" role="group" aria-label="Match length">
@@ -67,7 +67,7 @@ function StartCareer() {
         </div>
       </section>
       <button className="btn btn-gold btn-lg btn-block" onClick={start} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Start career</button>
-      {kitOpen && <KitEditor team={club} onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setKitOpen(false)} />}
+      {kitOpen && <KitEditor team={club} withName onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setKitOpen(false)} />}
     </div>
   )
 }
@@ -225,12 +225,12 @@ export default function CareerScreen() {
           <section className="card card-pad career-kit-card">
             <CapPreview config={career.club} size={64} number={career.club.numbers?.atk1 ?? 10} />
             <div>
-              <h2 className="saved-h">Club kit</h2>
+              <h2 className="saved-h">Your team</h2>
               {kitOpen
-                ? <p className="muted t-note">The new season hasn’t kicked off yet — you can change your kit now. It’s locked once matchday 1 is played.</p>
-                : <p className="muted t-note"><Icon name="lock" size={13} /> Locked for this season. You can change it before next season starts.</p>}
+                ? <p className="muted t-note">The new season hasn’t kicked off yet — you can change your name, kit and squad numbers now. They’re locked once matchday 1 is played.</p>
+                : <p className="muted t-note"><Icon name="lock" size={13} /> Name, kit and numbers are locked for this season. Change them before next season starts.</p>}
             </div>
-            {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit kit</button>}
+            {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit team</button>}
           </section>
           {done ? <SeasonEnd career={career} /> : next && (
             <section className="card card-pad career-next">
@@ -283,6 +283,7 @@ export default function CareerScreen() {
       {editing && kitOpen && (
         <KitEditor
           team={career.club}
+          withName
           onUpdate={(patch) => useCareerStore.getState().updateClub(patch)}
           onClose={() => setEditing(false)}
         />

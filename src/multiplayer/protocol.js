@@ -55,6 +55,7 @@ export function sanitizeTeamConfig(input) {
   if (PATTERN_KEYS.has(input.pattern)) out.pattern = input.pattern
   if (FINISH_KEYS.has(input.finish)) out.finish = input.finish
   if (typeof input.capText === 'string') out.capText = sanitizeCapText(input.capText)
+  if (typeof input.showName === 'boolean') out.showName = input.showName
   if (isObj(input.numbers)) {
     const numbers = {}
     for (const role of CAP_ROLES) {

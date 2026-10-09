@@ -163,6 +163,7 @@ export function sanitizeTeam(input, i = 0) {
     pattern: typeof t.pattern === 'string' ? t.pattern.slice(0, 16) : 'none',
     finish: typeof t.finish === 'string' ? t.finish.slice(0, 16) : 'matte',
     capText: sanitizeCapText(t.capText),
+    showName: t.showName !== false,
     numbers,
     cpu: t.cpu === true,
     difficulty: AI_DIFFICULTIES.includes(t.difficulty) ? t.difficulty : 'medium',
