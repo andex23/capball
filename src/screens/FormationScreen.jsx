@@ -1,5 +1,6 @@
 import { useTournamentStore } from '../state/tournamentStore'
-import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
+import { formatClock } from '../game/rules'
 import { FORMATIONS, PITCH, getFormationPositions } from '../data/TeamData'
 import { STADIUMS } from '../data/StadiumData'
 import { playButtonSelect, playWhistle, playHoverTick } from '../audio/SoundManager'
@@ -96,6 +97,10 @@ export default function FormationScreen() {
   const aiTeam = useMatchStore((s) => s.aiTeam)
   const isOnline = gameMode === 'online'
   const inTournament = useTournamentStore((s) => !!s.playing)
+  const matchDuration = useMatchStore((s) => s.matchDuration)
+  const setMatchDuration = useMatchStore((s) => s.setMatchDuration)
+  // Online, the host sets the length (it's synced to the guest)
+  const canSetLength = !isOnline || myTeam === 'team1'
 
   const kickOff = () => {
     playWhistle()
@@ -123,6 +128,19 @@ export default function FormationScreen() {
       next={{ label: 'Kick off', icon: 'ball', color: 'orange', onClick: kickOff }}
       onBothReady={kickOff}
     >
+      <div className="card card-pad match-length">
+        <div className="match-length-head">
+          <span className="eyebrow">Match length</span>
+          <span className="muted">Two halves of {formatClock(matchDuration / 2)}</span>
+        </div>
+        <div className="segmented stretch" role="group" aria-label="Match length">
+          {MATCH_DURATIONS.map((d) => (
+            <button key={d} aria-pressed={matchDuration === d} disabled={!canSetLength} onClick={() => { playButtonSelect(); setMatchDuration(d) }}>
+              {formatClock(d)}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="versus">
         <FormationCard team="team1" config={teamConfig.team1} formation={formations.team1} onSelect={(k) => choose('team1', k)} locked={isOnline && myTeam !== 'team1'} tag={tagFor('team1')} />
         <div className="vs-badge" aria-hidden>VS</div>

@@ -1530,3 +1530,45 @@ button { cursor: pointer; background: none; border: 0; }
 .tb-trophy[data-won='true'] { border: 1px solid var(--accent); color: var(--accent); background: rgba(255, 200, 61, 0.08); box-shadow: 0 0 24px rgba(255, 200, 61, 0.15); }
 .tb-trophy .t-team { flex-direction: column; gap: 4px; max-width: 100%; font-size: 13px; }
 .tb-cup { display: grid; place-items: center; }
+/* ── Icon buttons as little crown caps ──
+   Pause, camera, close and friends: a dark tin cap with a crimped edge
+   (21 pleats drawn with a conic gradient, masked to a ring). */
+.icon-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 0;
+  background: radial-gradient(circle at 38% 32%, #4a5468 0%, #2a3142 58%, #1a1f2b 100%);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  isolation: isolate;
+}
+.icon-btn::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  z-index: -1;
+  background: repeating-conic-gradient(from 0deg, #c9ced8 0deg 8.57deg, #6b7384 8.57deg 17.14deg);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%);
+  mask: radial-gradient(circle, transparent 62%, #000 64%);
+}
+.icon-btn::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 200, 61, 0.45);
+  pointer-events: none;
+}
+.icon-btn:hover { filter: brightness(1.15); }
+.icon-btn:active { transform: translateY(2px) scale(0.96); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55); }
+
+/* Match length, chosen right before kick-off */
+.match-length { margin-bottom: 14px; padding: 12px 14px; }
+.match-length-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+.match-length .segmented button { padding: 0 6px; }
+@media (min-width: 561px) and (max-height: 500px) {
+  .match-length { margin-bottom: 8px; padding: 8px 12px; }
+  .match-length-head { margin-bottom: 6px; }
+}
