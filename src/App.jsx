@@ -1,4 +1,5 @@
 import { Component, Suspense, lazy, useEffect } from 'react'
+import { toggleFullscreen, typing } from './ui/fullscreen'
 import { useMatchStore, SCREEN } from './state/MatchStore'
 import { useTournamentStore } from './state/tournamentStore'
 import TournamentHomeScreen from './screens/TournamentHomeScreen'
@@ -114,6 +115,15 @@ export default function App() {
       useMatchStore.getState().setGameMode('local')
     }
   }, [screen])
+
+  // F toggles full screen anywhere in the game (desktop)
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e)) toggleFullscreen()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>

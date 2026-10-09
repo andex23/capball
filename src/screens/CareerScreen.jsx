@@ -224,6 +224,7 @@ export default function CareerScreen() {
         </header>
 
         <main className="shell-body career-body">
+          <div className="career-col">
           <SaveBar />
           <section className="card card-pad career-kit-card">
             <CapPreview config={career.club} size={64} number={career.club.numbers?.atk1 ?? 10} />
@@ -249,7 +250,9 @@ export default function CareerScreen() {
           )}
 
           <SquadPanel career={career} />
+          </div>
 
+          <div className="career-col">
           <section className="card card-pad">
             <h2 className="saved-h">{division.name} table</h2>
             <Table t={league} mine={[ME]} zoneOf={zoneOf} />
@@ -278,6 +281,7 @@ export default function CareerScreen() {
           )}
 
           <button className="btn btn-ghost" onClick={() => { playButtonSelect(); setConfirmRetire(true) }}>Retire and start again</button>
+          </div>
         </main>
 
         <footer className="shell-foot"><div className="shell-foot-inner">
