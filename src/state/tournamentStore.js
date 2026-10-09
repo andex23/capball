@@ -71,6 +71,7 @@ function kitFor(team, side) {
     pattern: team.pattern || 'none',
     finish: team.finish || 'matte',
     capText: team.capText || '',
+    showName: team.showName !== false,
     numbers: { ...base.numbers, ...(team.numbers || {}) },
   }
 }
