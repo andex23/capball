@@ -85,7 +85,7 @@ function summary(format, legs, teams, online) {
   return `${rounds} round${rounds === 1 ? '' : 's'}, drawn at random.${byes ? ` ${byes} team${byes === 1 ? ' gets a bye' : 's get byes'} into round two.` : ''} Draws go to penalties.`
 }
 
-function KitEditor({ team, onUpdate, onClose }) {
+export function KitEditor({ team, onUpdate, onClose }) {
   return (
     <Modal
       title={team.name || 'Kit'}

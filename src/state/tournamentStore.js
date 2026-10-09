@@ -16,6 +16,7 @@ import {
 } from '../game/tournament'
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected } from '../multiplayer/MultiplayerManager'
+import { useCareerStore } from './careerStore'
 
 const STORAGE_KEY = 'capball:tournaments:v1'
 const HISTORY_MAX = 30
@@ -223,7 +224,7 @@ export const useTournamentStore = create((set, get) => ({
 
   /** Set the match up for a fixture played on this device (vs CPU or pass-and-play). */
   playFixture(kind, fixture) {
-    const t = kind === 'local' ? get().local : get().online?.tournament
+    const t = kind === 'local' ? get().local : kind === 'career' ? useCareerStore.getState().career?.league : get().online?.tournament
     if (!t) return
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
@@ -232,7 +233,7 @@ export const useTournamentStore = create((set, get) => ({
     const stash = get().stash || Object.fromEntries(BORROWED.map((k) => [k, ms[k]]))
     const cpuSide = home.cpu ? 'team1' : away.cpu ? 'team2' : null
     const cpuTeam = home.cpu ? home : away.cpu ? away : null
-    set({ stash, playing: { kind, code: get().online?.code, fixture: { id: fixture.id, home: fixture.home, away: fixture.away }, knockout: t.format === 'knockout', recorded: false } })
+    set({ stash, playing: { kind, code: kind === 'online' ? get().online?.code : undefined, fixture: { id: fixture.id, home: fixture.home, away: fixture.away }, knockout: t.format === 'knockout', recorded: false } })
     useMatchStore.setState({
       teamConfig: { team1: kitFor(home, 'team1'), team2: kitFor(away, 'team2') },
       gameMode: cpuSide ? 'ai' : 'local',
@@ -316,6 +317,10 @@ export const useTournamentStore = create((set, get) => ({
     const result = resultFromMatch(matchResult, p.knockout)
     if (!result) return
     set({ playing: { ...p, recorded: true } })
+    if (p.kind === 'career') {
+      useCareerStore.getState().record(p.fixture.id, result)
+      return
+    }
     if (p.kind === 'local') {
       const t = get().local
       if (!t) return
@@ -354,7 +359,7 @@ export const useTournamentStore = create((set, get) => ({
   backToHub() {
     const p = get().playing
     if (useMatchStore.getState().gameMode === 'online' || isConnected()) disconnect()
-    useMatchStore.getState().quitMatch(p?.kind === 'local' || !p ? SCREEN.TOURNAMENT_HUB : SCREEN.TOURNAMENT_HUB)
+    useMatchStore.getState().quitMatch(p?.kind === 'career' ? SCREEN.CAREER : SCREEN.TOURNAMENT_HUB)
     get().restore()
     if (p?.kind === 'online' && p.code) get().openOnline(p.code, { quiet: true }).catch(() => {})
   },

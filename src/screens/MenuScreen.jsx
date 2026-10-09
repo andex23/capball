@@ -21,6 +21,7 @@ import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 
 const MODES = [
   { key: 'ai', title: 'Vs Computer', tag: '1P' },
+  { key: 'career', title: 'Career', tag: 'PRO' },
   { key: 'local', title: 'Local Match', tag: '2P' },
   { key: 'online', title: 'Online Match', tag: 'NET' },
   { key: 'tournament', title: 'Tournament' },
@@ -102,6 +103,7 @@ export default function MenuScreen() {
     playConfirm()
     if (key === 'continue') { resumeSavedMatch(); return }
     if (key === 'tournament') { goToScreen(SCREEN.TOURNAMENT_HOME); return }
+    if (key === 'career') { goToScreen(SCREEN.CAREER); return }
     if (key === 'online') { goToScreen(SCREEN.ONLINE); return }
     setGameMode(key)
     goToScreen(SCREEN.TEAM_SELECT)

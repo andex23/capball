@@ -129,7 +129,7 @@ export default function MatchEndScreen() {
                   : <p className="muted" style={{ textAlign: 'center' }}>Level — the cup tie goes to penalties…</p>
               ) : (
                 <button className="btn btn-primary btn-lg btn-block" onClick={backToTournament}>
-                  <Icon name="trophy" size={18} /> Back to the {tournament.knockout ? 'cup' : 'league'}
+                  <Icon name="trophy" size={18} /> {tournament.kind === 'career' ? 'Back to your career' : `Back to the ${tournament.knockout ? 'cup' : 'league'}`}
                 </button>
               )}
             </>

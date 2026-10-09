@@ -1811,3 +1811,28 @@ button { cursor: pointer; background: none; border: 0; }
 .penalty-tip b { font: 700 15px/1 var(--font-pixel); text-transform: uppercase; color: var(--accent); text-shadow: 2px 2px 0 var(--ink); }
 .penalty-tip p { font-size: 13px; color: var(--text-2); margin: 6px 0 10px; }
 .penalty-tip .btn { min-height: 40px; }
+
+/* Career mode */
+.career-start { display: flex; flex-direction: column; gap: 16px; max-width: 640px; margin: 0 auto; }
+.career-club { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.career-body { display: grid; gap: 16px; max-width: 760px; margin: 0 auto; }
+.career-kit { padding: 0; background: none; border: 0; cursor: pointer; }
+.career-next .career-vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 14px 0; }
+.career-next .career-vs > :last-child { justify-self: end; }
+.career-end { text-align: center; display: flex; flex-direction: column; gap: 8px; }
+.career-end-title { font-size: clamp(40px, 10vw, 64px); color: var(--accent); }
+.career-end[data-tone='good'] .career-end-title { color: #5dff7a; }
+.career-end[data-tone='bad'] .career-end-title { color: #ff6a5a; }
+.career-end-pos { font-family: var(--font-pixel); font-size: 13px; text-transform: uppercase; }
+.career-ladder ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.career-ladder li { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(5, 10, 46, 0.45); border: 2px solid var(--line); }
+.career-ladder li[data-here='true'] { border-color: var(--accent); background: rgba(255, 210, 63, 0.14); }
+.career-ladder li[data-done='true'] { opacity: 0.6; }
+.career-ladder-n { font: 700 16px/1 var(--font-pixel); color: var(--accent); text-align: center; }
+.career-ladder-name { font-weight: 700; }
+.t-table tr[data-zone='up'] td:first-child { box-shadow: inset 4px 0 0 #3ddc6b; }
+.t-table tr[data-zone='down'] td:first-child { box-shadow: inset 4px 0 0 #ff5a4a; }
+.career-key { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.career-dot { display: inline-block; width: 10px; height: 10px; margin-left: 6px; }
+.career-dot.up { background: #3ddc6b; }
+.career-dot.down { background: #ff5a4a; }

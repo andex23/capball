@@ -192,7 +192,8 @@ function Bracket({ t, nextId, actionFor, onAct }) {
 
 /* ── League ── */
 
-function Table({ t, mine }) {
+/** League table. `zoneOf(i)` may mark a position 'up' (promotion) or 'down' (relegation). */
+export function Table({ t, mine, zoneOf }) {
   const rows = standings(t)
   return (
     <table className="t-table">
@@ -212,7 +213,7 @@ function Table({ t, mine }) {
         {rows.map((row, i) => {
           const team = teamById(t, row.id)
           return (
-            <tr key={row.id} data-mine={mine.includes(row.id) ? 'true' : undefined} data-champ={t.championId === row.id ? 'true' : undefined}>
+            <tr key={row.id} data-mine={mine.includes(row.id) ? 'true' : undefined} data-champ={t.championId === row.id ? 'true' : undefined} data-zone={zoneOf?.(i) || undefined}>
               <td className="t-pos tabular">{i + 1}</td>
               <td className="t-col-team"><TeamTag team={team} size={20} /></td>
               <td className="tabular">{row.p}</td>
