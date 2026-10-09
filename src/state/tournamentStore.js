@@ -18,6 +18,7 @@ import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected } from '../multiplayer/MultiplayerManager'
 import { useCareerStore } from './careerStore'
 import { squadRatings, clubRatings, squadSurnames } from '../game/squad'
+import { playerOf } from '../game/commentary'
 
 const STORAGE_KEY = 'capball:tournaments:v1'
 const HISTORY_MAX = 30
@@ -31,7 +32,7 @@ const storage = () => {
 }
 
 function load() {
-  const empty = { local: null, history: [], recentOnline: [], seenChampions: [] }
+  const empty = { local: null, history: [], recentOnline: [], seenChampions: [], finaleSeen: [] }
   try {
     const raw = storage()?.getItem(STORAGE_KEY)
     if (!raw || raw.length > 400_000) return empty
@@ -42,6 +43,7 @@ function load() {
       recentOnline: Array.isArray(data.recentOnline)
         ? data.recentOnline.filter((r) => r && /^[A-Z0-9]{6}$/.test(r.code)).slice(0, RECENT_MAX) : [],
       seenChampions: Array.isArray(data.seenChampions) ? data.seenChampions.filter((x) => typeof x === 'string').slice(-50) : [],
+      finaleSeen: Array.isArray(data.finaleSeen) ? data.finaleSeen.filter((x) => typeof x === 'string').slice(-50) : [],
     }
   } catch {
     return empty
@@ -55,6 +57,7 @@ function save(state) {
       history: state.history,
       recentOnline: state.recentOnline,
       seenChampions: state.seenChampions,
+      finaleSeen: state.finaleSeen,
     }))
   } catch { /* storage full or blocked: progress lasts this session */ }
 }
@@ -131,6 +134,13 @@ export const useTournamentStore = create((set, get) => ({
 
   abandonLocal() {
     set({ local: null })
+    save(get())
+  },
+
+  /** The end-of-tournament screen has been shown for this tournament. */
+  markFinaleSeen(id) {
+    if (!id || get().finaleSeen.includes(id)) return
+    set((s) => ({ finaleSeen: [...s.finaleSeen, id].slice(-50) }))
     save(get())
   },
 
@@ -334,7 +344,13 @@ export const useTournamentStore = create((set, get) => ({
     if (p.kind === 'local') {
       const t = get().local
       if (!t) return
-      const after = settleCpu(recordResult(t, p.fixture.id, result))
+      // Who scored, for the tournament's top scorer (team1 is always the home side)
+      const ms = useMatchStore.getState()
+      const scorers = (ms.goalLog || []).filter((g) => !g.shootout).map((g) => {
+        const who = playerOf(ms.teamConfig, g.cap)
+        return who ? { side: (g.own ? who.team !== 'team1' : who.team === 'team1') ? 'home' : 'away', name: who.name, number: who.number, own: !!g.own } : null
+      }).filter(Boolean)
+      const after = settleCpu(recordResult(t, p.fixture.id, { ...result, scorers }))
       set({ local: after })
       save(get())
       get().noteChampion(after)
@@ -375,6 +391,9 @@ export const useTournamentStore = create((set, get) => ({
   },
 }))
 
+// Screens that belong to a fixture in progress (anything else means it was left)
+const MATCH_SCREENS = [SCREEN.FORMATION, SCREEN.PLAYING, SCREEN.MATCH_END, SCREEN.ONLINE, SCREEN.TOURNAMENT_HUB, SCREEN.CAREER]
+
 /** Is a tournament fixture being set up or played right now? */
 export const inTournamentPlay = () => !!useTournamentStore.getState().playing
 
@@ -395,6 +414,12 @@ export function initTournamentWatch() {
     const ts = useTournamentStore.getState()
     const p = ts.playing
     if (!p) return
+    // Left the fixture some other way (quit, save & quit, back to the menu): hand the
+    // player's own teams and settings back, so a borrowed (often CPU) kit never sticks
+    if (s.screen !== prev.screen && !MATCH_SCREENS.includes(s.screen)) {
+      ts.restore()
+      return
+    }
     if (s.matchResult && s.matchResult !== prev.matchResult) ts.recordPlayed(s.matchResult)
     // Host of a live fixture: opponent connected → straight to formations
     if (p.live === 'hosting' && s.onlineStatus?.status === 'connected' && prev.onlineStatus?.status !== 'connected') {

@@ -6,7 +6,8 @@ import RulesPanel from '../ui/RulesPanel'
 import RankingsPanel from '../ui/RankingsPanel'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
-import InstallPrompt from '../pwa/InstallPrompt'
+import InstallGuide from '../pwa/InstallGuide'
+import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
 import { useSavedStore, resumeSavedMatch, describeSave } from '../state/savedMatch'
@@ -52,6 +53,8 @@ export default function MenuScreen() {
   const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
   const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
   const username = useAccountStore((s) => s.username)
+  const canInstall = useCanInstall()
+  const installed = isStandalone()
   const localT = useTournamentStore((s) => s.local)
   const localFixtures = localT ? allFixtures(localT) : []
   const localDone = localFixtures.filter((f) => f.result).length
@@ -112,6 +115,7 @@ export default function MenuScreen() {
       { key: 'tournament', title: 'Tournament', sub: 'Leagues and cups, here or online', tag: '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
+      ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
     play: [
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
@@ -193,7 +197,6 @@ export default function MenuScreen() {
                 </li>
               ))}
             </ul>
-            <InstallPrompt />
           </main>
         )}
 
@@ -244,6 +247,11 @@ export default function MenuScreen() {
           </Modal>
         )
       })()}
+      {dialog === 'install' && (
+        <Modal title="Add to Home Screen" onClose={() => setDialog(null)}>
+          <InstallGuide />
+        </Modal>
+      )}
       {dialog === 'rules' && (
         <Modal title="How to play" onClose={() => setDialog(null)}>
           <RulesPanel />

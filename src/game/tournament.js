@@ -274,11 +274,23 @@ function validResult(r, knockout) {
  * Record a fixture's result. Returns the updated tournament (unchanged if
  * the result is invalid, the fixture is unknown or already played).
  */
+/** Who scored in a match (local play only): [{ side: 'home'|'away', name, number, own }]. */
+export function cleanScorers(list) {
+  if (!Array.isArray(list)) return []
+  return list.slice(0, 40).filter((g) => isObj(g) && (g.side === 'home' || g.side === 'away') && typeof g.name === 'string').map((g) => ({
+    side: g.side,
+    name: g.name.slice(0, 16),
+    number: Number.isInteger(g.number) && g.number >= 0 && g.number <= 99 ? g.number : null,
+    own: g.own === true,
+  }))
+}
+
 export function recordResult(t, fixtureId, result) {
   if (!t || t.championId) return t
   const knockout = t.format === 'knockout'
   if (!validResult(result, knockout)) return t
-  const clean = { home: result.home, away: result.away, ...(result.pens ? { pens: { home: result.pens.home, away: result.pens.away } } : {}) }
+  const scorers = cleanScorers(result.scorers)
+  const clean = { home: result.home, away: result.away, ...(result.pens ? { pens: { home: result.pens.home, away: result.pens.away } } : {}), ...(scorers.length ? { scorers } : {}) }
 
   if (!knockout) {
     const idx = t.fixtures.findIndex((f) => f.id === fixtureId)
