@@ -1332,44 +1332,201 @@ button { cursor: pointer; background: none; border: 0; }
   .t-champion-cap svg { width: 64px; height: 64px; }
 }
 
-/* ── Main menu ── */
-.menu-layout {
+/* ── Main menu: 16-bit console football front end ──
+   Title card with "Press start", then a boxed mode-select window with a
+   pixel cap cursor. Pixel type (Silkscreen) for the menu, a chunky
+   extruded italic for the logo, scanlines over everything. */
+.iss {
+  --iss-ink: #0b0830;
+  --iss-blue: #1638b8;
+  --iss-blue-2: #0a1b6e;
+  --iss-yellow: #ffd23f;
+  --iss-red: #e8261f;
+  --iss-pixel: 'Silkscreen', 'Courier New', monospace;
+  background: #050a2e;
+  font-family: var(--iss-pixel);
+  isolation: isolate;
+}
+.iss-sky {
+  position: absolute; inset: 0; z-index: -3; pointer-events: none;
+  background:
+    radial-gradient(2px 2px at 12% 18%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 28% 8%, #9fb4ff 50%, transparent 51%),
+    radial-gradient(2px 2px at 47% 22%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 66% 12%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 83% 26%, #9fb4ff 50%, transparent 51%),
+    radial-gradient(2px 2px at 92% 9%, #fff 50%, transparent 51%),
+    radial-gradient(60% 40% at 15% 48%, rgba(255, 244, 200, 0.22), transparent 70%),
+    radial-gradient(60% 40% at 85% 48%, rgba(255, 244, 200, 0.22), transparent 70%),
+    linear-gradient(180deg, #02041a 0%, #0a1660 45%, #1a2f9a 62%, #0b1f4d 64%);
+}
+/* The pitch, seen low and far like a 16-bit attract screen */
+.iss-pitch {
+  position: absolute; left: -80%; right: -80%; bottom: -4%; height: 62%; z-index: -2; pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent calc(50% - 2px), rgba(255,255,255,0.75) calc(50% - 2px) calc(50% + 2px), transparent calc(50% + 2px)),
+    linear-gradient(180deg, rgba(255,255,255,0.8) 0 4px, transparent 4px),
+    repeating-linear-gradient(90deg, #1d7a2c 0 80px, #279437 80px 160px);
+  transform: perspective(420px) rotateX(52deg);
+  transform-origin: 50% 100%;
+  image-rendering: pixelated;
+}
+.iss-pitch::after {
+  content: ''; position: absolute; left: 50%; top: 30%; width: 220px; height: 220px; margin-left: -110px;
+  border: 4px solid rgba(255,255,255,0.75); border-radius: 50%;
+}
+.iss-scan {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+
+.iss-layout {
+  position: relative; z-index: 1;
   min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 28px;
-  max-width: 480px;
-  padding: calc(var(--safe-top) + 32px) var(--gutter-r) calc(var(--safe-bottom) + 32px) var(--gutter-l);
-  margin-left: clamp(0px, 6vw, 96px);
-}
-.menu-title { font-size: clamp(64px, 10vw, 112px); }
-.menu-tagline { max-width: 360px; margin-top: 8px; }
-.menu-foot { display: flex; gap: 8px; flex-wrap: wrap; }
-.menu-modes { display: flex; flex-direction: column; gap: 10px; }
-.mode-btn {
-  width: 100%;
-  min-height: 66px;
-  font-size: 28px;
-  letter-spacing: 0.08em;
-}
-.mode-btn svg { width: 26px; height: 26px; }
-@media (max-width: 560px) {
-  .menu-layout { margin: 0 auto; }
-  .mode-btn { min-height: 60px; font-size: 24px; }
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  padding: calc(var(--safe-top) + 20px) var(--gutter-r) calc(var(--safe-bottom) + 14px) var(--gutter-l);
 }
 
+/* Logo: italic, banded like chrome, with a deep pixel extrusion */
+.iss-brand { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.iss-logo { position: relative; margin: 0; line-height: 0.9; }
+.iss-logo-word {
+  position: relative; display: inline-block;
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: clamp(64px, 17vw, 132px); letter-spacing: 0.02em;
+  padding: 0 0.12em 0.06em 0.04em;
+  color: transparent;
+  background: linear-gradient(180deg, #fffbe6 0 22%, #ffe36a 22% 46%, #ffb21a 46% 62%, #ff7a12 62% 80%, #e8261f 80% 100%);
+  -webkit-background-clip: text; background-clip: text;
+  transform: skewX(-6deg);
+  -webkit-text-stroke: 1px rgba(255,255,255,0.35);
+}
+.iss-logo-depth {
+  position: absolute; left: 0; top: 0; display: inline-block;
+  font-family: var(--font-display); font-style: italic; font-weight: 800;
+  font-size: clamp(64px, 17vw, 132px); letter-spacing: 0.02em;
+  padding: 0 0.12em 0.06em 0.04em;
+  transform: skewX(-6deg);
+  color: var(--iss-ink);
+  -webkit-text-stroke: 10px var(--iss-ink);
+  text-shadow:
+    2px 2px 0 var(--iss-ink), 4px 4px 0 var(--iss-ink), 6px 6px 0 var(--iss-ink),
+    8px 8px 0 #2a1a7a, 10px 10px 0 #2a1a7a;
+}
+.iss-ribbon {
+  font-family: var(--iss-pixel); font-weight: 700; font-size: clamp(12px, 3.2vw, 16px);
+  letter-spacing: 0.18em; text-transform: uppercase; color: #fff;
+  background: var(--iss-red);
+  padding: 5px 16px 4px;
+  box-shadow: 0 0 0 2px var(--iss-ink), 4px 4px 0 2px var(--iss-ink);
+  transform: skewX(-12deg);
+  text-shadow: 2px 2px 0 var(--iss-ink);
+}
+
+.iss-press {
+  font-family: var(--iss-pixel); font-weight: 700; font-size: clamp(20px, 5vw, 28px);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: #fff; background: none; border: 0; padding: 18px 24px; cursor: pointer;
+  text-shadow: 3px 3px 0 var(--iss-ink);
+  animation: iss-blink 1s steps(1, end) infinite;
+}
+@keyframes iss-blink { 50% { opacity: 0; } }
+
+/* The mode-select window */
+.iss-window {
+  position: relative; width: min(100%, 440px);
+  padding: 26px 14px 14px;
+  background: linear-gradient(180deg, rgba(30, 64, 210, 0.92), rgba(10, 27, 110, 0.94));
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 3px var(--iss-ink), inset 0 0 0 3px var(--iss-ink), 8px 8px 0 3px rgba(0,0,0,0.55);
+  animation: iss-open 180ms steps(4, end) both;
+}
+@keyframes iss-open { from { transform: scaleY(0.1); } to { transform: scaleY(1); } }
+.iss-window-tab {
+  position: absolute; top: -15px; left: 16px;
+  font-weight: 700; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--iss-ink); background: var(--iss-yellow);
+  padding: 5px 10px 4px;
+  box-shadow: 0 0 0 3px var(--iss-ink);
+}
+.iss-list, .iss-options { list-style: none; margin: 0; padding: 0; }
+.iss-list { display: flex; flex-direction: column; gap: 2px; }
+.iss-row, .iss-opt {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  padding-left: 30px; min-height: 48px;
+}
+.iss-row.is-on, .iss-opt.is-on { background: linear-gradient(90deg, rgba(255, 210, 63, 0.22), rgba(255, 210, 63, 0) 85%); }
+.iss-cursor {
+  position: absolute; left: 4px; top: 50%; margin-top: -10px;
+  image-rendering: pixelated;
+  animation: iss-nudge 0.5s steps(2, end) infinite;
+}
+@keyframes iss-nudge { 50% { transform: translateX(3px); } }
+.iss-item {
+  flex: 1; min-width: 0; text-align: left;
+  font-family: var(--iss-pixel); font-weight: 700; font-size: clamp(14px, 3.9vw, 20px);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: #fff; background: none; border: 0; padding: 10px 0; cursor: pointer;
+  text-shadow: 2px 2px 0 var(--iss-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.iss-item:focus-visible { outline: 2px dashed var(--iss-yellow); outline-offset: 2px; }
+.is-on > .iss-item { color: var(--iss-yellow); }
+.iss-tag {
+  flex: none; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  color: #fff; padding: 3px 6px 2px; margin-right: 4px;
+  background: var(--iss-ink); box-shadow: 0 0 0 2px rgba(255,255,255,0.7);
+}
+.iss-level { flex: none; display: flex; align-items: center; gap: 2px; }
+.iss-arrow {
+  font-family: var(--iss-pixel); font-size: 15px; color: var(--iss-yellow);
+  background: none; border: 0; width: 26px; height: 40px; cursor: pointer;
+  text-shadow: 2px 2px 0 var(--iss-ink);
+}
+.iss-arrow:active { transform: scale(0.85); }
+.iss-level-name {
+  min-width: 62px; text-align: center; font-weight: 700; font-size: 13px; text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--iss-ink);
+}
+.iss-level-name[data-level='easy'] { color: #5dff7a; }
+.iss-level-name[data-level='medium'] { color: var(--iss-yellow); }
+.iss-level-name[data-level='hard'] { color: #ff5a4a; }
+.iss-rule { height: 3px; margin: 10px 2px; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.6) 0 6px, transparent 6px 10px); }
+.iss-options { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+.iss-opt { min-height: 40px; padding-left: 28px; }
+.iss-opt .iss-item { font-size: clamp(12px, 3.4vw, 14px); padding: 8px 0; text-transform: uppercase; }
+.iss-window .install-btn { margin-top: 10px; width: 100%; }
+
+.iss-foot {
+  display: flex; gap: 18px; justify-content: center; flex-wrap: wrap;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.7); text-shadow: 2px 2px 0 var(--iss-ink);
+}
+@media (hover: none) { .iss-keys { display: none; } }
+
+/* Phones on their side: logo on the left, the window on the right */
 @media (min-width: 561px) and (max-height: 500px) {
-  /* Menu: everything on one screen */
-  .menu-layout { gap: 12px; padding-top: calc(var(--safe-top) + 12px); padding-bottom: calc(var(--safe-bottom) + 12px); }
-  .menu-title { font-size: 52px; }
-  .menu-tagline { display: none; }
-  .menu-modes { gap: 8px; }
-  .mode-btn { min-height: 46px; font-size: 21px; }
-  .mode-btn svg { width: 22px; height: 22px; }
-  .menu-foot .btn { min-height: 40px; font-size: 17px; padding: 0 14px; }
+  .iss-layout {
+    display: grid; grid-template-columns: 1fr minmax(0, 420px); grid-template-rows: 1fr auto;
+    align-items: center; gap: 10px 24px;
+    padding-top: calc(var(--safe-top) + 14px); padding-bottom: calc(var(--safe-bottom) + 8px);
+  }
+  .iss-brand { grid-row: 1; grid-column: 1; }
+  .iss-press, .iss-window { grid-row: 1; grid-column: 2; justify-self: center; }
+  .iss-foot { grid-row: 2; grid-column: 1 / -1; }
+  .iss-logo-word, .iss-logo-depth { font-size: clamp(56px, 11vw, 96px); }
+  .iss-window { padding: 20px 10px 8px; }
+  .iss-row { min-height: 38px; }
+  .iss-opt { min-height: 32px; }
+  .iss-item { font-size: 16px; padding: 6px 0; }
+  .iss-opt .iss-item { font-size: 12px; padding: 4px 0; }
+  .iss-rule { margin: 6px 2px; }
+  .iss-pitch { height: 50%; }
 }
-
+@media (prefers-reduced-motion: reduce) {
+  .iss-press, .iss-cursor, .iss-window { animation: none; }
+}
 /* ── Knockout tree ── */
 .tb-scroll { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; padding: 4px 2px 8px; }
 .tb { position: relative; margin: 0 auto; }
