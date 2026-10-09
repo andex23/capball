@@ -85,6 +85,28 @@ function PatternOverlay({ pattern, cx, cy, innerR, edgeColor }) {
         </g>
       )
     }
+    case 'wave':
+      // A swoosh across the middle, like a soda cap's wave
+      return (
+        <path
+          d={`M ${cx - innerR} ${cy + innerR * 0.15} C ${cx - innerR * 0.4} ${cy - innerR * 0.55}, ${cx + innerR * 0.2} ${cy + innerR * 0.55}, ${cx + innerR} ${cy - innerR * 0.2} L ${cx + innerR} ${cy + innerR} L ${cx - innerR} ${cy + innerR} Z`}
+          fill={`${edgeColor}cc`}
+        />
+      )
+    case 'rays': {
+      const n = 12
+      return (
+        <g>
+          {Array.from({ length: n }, (_, i) => {
+            const a0 = (i / n) * Math.PI * 2
+            const a1 = a0 + Math.PI / n
+            return (
+              <path key={i} d={`M ${cx} ${cy} L ${cx + Math.cos(a0) * innerR * 1.2} ${cy + Math.sin(a0) * innerR * 1.2} L ${cx + Math.cos(a1) * innerR * 1.2} ${cy + Math.sin(a1) * innerR * 1.2} Z`} fill={color} />
+            )
+          })}
+        </g>
+      )
+    }
     default:
       return null
   }
@@ -110,166 +132,108 @@ function isLight(hex) {
 
 export default function CapPreview({ config, size = 120, number = null }) {
   const { primary, edge, badge, pattern, finish } = config
-  // `number` (a squad number) is shown when given: the kit builder passes the
-  // striker's; small team badges elsewhere leave it off
+  const capText = typeof config.capText === 'string' ? config.capText.trim() : ''
   const cx = size / 2
   const cy = size / 2
-  const uid = `${primary}-${edge}-${pattern}-${finish}`.replace(/#/g, '')
+  const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}`.replace(/[^a-z0-9-]/gi, '')
 
-  // --- Cap anatomy radii ---
-  const outerR = cx - 3                // full outer edge
-  const rimInner = outerR * 0.88       // inside of rim band
-  const bodyR = outerR * 0.85          // main body surface
-  const channelOuter = bodyR * 0.72    // recessed channel outer
-  const channelInner = bodyR * 0.62    // recessed channel inner
-  const plateR = bodyR * 0.56          // raised center badge plate
-  const domeR = plateR * 0.82         // dome highlight on plate
+  // A crown cap from above: crimped skirt round the outside, printed top inside
+  const outerR = cx - 3
+  const topR = outerR * 0.8
+  const ringR = topR * 0.84
+  const PLEATS = 21
 
-  // --- Finish properties ---
-  const isSatin = finish === 'satin'
-  const isGloss = finish === 'gloss'
   const isChrome = finish === 'chrome'
-  const specAlpha = isChrome ? 0.45 : isGloss ? 0.3 : isSatin ? 0.15 : 0.07
-  const rimSpecAlpha = isChrome ? 0.5 : isGloss ? 0.35 : 0.2
-  const bodyLighten = isChrome ? 0.25 : isGloss ? 0.15 : isSatin ? 0.08 : 0.04
-  const bodyDarken = isChrome ? 0.35 : isGloss ? 0.22 : isSatin ? 0.15 : 0.12
+  const isGloss = finish === 'gloss'
+  const specAlpha = isChrome ? 0.5 : isGloss ? 0.35 : finish === 'satin' ? 0.2 : 0.12
 
-  // --- Badge color ---
-  const badgeColor = edge === primary ? 'rgba(255,255,255,0.75)' : `${edge}dd`
+  // Scalloped outline of the crimp
+  const crimp = []
+  const steps = PLEATS * 6
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * Math.PI * 2
+    const r = outerR * (0.93 + 0.07 * Math.pow(Math.abs(Math.cos((a * PLEATS) / 2)), 0.6))
+    crimp.push(`${i ? 'L' : 'M'} ${(cx + Math.cos(a) * r).toFixed(2)} ${(cy + Math.sin(a) * r).toFixed(2)}`)
+  }
+  const printColor = edge === primary ? '#ffffff' : edge
+  const withText = capText.length > 0
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ filter: 'drop-shadow(0 5px 14px rgba(0,0,0,0.55))' }}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
       <defs>
-        {/* Outer rim bevel — metallic band */}
-        <radialGradient id={`rim-${uid}`} cx="38%" cy="32%" r="68%">
-          <stop offset="0%" stopColor={lightenHex(edge, 0.45)} />
-          <stop offset="35%" stopColor={lightenHex(edge, 0.15)} />
-          <stop offset="65%" stopColor={edge} />
-          <stop offset="100%" stopColor={darkenHex(edge, 0.45)} />
+        <radialGradient id={`skirt-${uid}`} cx="50%" cy="50%" r="50%">
+          <stop offset="78%" stopColor={darkenHex(primary, 0.05)} />
+          <stop offset="92%" stopColor={darkenHex(primary, 0.35)} />
+          <stop offset="100%" stopColor="#c9ccd3" />
         </radialGradient>
-        {/* Body surface — matte/satin shading */}
-        <radialGradient id={`body-${uid}`} cx="40%" cy="36%" r="62%">
-          <stop offset="0%" stopColor={lightenHex(primary, bodyLighten)} />
-          <stop offset="55%" stopColor={primary} />
-          <stop offset="100%" stopColor={darkenHex(primary, bodyDarken)} />
+        <radialGradient id={`top-${uid}`} cx="40%" cy="36%" r="64%">
+          <stop offset="0%" stopColor={lightenHex(primary, isChrome ? 0.3 : 0.14)} />
+          <stop offset="60%" stopColor={primary} />
+          <stop offset="100%" stopColor={darkenHex(primary, 0.2)} />
         </radialGradient>
-        {/* Center plate — slightly lighter raised area */}
-        <radialGradient id={`plate-${uid}`} cx="42%" cy="38%" r="55%">
-          <stop offset="0%" stopColor={lightenHex(primary, bodyLighten + 0.06)} />
-          <stop offset="50%" stopColor={lightenHex(primary, 0.02)} />
-          <stop offset="100%" stopColor={darkenHex(primary, bodyDarken * 0.6)} />
-        </radialGradient>
-        {/* Dome highlight on center plate */}
-        <radialGradient id={`dome-${uid}`} cx="44%" cy="38%" r="48%">
-          <stop offset="0%" stopColor={`rgba(255,255,255,${specAlpha * 1.2})`} />
-          <stop offset="60%" stopColor={`rgba(255,255,255,${specAlpha * 0.3})`} />
-          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-        </radialGradient>
-        {/* Recessed channel shadow */}
-        <radialGradient id={`channel-${uid}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={darkenHex(primary, 0.3)} />
-          <stop offset="100%" stopColor={darkenHex(primary, 0.45)} />
-        </radialGradient>
-        {/* Side wall depth gradient (ellipse at bottom) */}
-        <linearGradient id={`wall-${uid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={darkenHex(primary, 0.15)} />
-          <stop offset="100%" stopColor={darkenHex(primary, 0.4)} />
-        </linearGradient>
-        {/* Split clip */}
+        <clipPath id={`topClip-${uid}`}>
+          <circle cx={cx} cy={cy} r={topR} />
+        </clipPath>
         <clipPath id={`split-${uid}`}>
           <rect x={cx} y={0} width={cx + 2} height={size} />
         </clipPath>
-        {/* Body clip for patterns */}
-        <clipPath id={`bodyClip-${uid}`}>
-          <circle cx={cx} cy={cy} r={bodyR} />
-        </clipPath>
+        {/* Path the custom text follows: the upper arc inside the printed ring */}
+        <path id={`arc-${uid}`} d={`M ${cx - ringR * 0.8} ${cy} A ${ringR * 0.8} ${ringR * 0.8} 0 0 1 ${cx + ringR * 0.8} ${cy}`} />
       </defs>
 
-      {/* === LAYER 1: Ground shadow — perspective ellipse === */}
-      <ellipse cx={cx} cy={cy + size * 0.06} rx={outerR * 0.9} ry={outerR * 0.2} fill="rgba(0,0,0,0.3)" />
+      {/* Crimped skirt with its 21 pleats */}
+      <path d={crimp.join(' ') + ' Z'} fill={`url(#skirt-${uid})`} stroke={darkenHex(primary, 0.45)} strokeWidth={size * 0.006} />
+      {Array.from({ length: PLEATS }, (_, i) => {
+        const a = ((i + 0.5) / PLEATS) * Math.PI * 2
+        return (
+          <line
+            key={i}
+            x1={cx + Math.cos(a) * topR * 1.02} y1={cy + Math.sin(a) * topR * 1.02}
+            x2={cx + Math.cos(a) * outerR * 0.95} y2={cy + Math.sin(a) * outerR * 0.95}
+            stroke="rgba(0,0,0,0.35)" strokeWidth={size * 0.008} strokeLinecap="round"
+          />
+        )
+      })}
 
-      {/* === LAYER 2: Side wall — visible thickness === */}
-      <ellipse cx={cx} cy={cy + size * 0.025} rx={outerR} ry={outerR * 0.97} fill={`url(#wall-${uid})`} />
-
-      {/* === LAYER 3: Outer rim — beveled metallic band === */}
-      <circle cx={cx} cy={cy} r={outerR} fill={`url(#rim-${uid})`} />
-      {/* Rim highlight arc */}
-      <path
-        d={`M ${cx - outerR * 0.7} ${cy - outerR * 0.65} A ${outerR} ${outerR} 0 0 1 ${cx + outerR * 0.7} ${cy - outerR * 0.65}`}
-        fill="none"
-        stroke={`rgba(255,255,255,${rimSpecAlpha})`}
-        strokeWidth={outerR * 0.04}
-        strokeLinecap="round"
-      />
-      {/* Rim inner shadow edge */}
-      <circle cx={cx} cy={cy} r={rimInner} fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="1.5" />
-
-      {/* === LAYER 4: Main body surface === */}
-      <circle cx={cx} cy={cy} r={bodyR} fill={`url(#body-${uid})`} />
-
-      {/* === LAYER 5: Pattern overlay (clipped to body) === */}
-      <g clipPath={`url(#bodyClip-${uid})`}>
-        {pattern === 'split' && (
-          <circle cx={cx} cy={cy} r={bodyR} fill={`${edge}35`} clipPath={`url(#split-${uid})`} />
-        )}
-        <PatternOverlay pattern={pattern} cx={cx} cy={cy} innerR={bodyR} edgeColor={edge} />
+      {/* Printed top */}
+      <circle cx={cx} cy={cy} r={topR} fill={`url(#top-${uid})`} />
+      <g clipPath={`url(#topClip-${uid})`}>
+        {pattern === 'split' && <circle cx={cx} cy={cy} r={topR} fill={`${edge}40`} clipPath={`url(#split-${uid})`} />}
+        <PatternOverlay pattern={pattern} cx={cx} cy={cy} innerR={topR} edgeColor={edge} />
       </g>
+      <circle cx={cx} cy={cy} r={topR} fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth={size * 0.01} />
+      <circle cx={cx} cy={cy} r={ringR} fill="none" stroke={printColor} strokeOpacity="0.8" strokeWidth={size * 0.012} />
 
-      {/* Body edge definition — subtle dark ring */}
-      <circle cx={cx} cy={cy} r={bodyR} fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="1" />
-
-      {/* === LAYER 6: Recessed channel ring === */}
-      {/* Dark recessed groove between body and center plate */}
-      <circle cx={cx} cy={cy} r={channelOuter} fill="none" stroke={`url(#channel-${uid})`} strokeWidth={channelOuter - channelInner} />
-      {/* Inner shadow of channel */}
-      <circle cx={cx} cy={cy} r={channelInner + 0.5} fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="0.8" />
-      {/* Outer highlight of channel (light catch) */}
-      <path
-        d={`M ${cx - channelOuter * 0.6} ${cy - channelOuter * 0.75} A ${channelOuter} ${channelOuter} 0 0 1 ${cx + channelOuter * 0.6} ${cy - channelOuter * 0.75}`}
-        fill="none"
-        stroke={`rgba(255,255,255,${specAlpha * 0.5})`}
-        strokeWidth="0.6"
-        strokeLinecap="round"
-      />
-
-      {/* === LAYER 7: Raised center badge plate === */}
-      <circle cx={cx} cy={cy} r={plateR} fill={`url(#plate-${uid})`} />
-      {/* Plate raised edge — light on top, shadow on bottom */}
-      <path
-        d={`M ${cx - plateR * 0.85} ${cy - plateR * 0.5} A ${plateR} ${plateR} 0 0 1 ${cx + plateR * 0.85} ${cy - plateR * 0.5}`}
-        fill="none"
-        stroke={`rgba(255,255,255,${specAlpha * 0.8})`}
-        strokeWidth="1.2"
-        strokeLinecap="round"
-      />
-      <path
-        d={`M ${cx + plateR * 0.85} ${cy + plateR * 0.5} A ${plateR} ${plateR} 0 0 1 ${cx - plateR * 0.85} ${cy + plateR * 0.5}`}
-        fill="none"
-        stroke="rgba(0,0,0,0.12)"
-        strokeWidth="1"
-        strokeLinecap="round"
-      />
-
-      {/* === LAYER 8: Dome highlight on plate === */}
-      <circle cx={cx} cy={cy} r={domeR} fill={`url(#dome-${uid})`} />
-
-      {/* === LAYER 9: Badge emblem === */}
-      {badge && badge !== 'none' && (
-        <BadgeIcon badge={badge} cx={cx} cy={number != null ? cy - plateR * 0.15 : cy} size={plateR * 0.7} color={badgeColor} />
+      {/* The team's own text, arched over the top */}
+      {withText && (
+        <text fill={printColor} fontSize={topR * 0.3} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
+          <textPath href={`#arc-${uid}`} startOffset="50%" textAnchor="middle">{capText.toUpperCase()}</textPath>
+        </text>
       )}
 
-      {/* === LAYER 10: Number === */}
+      {/* Badge */}
+      {badge && badge !== 'none' && (
+        <BadgeIcon
+          badge={badge}
+          cx={cx}
+          cy={number != null ? cy - topR * 0.12 + (withText ? topR * 0.1 : 0) : cy + (withText ? topR * 0.12 : 0)}
+          size={topR * (number != null ? 0.36 : 0.5)}
+          color={printColor}
+        />
+      )}
+
+      {/* Squad number */}
       {number != null && (
         <text
           x={cx}
-          y={badge && badge !== 'none' ? cy + plateR * 0.52 : cy + plateR * 0.12}
+          y={badge && badge !== 'none' ? cy + topR * 0.38 : cy + topR * (withText ? 0.2 : 0.06)}
           textAnchor="middle"
           dominantBaseline="central"
           fill={isLight(primary) ? '#111111' : '#ffffff'}
           stroke={isLight(primary) ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.55)'}
-          strokeWidth={plateR * 0.08}
+          strokeWidth={topR * 0.05}
           paintOrder="stroke"
-          fontSize={badge && badge !== 'none' ? plateR * 0.6 : plateR * 0.95}
+          fontSize={topR * (badge && badge !== 'none' ? 0.42 : withText ? 0.55 : 0.7)}
           fontWeight="900"
           fontFamily="'Barlow Condensed', 'Impact', sans-serif"
         >
@@ -277,35 +241,13 @@ export default function CapPreview({ config, size = 120, number = null }) {
         </text>
       )}
 
-      {/* === LAYER 11: Specular highlight — finish-dependent === */}
+      {/* Light on the printed tin */}
       <ellipse
-        cx={cx * 0.78}
-        cy={cy * 0.72}
-        rx={outerR * (isChrome ? 0.18 : isGloss ? 0.14 : 0.09)}
-        ry={outerR * (isChrome ? 0.1 : isGloss ? 0.07 : 0.04)}
-        fill={`rgba(255,255,255,${specAlpha * 0.7})`}
-        transform={`rotate(-30 ${cx * 0.78} ${cy * 0.72})`}
+        cx={cx - topR * 0.3} cy={cy - topR * 0.4}
+        rx={topR * 0.45} ry={topR * 0.16}
+        fill={`rgba(255,255,255,${specAlpha * 0.5})`}
+        transform={`rotate(-28 ${cx - topR * 0.3} ${cy - topR * 0.4})`}
       />
-
-      {/* Chrome: extra ring glints */}
-      {isChrome && (
-        <g>
-          <circle cx={cx} cy={cy} r={bodyR * 0.95} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
-          <circle cx={cx} cy={cy} r={plateR + 1} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" />
-        </g>
-      )}
-
-      {/* Gloss: broader sheen */}
-      {isGloss && (
-        <ellipse
-          cx={cx * 0.85}
-          cy={cy * 0.6}
-          rx={outerR * 0.3}
-          ry={outerR * 0.08}
-          fill="rgba(255,255,255,0.06)"
-          transform={`rotate(-20 ${cx * 0.85} ${cy * 0.6})`}
-        />
-      )}
     </svg>
   )
 }

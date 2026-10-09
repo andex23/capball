@@ -94,7 +94,7 @@ function createSkirtTexture(color) {
 }
 
 /** The printed top: paint and pattern, a thin printed ring near the edge, then badge and number. */
-function createTopTexture(color, edgeColor, badge, number, pattern) {
+function createTopTexture(color, edgeColor, badge, number, pattern, capText = '') {
   const size = 512
   const c = document.createElement('canvas')
   c.width = size
@@ -108,14 +108,41 @@ function createTopTexture(color, edgeColor, badge, number, pattern) {
   ctx.beginPath()
   ctx.arc(size / 2, size / 2, size * 0.43, 0, Math.PI * 2)
   ctx.stroke()
-  // Badge and number, the size of the old centre plate
+  // The team's own text, arched over the top inside the printed ring
+  const text = (capText || '').trim().toUpperCase()
+  if (text) {
+    const fontPx = size * 0.11
+    ctx.save()
+    ctx.font = `italic 900 ${fontPx}px 'Barlow Condensed', 'Impact', 'Arial Narrow', sans-serif`
+    ctx.fillStyle = edgeColor === color ? '#ffffff' : edgeColor
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    const R = size * 0.34
+    const widths = [...text].map((ch) => ctx.measureText(ch).width)
+    const total = widths.reduce((a, w) => a + w, 0)
+    const span = Math.min(Math.PI * 0.95, total / R)
+    let a = -Math.PI / 2 - span / 2
+    const k2 = span / (total || 1)
+    ;[...text].forEach((ch, i) => {
+      const w = widths[i] * k2
+      const mid = a + w / 2
+      ctx.save()
+      ctx.translate(size / 2 + Math.cos(mid) * R, size / 2 + Math.sin(mid) * R)
+      ctx.rotate(mid + Math.PI / 2)
+      ctx.fillText(ch, 0, 0)
+      ctx.restore()
+      a += w
+    })
+    ctx.restore()
+  }
+  // Badge and number, the size of the old centre plate (a little lower under text)
   const plate = createDomeTexture(color, edgeColor, badge, number, size, { bare: true }).image
-  const k = 0.78
+  const k = text ? 0.68 : 0.78
   ctx.save()
   ctx.beginPath()
   ctx.arc(size / 2, size / 2, (size * k) / 2, 0, Math.PI * 2)
   ctx.clip()
-  ctx.drawImage(plate, (size * (1 - k)) / 2, (size * (1 - k)) / 2, size * k, size * k)
+  ctx.drawImage(plate, (size * (1 - k)) / 2, (size * (1 - k)) / 2 + (text ? size * 0.06 : 0), size * k, size * k)
   ctx.restore()
   // A soft sheen across the top
   const sheen = ctx.createRadialGradient(size * 0.36, size * 0.3, 0, size / 2, size / 2, size / 2)
@@ -314,6 +341,31 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
       ctx.fillRect(cx - r * 0.06, cy - r * 0.55, r * 0.12, r * 1.1)
       ctx.fillRect(cx - r * 0.55, cy - r * 0.06, r * 1.1, r * 0.12)
       break
+    case 'wave':
+      ctx.fillStyle = `${edgeColor}CC`
+      ctx.beginPath()
+      ctx.moveTo(0, cy + r * 0.15)
+      ctx.bezierCurveTo(cx - r * 0.4, cy - r * 0.55, cx + r * 0.2, cy + r * 0.55, size, cy - r * 0.2)
+      ctx.lineTo(size, size)
+      ctx.lineTo(0, size)
+      ctx.closePath()
+      ctx.fill()
+      break
+    case 'rays': {
+      ctx.fillStyle = patColor
+      const n = 12
+      for (let i = 0; i < n; i++) {
+        const a0 = (i / n) * Math.PI * 2
+        const a1 = a0 + Math.PI / n
+        ctx.beginPath()
+        ctx.moveTo(cx, cy)
+        ctx.lineTo(cx + Math.cos(a0) * r * 1.5, cy + Math.sin(a0) * r * 1.5)
+        ctx.lineTo(cx + Math.cos(a1) * r * 1.5, cy + Math.sin(a1) * r * 1.5)
+        ctx.closePath()
+        ctx.fill()
+      }
+      break
+    }
     case 'dots': {
       ctx.fillStyle = boldColor
       for (let i = 0; i < 8; i++) {
@@ -331,7 +383,7 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   return texture
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected, badge, number, pattern, finish }, ref) {
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected, badge, number, pattern, finish, capText }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -339,8 +391,8 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected
   const edge = edgeColor || color
 
   const topTexture = useMemo(
-    () => createTopTexture(color, edge, badge, number, pattern),
-    [color, edge, badge, number, pattern]
+    () => createTopTexture(color, edge, badge, number, pattern, capText),
+    [color, edge, badge, number, pattern, capText]
   )
   const skirtTexture = useMemo(() => createSkirtTexture(color), [color])
   const skirt = useMemo(() => createSkirtGeometry(radius), [radius])

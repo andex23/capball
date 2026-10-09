@@ -67,6 +67,7 @@ function kitFor(team, side) {
     badge: team.badge || 'none',
     pattern: team.pattern || 'none',
     finish: team.finish || 'matte',
+    capText: team.capText || '',
     numbers: { ...base.numbers, ...(team.numbers || {}) },
   }
 }

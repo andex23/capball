@@ -7,7 +7,7 @@
  * before the host acts on it. Anything else is dropped.
  */
 
-import { BADGES, PATTERNS, FINISHES, CAP_ROLES, TEAM_NAME_MAX } from '../data/TeamOptions'
+import { BADGES, PATTERNS, FINISHES, CAP_ROLES, TEAM_NAME_MAX, sanitizeCapText } from '../data/TeamOptions'
 import { FORMATIONS } from '../data/TeamData'
 import { teamOf } from '../game/rules'
 
@@ -50,6 +50,7 @@ export function sanitizeTeamConfig(input) {
   if (BADGE_KEYS.has(input.badge)) out.badge = input.badge
   if (PATTERN_KEYS.has(input.pattern)) out.pattern = input.pattern
   if (FINISH_KEYS.has(input.finish)) out.finish = input.finish
+  if (typeof input.capText === 'string') out.capText = sanitizeCapText(input.capText)
   if (isObj(input.numbers)) {
     const numbers = {}
     for (const role of CAP_ROLES) {

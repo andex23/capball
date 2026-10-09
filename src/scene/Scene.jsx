@@ -255,6 +255,7 @@ function GameWorld() {
             badge={team1.badge}
             number={squadNumber(team1, 'team1', id)}
             pattern={team1.pattern}
+            capText={team1.capText}
             finish={team1.finish}
           />
         )
@@ -273,6 +274,7 @@ function GameWorld() {
             badge={team2.badge}
             number={squadNumber(team2, 'team2', id)}
             pattern={team2.pattern}
+            capText={team2.capText}
             finish={team2.finish}
           />
         )
