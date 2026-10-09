@@ -4,7 +4,7 @@ import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
   stopAllBodies, placeBallAt, deOverlapBodies, getLastBallTeam,
 } from './PhysicsWorld'
-import { ballInCorner, cornerRestart } from '../game/rules'
+import { ballInCorner, cornerRestart, otherTeam } from '../game/rules'
 import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 import { PHYSICS } from '../data/TeamData'
@@ -142,6 +142,12 @@ export function usePhysicsSync(meshRefs) {
         stopBall()
         playGoal()
         s.scoreGoal(verdict.scorer)
+      } else if (verdict.outcome === 'bank_shot') {
+        // In off the wall: no goal, the defending side restarts with a goal kick
+        stopAllBodies()
+        playWhistle()
+        const b = bodies.ball.position
+        s.awardRestart({ kind: 'goalKick', team: otherTeam(verdict.scorer), ex: b.x < 0 ? -1 : 1, ey: b.y < 0 ? -1 : 1, reason: 'bank' })
       } else {
         // Doesn't count — ball back to the centre spot, possession changes.
         stopAllBodies()

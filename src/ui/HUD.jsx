@@ -105,6 +105,7 @@ function Banner() {
   const lastScorer = useMatchStore((s) => s.lastScorer)
   const foulData = useMatchStore((s) => s.foulData)
   const noGoalReason = useMatchStore((s) => s.noGoalReason)
+  const restart = useMatchStore((s) => s.restart)
   const half = useMatchStore((s) => s.half)
   const shootout = useMatchStore((s) => s.penaltyShootout)
   const kicks = useMatchStore((s) => s.penaltyKicks)
@@ -134,7 +135,9 @@ function Banner() {
     case PHASE.FOUL: b = { title: 'Foul!', tone: 'bad', sub: foulData?.inPenaltyBox ? 'Penalty kick' : 'Free kick', team: foulData?.fouledTeam }; break
     case PHASE.FREE_KICK_SETUP: b = { title: 'Free kick', sub: `${nameOf(activeTeam)} · the wall is set`, team: activeTeam }; break
     case PHASE.CORNER_SETUP: b = { title: 'Corner', sub: `${nameOf(activeTeam)} · corner kick`, team: activeTeam }; break
-    case PHASE.GOAL_KICK_SETUP: b = { title: 'Goal kick', sub: `${nameOf(activeTeam)} restart from the box`, team: activeTeam }; break
+    case PHASE.GOAL_KICK_SETUP: b = restart?.reason === 'bank'
+      ? { title: 'No goal', tone: 'bad', sub: `In off the wall — goal kick to ${nameOf(activeTeam)}`, team: activeTeam }
+      : { title: 'Goal kick', sub: `${nameOf(activeTeam)} restart from the box`, team: activeTeam }; break
     case PHASE.PENALTY_SETUP: b = { title: 'Penalty', sub: `${nameOf(activeTeam)} step up`, team: activeTeam }; break
     case PHASE.MATCH_OVER: b = { title: shootout ? 'Shootout over' : 'Full time' }; break
     default: return null

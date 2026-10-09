@@ -365,14 +365,14 @@ export const useMatchStore = create((set, get) => ({
 
   // --- Corner kicks / goal kicks (ball stuck in a corner) ---
   restart: null, // { kind: 'corner' | 'goalKick', team, ex, ey }
-  awardRestart: ({ kind, team, ex, ey }) => {
+  awardRestart: ({ kind, team, ex, ey, reason = null }) => {
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'turns')
     set({
       ...clearTurn,
       phase: kind === 'corner' ? PHASE.CORNER_SETUP : PHASE.GOAL_KICK_SETUP,
       activeTeam: team,
-      restart: { kind, team, ex, ey },
+      restart: { kind, team, ex, ey, reason },
       kickoffGuard: false,
     })
     // The scene lays the caps out as soon as the setup phase starts

@@ -330,5 +330,7 @@ function traceBall(shot, vx, vy, out) {
  */
 export function goalFor(prediction, capId, team1Side = 'left') {
   if (prediction.end !== 'goal' || !prediction.goalDir) return null
+  // In off a cushion: no goal (goal kick), so don't light it up as one
+  if (prediction.bounces > 0) return null
   return prediction.goalDir === teamHomeDir(teamOf(capId), team1Side) ? 'own' : 'score'
 }

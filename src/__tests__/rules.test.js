@@ -47,6 +47,8 @@ describe('judgeGoal', () => {
 
   it('counts a normal goal', () => {
     expect(judgeGoal(base)).toEqual({ outcome: 'goal', scorer: 'team1' })
+    // In off the wall doesn't count (it's a goal kick instead)
+    expect(judgeGoal({ ...base, banked: true })).toEqual({ outcome: 'bank_shot', scorer: 'team1' })
   })
 
   it('returns null when the ball is not in a goal', () => {

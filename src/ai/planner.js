@@ -416,7 +416,7 @@ export function heuristicScore(ctx, c) {
     // Worth it when the keeper is badly placed and the ball is close to goal
     const before = coverGap(ctx, positions[c.capId])
     const after = coverGap(ctx, c.target)
-    return -3 + danger * 7 + Math.min(3, before - after) * 2.5 - c.capDist * 0.15
+    return -4 + danger * 5 + Math.min(3, before - after) * 1.5 - c.capDist * 0.15
   }
 
   // Where does the ball go?
@@ -426,7 +426,8 @@ export function heuristicScore(ctx, c) {
   const mouth = PITCH.goalWidth / 2 - BALL_RADIUS
   if (shot && Math.abs(shot.y) < mouth && !ctx.kickoffGuard) {
     const blocked = shot.bounced ? 0 : blockersOnLine(positions, c.capId, ball, { x: theirLine, y: shot.y })
-    s += (shot.bounced ? 7 : 12) - blocked * 7 - Math.abs(shot.y) * 0.5
+    // In off the wall doesn't count, so only straight shots are worth anything
+    if (!shot.bounced) s += 12 - blocked * 7 - Math.abs(shot.y) * 0.5
   }
   const own = crossing(ball, c.u, ownLine)
   if (own && Math.abs(own.y) < mouth + 1.5) s -= 40 // never play toward our own net
@@ -475,6 +476,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
   track.capId = capId
   track.first = null
   track.foulAt = null
+  track.banked = false
 
   let verdict = null
   let frames = 0
@@ -488,7 +490,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
     if (track.first === 'foul' && !ctx.penaltyShootout) break
     verdict = judgeGoal({
       x: ball.position.x, y: ball.position.y, team1Side: ctx.team1Side,
-      kickoffGuard: ctx.kickoffGuard, lastFlickedCapId: capId,
+      kickoffGuard: ctx.kickoffGuard, lastFlickedCapId: capId, banked: track.banked,
     })
     if (verdict) break
     if (frames > 5 && settled(world.bodies)) break
@@ -512,7 +514,16 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
  */
 export function createPlannerWorld(ctx) {
   const world = createSimulationWorld(ctx.positions, { team1Side: ctx.team1Side })
-  const track = { capId: null, first: null, foulAt: null }
+  const track = { capId: null, first: null, foulAt: null, banked: false }
+  // Ball off a cushion since a cap last touched it: a goal from there won't count
+  Events.on(world.engine, 'collisionStart', (event) => {
+    for (const pair of event.pairs) {
+      const a = pair.bodyA.label
+      const b = pair.bodyB.label
+      if (a !== 'ball' && b !== 'ball') continue
+      track.banked = !teamOf(a === 'ball' ? b : a)
+    }
+  })
   Events.on(world.engine, 'collisionStart', (event) => {
     if (!track.capId || track.first) return
     for (const pair of event.pairs) {

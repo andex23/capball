@@ -4,32 +4,131 @@ import * as THREE from 'three'
 import { CAP_RADIUS, GK_RADIUS } from '../data/TeamData'
 
 /* ========================================
-   CAP ANATOMY — Premium tabletop game piece
+   A CROWN BOTTLE CAP, lying top up
    ─────────────────────────────────────────
-   Side profile (cross-section):
+   Side profile:
 
-        ┌──────────────┐  ← center dome (raised badge plate)
-       ╱                ╲
-      │  recessed channel │
-     ╱                      ╲
-    │    main body surface    │  ← body wall
-    ├──────────────────────────┤
-    │     beveled outer rim    │  ← metallic rim band
-    └──────────────────────────┘
-         ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-              bottom pad
+        ___________________      ← printed top, very slightly domed
+       /                   \
+      |\/\/\/\/\/\/\/\/\/\/|     ← crimped skirt: 21 pleats that
+       \/\/\/\/\/\/\/\/\/\/      flare out towards the table
 
+   The top carries the team's paint, pattern, badge and squad number; the
+   skirt is the same paint with metal showing on the crimp edges.
    ======================================== */
 
-// Overall cap dimensions
-const BODY_HEIGHT = 0.22         // thicker than before
-const RIM_HEIGHT = BODY_HEIGHT * 0.6
-const RIM_OVERHANG = 0.06        // rim extends past body
-const DOME_HEIGHT = 0.06         // raised center plate
-const DOME_RATIO = 0.68          // center plate radius as % of cap radius (room for a readable squad number)
-const CHANNEL_WIDTH = 0.06       // recessed ring width
-const CHANNEL_DEPTH = 0.02       // how deep the channel is cut
-const BEVEL_RATIO = 0.92         // body top face is slightly smaller (beveled edge)
+const CAP_H = 0.3            // total height (a real cap: ~6 mm tall, 32 mm across)
+const TOP_RATIO = 0.86       // printed top radius as a fraction of the cap's footprint
+const PLEATS = 21            // a crown cap always has 21
+const PLEAT_DEPTH = 0.075    // how far each pleat stands out (fraction of radius)
+
+/** The crimped skirt: a ring of pleats flaring from the top edge down to the table. */
+function createSkirtGeometry(radius) {
+  const segs = PLEATS * 8
+  const rings = 6
+  const pos = []
+  const uv = []
+  const idx = []
+  for (let j = 0; j <= rings; j++) {
+    const h = j / rings                         // 0 at the top edge, 1 at the table
+    const y = CAP_H / 2 - 0.02 - h * (CAP_H - 0.02)
+    const flare = TOP_RATIO + (1 - TOP_RATIO) * Math.pow(h, 0.7)
+    for (let i = 0; i <= segs; i++) {
+      const a = (i / segs) * Math.PI * 2
+      // Pleats grow towards the bottom edge, rounded crests and sharp folds
+      const wave = Math.pow(Math.abs(Math.cos((a * PLEATS) / 2)), 0.6) * 2 - 1
+      const r = radius * (flare + PLEAT_DEPTH * Math.pow(h, 0.8) * (wave * 0.5 + 0.5) - PLEAT_DEPTH * 0.25 * h)
+      pos.push(Math.cos(a) * r, y, Math.sin(a) * r)
+      uv.push(i / segs, 1 - h)
+    }
+  }
+  const row = segs + 1
+  for (let j = 0; j < rings; j++) {
+    for (let i = 0; i < segs; i++) {
+      const a = j * row + i
+      const b = a + row
+      idx.push(a, b, a + 1, a + 1, b, b + 1)
+    }
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  g.setIndex(idx)
+  g.computeVertexNormals()
+  return g
+}
+
+/** Metal glints on the crimp: bright on the pleat crests, shadowed in the folds. */
+function createSkirtTexture(color) {
+  const w = 1024
+  const h = 64
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const ctx = c.getContext('2d')
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, w, h)
+  for (let i = 0; i < PLEATS; i++) {
+    const x = (i / PLEATS) * w
+    const pw = w / PLEATS
+    const g = ctx.createLinearGradient(x, 0, x + pw, 0)
+    g.addColorStop(0, 'rgba(0,0,0,0.45)')
+    g.addColorStop(0.25, 'rgba(0,0,0,0)')
+    g.addColorStop(0.5, 'rgba(255,255,255,0.28)')
+    g.addColorStop(0.75, 'rgba(0,0,0,0)')
+    g.addColorStop(1, 'rgba(0,0,0,0.45)')
+    ctx.fillStyle = g
+    ctx.fillRect(x, 0, pw, h)
+  }
+  // The bare metal showing along the very bottom of the crimp
+  const edge = ctx.createLinearGradient(0, 0, 0, h)
+  edge.addColorStop(0, 'rgba(255,255,255,0)')
+  edge.addColorStop(0.78, 'rgba(255,255,255,0)')
+  edge.addColorStop(0.86, 'rgba(225,228,235,0.9)')
+  edge.addColorStop(1, 'rgba(150,155,165,0.95)')
+  ctx.fillStyle = edge
+  ctx.fillRect(0, 0, w, h)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+
+/** The printed top: paint and pattern, a thin printed ring near the edge, then badge and number. */
+function createTopTexture(color, edgeColor, badge, number, pattern) {
+  const size = 512
+  const c = document.createElement('canvas')
+  c.width = size
+  c.height = size
+  const ctx = c.getContext('2d')
+  const body = createBodyTexture(color, edgeColor, pattern, size).image
+  ctx.drawImage(body, 0, 0)
+  // Printed ring near the rim, like the lettering band on a real crown cap
+  ctx.strokeStyle = edgeColor === color ? 'rgba(255,255,255,0.55)' : edgeColor
+  ctx.lineWidth = size * 0.025
+  ctx.beginPath()
+  ctx.arc(size / 2, size / 2, size * 0.43, 0, Math.PI * 2)
+  ctx.stroke()
+  // Badge and number, the size of the old centre plate
+  const plate = createDomeTexture(color, edgeColor, badge, number, size, { bare: true }).image
+  const k = 0.78
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(size / 2, size / 2, (size * k) / 2, 0, Math.PI * 2)
+  ctx.clip()
+  ctx.drawImage(plate, (size * (1 - k)) / 2, (size * (1 - k)) / 2, size * k, size * k)
+  ctx.restore()
+  // A soft sheen across the top
+  const sheen = ctx.createRadialGradient(size * 0.36, size * 0.3, 0, size / 2, size / 2, size / 2)
+  sheen.addColorStop(0, 'rgba(255,255,255,0.22)')
+  sheen.addColorStop(0.45, 'rgba(255,255,255,0)')
+  sheen.addColorStop(1, 'rgba(0,0,0,0.18)')
+  ctx.fillStyle = sheen
+  ctx.fillRect(0, 0, size, size)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 4
+  return t
+}
 
 // Finish presets
 const FINISH_MAP = {
@@ -48,7 +147,7 @@ function luminance(hex) {
 }
 
 // Create canvas texture for the center dome (badge + number + pattern hint)
-function createDomeTexture(color, edgeColor, badge, number, size = 256) {
+function createDomeTexture(color, edgeColor, badge, number, size = 256, { bare = false } = {}) {
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -57,11 +156,13 @@ function createDomeTexture(color, edgeColor, badge, number, size = 256) {
   const cy = size / 2
   const r = size / 2
 
-  // Base — match body color
+  // Base — match body color (skipped when drawn over a patterned cap top)
+  if (!bare) {
   ctx.fillStyle = color
   ctx.beginPath()
   ctx.arc(cx, cy, r, 0, Math.PI * 2)
   ctx.fill()
+  }
 
   // Subtle radial shading for depth
   const grad = ctx.createRadialGradient(cx * 0.9, cy * 0.85, 0, cx, cy, r)
@@ -234,20 +335,15 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
+  const topR = radius * TOP_RATIO
+  const edge = edgeColor || color
 
-  const domeR = radius * DOME_RATIO
-  const channelInnerR = domeR + CHANNEL_WIDTH * 0.3
-  const channelOuterR = domeR + CHANNEL_WIDTH
-
-  const domeTexture = useMemo(
-    () => createDomeTexture(color, edgeColor || color, badge, number),
-    [color, edgeColor, badge, number]
+  const topTexture = useMemo(
+    () => createTopTexture(color, edge, badge, number, pattern),
+    [color, edge, badge, number, pattern]
   )
-
-  const bodyTexture = useMemo(
-    () => createBodyTexture(color, edgeColor || color, pattern),
-    [color, edgeColor, pattern]
-  )
+  const skirtTexture = useMemo(() => createSkirtTexture(color), [color])
+  const skirt = useMemo(() => createSkirtGeometry(radius), [radius])
 
   useFrame((state) => {
     if (ringRef.current) {
@@ -256,172 +352,64 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, isGk, isSelected
     }
   })
 
-  const halfH = BODY_HEIGHT / 2
+  const halfH = CAP_H / 2
+  // Painted tin: a little metal always shows through, more on gloss and chrome finishes
+  const metal = Math.max(0.35, fp.metalness)
+  const rough = Math.min(0.5, fp.roughness)
 
   return (
     <group ref={ref} position={[0, halfH, 0]}>
-
-      {/* ─── 1. OUTER RIM — beveled metallic band ─── */}
-      <mesh castShadow receiveShadow>
-        <cylinderGeometry args={[
-          radius + RIM_OVERHANG,         // top radius
-          radius + RIM_OVERHANG + 0.02,  // bottom slightly wider (bevel)
-          RIM_HEIGHT,
-          36
-        ]} />
-        <meshStandardMaterial
-          color={edgeColor || color}
-          metalness={0.85}
-          roughness={0.12}
-          envMapIntensity={1.1}
-        />
+      {/* Crimped skirt */}
+      <mesh geometry={skirt} castShadow receiveShadow>
+        <meshStandardMaterial map={skirtTexture} metalness={metal} roughness={rough} envMapIntensity={fp.envMapIntensity} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Rim top bevel ring — slight inward taper */}
-      <mesh position={[0, RIM_HEIGHT / 2 - 0.005, 0]}>
-        <cylinderGeometry args={[
-          radius + RIM_OVERHANG - 0.02,
-          radius + RIM_OVERHANG,
-          0.01,
-          36
-        ]} />
-        <meshStandardMaterial
-          color={lightenHex3(edgeColor || color, 0.2)}
-          metalness={0.9}
-          roughness={0.08}
-        />
+      {/* Rounded shoulder where the top meets the skirt */}
+      <mesh position={[0, halfH - 0.02, 0]} rotation-x={Math.PI / 2}>
+        <torusGeometry args={[topR, 0.022, 8, 64]} />
+        <meshStandardMaterial color={color} metalness={metal} roughness={rough} />
       </mesh>
 
-      {/* ─── 2. MAIN BODY WALL — visible thickness ─── */}
-      <mesh castShadow receiveShadow>
-        <cylinderGeometry args={[
-          radius * BEVEL_RATIO,  // top is slightly smaller (beveled)
-          radius,                // bottom matches rim
-          BODY_HEIGHT,
-          36
-        ]} />
-        <meshStandardMaterial
-          color={color}
-          metalness={fp.metalness}
-          roughness={fp.roughness}
-          envMapIntensity={fp.envMapIntensity}
-        />
+      {/* Printed top, very slightly domed */}
+      <mesh position={[0, halfH - 0.03, 0]} scale={[1, 0.08, 1]}>
+        <sphereGeometry args={[topR, 48, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color={color} metalness={metal} roughness={rough} />
       </mesh>
-
-      {/* ─── 3. BODY TOP SURFACE with pattern ─── */}
-      <mesh position={[0, halfH - 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[radius * BEVEL_RATIO, 36]} />
+      <mesh position={[0, halfH - 0.03 + topR * 0.08 + 0.002, 0]} rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[topR * 0.985, 64]} />
         <meshStandardMaterial
-          map={bodyTexture}
-          metalness={fp.metalness}
-          roughness={fp.roughness}
+          map={topTexture}
+          metalness={metal * 0.8}
+          roughness={rough}
           emissive={color}
-          emissiveIntensity={fp.emissiveIntensity}
+          emissiveIntensity={fp.emissiveIntensity * 0.5}
           envMapIntensity={fp.envMapIntensity}
         />
       </mesh>
 
-      {/* ─── 4. RECESSED CHANNEL — dark groove ring ─── */}
-      <mesh position={[0, halfH - CHANNEL_DEPTH, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[channelInnerR, channelOuterR, 36]} />
-        <meshStandardMaterial
-          color={darkenHex3(color, 0.35)}
-          metalness={0.15}
-          roughness={0.85}
-        />
-      </mesh>
-      {/* Channel inner wall shadow ring */}
-      <mesh position={[0, halfH - CHANNEL_DEPTH / 2, 0]}>
-        <cylinderGeometry args={[channelInnerR, channelInnerR, CHANNEL_DEPTH, 36, 1, true]} />
-        <meshStandardMaterial
-          color={darkenHex3(color, 0.4)}
-          metalness={0.1}
-          roughness={0.9}
-          side={THREE.BackSide}
-        />
+      {/* Dark inside of the cap, seen only at the very bottom edge */}
+      <mesh position={[0, -halfH + 0.006, 0]} rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[radius * 0.98, 48]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
       </mesh>
 
-      {/* ─── 5. RAISED CENTER BADGE PLATE (dome) ─── */}
-      <mesh position={[0, halfH + DOME_HEIGHT / 2 - 0.002, 0]} castShadow>
-        <cylinderGeometry args={[
-          domeR,          // top
-          domeR + 0.02,   // base slightly wider
-          DOME_HEIGHT,
-          36
-        ]} />
-        <meshStandardMaterial
-          color={color}
-          metalness={fp.metalness + 0.05}
-          roughness={Math.max(0.05, fp.roughness - 0.08)}
-          envMapIntensity={fp.envMapIntensity + 0.1}
-        />
-      </mesh>
-
-      {/* Dome top face — badge/number texture */}
-      <mesh position={[0, halfH + DOME_HEIGHT + 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[domeR, 36]} />
-        <meshStandardMaterial
-          map={domeTexture}
-          metalness={fp.metalness + 0.05}
-          roughness={Math.max(0.05, fp.roughness - 0.05)}
-          emissive={color}
-          emissiveIntensity={fp.emissiveIntensity * 0.8}
-          envMapIntensity={fp.envMapIntensity}
-        />
-      </mesh>
-
-      {/* ─── 6. BOTTOM PAD — dark underside ─── */}
-      <mesh position={[0, -halfH + 0.008, 0]}>
-        <cylinderGeometry args={[radius * 0.92, radius + RIM_OVERHANG, 0.025, 36]} />
-        <meshStandardMaterial
-          color="#1a1a1a"
-          metalness={0.15}
-          roughness={0.9}
-        />
-      </mesh>
-
-      {/* ─── 7. SELECTION RING — animated glow ─── */}
+      {/* Selection ring — animated glow on the table */}
       {isSelected && (
-        <mesh
-          ref={ringRef}
-          position={[0, -halfH + 0.015, 0]}
-          rotation-x={-Math.PI / 2}
-        >
-          <ringGeometry args={[radius + RIM_OVERHANG + 0.08, radius + RIM_OVERHANG + 0.25, 36]} />
-          <meshBasicMaterial
-            color="#FFD740"
-            transparent
-            opacity={0.85}
-          />
+        <mesh ref={ringRef} position={[0, -halfH + 0.015, 0]} rotation-x={-Math.PI / 2}>
+          <ringGeometry args={[radius + 0.1, radius + 0.27, 36]} />
+          <meshBasicMaterial color="#FFD740" transparent opacity={0.85} />
         </mesh>
       )}
 
-      {/* ─── 8. GK MARKER — hexagonal crown on dome ─── */}
+      {/* Keeper: a printed hexagon round the centre */}
       {isGk && (
-        <mesh position={[0, halfH + DOME_HEIGHT + 0.002, 0]} rotation-x={-Math.PI / 2}>
-          <ringGeometry args={[domeR * 0.25, domeR * 0.4, 6]} />
-          <meshBasicMaterial color={edgeColor || '#FFD700'} transparent opacity={0.55} />
+        <mesh position={[0, halfH - 0.03 + topR * 0.08 + 0.004, 0]} rotation-x={-Math.PI / 2}>
+          <ringGeometry args={[topR * 0.8, topR * 0.86, 6]} />
+          <meshBasicMaterial color={edge === color ? '#FFD700' : edge} transparent opacity={0.8} />
         </mesh>
       )}
     </group>
   )
 })
-
-// Simple hex color helpers for 3D materials
-function darkenHex3(hex, amount) {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = Math.max(0, Math.round(((num >> 16) & 0xff) * (1 - amount)))
-  const g = Math.max(0, Math.round(((num >> 8) & 0xff) * (1 - amount)))
-  const b = Math.max(0, Math.round((num & 0xff) * (1 - amount)))
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
-
-function lightenHex3(hex, amount) {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = Math.min(255, Math.round(((num >> 16) & 0xff) + (255 - ((num >> 16) & 0xff)) * amount))
-  const g = Math.min(255, Math.round(((num >> 8) & 0xff) + (255 - ((num >> 8) & 0xff)) * amount))
-  const b = Math.min(255, Math.round((num & 0xff) + (255 - (num & 0xff)) * amount))
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
 
 export default CapMesh

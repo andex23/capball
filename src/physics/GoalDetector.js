@@ -1,9 +1,10 @@
 import { judgeGoal } from '../game/rules'
 import { useMatchStore } from '../state/MatchStore'
+import { getBallBanked } from './PhysicsWorld'
 
 /**
  * Check whether the ball is in a goal and whether that goal stands.
- * Returns { outcome: 'goal' | 'kickoff_violation' | 'gk_violation', scorer } or null.
+ * Returns { outcome: 'goal' | 'kickoff_violation' | 'gk_violation' | 'bank_shot', scorer } or null.
  */
 export function checkGoal(ballBody) {
   if (!ballBody) return null
@@ -14,5 +15,6 @@ export function checkGoal(ballBody) {
     team1Side: team1Side || 'left',
     kickoffGuard,
     lastFlickedCapId,
+    banked: getBallBanked(),
   })
 }
