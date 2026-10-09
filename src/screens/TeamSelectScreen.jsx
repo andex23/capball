@@ -121,7 +121,7 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
                     className="field"
                     value={draftText ?? config.capText ?? ''}
                     maxLength={CAP_TEXT_MAX}
-                    placeholder="e.g. LIONS FC"
+                    placeholder="Leave empty to print your team name"
                     autoComplete="off"
                     onChange={(e) => setDraftText(e.target.value)}
                     onBlur={commitText}

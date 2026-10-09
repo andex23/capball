@@ -111,3 +111,18 @@ export const isUnlocked = (design, progress) => {
   const [have, target] = design.need(progress)
   return (have || 0) >= target
 }
+
+/** Placeholder team names that shouldn't be printed on caps. */
+const DEFAULT_NAMES = /^(team\s*[12]|defenders|my team|my club)$/i
+
+/**
+ * What's printed round the top of a team's caps: their own cap text, or else
+ * the team name (not the placeholder "Team 1" / "Team 2").
+ */
+export function capLabel(config) {
+  const own = typeof config?.capText === 'string' ? config.capText.trim() : ''
+  if (own) return own
+  const name = typeof config?.name === 'string' ? config.name.trim() : ''
+  if (!name || DEFAULT_NAMES.test(name)) return ''
+  return name.slice(0, CAP_TEXT_MAX)
+}

@@ -108,7 +108,7 @@ export function KitEditor({ team, onUpdate, onClose }) {
           className="field"
           value={team.capText || ''}
           maxLength={CAP_TEXT_MAX}
-          placeholder="e.g. LIONS FC"
+          placeholder="Leave empty to print your team name"
           autoComplete="off"
           onChange={(e) => onUpdate({ capText: e.target.value.slice(0, CAP_TEXT_MAX) })}
           onBlur={(e) => onUpdate({ capText: sanitizeCapText(e.target.value) })}

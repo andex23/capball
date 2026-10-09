@@ -14,6 +14,8 @@ import CapPreview from '../ui/CapPreview'
 import CapDesigns from '../ui/CapDesigns'
 import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
+import AccountPanel from '../ui/AccountPanel'
+import { useAccountStore } from '../state/accountStore'
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -36,6 +38,7 @@ function StartCareer() {
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const [club, setClub] = useState(() => startingKit(teamConfig))
   const [duration, setDuration] = useState(120)
+  const [kitOpen, setKitOpen] = useState(false)
   const start = () => {
     playConfirm()
     useCareerStore.getState().start({ ...club, name: club.name.trim() || 'My Club' }, duration)
@@ -53,6 +56,8 @@ function StartCareer() {
           </div>
         </div>
         <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Kit</div>
+        <p className="muted t-note">Pick a design, or open the full kit editor for colours, pattern, badge and text. Your club keeps this kit all season — you can change it again before the next season kicks off.</p>
+        <button className="btn btn-secondary btn-block" style={{ margin: '8px 0 10px' }} onClick={() => { playButtonSelect(); setKitOpen(true) }}><Icon name="settings" size={18} /> Edit kit</button>
         <CapDesigns config={club} onPick={(patch) => setClub({ ...club, ...patch })} />
         <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Match length</div>
         <div className="segmented stretch" role="group" aria-label="Match length">
@@ -62,6 +67,27 @@ function StartCareer() {
         </div>
       </section>
       <button className="btn btn-gold btn-lg btn-block" onClick={start} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Start career</button>
+      {kitOpen && <KitEditor team={club} onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setKitOpen(false)} />}
+    </div>
+  )
+}
+
+function timeAgo(iso) {
+  if (!iso) return null
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return 'just now'
+  if (s < 3600) return `${Math.round(s / 60)} min ago`
+  return new Date(iso).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+}
+
+/** Where the career is saved, and a button to save right now. */
+function SaveBar() {
+  const { username, savedAt, saving, error } = useAccountStore()
+  return (
+    <div className="career-save" role="status">
+      <Icon name="check" size={16} />
+      <span>{saving ? 'Saving…' : `Saved to ${username}${savedAt ? ` · ${timeAgo(savedAt)}` : ''}`}{error ? ` — ${error}` : ''}</span>
+      <button className="btn btn-ghost" onClick={() => { playButtonSelect(); useAccountStore.getState().save({ force: true }) }} disabled={saving}>Save now</button>
     </div>
   )
 }
@@ -116,7 +142,33 @@ export default function CareerScreen() {
   const [editing, setEditing] = useState(false)
   const [confirmRetire, setConfirmRetire] = useState(false)
 
+  const username = useAccountStore((s) => s.username)
   const back = () => { playButtonSelect(); goToScreen(SCREEN.MENU) }
+
+  // Careers live on your account, so you need one first
+  if (!username) {
+    return (
+      <div className="screen">
+        <div className="shell">
+          <header className="shell-head">
+            <div>
+              <div className="eyebrow shell-eyebrow">Career mode</div>
+              <h1 className="display shell-title">Create your account</h1>
+            </div>
+          </header>
+          <main className="shell-body career-start">
+            <section className="card card-pad">
+              <p className="t-note">Your career is saved to your account as you play — every season, result and trophy — so you can pick it up on any phone. It only takes a username and a password.</p>
+              <AccountPanel formOnly />
+            </section>
+          </main>
+          <footer className="shell-foot"><div className="shell-foot-inner">
+            <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Menu</button>
+          </div></footer>
+        </div>
+      </div>
+    )
+  }
 
   if (!career) {
     return (
@@ -150,6 +202,8 @@ export default function CareerScreen() {
     if (career.level > 0 && i >= count - RELEGATED) return 'down'
     return null
   }
+  // The kit is fixed once a season is under way; change it before matchday 1
+  const kitOpen = played === 0
   const opponent = next ? teamById(league, next.home === ME ? next.away : next.home) : null
   const play = () => { playConfirm(); useTournamentStore.getState().playFixture('career', next) }
 
@@ -161,12 +215,23 @@ export default function CareerScreen() {
             <div className="eyebrow shell-eyebrow">Career · Season {career.season} · {division.name}</div>
             <h1 className="display shell-title">{career.club.name}</h1>
           </div>
-          <button className="mode-icon career-kit" onClick={() => { playButtonSelect(); setEditing(true) }} aria-label="Edit your kit">
+          <span className="career-kit">
             <CapPreview config={career.club} size={52} />
-          </button>
+          </span>
         </header>
 
         <main className="shell-body career-body">
+          <SaveBar />
+          <section className="card card-pad career-kit-card">
+            <CapPreview config={career.club} size={64} number={career.club.numbers?.atk1 ?? 10} />
+            <div>
+              <h2 className="saved-h">Club kit</h2>
+              {kitOpen
+                ? <p className="muted t-note">The new season hasn’t kicked off yet — you can change your kit now. It’s locked once matchday 1 is played.</p>
+                : <p className="muted t-note"><Icon name="lock" size={13} /> Locked for this season. You can change it before next season starts.</p>}
+            </div>
+            {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit kit</button>}
+          </section>
           {done ? <SeasonEnd career={career} /> : next && (
             <section className="card card-pad career-next">
               <div className="eyebrow">Matchday {played + 1} of {fixtures.length} · {next.home === ME ? 'Home' : 'Away'}</div>
@@ -215,7 +280,7 @@ export default function CareerScreen() {
         </div></footer>
       </div>
 
-      {editing && (
+      {editing && kitOpen && (
         <KitEditor
           team={career.club}
           onUpdate={(patch) => useCareerStore.getState().updateClub(patch)}

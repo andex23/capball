@@ -33,3 +33,13 @@ describe('weekly numbers for the leaderboard', () => {
     expect(c.week).toEqual({ key: '2026-W42', played: 1, won: 1, goals: 3 })
   })
 })
+
+describe('cap label', () => {
+  it('prints the team name unless it is a placeholder; own cap text wins', async () => {
+    const { capLabel } = await import('../data/TeamOptions')
+    expect(capLabel({ name: 'Lions' })).toBe('Lions')
+    expect(capLabel({ name: 'Team 1' })).toBe('')
+    expect(capLabel({ name: 'Team 2', capText: 'COLA' })).toBe('COLA')
+    expect(capLabel({ name: 'Northside Rovers FC' })).toHaveLength(12)
+  })
+})
