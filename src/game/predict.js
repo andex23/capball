@@ -141,7 +141,8 @@ export function createShot(maxBodies = 16) {
   for (let i = 0; i < maxBodies; i++) bodies.push({ x: 0, y: 0, r: CAP_RADIUS, contact: 'foul' })
   return {
     x: 0, y: 0, r: CAP_RADIUS, mass: PHYSICS.playerMass, // flicked cap
-    vx: 0, vy: 0,                                         // flick velocity, as passed to performFlick
+    vx: 0, vy: 0,                                         // flick velocity, as the cap actually gets it
+    maxSpeed: PHYSICS.maxFlickVelocity,                    // the cap's top speed (more for a better player)
     ballX: 0, ballY: 0,
     bodies, bodyCount: 0,                                  // other caps: { x, y, r, contact: 'foul' | 'teammate' }
     minX: 0, maxX: 0, minY: 0, maxY: 0,                    // where the cap's centre can go (capBounds)
@@ -186,10 +187,11 @@ export function predictShot(shot, out = createPrediction()) {
   let vx = shot.vx, vy = shot.vy
   let speed = Math.hypot(vx, vy)
   // applyFlick clamps to max power
-  if (speed > PHYSICS.maxFlickVelocity) {
-    vx *= PHYSICS.maxFlickVelocity / speed
-    vy *= PHYSICS.maxFlickVelocity / speed
-    speed = PHYSICS.maxFlickVelocity
+  const maxSpeed = shot.maxSpeed || PHYSICS.maxFlickVelocity
+  if (speed > maxSpeed) {
+    vx *= maxSpeed / speed
+    vy *= maxSpeed / speed
+    speed = maxSpeed
   }
   let n = push(out.capPath, 0, x, y)
   let bounces = 0, travelled = 0

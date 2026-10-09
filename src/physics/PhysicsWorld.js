@@ -403,13 +403,13 @@ export function getBodies() { return bodies }
 export function getBody(id) { return bodies[id] }
 
 /** Apply shot impulse to a cap */
-export function applyFlick(capId, velocity) {
+export function applyFlick(capId, velocity, maxSpeed = PHYSICS.maxFlickVelocity) {
   const body = bodies[capId]
   if (!body) return
   // Clamp to max flick velocity
   const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
-  if (speed > PHYSICS.maxFlickVelocity) {
-    const s = PHYSICS.maxFlickVelocity / speed
+  if (speed > maxSpeed) {
+    const s = maxSpeed / speed
     velocity = { x: velocity.x * s, y: velocity.y * s }
   }
   Body.setVelocity(body, velocity)

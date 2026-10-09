@@ -6,6 +6,7 @@
  * Pure functions over plain JSON, built on the league engine in tournament.js.
  */
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng } from './tournament'
+import { START_COINS, startingSquad, sanitizeSquad, coinsForResult, seasonBonus, developSquad, openWindow, marketFor, signPlayer } from './squad'
 
 export const CAREER_VERSION = 1
 
@@ -83,7 +84,35 @@ export function newCareer(club, { matchDuration = 120, now = Date.now() } = {}) 
     past: [],          // finished seasons, newest first
     promotions: 0,
     titles: 0,         // top-division wins
+    squad: startingSquad(now),
+    coins: START_COINS,
+    signed: { key: '', ids: [] }, // players already bought in the current window
   }
+}
+
+/** How many of your matches you've played this season. */
+export function playedThisSeason(league) {
+  return allFixtures(league).filter((f) => f.result && (f.home === ME || f.away === ME)).length
+}
+
+/** The open transfer window: { index, key, market } or null when it's shut. */
+export function transferWindow(career) {
+  const index = openWindow(playedThisSeason(career.league))
+  if (index < 0) return null
+  const key = `${career.season}:${index}`
+  const taken = career.signed?.key === key ? career.signed.ids : []
+  return { index, key, market: marketFor({ season: career.season, level: career.level, windowIndex: index, taken, seed: career.league.id }) }
+}
+
+/** Buy a player from the open window into `role`. Returns the new career, or null if you can't. */
+export function buyPlayer(career, playerId, role) {
+  const w = transferWindow(career)
+  const player = w?.market.find((p) => p.id === playerId)
+  if (!player) return null
+  const deal = signPlayer(career.squad, career.coins, player, role)
+  if (!deal) return null
+  const ids = career.signed?.key === w.key ? career.signed.ids : []
+  return { ...career, ...deal, signed: { key: w.key, ids: [...ids, playerId] } }
 }
 
 /** Has every fixture of the season been played? */
@@ -128,7 +157,11 @@ export function recordCareerResult(career, fixtureId, result) {
   let league = recordResult(career.league, fixtureId, result)
   // Once your season is done, the rest of the league finishes too
   league = playCpuRounds(league, nextMatch(league) ? (mine?.round ?? 0) : Infinity)
-  return { ...career, league }
+  const home = mine?.home === ME
+  const gf = home ? result.home : result.away
+  const ga = home ? result.away : result.home
+  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga) : 0
+  return { ...career, league, coins: (career.coins ?? 0) + earned, lastEarned: earned }
 }
 
 /** Close the finished season and start the next one, in the new division. */
@@ -144,6 +177,7 @@ export function finishSeason(career, now = Date.now()) {
     level: career.level,
     position: pos,
     outcome,
+    bonus: seasonBonus(outcome),
     record: me ? { w: me.w, d: me.d, l: me.l, gf: me.gf, ga: me.ga, pts: me.pts } : null,
   }
   return {
@@ -154,6 +188,10 @@ export function finishSeason(career, now = Date.now()) {
     past: [entry, ...career.past].slice(0, 50),
     promotions: career.promotions + (outcome === 'promoted' ? 1 : 0),
     titles: career.titles + (outcome === 'champions' ? 1 : 0),
+    coins: (career.coins ?? 0) + seasonBonus(outcome),
+    squad: developSquad(career.squad || startingSquad(career.season), `${career.league.id}:${career.season}`),
+    signed: { key: '', ids: [] },
+    lastEarned: 0,
   }
 }
 
@@ -174,5 +212,12 @@ export function sanitizeCareer(input) {
     past: Array.isArray(input.past) ? input.past.filter(isObj).slice(0, 50) : [],
     promotions: n(input.promotions),
     titles: n(input.titles),
+    // Careers from before the squad existed get a starting squad and purse
+    squad: sanitizeSquad(input.squad, league.id),
+    coins: Number.isInteger(input.coins) && input.coins >= 0 ? input.coins : START_COINS,
+    signed: isObj(input.signed) && typeof input.signed.key === 'string' && Array.isArray(input.signed.ids)
+      ? { key: input.signed.key.slice(0, 20), ids: input.signed.ids.filter((x) => typeof x === 'string').slice(0, 20) }
+      : { key: '', ids: [] },
+    lastEarned: n(input.lastEarned),
   }
 }

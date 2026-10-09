@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useMatchStore, PHASE, INPUT_PHASES } from '../state/MatchStore'
-import { performFlick, flickError, controllableTeams, capSelectable, powerFraction, MIN_FLICK_PX } from '../game/flick'
+import { performFlick, flickScaleFor, flickError, controllableTeams, capSelectable, powerFraction, MIN_FLICK_PX } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
@@ -311,7 +311,9 @@ export function useFlickController(meshRefs, trajectoryRef) {
     shot.x = cx; shot.y = cz
     shot.r = capRadius
     shot.mass = isGk ? PHYSICS.gkMass : PHYSICS.playerMass
-    shot.vx = nx * flickSpeed; shot.vy = nz * flickSpeed
+    const scale = flickScaleFor(useMatchStore.getState(), capId)
+    shot.vx = nx * flickSpeed * scale; shot.vy = nz * flickSpeed * scale
+    shot.maxSpeed = PHYSICS.maxFlickVelocity * scale
     shot.ballX = ballMesh ? ballMesh.position.x : 1e6
     shot.ballY = ballMesh ? ballMesh.position.z : 1e6
     let n = 0

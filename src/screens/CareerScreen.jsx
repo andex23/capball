@@ -16,6 +16,8 @@ import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
+import SquadPanel from '../ui/SquadPanel'
+import { seasonBonus } from '../game/squad'
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -123,6 +125,7 @@ function SeasonEnd({ career }) {
       <h2 className="display career-end-title">{o.title}</h2>
       <p className="career-end-pos">Finished <b>{ordinal(pos)}</b> of {count}{row ? ` · ${row.w}W ${row.d}D ${row.l}L · ${row.pts} pts` : ''}</p>
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
+      <p className="muted">Season bonus: <b>{seasonBonus(outcome)} coins</b>. Your players will improve a little over the summer, and the transfer window opens before the new season.</p>
       <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().nextSeason() }}>
         <Icon name="next" size={20} /> Start season {career.season + 1}
       </button>
@@ -244,6 +247,8 @@ export default function CareerScreen() {
               <p className="muted t-note">Computer level: {division.difficulty}. Other clubs’ games play out by themselves.</p>
             </section>
           )}
+
+          <SquadPanel career={career} />
 
           <section className="card card-pad">
             <h2 className="saved-h">{division.name} table</h2>
