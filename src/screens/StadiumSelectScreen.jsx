@@ -1,9 +1,9 @@
-import { useMatchStore, SCREEN, MATCH_DURATIONS, SHOT_CLOCKS } from '../state/MatchStore'
+import { useMatchStore, SCREEN, SHOT_CLOCKS } from '../state/MatchStore'
 import { STADIUMS, STADIUM_KEYS } from '../data/StadiumData'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
+import MatchLengthPicker from '../ui/MatchLengthPicker'
 import Icon from '../ui/Icon'
-import { formatClock } from '../game/rules'
 
 /* Mini pitch preview showing the surface colors */
 function SurfacePreview({ stadium, size = 180 }) {
@@ -49,8 +49,6 @@ export default function StadiumSelectScreen() {
   const setStadium = useMatchStore((s) => s.setStadium)
   const chosenTeam1Side = useMatchStore((s) => s.chosenTeam1Side)
   const setTeam1Side = useMatchStore((s) => s.setTeam1Side)
-  const matchDuration = useMatchStore((s) => s.matchDuration)
-  const setMatchDuration = useMatchStore((s) => s.setMatchDuration)
   const shotClock = useMatchStore((s) => s.shotClock)
   const setShotClock = useMatchStore((s) => s.setShotClock)
   const teamConfig = useMatchStore((s) => s.teamConfig)
@@ -105,15 +103,8 @@ export default function StadiumSelectScreen() {
           <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Teams swap ends at half time.</p>
         </div>
         <div className="card card-pad">
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Match length</div>
-          <div className="segmented stretch" role="group" aria-label="Match length">
-            {MATCH_DURATIONS.map((d) => (
-              <button key={d} aria-pressed={matchDuration === d} disabled={isGuest} onClick={pick(() => setMatchDuration(d))}>
-                {formatClock(d)}
-              </button>
-            ))}
-          </div>
-          <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Two halves of {formatClock(matchDuration / 2)}. The clock stops between turns.</p>
+          <div className="eyebrow" style={{ marginBottom: 10 }}>How the match ends</div>
+          <MatchLengthPicker disabled={isGuest} />
         </div>
         <div className="card card-pad">
           <div className="eyebrow" style={{ marginBottom: 10 }}>Shot clock</div>

@@ -22,7 +22,7 @@ const HISTORY_MAX = 30
 const RECENT_MAX = 10
 
 // Prefs a tournament fixture borrows, given back afterwards
-const BORROWED = ['teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'chosenTeam1Side', 'team1Side']
+const BORROWED = ['teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'goalTarget', 'chosenTeam1Side', 'team1Side']
 
 const storage = () => {
   try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null }

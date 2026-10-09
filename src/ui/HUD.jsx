@@ -29,6 +29,7 @@ function ScoreBug() {
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const timeRemaining = useMatchStore((s) => Math.ceil(s.timeRemaining))
   const half = useMatchStore((s) => s.half)
+  const goalTarget = useMatchStore((s) => s.goalTarget)
   const shootout = useMatchStore((s) => s.penaltyShootout)
   const pens = useMatchStore((s) => s.penaltyScores)
   const kicks = useMatchStore((s) => s.penaltyKicks)
@@ -48,8 +49,8 @@ function ScoreBug() {
         {shootout ? pens.team1 : score.team1}
       </div>
       <div className="scorebug-clock" aria-live="off">
-        <b>{shootout ? 'PENS' : formatClock(timeRemaining)}</b>
-        <small>{shootout ? (round > SHOOTOUT_ROUNDS ? 'Sudden death' : `Round ${Math.min(round, SHOOTOUT_ROUNDS)}/${SHOOTOUT_ROUNDS}`) : half === 1 ? '1st half' : '2nd half'}</small>
+        <b>{shootout ? 'PENS' : goalTarget ? `TO ${goalTarget}` : formatClock(timeRemaining)}</b>
+        <small>{shootout ? (round > SHOOTOUT_ROUNDS ? 'Sudden death' : `Round ${Math.min(round, SHOOTOUT_ROUNDS)}/${SHOOTOUT_ROUNDS}`) : goalTarget ? 'First to score' : half === 1 ? '1st half' : '2nd half'}</small>
       </div>
       <div className={`scorebug-score${popping && lastScorer === 'team2' ? ' pop' : ''}`} style={team('team2')} aria-label={`${teamConfig.team2.name} ${score.team2}`}>
         {shootout ? pens.team2 : score.team2}

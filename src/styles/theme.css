@@ -1564,11 +1564,11 @@ button { cursor: pointer; background: none; border: 0; }
 .icon-btn:hover { filter: brightness(1.15); }
 .icon-btn:active { transform: translateY(2px) scale(0.96); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55); }
 
-/* Match length, chosen right before kick-off */
-.match-length { margin-bottom: 14px; padding: 12px 14px; }
-.match-length-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+/* How the match ends: on the venue screen and again right before kick-off */
+.match-length-card { margin-bottom: 14px; padding: 12px 14px; }
 .match-length .segmented button { padding: 0 6px; }
+.match-length-note { font-size: 12px; margin-top: 8px; }
+.match-length.compact .match-length-note { margin-top: 6px; }
 @media (min-width: 561px) and (max-height: 500px) {
-  .match-length { margin-bottom: 8px; padding: 8px 12px; }
-  .match-length-head { margin-bottom: 6px; }
+  .match-length-card { margin-bottom: 8px; padding: 8px 12px; }
 }
