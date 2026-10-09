@@ -139,6 +139,10 @@ const LINES = {
   timeout: ['Too slow! Over to {other}.', 'The shot clock runs out — {other}’s ball.'],
   fullTimeWin: ['It’s all over! {winner} win {score}.', 'Full time — {winner} take it {score}.', 'That’s it! {winner} come out on top, {score}.'],
   fullTimeDraw: ['Full time. Honours even at {score}.', 'All square at the final whistle — {score}.', 'Nothing to separate them. {score}.'],
+  post: ['Off the post! So close from {p}.', '{p} hits the woodwork!', 'Rattled the post — {p} can’t believe it.'],
+  wide: ['Just wide! {p} was inches away.', '{p} drags it past the post.', 'Wide! {p} had the keeper beaten.'],
+  save: ['What a save from {k}!', '{k} keeps it out — denied, {p}!', 'Big stop by {k}!', '{k} gets down well to save from {p}.'],
+  block: ['Blocked! {k} throws themselves in the way.', '{k} gets a vital block on {p}’s shot.', 'Great defending from {k}!'],
   shootoutOver: ['{winner} win it on penalties!', 'The shootout goes to {winner}!'],
 }
 
@@ -146,13 +150,14 @@ const LINES = {
 export function line(kind, ctx = {}) {
   const list = LINES[kind]
   if (!list) return ''
-  const { teamConfig, team, cap, venue, score, winner, seed } = ctx
+  const { teamConfig, team, cap, by, venue, score, winner, seed } = ctx
   const other = team === 'team1' ? 'team2' : 'team1'
   const p = playerOf(teamConfig, cap)
   const vars = {
     team: teamConfig?.[team]?.name || '',
     other: teamConfig?.[other]?.name || '',
     p: p?.label || 'They',
+    k: playerOf(teamConfig, by)?.label || 'the defence',
     venue: venue || 'table',
     winner: winner ? teamConfig?.[winner]?.name || '' : '',
     score: score ? `${Math.max(score.team1, score.team2)}–${Math.min(score.team1, score.team2)}` : '',

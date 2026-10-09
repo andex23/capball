@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
 import { transferWindow, playedThisSeason, DIVISIONS } from '../game/career'
-import { ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER } from '../game/squad'
+import { formOf, ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER } from '../game/squad'
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
@@ -43,7 +43,10 @@ export default function SquadPanel({ career }) {
             <li key={role}>
               <span className="squad-role">{ROLE_LABEL[role]}</span>
               <span className="squad-shirt">{career.club.numbers?.[role] ?? ''}</span>
-              <span className="squad-name">{p.name}</span>
+              <span className="squad-name">
+                <span className="squad-name-main">{p.name}</span>
+                {p.apps > 0 && <small className="squad-stats">{p.goals || 0} goal{p.goals === 1 ? '' : 's'} · form {formOf(p)}</small>}
+              </span>
               <Rating value={p.rating} />
             </li>
           )
@@ -77,7 +80,10 @@ function TransferMarket({ career, market, onClose }) {
           return (
             <li key={p.id}>
               <span className="squad-role">{p.keeper ? 'GK' : 'FIELD'}</span>
-              <span className="squad-name">{p.name}</span>
+              <span className="squad-name">
+                <span className="squad-name-main">{p.name}</span>
+                {p.apps > 0 && <small className="squad-stats">{p.goals || 0} goal{p.goals === 1 ? '' : 's'} · form {formOf(p)}</small>}
+              </span>
               <Rating value={p.rating} />
               <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setBuying(p) }}><Coins n={fee} /></button>
             </li>
@@ -121,5 +127,37 @@ function SignFor({ career, player, onDone }) {
       {error && <p className="t-note" role="alert">{error}</p>}
       <button className="btn btn-ghost btn-block" onClick={onDone}>Cancel</button>
     </div>
+  )
+}
+
+/** After a match: each player's rating out of 10, Man of the Match, and who improved. */
+export function PlayerRatings({ career, title = 'Last match', fixtureId = null }) {
+  const rep = career?.lastReport
+  if (!rep || (fixtureId && rep.fixtureId !== fixtureId)) return null
+  const surname = (n) => String(n || '').split(' ').pop()
+  return (
+    <section className="card card-pad ratings-card" aria-label="Player ratings">
+      <h2 className="saved-h">{title}</h2>
+      <ul className="ratings-list">
+        {CAP_ROLES.map((role) => {
+          const p = career.squad[role]
+          const r = rep.ratings[role]
+          const ch = rep.changes?.find((c) => c.role === role)
+          return (
+            <li key={role} data-motm={rep.motm === role ? 'true' : undefined}>
+              <span className="squad-role">{ROLE_LABEL[role]}</span>
+              <span className="squad-name">
+                <span className="squad-name-main">{surname(p?.name)}</span>
+                {rep.motm === role && <small className="ratings-motm">★ Man of the Match</small>}
+                {rep.goals?.[role] > 0 && <small className="squad-stats">{'⚽'.repeat(Math.min(rep.goals[role], 4))}</small>}
+              </span>
+              {ch && <span className="ratings-change" data-up={ch.to > ch.from ? 'true' : undefined}>{ch.to > ch.from ? '▲' : '▼'} {ch.to}</span>}
+              <b className="ratings-score" data-tier={r >= 8 ? 'great' : r >= 6.5 ? 'good' : r < 5.5 ? 'poor' : undefined}>{r?.toFixed(1)}</b>
+            </li>
+          )
+        })}
+      </ul>
+      {rep.changes?.some((c) => c.to > c.from) && <p className="muted t-note">Big games make players better — a rating of 7.5 or more can earn a point.</p>}
+    </section>
   )
 }

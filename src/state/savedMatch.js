@@ -9,10 +9,13 @@ import { useTournamentStore } from './tournamentStore'
 import { snapshotBodies, applyBodySnapshot, stopAllBodies, deOverlapBodies } from '../physics/PhysicsWorld'
 import { formatClock } from '../game/rules'
 import { isSignedIn } from './accountStore'
+import { useAchievementStore } from './achievementStore'
+import { matchAchievements } from '../game/achievements'
 
 export const SAVED_MATCH_KEY = 'capball:savedMatch:v1'
 export const HISTORY_KEY = 'capball:history:v1'
 export const CAREER_KEY = 'capball:career:v1'
+export const RIVALS_KEY = 'capball:rivals:v1'
 const HISTORY_MAX = 20
 
 // Everything about the match set-up and its progress that a save brings back
@@ -50,7 +53,30 @@ export const useSavedStore = create(() => ({
   saved: read(SAVED_MATCH_KEY),
   history: Array.isArray(read(HISTORY_KEY)) ? read(HISTORY_KEY) : [],
   career: { ...EMPTY_CAREER, ...(read(CAREER_KEY) || {}) },
+  rivals: cleanRivals(read(RIVALS_KEY)),
 }))
+
+/** Head-to-head records by opponent name: { [name]: { w, d, l, gf, ga, online, primary, last } }. */
+function cleanRivals(input) {
+  const out = {}
+  if (!input || typeof input !== 'object') return out
+  for (const [name, r] of Object.entries(input).slice(0, 60)) {
+    if (!r || typeof r !== 'object') continue
+    const n = (v) => (Number.isInteger(v) && v >= 0 ? v : 0)
+    out[String(name).slice(0, 24)] = { w: n(r.w), d: n(r.d), l: n(r.l), gf: n(r.gf), ga: n(r.ga), online: !!r.online, primary: typeof r.primary === 'string' ? r.primary.slice(0, 7) : '#888888', last: typeof r.last === 'string' ? r.last : '' }
+  }
+  return out
+}
+
+/** One more result against this opponent. Pure, for testing. */
+export function addRivalResult(rivals, opponent, { gf, ga, won, lost, online, primary, at = new Date().toISOString() }) {
+  const cur = rivals[opponent] || { w: 0, d: 0, l: 0, gf: 0, ga: 0, online: false, primary, last: '' }
+  const next = { ...cur, gf: cur.gf + gf, ga: cur.ga + ga, online: cur.online || online, primary: primary || cur.primary, last: at }
+  if (won) next.w += 1; else if (lost) next.l += 1; else next.d += 1
+  const all = { ...rivals, [opponent]: next }
+  // Keep the 60 most recent rivals
+  return Object.fromEntries(Object.entries(all).sort((a, b) => (b[1].last > a[1].last ? 1 : -1)).slice(0, 60))
+}
 
 /** Why the match on screen can't be saved right now, or null if it can. */
 export function cantSaveReason() {
@@ -150,9 +176,32 @@ export function recordHistory(result, mode) {
   }
   const history = [entry, ...useSavedStore.getState().history].slice(0, HISTORY_MAX)
   write(HISTORY_KEY, history)
-  const career = addToCareer(useSavedStore.getState().career, result, myTeamFor(s), s.teamConfig)
+  const me = myTeamFor(s)
+  const career = addToCareer(useSavedStore.getState().career, result, me, s.teamConfig)
   write(CAREER_KEY, career)
   useSavedStore.setState({ history, career })
+  // Achievements for this match (only when it was clearly "you" playing)
+  if (me) {
+    const them = me === 'team1' ? 'team2' : 'team1'
+    const pens = result.penaltyScore
+    const won = result.score[me] > result.score[them] || (result.score[me] === result.score[them] && !!pens && pens[me] > pens[them])
+    const opp = s.teamConfig[them]
+    if (opp?.name) {
+      const rivals = addRivalResult(useSavedStore.getState().rivals, opp.name, {
+        gf: result.score[me], ga: result.score[them], won,
+        lost: result.score[them] > result.score[me] || (result.score[them] === result.score[me] && !!pens && pens[them] > pens[me]),
+        online: s.gameMode === 'online', primary: opp.primary,
+      })
+      write(RIVALS_KEY, rivals)
+      useSavedStore.setState({ rivals })
+    }
+    const ach = useAchievementStore.getState()
+    const { winStreak, tables } = ach.noteMatch({ won, table: s.stadium })
+    ach.award(matchAchievements({
+      me, result, goalLog: s.goalLog, matchEvents: s.matchEvents, stats: s.stats, gameMode: s.gameMode,
+      aiDifficulty: s.aiDifficulty, goalTarget: s.goalTarget, streak: winStreak, tables, goalsTotal: career.goalsFor,
+    }))
+  }
 }
 
 /** Which side is "you" this match: null when two people shared the phone. */

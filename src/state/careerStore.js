@@ -6,7 +6,9 @@
 import { create } from 'zustand'
 import { newCareer, recordCareerResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer } from '../game/career'
 import { allFixtures } from '../game/tournament'
+import { applyMatchToSquad } from '../game/squad'
 import { useAccountStore } from './accountStore'
+import { useAchievementStore } from './achievementStore'
 
 export const CAREER_KEY = 'capball:career-mode:v1'
 
@@ -37,10 +39,15 @@ export const useCareerStore = create((set, get) => ({
   },
 
   /** Your result for one fixture (home/away goals, as the tournament engine counts them). */
-  record(fixtureId, result) {
+  record(fixtureId, result, perf = null) {
     const { career } = get()
     if (!career) return
-    const next = recordCareerResult(career, fixtureId, result)
+    let next = recordCareerResult(career, fixtureId, result)
+    if (perf?.ratings) {
+      // Ratings, form, goals — and a chance for a player to grow after a big game
+      const r = applyMatchToSquad(next.squad, { ...perf, seed: `${career.league.id}:${fixtureId}` })
+      next = { ...next, squad: r.squad, lastReport: { fixtureId, ratings: r.ratings, motm: r.motm, changes: r.changes, goals: perf.goalsByRole || {} } }
+    }
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -51,6 +58,9 @@ export const useCareerStore = create((set, get) => ({
     const { career } = get()
     if (!career || !seasonOver(career.league)) return
     const next = finishSeason(career)
+    const outcome = next.past[0]?.outcome
+    if (outcome === 'promoted') useAchievementStore.getState().award(['promoted'])
+    if (outcome === 'champions') useAchievementStore.getState().award(['premier'])
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })

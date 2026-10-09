@@ -17,8 +17,9 @@ import {
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected } from '../multiplayer/MultiplayerManager'
 import { useCareerStore } from './careerStore'
-import { squadRatings, clubRatings, squadSurnames } from '../game/squad'
+import { squadRatings, clubRatings, squadSurnames, matchRatings } from '../game/squad'
 import { playerOf } from '../game/commentary'
+import { useAchievementStore } from './achievementStore'
 
 const STORAGE_KEY = 'capball:tournaments:v1'
 const HISTORY_MAX = 30
@@ -147,6 +148,9 @@ export const useTournamentStore = create((set, get) => ({
   /** Remember a won tournament once (winners' history). */
   noteChampion(t) {
     if (!t?.championId || get().seenChampions.includes(t.id)) return
+    // Your own team (a human side) lifting it earns the badge
+    const champ = t.teams.find((x) => x.id === t.championId)
+    if (champ && !champ.cpu) useAchievementStore.getState().award([t.format === 'league' ? 'league' : 'cup'])
     const entry = historyEntry(t)
     if (!entry) return
     set((s) => ({ history: [entry, ...s.history].slice(0, HISTORY_MAX), seenChampions: [...s.seenChampions, t.id].slice(-50) }))
@@ -338,7 +342,13 @@ export const useTournamentStore = create((set, get) => ({
     if (!result) return
     set({ playing: { ...p, recorded: true } })
     if (p.kind === 'career') {
-      useCareerStore.getState().record(p.fixture.id, result)
+      // How each of your players did (your club is team1 at home, team2 away)
+      const ms = useMatchStore.getState()
+      const side = p.fixture.home === 'T1' ? 'team1' : 'team2'
+      const ratings = matchRatings({ side, goalLog: ms.goalLog, matchEvents: ms.matchEvents, score: matchResult.score })
+      const goalsByRole = {}
+      for (const g of ms.goalLog || []) if (!g.own && !g.shootout && g.cap?.startsWith(`${side}_`)) goalsByRole[g.cap.slice(6)] = (goalsByRole[g.cap.slice(6)] || 0) + 1
+      useCareerStore.getState().record(p.fixture.id, result, { ratings, goalsByRole })
       return
     }
     if (p.kind === 'local') {

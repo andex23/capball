@@ -8,6 +8,7 @@ import { useMatchStore } from './MatchStore'
 import { setPendingBodies } from './savedMatch'
 import { setStreakSource } from './unlocks'
 import { isSignedIn } from './accountStore'
+import { useAchievementStore } from './achievementStore'
 
 export const DAILY_KEY = 'capball:daily:v1'
 const EMPTY = { lastDone: null, streak: 0, best: 0, tries: {} }
@@ -29,6 +30,7 @@ export const useDailyStore = create((set, get) => ({
     const next = { ...streak, tries }
     write(next)
     set(next)
+    if (next.streak >= 7) useAchievementStore.getState().award(['daily7'])
   },
 }))
 

@@ -1,5 +1,7 @@
 import { useTournamentStore } from '../state/tournamentStore'
 import { useAccountStore } from '../state/accountStore'
+import AchievementList from './AchievementList'
+import { RivalsList } from './ShareResult'
 import { useSavedStore, resumeSavedMatch, deleteSavedMatch, describeSave } from '../state/savedMatch'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Icon from './Icon'
@@ -36,6 +38,8 @@ export default function SavedGames() {
 
   return (
     <div className="saved-games">
+      {signedIn && <AchievementList />}
+      {signedIn && <RivalsList />}
       <section>
         <h3 className="saved-h">Career</h3>
         {!signedIn ? (

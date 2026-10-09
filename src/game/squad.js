@@ -49,6 +49,7 @@ export function makePlayer(rng, base, keeper = false, spread = 6) {
     name: `${pick(rng, FIRST)} ${pick(rng, LAST)}`,
     keeper,
     rating: clampRating(base + (rng() * 2 - 1) * spread),
+    apps: 0, goals: 0, ratingSum: 0, form: [],
   }
 }
 
@@ -115,11 +116,89 @@ export function marketFor({ season, level, windowIndex, taken = [], seed = '' })
   return players.filter((p) => !taken.includes(p.id))
 }
 
-/** A season's development: each player moves a few points (mostly up). */
+/**
+ * A season's development: each player moves a few points — more for a good
+ * season (average match rating), less (or down) for a poor one. Season stats reset.
+ */
 export function developSquad(squad, seed) {
   const rng = seededRng(`develop:${seed}`)
-  return Object.fromEntries(Object.entries(squad).map(([role, p]) => [role, { ...p, rating: clampRating(p.rating + Math.floor(rng() * 5) - 1) }]))
+  return Object.fromEntries(Object.entries(squad).map(([role, p]) => {
+    const avg = p.apps ? p.ratingSum / p.apps : null
+    const base = avg == null ? 1 : avg >= 7.5 ? 3 : avg >= 6.8 ? 2 : avg >= 6 ? 1 : 0
+    const change = base + Math.floor(rng() * 3) - 1
+    return [role, { ...p, rating: clampRating(p.rating + change), apps: 0, goals: 0, ratingSum: 0, form: [] }]
+  }))
 }
+
+/* ── Match ratings ── */
+
+const round1 = (n) => Math.round(n * 10) / 10
+
+/**
+ * Out-of-10 ratings for one side's six players after a match.
+ * side: 'team1' | 'team2' — the caps are `${side}_${role}`.
+ */
+export function matchRatings({ side, goalLog = [], matchEvents = [], score }) {
+  const other = side === 'team1' ? 'team2' : 'team1'
+  const gf = score?.[side] ?? 0
+  const ga = score?.[other] ?? 0
+  const result = gf > ga ? 0.5 : gf < ga ? -0.4 : 0.1
+  const out = {}
+  for (const role of CAP_ROLES) {
+    const cap = `${side}_${role}`
+    let r = 6 + result
+    for (const g of goalLog) {
+      if (g.shootout || g.cap !== cap) continue
+      r += g.own ? -1.2 : 1.3
+    }
+    for (const e of matchEvents) {
+      if (e.cap === cap && (e.type === 'save' || e.type === 'block' || e.type === 'post')) r += 0.3 // shot on target
+      if (e.by === cap && e.type === 'save') r += 0.7
+      if (e.by === cap && e.type === 'block') r += 0.5
+    }
+    if (role === 'gk' || role.startsWith('def')) r += ga === 0 ? 1 : -0.25 * Math.max(0, ga - 1)
+    out[role] = Math.max(3, Math.min(10, round1(r)))
+  }
+  return out
+}
+
+/** The best performer (ties go to whoever scored most, then the attacker). */
+export function manOfTheMatch(ratings, goalsByRole = {}) {
+  return [...CAP_ROLES].reverse().sort((a, b) => (ratings[b] - ratings[a]) || ((goalsByRole[b] || 0) - (goalsByRole[a] || 0)))[0]
+}
+
+/**
+ * One match for the career squad: appearances, goals, form, and a chance to
+ * grow (a great game) or slip (a poor one). Returns { squad, changes, motm, ratings }.
+ */
+export function applyMatchToSquad(squad, { ratings, goalsByRole = {}, seed }) {
+  const rng = seededRng(`grow:${seed}`)
+  const changes = []
+  const next = {}
+  for (const role of CAP_ROLES) {
+    const p = squad[role]
+    const r = ratings[role] ?? 6
+    let rating = p.rating
+    const roll = rng()
+    if (r >= 8.5 && roll < 0.75) rating += 1
+    else if (r >= 7.5 && roll < 0.45) rating += 1
+    else if (r <= 4.8 && roll < 0.35) rating -= 1
+    rating = clampRating(rating)
+    if (rating !== p.rating) changes.push({ role, name: p.name, from: p.rating, to: rating })
+    next[role] = {
+      ...p,
+      rating,
+      apps: (p.apps || 0) + 1,
+      goals: (p.goals || 0) + (goalsByRole[role] || 0),
+      ratingSum: round1((p.ratingSum || 0) + r),
+      form: [...(p.form || []), r].slice(-5),
+    }
+  }
+  return { squad: next, changes, motm: manOfTheMatch(ratings, goalsByRole), ratings }
+}
+
+/** Average of the last few match ratings, or null before any. */
+export const formOf = (p) => (p?.form?.length ? round1(p.form.reduce((a, b) => a + b, 0) / p.form.length) : null)
 
 /**
  * Sign `player` into `role`, letting the current player there go.
@@ -143,6 +222,11 @@ export function sanitizeSquad(input, seed = 'fix') {
   return Object.fromEntries(CAP_ROLES.map((role) => {
     const p = input[role]
     if (!isObj(p) || !Number.isFinite(p.rating) || typeof p.name !== 'string') return [role, fresh[role]]
-    return [role, { id: String(p.id || role).slice(0, 16), name: p.name.slice(0, 24), keeper: role === 'gk', rating: clampRating(p.rating) }]
+    const n = (v) => (Number.isFinite(v) && v >= 0 ? v : 0)
+    return [role, {
+      id: String(p.id || role).slice(0, 16), name: p.name.slice(0, 24), keeper: role === 'gk', rating: clampRating(p.rating),
+      apps: Math.floor(n(p.apps)), goals: Math.floor(n(p.goals)), ratingSum: n(p.ratingSum),
+      form: Array.isArray(p.form) ? p.form.filter((x) => Number.isFinite(x) && x >= 0 && x <= 10).slice(-5) : [],
+    }]
   }))
 }

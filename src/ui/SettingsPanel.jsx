@@ -3,6 +3,7 @@ import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { updateMenuMusicVolume, changeMenuMusic, MUSIC_TRACKS, DEFAULT_MUSIC_TRACK } from '../audio/MusicManager'
 import { playButtonSelect } from '../audio/SoundManager'
 import { canVibrate, haptic } from '../input/haptics'
+import { canSpeak } from '../audio/voice'
 import Icon from './Icon'
 
 function Slider({ label, value, onChange, disabled }) {
@@ -24,6 +25,8 @@ export default function SettingsPanel() {
   const musicVolume = useMatchStore((s) => s.musicVolume)
   const muted = useMatchStore((s) => s.muted)
   const vibration = useMatchStore((s) => s.vibration)
+  const voiceCommentary = useMatchStore((s) => s.voiceCommentary)
+  const toggleVoiceCommentary = useMatchStore((s) => s.toggleVoiceCommentary)
   const turnView = useMatchStore((s) => s.turnView)
   const swipeAim = useMatchStore((s) => s.swipeAim)
   const musicTrack = useMatchStore((s) => s.musicTrack)
@@ -72,6 +75,11 @@ export default function SettingsPanel() {
           {swipeAim ? 'Press a cap and swipe the way you want it to go.' : 'Press a cap and drag back like a slingshot; it shoots the other way.'}
         </p>
       </div>
+      {canSpeak() && (
+        <button className="btn btn-secondary" aria-pressed={voiceCommentary} onClick={() => { toggleVoiceCommentary(); playButtonSelect() }}>
+          <Icon name="volume" size={18} /> {voiceCommentary ? 'Spoken commentary on' : 'Spoken commentary off'}
+        </button>
+      )}
       {/* Only phones that can actually vibrate get the option */}
       {canVibrate() && (
         <button className="btn btn-secondary" aria-pressed={vibration} onClick={() => { toggleVibration(); playButtonSelect(); haptic('flick') }}>

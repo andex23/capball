@@ -87,6 +87,8 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     squad: squad ? sanitizeSquad(squad, now) : startingSquad(now),
     coins: START_COINS,
     signed: { key: '', ids: [] }, // players already bought in the current window
+    lastEarned: 0,
+    lastReport: null,
   }
 }
 
@@ -219,5 +221,20 @@ export function sanitizeCareer(input) {
       ? { key: input.signed.key.slice(0, 20), ids: input.signed.ids.filter((x) => typeof x === 'string').slice(0, 20) }
       : { key: '', ids: [] },
     lastEarned: n(input.lastEarned),
+    lastReport: sanitizeReport(input.lastReport),
+  }
+}
+
+/** The last match's player ratings (kept for the career screen). */
+function sanitizeReport(r) {
+  if (!isObj(r) || !isObj(r.ratings)) return null
+  const ratings = {}
+  for (const [k, v] of Object.entries(r.ratings)) if (Number.isFinite(v) && v >= 0 && v <= 10) ratings[k] = v
+  return {
+    fixtureId: String(r.fixtureId || '').slice(0, 12),
+    ratings,
+    motm: typeof r.motm === 'string' ? r.motm.slice(0, 8) : null,
+    changes: Array.isArray(r.changes) ? r.changes.filter(isObj).slice(0, 6) : [],
+    goals: isObj(r.goals) ? r.goals : {},
   }
 }

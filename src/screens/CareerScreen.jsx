@@ -16,7 +16,7 @@ import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
-import SquadPanel from '../ui/SquadPanel'
+import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames } from '../game/squad'
 
 const OUTCOME = {
@@ -250,6 +250,7 @@ export default function CareerScreen() {
             </section>
           )}
 
+          {played > 0 && <PlayerRatings career={career} />}
           <SquadPanel career={career} />
           </div>
 

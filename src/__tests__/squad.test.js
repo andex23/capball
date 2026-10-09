@@ -115,3 +115,33 @@ describe('career transfers', () => {
     expect(sanitizeCareer(JSON.parse(JSON.stringify(c))).squad).toEqual(c.squad)
   })
 })
+
+describe('match ratings and growth', () => {
+  it('scorers, keepers with saves and clean sheets rate well; Man of the Match is the best', async () => {
+    const { matchRatings, manOfTheMatch } = await import('../game/squad')
+    const r = matchRatings({
+      side: 'team1', score: { team1: 2, team2: 0 },
+      goalLog: [{ team: 'team1', cap: 'team1_atk1' }, { team: 'team1', cap: 'team1_atk1' }],
+      matchEvents: [{ type: 'save', cap: 'team2_atk1', by: 'team1_gk' }],
+    })
+    expect(r.atk1).toBeGreaterThan(8)
+    expect(r.gk).toBeGreaterThan(r.mid)
+    expect(manOfTheMatch(r, { atk1: 2 })).toBe('atk1')
+    const loss = matchRatings({ side: 'team1', score: { team1: 0, team2: 4 }, goalLog: [{ team: 'team2', cap: 'team1_def1', own: true }] })
+    expect(loss.def1).toBeLessThan(5)
+  })
+
+  it('a match adds apps, goals and form; great games can raise a rating', async () => {
+    const { applyMatchToSquad, startingSquad, formOf } = await import('../game/squad')
+    const squad = startingSquad('g')
+    let grew = 0
+    for (let i = 0; i < 20; i++) {
+      const r = applyMatchToSquad(squad, { ratings: { gk: 6, def1: 6, def2: 6, mid: 6, atk1: 9, atk2: 6 }, goalsByRole: { atk1: 2 }, seed: `s${i}` })
+      if (r.squad.atk1.rating > squad.atk1.rating) grew++
+      expect(r.squad.mid.rating).toBe(squad.mid.rating) // an average game doesn't move anyone
+      expect(r.squad.atk1).toMatchObject({ apps: 1, goals: 2 })
+      expect(formOf(r.squad.atk1)).toBe(9)
+    }
+    expect(grew).toBeGreaterThan(10)
+  })
+})

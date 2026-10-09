@@ -30,6 +30,7 @@
 import Matter from 'matter-js'
 import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, getFormationPositions } from '../data/TeamData'
 import { playFoulWhistle, playBallHit, playCapHit, playWallHit } from '../audio/SoundManager'
+import { shotCall } from '../game/shots'
 import { useMatchStore, PHASE, later } from '../state/MatchStore'
 import { teamHomeDir, teamOf, classifyContact, isInPenaltyArea, otherTeam } from '../game/rules'
 
@@ -300,6 +301,34 @@ export function createPhysicsWorld() {
         stopAll()
         s.callFoul(foulSpot, teamOf(other), inPenaltyBox)
       }, 300)
+      return
+    }
+  })
+
+  // ── EVENT: Near misses — off the post, just wide, saved, blocked ──
+  Events.on(engine, 'collisionStart', (event) => {
+    const s = useMatchStore.getState()
+    if (s.phase !== PHASE.RESOLVE || s.shotCalled || !s.lastFlickedCapId || s.challenge || s.penaltyShootout) return
+    const shooterTeam = teamOf(s.lastFlickedCapId)
+    if (!shooterTeam) return
+    for (const pair of event.pairs) {
+      const a = pair.bodyA, b = pair.bodyB
+      const ballBody = a.label === 'ball' ? a : b.label === 'ball' ? b : null
+      if (!ballBody) continue
+      const other = ballBody === a ? b : a
+      const team = teamOf(other.label)
+      const kind = other.isStatic ? 'wall' : !team ? null : other.label.endsWith('_gk') ? 'keeper' : 'cap'
+      if (!kind) continue
+      const call = shotCall({
+        ball: { x: ballBody.position.x, y: ballBody.position.y, vx: ballBody.velocity.x, vy: ballBody.velocity.y },
+        other: { kind, team },
+        attackDir: -getTeamDir(shooterTeam),
+        shooterTeam,
+      })
+      if (!call) continue
+      // Only once the shooter has actually struck the ball (not a cap nudging a still ball)
+      if (lastBallTeam !== shooterTeam && call !== 'post' && call !== 'wide') continue
+      s.callShot(call, s.lastFlickedCapId, kind === 'wall' ? null : other.label)
       return
     }
   })
