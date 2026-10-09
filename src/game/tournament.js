@@ -17,7 +17,7 @@
  */
 
 import { AI_DIFFICULTIES } from './records'
-import { sanitizeCapText } from '../data/TeamOptions'
+import { sanitizeCapText, CAP_ROLES } from '../data/TeamOptions'
 
 export const TOURNAMENT_VERSION = 1
 export const MIN_TEAMS = 3
@@ -148,7 +148,7 @@ export function sanitizeTeam(input, i = 0) {
   const name = typeof t.name === 'string' && t.name.trim() ? t.name.trim().slice(0, 16) : `Team ${i + 1}`
   const numbers = {}
   const srcNums = isObj(t.numbers) ? t.numbers : {}
-  for (const role of ['gk', 'def1', 'def2', 'atk1', 'atk2']) {
+  for (const role of CAP_ROLES) {
     const n = srcNums[role]
     if (Number.isInteger(n) && n >= 0 && n <= 99) numbers[role] = n
   }
@@ -157,6 +157,8 @@ export function sanitizeTeam(input, i = 0) {
     name,
     primary: HEX.test(t.primary) ? t.primary : '#D32F2F',
     edge: HEX.test(t.edge) ? t.edge : '#FFFFFF',
+    textColor: HEX.test(t.textColor) ? t.textColor : '',
+    skirtColor: HEX.test(t.skirtColor) ? t.skirtColor : '',
     badge: typeof t.badge === 'string' ? t.badge.slice(0, 16) : 'none',
     pattern: typeof t.pattern === 'string' ? t.pattern.slice(0, 16) : 'none',
     finish: typeof t.finish === 'string' ? t.finish.slice(0, 16) : 'matte',

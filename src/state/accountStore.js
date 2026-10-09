@@ -16,7 +16,7 @@ import { useMatchStore, SCREEN } from './MatchStore'
 const SESSION_KEY = 'capball:account'
 // Everything that makes up a player's save (the device key lets online
 // tournament seats follow the player to a new phone)
-const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball.tutorialDone', 'capball.device']
+const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball.tutorialDone', 'capball.device']
 const AUTOSAVE_MS = 45_000
 
 const storage = () => {

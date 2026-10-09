@@ -9,6 +9,7 @@ import { useTurnFacing } from './useTurnFacing'
 import PitchMesh from './PitchMesh'
 import Venue, { VenueSky } from './Venues'
 import BallTrail from './BallTrail'
+import { CAP_ROLES } from '../data/TeamOptions'
 import CapMesh from './CapMesh'
 import BallMesh from './BallMesh'
 import { usePhysicsSync } from '../physics/PhysicsSync'
@@ -232,8 +233,8 @@ function GameWorld() {
   const sc = STADIUMS[stadiumId] || STADIUMS.arena
   const team1 = teamConfig.team1
   const team2 = teamConfig.team2
-  const team1Caps = ['team1_gk', 'team1_def1', 'team1_def2', 'team1_atk1', 'team1_atk2']
-  const team2Caps = ['team2_gk', 'team2_def1', 'team2_def2', 'team2_atk1', 'team2_atk2']
+  const team1Caps = CAP_ROLES.map((r) => `team1_${r}`)
+  const team2Caps = CAP_ROLES.map((r) => `team2_${r}`)
 
   return (
     <group>
@@ -258,6 +259,8 @@ function GameWorld() {
             number={squadNumber(team1, 'team1', id)}
             pattern={team1.pattern}
             capText={team1.capText}
+            textColor={team1.textColor}
+            skirtColor={team1.skirtColor}
             finish={team1.finish}
           />
         )
@@ -277,6 +280,8 @@ function GameWorld() {
             number={squadNumber(team2, 'team2', id)}
             pattern={team2.pattern}
             capText={team2.capText}
+            textColor={team2.textColor}
+            skirtColor={team2.skirtColor}
             finish={team2.finish}
           />
         )

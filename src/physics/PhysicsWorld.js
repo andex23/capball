@@ -14,7 +14,7 @@
  * - Sound effects on collisions
  *
  * Objects:
- * - 10 caps (5 per team: gk, def1, def2, atk1, atk2)
+ * - 12 caps (6 per team: gk, def1, def2, mid, atk1, atk2)
  * - 1 ball
  * - Static walls (pitch boundary, goal areas, goal blockers)
  *
@@ -379,6 +379,7 @@ function createTeamBodies(team) {
   createCapBody(`${team}_gk`, pos.gk.x, pos.gk.y)
   createCapBody(`${team}_def1`, pos.def1.x, pos.def1.y)
   createCapBody(`${team}_def2`, pos.def2.x, pos.def2.y)
+  createCapBody(`${team}_mid`, pos.mid.x, pos.mid.y)
   createCapBody(`${team}_atk1`, pos.atk1.x, pos.atk1.y)
   createCapBody(`${team}_atk2`, pos.atk2.x, pos.atk2.y)
 }
@@ -662,6 +663,7 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   safePlace(`${fouledTeam}_atk2`, atkHome * halfW * 0.5, by > 0 ? -halfH * 0.35 : halfH * 0.35)
   safePlace(`${fouledTeam}_def1`, atkHome * halfW * 0.6, -halfH * 0.4)
   safePlace(`${fouledTeam}_def2`, atkHome * halfW * 0.6, halfH * 0.4)
+  safePlace(`${fouledTeam}_mid`, atkHome * halfW * 0.3, 0)
   safePlace(`${fouledTeam}_gk`, atkHome * (halfW - 1.2), 0)
   // A free kick right outside your own box: the taker can end up on top of
   // your keeper, and the pitch edge stops them being pushed apart along x.
@@ -683,7 +685,7 @@ export function setupFreeKick(foulSpot, fouledTeam) {
   const perpX = -nyToGoal
   const perpY = nxToGoal
 
-  const defFieldCaps = [`${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_atk1`, `${defTeam}_atk2`]
+  const defFieldCaps = [`${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_mid`, `${defTeam}_atk1`, `${defTeam}_atk2`]
   const wallSpacing = 2.2
 
   // Place wall caps
@@ -802,6 +804,8 @@ export function getLastBallTeam() {
   return lastBallTeam
 }
 
+const PENALTY_RUN_UP = 1.5
+
 export function setupPenalty(fouledTeam) {
   const { halfW } = PITCH
   const defTeam = otherTeam(fouledTeam)
@@ -810,21 +814,25 @@ export function setupPenalty(fouledTeam) {
 
   stopAll()
 
-  // Ball at penalty spot (4.5 units from the DEFENDING goal line)
+  // Ball on the penalty spot, the keeper right back on his line and the
+  // kicker a short run-up behind: enough room to pick a corner past the keeper
   const penX = defGkDir * (halfW - PITCH.penSpotDist)
   placeBallAt(penX, 0)
 
   // Kicker behind ball (toward center)
-  safePlace(`${fouledTeam}_atk1`, penX + atkGkDir * 3, 0)
+  safePlace(`${fouledTeam}_atk1`, penX + atkGkDir * PENALTY_RUN_UP, 0)
 
   // Both keepers on their own goal lines (they're confined to their boxes anyway)
-  safePlace(`${defTeam}_gk`, defGkDir * (halfW - 1.2), 0)
+  // The keeper picks a side before the kick, like a real one guessing: he
+  // stands a little off-centre, so there's always a corner worth going for
+  const lean = (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 0.4)
+  safePlace(`${defTeam}_gk`, defGkDir * (halfW - GK_RADIUS - 0.02), lean)
   safePlace(`${fouledTeam}_gk`, atkGkDir * (halfW - 1.2), 0)
 
   // The 7 remaining outfield caps: spread in a line along the halfway line
   const others = [
-    `${fouledTeam}_atk2`, `${fouledTeam}_def1`, `${fouledTeam}_def2`,
-    `${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_atk1`, `${defTeam}_atk2`,
+    `${fouledTeam}_atk2`, `${fouledTeam}_mid`, `${fouledTeam}_def1`, `${fouledTeam}_def2`,
+    `${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_mid`, `${defTeam}_atk1`, `${defTeam}_atk2`,
   ]
   const spacing = 2.2
   const startY = -((others.length - 1) * spacing) / 2

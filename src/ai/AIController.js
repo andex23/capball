@@ -143,6 +143,7 @@ function classicDecision(aiTeam, diff, requiredCapId, bodies, state, excluded, r
   const caps = [
     { id: `${aiTeam}_atk1`, role: 'attacker', priority: 3 },
     { id: `${aiTeam}_atk2`, role: 'attacker', priority: 3 },
+    { id: `${aiTeam}_mid`, role: 'attacker', priority: 2 },
     { id: `${aiTeam}_def1`, role: 'defender', priority: 1 },
     { id: `${aiTeam}_def2`, role: 'defender', priority: 1 },
     { id: `${aiTeam}_gk`,   role: 'goalkeeper', priority: -5 },
@@ -250,7 +251,7 @@ function aimAtGoal(capId, capBody, bx, by, goalX, diff, rng) {
 
 function passToTeammate(bestCap, aiTeam, bodies, diff, rng) {
   // Find the closest attacker teammate to pass to
-  const attackers = [`${aiTeam}_atk1`, `${aiTeam}_atk2`]
+  const attackers = [`${aiTeam}_atk1`, `${aiTeam}_atk2`, `${aiTeam}_mid`]
   let bestTarget = null
   let bestDist = Infinity
 

@@ -29,7 +29,8 @@ export const FINISHES = [
   { key: 'chrome', label: 'Chrome' },
 ]
 
-export const CAP_ROLES = ['gk', 'def1', 'def2', 'atk1', 'atk2']
+// A keeper and five outfield caps: two at the back, one in midfield, two up front
+export const CAP_ROLES = ['gk', 'def1', 'def2', 'mid', 'atk1', 'atk2']
 
 export const TEAM_NAME_MAX = 16
 
@@ -71,12 +72,13 @@ const DESIGN_FIELDS = ['primary', 'edge', 'pattern', 'badge', 'finish', 'capText
 
 /** The fields a design sets (without its key and name). */
 export function designPatch(design) {
-  return Object.fromEntries(DESIGN_FIELDS.map((k) => [k, design[k]]))
+  return { ...Object.fromEntries(DESIGN_FIELDS.map((k) => [k, design[k]])), textColor: '', skirtColor: '' }
 }
 
 /** Is this kit exactly the given design? */
 export function isDesign(config, design) {
-  return DESIGN_FIELDS.every((k) => (config[k] || (k === 'capText' ? '' : 'none')) === design[k])
+  return !config.textColor && !config.skirtColor &&
+    DESIGN_FIELDS.every((k) => (config[k] || (k === 'capText' ? '' : 'none')) === design[k])
 }
 
 /** What an option goes back to when you tap it again to clear it. */

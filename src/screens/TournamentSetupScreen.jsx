@@ -10,6 +10,7 @@ import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
 import CapDesigns from '../ui/CapDesigns'
+import ColorPicker from '../ui/ColorPicker'
 import { displayColor } from '../ui/color'
 
 /** Ready-made clubs for the extra teams (the first team is the player's own kit). */
@@ -53,6 +54,8 @@ function initialTeams(own, online) {
     pattern: own?.pattern || 'none',
     finish: own?.finish || 'matte',
     capText: own?.capText || '',
+    textColor: own?.textColor || '',
+    skirtColor: own?.skirtColor || '',
     numbers: own?.numbers,
     cpu: false,
     mine: true,
@@ -82,20 +85,6 @@ function summary(format, legs, teams, online) {
   return `${rounds} round${rounds === 1 ? '' : 's'}, drawn at random.${byes ? ` ${byes} team${byes === 1 ? ' gets a bye' : 's get byes'} into round two.` : ''} Draws go to penalties.`
 }
 
-function Swatches({ label, value, onPick }) {
-  return (
-    <div>
-      <div className="eyebrow" style={{ marginBottom: 8 }}>{label}</div>
-      <div className="swatches" role="group" aria-label={label}>
-        {COLOR_PRESETS.map((c) => (
-          <button key={c} className="swatch" style={{ background: c }} aria-pressed={value === c} aria-label={`${label} ${c}`}
-            onClick={() => { playButtonSelect(); onPick(c) }} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function KitEditor({ team, onUpdate, onClose }) {
   return (
     <Modal
@@ -108,8 +97,10 @@ function KitEditor({ team, onUpdate, onClose }) {
         <div className="eyebrow" style={{ marginBottom: 8 }}>Ready-made designs</div>
         <CapDesigns config={team} onPick={onUpdate} />
       </div>
-      <Swatches label="Main colour" value={team.primary} onPick={(c) => onUpdate({ primary: c })} />
-      <Swatches label="Print colour" value={team.edge} onPick={(c) => onUpdate({ edge: c })} />
+      <ColorPicker label="Top colour" value={team.primary} onPick={(c) => onUpdate({ primary: c || team.primary })} />
+      <ColorPicker label="Pattern & ring colour" value={team.edge} onPick={(c) => onUpdate({ edge: c || team.edge })} />
+      <ColorPicker label="Text & badge colour" value={team.textColor || ''} allowDefault onPick={(c) => onUpdate({ textColor: c })} />
+      <ColorPicker label="Sides colour" value={team.skirtColor || ''} allowDefault autoLabel="Same as top" onPick={(c) => onUpdate({ skirtColor: c })} />
       <div>
         <label className="eyebrow" htmlFor="kit-cap-text" style={{ display: 'block', marginBottom: 8 }}>Text on the caps</label>
         <input

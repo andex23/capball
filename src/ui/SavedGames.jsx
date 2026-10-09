@@ -21,6 +21,7 @@ function day(iso) {
 export default function SavedGames() {
   const saved = useSavedStore((s) => s.saved)
   const history = useSavedStore((s) => s.history)
+  const career = useSavedStore((s) => s.career)
   const local = useTournamentStore((s) => s.local)
   const recentOnline = useTournamentStore((s) => s.recentOnline)
   const won = useTournamentStore((s) => s.history)
@@ -33,6 +34,31 @@ export default function SavedGames() {
 
   return (
     <div className="saved-games">
+      <section>
+        <h3 className="saved-h">Career</h3>
+        {career.played === 0 ? (
+          <p className="muted saved-empty">Play a match and your totals start here.</p>
+        ) : (
+          <>
+            <div className="career-grid">
+              <div className="career-stat"><b>{career.played}</b><small>Played</small></div>
+              <div className="career-stat" data-tone="good"><b>{career.won}</b><small>Won</small></div>
+              <div className="career-stat"><b>{career.drawn}</b><small>Drawn</small></div>
+              <div className="career-stat" data-tone="bad"><b>{career.lost}</b><small>Lost</small></div>
+              <div className="career-stat"><b>{career.goalsFor}</b><small>Scored</small></div>
+              <div className="career-stat"><b>{career.goalsAgainst}</b><small>Conceded</small></div>
+              <div className="career-stat"><b>{career.cleanSheets}</b><small>Clean sheets</small></div>
+              <div className="career-stat" data-tone="gold"><b>{won.length}</b><small>Cups won</small></div>
+            </div>
+            <p className="muted saved-empty" style={{ marginTop: 8 }}>
+              {career.bestWin ? <>Best win: <b>{career.bestWin.for}–{career.bestWin.against}</b> vs {career.bestWin.vs}. </> : null}
+              {career.played - career.local > 0 && <>Win rate {Math.round((career.won / (career.played - career.local)) * 100)}%. </>}
+              {career.local > 0 && <>{career.local} pass-and-play match{career.local === 1 ? '' : 'es'} (not counted as wins or losses).</>}
+            </p>
+          </>
+        )}
+      </section>
+
       <section>
         <h3 className="saved-h">Saved match</h3>
         {saved ? (

@@ -64,6 +64,8 @@ function kitFor(team, side) {
     name: team.name,
     primary: team.primary,
     edge: team.edge,
+    textColor: team.textColor || '',
+    skirtColor: team.skirtColor || '',
     badge: team.badge || 'none',
     pattern: team.pattern || 'none',
     finish: team.finish || 'matte',

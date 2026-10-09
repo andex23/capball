@@ -47,8 +47,9 @@ function starPoints(cx, cy, outerR, innerR, points) {
    PATTERN OVERLAYS
    ======================================== */
 function PatternOverlay({ pattern, cx, cy, innerR, edgeColor }) {
-  const color = `${edgeColor}55`
-  const boldColor = `${edgeColor}88`
+  // Printed in the pattern colour itself, so what you pick is what you get
+  const color = `${edgeColor}D9`
+  const boldColor = `${edgeColor}F2`
   switch (pattern) {
     case 'stripe':
       return (
@@ -72,18 +73,14 @@ function PatternOverlay({ pattern, cx, cy, innerR, edgeColor }) {
         </g>
       )
     case 'dots': {
-      const dotR = innerR * 0.08
-      const positions = [
-        [0, -0.45], [0.32, -0.32], [0.45, 0], [0.32, 0.32],
-        [0, 0.45], [-0.32, 0.32], [-0.45, 0], [-0.32, -0.32],
-      ]
-      return (
-        <g>
-          {positions.map(([dx, dy], i) => (
-            <circle key={i} cx={cx + innerR * dx} cy={cy + innerR * dy} r={dotR} fill={boldColor} />
-          ))}
-        </g>
-      )
+      // Polka dots: an even grid of round dots over the whole top
+      const step = innerR * 0.3
+      const dots = []
+      for (let row = -4; row <= 4; row++) {
+        const off = row % 2 ? step / 2 : 0
+        for (let col = -4; col <= 4; col++) dots.push([cx + col * step + off, cy + row * step * 0.87])
+      }
+      return <g>{dots.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={innerR * 0.075} fill={boldColor} />)}</g>
     }
     case 'wave':
       // A swoosh across the middle, like a soda cap's wave
@@ -132,8 +129,9 @@ function isLight(hex) {
 
 export default function CapPreview({ config, size = 120, number = null }) {
   const { primary, edge, badge, pattern, finish } = config
+  const skirtBase = config.skirtColor || primary
   const capText = typeof config.capText === 'string' ? config.capText.trim() : ''
-  const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}-${size}`.replace(/[^a-z0-9-]/gi, '')
+  const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}-${config.textColor || ''}-${size}`.replace(/[^a-z0-9-]/gi, '')
 
   // A crown cap seen from a little above, like one sitting on the table:
   // the printed top tilted into an ellipse, the fluted skirt showing below
@@ -153,6 +151,7 @@ export default function CapPreview({ config, size = 120, number = null }) {
   const isMatte = finish === 'matte'
   const specAlpha = isChrome ? 0.55 : finish === 'gloss' ? 0.4 : finish === 'satin' ? 0.22 : 0.1
   const printColor = edge === primary ? '#ffffff' : edge
+  const inkColor = config.textColor || printColor
   const withText = capText.length > 0
   const hasBadge = badge && badge !== 'none'
 
@@ -174,7 +173,7 @@ export default function CapPreview({ config, size = 120, number = null }) {
       const facing = Math.cos((s0 + s1) / 2 + 0.5) // light from the front left
       const lit = half === 0
       const amt = (lit ? 0.1 : 0.32) + (1 - facing) * 0.18
-      folds.push({ d: `M${p.map((q) => q.map((v) => v.toFixed(2)).join(' ')).join(' L')} Z`, fill: darkenHex(primary, Math.min(0.7, amt)), shine: lit && facing > 0.2 })
+      folds.push({ d: `M${p.map((q) => q.map((v) => v.toFixed(2)).join(' ')).join(' L')} Z`, fill: darkenHex(skirtBase, Math.min(0.7, amt)), shine: lit && facing > 0.2 })
     }
   }
 
@@ -204,7 +203,7 @@ export default function CapPreview({ config, size = 120, number = null }) {
 
       {/* Fluted skirt */}
       {folds.map((f, i) => (
-        <path key={i} d={f.d} fill={f.fill} stroke={darkenHex(primary, 0.55)} strokeWidth={size * 0.004} strokeLinejoin="round" />
+        <path key={i} d={f.d} fill={f.fill} stroke={darkenHex(skirtBase, 0.55)} strokeWidth={size * 0.004} strokeLinejoin="round" />
       ))}
       {folds.filter((f) => f.shine).map((f, i) => <path key={`s${i}`} d={f.d} fill={`url(#skirtShine-${uid})`} />)}
 
@@ -216,12 +215,12 @@ export default function CapPreview({ config, size = 120, number = null }) {
       <g transform={`matrix(1 0 0 ${K} 0 ${(tc * (1 - K)).toFixed(3)})`}>
         <circle cx={cx} cy={tc} r={topR} fill={`url(#top-${uid})`} />
         <g clipPath={`url(#topClip-${uid})`}>
-          {pattern === 'split' && <circle cx={cx} cy={tc} r={topR} fill={`${edge}40`} clipPath={`url(#split-${uid})`} />}
+          {pattern === 'split' && <circle cx={cx} cy={tc} r={topR} fill={edge} clipPath={`url(#split-${uid})`} />}
           <PatternOverlay pattern={pattern} cx={cx} cy={tc} innerR={topR} edgeColor={edge} />
         </g>
         <circle cx={cx} cy={tc} r={ringR} fill="none" stroke={printColor} strokeOpacity="0.85" strokeWidth={size * 0.014} />
         {withText && (
-          <text fill={printColor} fontSize={topR * 0.24} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
+          <text fill={inkColor} fontSize={topR * 0.24} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
             <textPath href={`#arc-${uid}`} startOffset="50%" textAnchor="middle">{capText.toUpperCase()}</textPath>
           </text>
         )}
@@ -231,7 +230,7 @@ export default function CapPreview({ config, size = 120, number = null }) {
             cx={cx}
             cy={number != null ? tc - topR * 0.08 + (withText ? topR * 0.08 : 0) : tc + (withText ? topR * 0.12 : 0)}
             size={topR * (number != null ? 0.34 : 0.5)}
-            color={printColor}
+            color={inkColor}
           />
         )}
         {number != null && (

@@ -11,6 +11,7 @@ import { formatClock } from '../game/rules'
 
 export const SAVED_MATCH_KEY = 'capball:savedMatch:v1'
 export const HISTORY_KEY = 'capball:history:v1'
+export const CAREER_KEY = 'capball:career:v1'
 const HISTORY_MAX = 20
 
 // Everything about the match set-up and its progress that a save brings back
@@ -26,6 +27,14 @@ const write = (key, v) => {
   try { if (v == null) store()?.removeItem(key); else store()?.setItem(key, JSON.stringify(v)) } catch { /* full or blocked */ }
 }
 
+// Running totals over every match this player has finished
+export const EMPTY_CAREER = {
+  played: 0, won: 0, drawn: 0, lost: 0,
+  goalsFor: 0, goalsAgainst: 0, shots: 0, cleanSheets: 0,
+  bestWin: null, // { for, against, vs }
+  local: 0,      // pass-and-play matches (two players on one phone: no win or loss for "you")
+}
+
 /** Short description of a saved match, e.g. "Lions 1–0 Tigers · 2nd half 0:45". */
 export function describeSave(save) {
   if (!save?.match) return ''
@@ -38,6 +47,7 @@ export function describeSave(save) {
 export const useSavedStore = create(() => ({
   saved: read(SAVED_MATCH_KEY),
   history: Array.isArray(read(HISTORY_KEY)) ? read(HISTORY_KEY) : [],
+  career: { ...EMPTY_CAREER, ...(read(CAREER_KEY) || {}) },
 }))
 
 /** Why the match on screen can't be saved right now, or null if it can. */
@@ -131,7 +141,41 @@ export function recordHistory(result, mode) {
   }
   const history = [entry, ...useSavedStore.getState().history].slice(0, HISTORY_MAX)
   write(HISTORY_KEY, history)
-  useSavedStore.setState({ history })
+  const career = addToCareer(useSavedStore.getState().career, result, myTeamFor(s), s.teamConfig)
+  write(CAREER_KEY, career)
+  useSavedStore.setState({ history, career })
+}
+
+/** Which side is "you" this match: null when two people shared the phone. */
+function myTeamFor(s) {
+  if (s.gameMode === 'online') return s.onlineMyTeam || null
+  if (s.gameMode === 'ai') return s.aiTeam === 'team1' ? 'team2' : 'team1'
+  return null
+}
+
+/** Career totals after one more finished match. Pure, for testing. */
+export function addToCareer(prev, result, me, teamConfig = {}) {
+  const c = { ...EMPTY_CAREER, ...(prev || {}) }
+  c.played += 1
+  if (!me) { c.local += 1; return c }
+  const them = me === 'team1' ? 'team2' : 'team1'
+  const gf = result.score?.[me] ?? 0
+  const ga = result.score?.[them] ?? 0
+  c.goalsFor += gf
+  c.goalsAgainst += ga
+  c.shots += result.stats?.[me]?.shots ?? 0
+  if (ga === 0) c.cleanSheets += 1
+  // A shootout decides the winner of a level match
+  const pens = result.penaltyScore
+  const won = gf > ga || (gf === ga && pens && pens[me] > pens[them])
+  const lost = ga > gf || (gf === ga && pens && pens[them] > pens[me])
+  if (won) c.won += 1
+  else if (lost) c.lost += 1
+  else c.drawn += 1
+  if (gf > ga && (!c.bestWin || gf - ga > c.bestWin.for - c.bestWin.against || (gf - ga === c.bestWin.for - c.bestWin.against && gf > c.bestWin.for))) {
+    c.bestWin = { for: gf, against: ga, vs: teamConfig?.[them]?.name || 'CPU' }
+  }
+  return c
 }
 
 /** Keep the history up to date as matches finish. */

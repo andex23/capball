@@ -100,8 +100,8 @@ const clearTurn = {
 }
 
 export const DEFAULT_TEAM_CONFIG = {
-  team1: { name: 'Team 1', primary: '#D32F2F', edge: '#FFD700', badge: 'none', numbers: { gk: 1, def1: 4, def2: 5, atk1: 10, atk2: 9 }, pattern: 'none', finish: 'matte', capText: '' },
-  team2: { name: 'Team 2', primary: '#1565C0', edge: '#FFFFFF', badge: 'none', numbers: { gk: 1, def1: 3, def2: 6, atk1: 7, atk2: 11 }, pattern: 'none', finish: 'matte', capText: '' },
+  team1: { name: 'Team 1', primary: '#D32F2F', edge: '#FFD700', badge: 'none', numbers: { gk: 1, def1: 4, def2: 5, mid: 8, atk1: 10, atk2: 9 }, pattern: 'none', finish: 'matte', capText: '', textColor: '', skirtColor: '' },
+  team2: { name: 'Team 2', primary: '#1565C0', edge: '#FFFFFF', badge: 'none', numbers: { gk: 1, def1: 3, def2: 6, mid: 8, atk1: 7, atk2: 11 }, pattern: 'none', finish: 'matte', capText: '', textColor: '', skirtColor: '' },
 }
 
 /** Does this client run physics and rules? Everyone except an online guest. */
