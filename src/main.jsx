@@ -18,6 +18,7 @@ import { initAccount } from './state/accountStore'
 import { initSavedMatches } from './state/savedMatch'
 import { initClips } from './game/clips'
 import { initInstallPrompt } from './pwa/install'
+import { initAnalytics } from './analytics'
 
 // Restore saved teams, settings and records before the first render
 initPersistence()
@@ -29,6 +30,7 @@ initSavedMatches()
 initClips()
 // The install prompt can fire before the menu mounts, so catch it early
 initInstallPrompt()
+initAnalytics()
 
 // #dbcheck: a one-off live test of the online-tournament database
 if (location.hash === '#dbcheck') {
