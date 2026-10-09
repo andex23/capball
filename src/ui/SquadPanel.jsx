@@ -50,9 +50,12 @@ export default function SquadPanel({ career }) {
         })}
       </ul>
       {win ? (
-        <button className="btn btn-gold btn-block" onClick={() => { playButtonSelect(); setMarketOpen(true) }}>
-          <Icon name="next" size={18} /> Transfer window open — {win.index === 0 ? 'pre-season' : 'mid-season'}
-        </button>
+        <>
+          <p className="t-note squad-window">The {win.index === 0 ? 'pre-season' : 'mid-season'} transfer window is open.</p>
+          <button className="btn btn-gold btn-block" onClick={() => { playButtonSelect(); setMarketOpen(true) }}>
+            <Icon name="next" size={18} /> Transfer market
+          </button>
+        </>
       ) : (
         <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>
       )}
