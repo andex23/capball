@@ -1,4 +1,5 @@
 import { darkenHex, lightenHex } from './color'
+import { capLabel } from '../data/TeamOptions'
 
 /* ========================================
    BADGE SVG PATHS
@@ -130,7 +131,7 @@ function isLight(hex) {
 export default function CapPreview({ config, size = 120, number = null }) {
   const { primary, edge, badge, pattern, finish } = config
   const skirtBase = config.skirtColor || primary
-  const capText = typeof config.capText === 'string' ? config.capText.trim() : ''
+  const capText = capLabel(config)
   const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}-${config.textColor || ''}-${size}`.replace(/[^a-z0-9-]/gi, '')
 
   // A crown cap seen from a little above, like one sitting on the table:

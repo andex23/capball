@@ -9,7 +9,7 @@ import { useTurnFacing } from './useTurnFacing'
 import PitchMesh from './PitchMesh'
 import Venue, { VenueSky } from './Venues'
 import BallTrail from './BallTrail'
-import { CAP_ROLES } from '../data/TeamOptions'
+import { CAP_ROLES, capLabel } from '../data/TeamOptions'
 import CapMesh from './CapMesh'
 import BallMesh from './BallMesh'
 import { usePhysicsSync } from '../physics/PhysicsSync'
@@ -258,7 +258,7 @@ function GameWorld() {
             badge={team1.badge}
             number={squadNumber(team1, 'team1', id)}
             pattern={team1.pattern}
-            capText={team1.capText}
+            capText={capLabel(team1)}
             textColor={team1.textColor}
             skirtColor={team1.skirtColor}
             finish={team1.finish}
@@ -279,7 +279,7 @@ function GameWorld() {
             badge={team2.badge}
             number={squadNumber(team2, 'team2', id)}
             pattern={team2.pattern}
-            capText={team2.capText}
+            capText={capLabel(team2)}
             textColor={team2.textColor}
             skirtColor={team2.skirtColor}
             finish={team2.finish}

@@ -14,7 +14,8 @@ function timeAgo(iso) {
 }
 
 /** Sign up / sign in with just a username and password, or see who's signed in. */
-export default function AccountPanel() {
+/** `formOnly`: just the sign-in / create-account form (no saved games list) when signed out. */
+export default function AccountPanel({ formOnly = false }) {
   const { username, busy, error, savedAt, saving } = useAccountStore()
   const { signIn, signUp, signOut, save } = useAccountStore.getState()
   const [mode, setMode] = useState('signin') // 'signin' | 'signup'
@@ -52,7 +53,7 @@ export default function AccountPanel() {
 
   return (
     <div className="account">
-    <SavedGames />
+    {!formOnly && <SavedGames />}
     <form className="account account-form" onSubmit={submit}>
       <h3 className="saved-h">Keep your games on any phone</h3>
       <div className="segmented stretch" role="tablist">

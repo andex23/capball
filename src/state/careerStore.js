@@ -5,6 +5,8 @@
  */
 import { create } from 'zustand'
 import { newCareer, recordCareerResult, finishSeason, sanitizeCareer, seasonOver } from '../game/career'
+import { allFixtures } from '../game/tournament'
+import { useAccountStore } from './accountStore'
 
 export const CAREER_KEY = 'capball:career-mode:v1'
 
@@ -31,6 +33,7 @@ export const useCareerStore = create((set, get) => ({
     const career = newCareer(club, { matchDuration })
     save(career)
     set({ career })
+    useAccountStore.getState().save({ force: true })
   },
 
   /** Your result for one fixture (home/away goals, as the tournament engine counts them). */
@@ -40,6 +43,7 @@ export const useCareerStore = create((set, get) => ({
     const next = recordCareerResult(career, fixtureId, result)
     save(next)
     set({ career: next })
+    useAccountStore.getState().save({ force: true })
   },
 
   /** The season's over: see it into the record books and start the next. */
@@ -49,12 +53,14 @@ export const useCareerStore = create((set, get) => ({
     const next = finishSeason(career)
     save(next)
     set({ career: next })
+    useAccountStore.getState().save({ force: true })
   },
 
-  /** Change the club's kit or name between matches. */
+  /** Change the club's kit — only before the season's first match. */
   updateClub(patch) {
     const { career } = get()
     if (!career) return
+    if (allFixtures(career.league).some((f) => f.result && (f.home === 'T1' || f.away === 'T1'))) return
     const club = { ...career.club, ...patch }
     const teams = career.league.teams.map((t) => (t.id === 'T1' ? { ...t, ...patch } : t))
     const next = { ...career, club, league: { ...career.league, teams } }

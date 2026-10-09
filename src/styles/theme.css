@@ -1912,3 +1912,9 @@ button { cursor: pointer; background: none; border: 0; }
 .iss-tag[data-arrow='true'] { background: none; box-shadow: none; color: var(--iss-yellow); font-size: 14px; }
 .iss-row .iss-sub { white-space: nowrap; }
 .iss-window { animation: iss-open 160ms steps(4, end) both; }
+.career-save { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(27, 94, 32, 0.45); border: 2px solid #3ddc6b; color: #e8ffe9; font-size: 13px; }
+.career-save span { flex: 1; min-width: 0; }
+.career-save .btn { min-height: 32px; font-size: 12px; color: #fff; }
+.career-kit-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
+.career-kit-card .t-note { margin: 0; }
+@media (max-width: 480px) { .career-kit-card { grid-template-columns: auto 1fr; } .career-kit-card > .btn { grid-column: 1 / -1; } }

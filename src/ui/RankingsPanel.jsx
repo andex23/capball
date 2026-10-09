@@ -4,6 +4,7 @@ import { useAccountStore } from '../state/accountStore'
 import { weekKey } from '../state/savedMatch'
 import { playButtonSelect } from '../audio/SoundManager'
 import RecordsPanel from './RecordsPanel'
+import AccountPanel from './AccountPanel'
 
 const TABS = [
   { key: 'week', label: 'This week' },
@@ -12,13 +13,13 @@ const TABS = [
 ]
 
 /** Leaderboards (signed-in players, vs computer and online wins) and your own records. */
-export default function RankingsPanel({ onSignIn }) {
+export default function RankingsPanel() {
   const [tab, setTab] = useState('week')
   const { rows, loading, error, load } = useBoardStore()
   const username = useAccountStore((s) => s.username)
   const period = tab === 'all' ? 'all' : weekKey()
 
-  useEffect(() => { if (tab !== 'mine') load(tab) }, [tab, load])
+  useEffect(() => { if (tab !== 'mine' && username) load(tab) }, [tab, load, username])
 
   return (
     <div className="rankings">
@@ -27,14 +28,14 @@ export default function RankingsPanel({ onSignIn }) {
           <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => { playButtonSelect(); setTab(t.key) }}>{t.label}</button>
         ))}
       </div>
-      {tab === 'mine' ? <RecordsPanel /> : (
+      {tab === 'mine' ? <RecordsPanel /> : !username ? (
+        <div className="rankings-gate">
+          <p className="t-note">The leaderboards are for players with an account, so every name on them is a real player. Create one with just a username and password — your wins start counting straight away, and your rare caps and career come with you to any phone.</p>
+          <AccountPanel formOnly />
+        </div>
+      ) : (
         <>
           <p className="muted t-note">Most wins against the computer and online{tab === 'week' ? ' this week (from Monday)' : ''}. Goals break ties.</p>
-          {!username && (
-            <p className="t-note rankings-join">
-              Sign in to get on the board. <button className="btn btn-ghost" onClick={onSignIn}>Sign in</button>
-            </p>
-          )}
           {error && <p className="t-warn" role="alert">{error}</p>}
           {loading && !rows[period] ? <p className="muted">Loading…</p> : (
             (rows[period] || []).length === 0

@@ -98,7 +98,7 @@ export default function MenuScreen() {
     main: [
       ...(saved ? [{ key: 'continue', title: 'Continue', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
       { key: 'play', title: 'Quick Match', sub: 'Vs computer, two players, online', tag: '►', action: () => go('play') },
-      { key: 'career', title: 'Career', sub: career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
+      { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: 'Leagues and cups, here or online', tag: '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: doneToday, action: () => openDialog('daily') },
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
@@ -200,7 +200,7 @@ export default function MenuScreen() {
       )}
       {dialog === 'records' && (
         <Modal title="Rankings" onClose={() => setDialog(null)}>
-          <RankingsPanel onSignIn={() => { playButtonSelect(); setDialog('account') }} />
+          <RankingsPanel />
         </Modal>
       )}
       {dialog === 'account' && (
