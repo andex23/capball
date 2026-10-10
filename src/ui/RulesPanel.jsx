@@ -15,14 +15,45 @@ const SECTIONS = [
     ],
   },
   {
-    title: 'Scoring',
+    title: 'Goals that count',
     items: [
-      'Knock the ball into your opponent’s goal. Most goals at full time wins.',
-      'You can’t score straight from a kick-off flick.',
-      'Goalkeepers can score in open play, but not directly from a goal kick. Own goals still count.',
-      'Goalkeepers must stay inside their penalty area.',
-      'You can only flick your goalkeeper when the ball is inside his penalty area (where he can reach it).',
-      'Teams swap ends at half time.',
+      'The whole ball must cross the goal line between the posts. A ball resting on the line is not a goal yet — you can still clear it.',
+      'A rebound off a goalpost can count. The post is not a pitch-edge cushion; the other scoring restrictions still apply.',
+      'Your cap hitting the pitch edge does not disallow a goal. The edge restriction applies to the ball.',
+      'In timed matches, most goals at full time wins and teams swap ends at half time. In first-to-score matches, reach the target to win.',
+    ],
+  },
+  {
+    title: 'Goal restrictions',
+    items: [
+      'You cannot score on the kick-off flick.',
+      'You cannot score directly into the opponent’s goal from a goal kick, even off a goalpost.',
+      'If the ball hits a pitch-edge cushion and then enters the goal without touching another cap, it is no goal. The defending team gets a goal kick.',
+      'If the ball touches a cap after its edge bounce, the edge restriction is cleared. The goal can count unless another scoring restriction applies.',
+      'Hitting an opponent’s cap before the ball is a foul, not a scoring play.',
+    ],
+  },
+  {
+    title: 'Goalkeepers',
+    items: [
+      'Goalkeepers can score in open play. The direct goal-kick restriction still applies.',
+      'The goal-kick restriction does not cancel an own goal; other scoring restrictions still apply.',
+      'Goalkeepers must stay inside their penalty area. You can only flick your goalkeeper when the ball is inside that area and within reach.',
+    ],
+  },
+  {
+    title: 'Replays and goal clips',
+    items: [
+      'Goal and no-goal replays explain the decision, including pitch-edge contact and goalpost rebounds.',
+      'Only confirmed goals appear in Goal clips. Disallowed goals are not saved as scored-goal clips.',
+    ],
+  },
+  {
+    title: 'Play anytime',
+    items: [
+      'Each player has a set number of turns. Confirmed turns are saved, so you can leave and return to finish the match.',
+      'Matches without a turn deadline can wait. If a deadline is set, it keeps running while you are away or the menu is open; missing it loses the match by forfeit.',
+      'Most goals after both players finish their turns wins. Knockout draws go to penalties. During Play anytime penalties, the goalkeeper holds the centre.',
     ],
   },
   {

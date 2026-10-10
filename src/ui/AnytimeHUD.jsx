@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAnytimeStore } from '../state/anytimeStore'
 import { decisionText } from '../game/replay'
 import Modal from './Modal'
+import RulesPanel from './RulesPanel'
 import AnytimeScoreboard from './AnytimeScoreboard'
 import { useMatchStore } from '../state/MatchStore'
 
@@ -9,6 +10,7 @@ export default function AnytimeHUD({ children }) {
   const { match, busy, pending, watching, error } = useAnytimeStore()
   const [confirm, setConfirm] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [rules, setRules] = useState(false)
   const showMenu = open => { setMenu(open); useMatchStore.setState({ paused: open }) }
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -28,9 +30,11 @@ export default function AnytimeHUD({ children }) {
     {(error || pending) && <p className="at-match-note" data-error="true" role="alert">{error || 'Open the menu to confirm your turn.'}</p>}
     {watching && explanation && <p className="at-match-note"><strong>{explanation.title}</strong> · {explanation.detail}</p>}
     <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{children}</div>
+    {rules && <Modal title="How to play" onClose={() => { setRules(false); setMenu(true) }}><RulesPanel /></Modal>}
     {menu && <Modal title="Match menu" onClose={() => showMenu(false)} footer={<button className="btn btn-primary btn-block" onClick={() => showMenu(false)}>Back to pitch</button>}>
       <div style={{ display: 'grid', gap: 10 }}>
         <p className="muted">Drag a cap back to aim, then release to shoot.</p>
+        <button className="btn btn-secondary" onClick={() => { setMenu(false); setRules(true) }}>How to play · Rules</button>
         {match.dueAt && !s.complete && <p>Turn due {new Date(match.dueAt).toLocaleString()}</p>}
         {!match.dueAt && !s.complete && <p>No turn deadline</p>}
         {s.finishReason && <p>{s.finishReason === 'deadline' ? 'The turn deadline passed. Opponent wins by forfeit.' : 'Match ended by resignation.'}</p>}
