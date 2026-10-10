@@ -68,8 +68,8 @@ export const TIMING = {
    match can cancel them all. Without this, a timer from an abandoned match
    could fire into the next one. */
 const pendingTimers = new Set()
-let goalTimer = null
-let noGoalTimer = null
+let decisionTimer = null
+let decisionCompletion = null
 
 export function later(fn, ms) {
   const id = setTimeout(() => {
@@ -89,6 +89,33 @@ export function cancelLater(id) {
 export function clearMatchTimers() {
   pendingTimers.forEach(clearTimeout)
   pendingTimers.clear()
+  decisionTimer = null
+  decisionCompletion = null
+}
+
+// The renderer completes a scoring decision as soon as its replay ends.
+// The timeout is only a fallback for an unavailable renderer, not extra idle time.
+function scheduleDecision(continuation, delay) {
+  cancelLater(decisionTimer)
+  const { matchKey, phase } = useMatchStore.getState()
+  const complete = () => {
+    if (decisionCompletion !== complete) return
+    const s = useMatchStore.getState()
+    cancelLater(decisionTimer)
+    decisionTimer = null
+    decisionCompletion = null
+    if (s.matchKey === matchKey && s.phase === phase) continuation()
+  }
+  decisionCompletion = complete
+  const fallback = () => {
+    if (decisionCompletion !== complete) return
+    const s = useMatchStore.getState()
+    // A paused match or a replay still being drawn must not jump ahead.
+    if (s.paused) { decisionTimer = later(fallback, delay); return }
+    if (s.replaying) { decisionTimer = later(fallback, 250); return }
+    complete()
+  }
+  decisionTimer = later(fallback, delay)
 }
 
 const emptyStats = () => ({
@@ -459,7 +486,7 @@ export const useMatchStore = create((set, get) => ({
     if (get().challenge) {
       // Celebrate, then the challenge is done (into your own net is a fail)
       set({ ...clearTurn, score: { ...score, [scoringTeam]: score[scoringTeam] + 1 }, phase: PHASE.GOAL, replayDecision, lastScorer: scoringTeam, lastGoalOwn: !!ownGoal, lastConceded: otherTeam(scoringTeam) })
-      goalTimer = later(() => get().endChallenge(scoringTeam === 'team1'), TIMING.goal)
+      scheduleDecision(() => get().endChallenge(scoringTeam === 'team1'), TIMING.goal)
       return
     }
     const concedingTeam = otherTeam(scoringTeam)
@@ -479,10 +506,10 @@ export const useMatchStore = create((set, get) => ({
     // First to N: that goal wins it
     const { goalTarget } = get()
     if (goalTarget && score[scoringTeam] + 1 >= goalTarget && !get().penaltyShootout) {
-      goalTimer = later(() => get().endMatch(), TIMING.goal)
+      scheduleDecision(() => get().endMatch(), TIMING.goal)
       return
     }
-    goalTimer = later(() => get().startKickoff(concedingTeam), TIMING.goal)
+    scheduleDecision(() => get().startKickoff(concedingTeam), TIMING.goal)
   },
 
   /** Cut the goal replay short and go straight to the kick-off. Offline only:
@@ -490,10 +517,14 @@ export const useMatchStore = create((set, get) => ({
   skipGoal: () => {
     const s = get()
     if (s.phase !== PHASE.GOAL || s.penaltyShootout || s.gameMode === 'online') return
-    cancelLater(goalTimer)
-    if (s.challenge) { s.endChallenge(s.lastScorer === 'team1'); return }
-    if (s.goalTarget && s.score[s.lastScorer] >= s.goalTarget) { s.endMatch(); return }
-    s.startKickoff(s.lastConceded)
+    s.completeDecisionReplay()
+  },
+
+  /** Only the authority advances; a guest finishes its view and follows sync. */
+  completeDecisionReplay: () => {
+    const s = get()
+    if (!isAuthority(s) || s.paused || ![PHASE.GOAL, PHASE.NO_GOAL].includes(s.phase)) return
+    decisionCompletion?.()
   },
 
   // True while this client is showing a goal replay (local only, never synced)
@@ -505,7 +536,7 @@ export const useMatchStore = create((set, get) => ({
   disallowGoal: (reason, { restart = null, evidence = {} } = {}) => {
     set({ ...clearTurn, phase: PHASE.NO_GOAL, noGoalReason: reason,
       replayDecision: { outcome: 'no_goal', reason, evidence }, pendingNoGoalRestart: restart })
-    noGoalTimer = later(() => get().resumeNoGoal(), TIMING.noGoal)
+    scheduleDecision(() => get().resumeNoGoal(), TIMING.noGoal)
   },
   pendingNoGoalRestart: null,
   resumeNoGoal: () => {
@@ -519,8 +550,7 @@ export const useMatchStore = create((set, get) => ({
   skipNoGoal: () => {
     const s = get()
     if (s.phase !== PHASE.NO_GOAL || s.penaltyShootout || s.gameMode === 'online') return
-    cancelLater(noGoalTimer)
-    s.resumeNoGoal()
+    s.completeDecisionReplay()
   },
   noGoalReason: null,
 
@@ -621,7 +651,7 @@ export const useMatchStore = create((set, get) => ({
       lastGoalCap: kicker,
       lastKicker: kicker,
     })
-    later(() => {
+    scheduleDecision(() => {
       const status = shootoutStatus(kicks, goals)
       if (status.decided) {
         const { teamConfig, score, stats } = get()

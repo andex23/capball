@@ -141,7 +141,7 @@ export function createReplayController(meshRefs) {
       if (done) return
       if (!playing) {
         if (wallClock - goalAt < REPLAY.bannerMs / 1000) return // "GOAL!" banner first
-        if (buffer.size < 2 || buffer.span <= 0) { done = true; return }
+        if (buffer.size < 2 || buffer.span <= 0) { done = true; useMatchStore.getState().completeDecisionReplay(); return }
         start()
         show(playbackTime(0, buffer.start, buffer.end))
         return // do not charge the banner frame against playback
@@ -165,7 +165,10 @@ export function createReplayController(meshRefs) {
           target: lerp3(savedCam.target, replayCam.target, k),
         })
       }
-      if (elapsed >= visibleDuration + HOLD_S) finish()
+      if (elapsed >= visibleDuration + HOLD_S) {
+        finish()
+        useMatchStore.getState().completeDecisionReplay()
+      }
     },
   }
 }
