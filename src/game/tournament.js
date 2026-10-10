@@ -87,8 +87,12 @@ export function leagueFixtures(teamIds, legs = 1) {
       const a = lineup[i]
       const b = lineup[n - 1 - i]
       if (a === null || b === null) continue
-      // Alternate who's at home so nobody is always the away side
-      const flip = (r + i) % 2 === 1
+      // Rotating pairs keep their orientation; flipping them each round
+      // accidentally makes some clubs away for their entire first leg.
+      // Odd leagues use a balanced cyclic orientation around the bye.
+      const flip = teamIds.length % 2
+        ? (teamIds.indexOf(b) - teamIds.indexOf(a) + teamIds.length) % teamIds.length > teamIds.length / 2
+        : (i === 0 ? r % 2 === 1 : i % 2 === 1)
       out.push({ round: r, home: flip ? b : a, away: flip ? a : b })
     }
     rotating = [rotating[rotating.length - 1], ...rotating.slice(0, -1)]
@@ -387,14 +391,23 @@ export function seededRng(seed) {
   }
 }
 
+/** The next matchday with a human fixture; CPU-only bye days settle with it. */
+export function leagueMatchday(t) {
+  if (!t || t.format !== 'league' || t.championId) return null
+  const human = t.fixtures.find((f) => !f.result && needsHuman(t, f))
+  return human?.round ?? t.fixtures.find((f) => !f.result)?.round ?? null
+}
+
 /** Every fixture that can be played right now (both teams known, no result yet). */
 export function readyFixtures(t) {
   if (!t || t.championId) return []
-  return allFixtures(t).filter((f) => f.home && f.away && !f.result && !f.winner)
+  const round = leagueMatchday(t)
+  return allFixtures(t).filter((f) => f.home && f.away && !f.result && !f.winner
+    && (t.format !== 'league' || f.round === round))
 }
 
 /**
- * Play out every CPU-v-CPU fixture that's ready, repeatedly (a cup's later
+ * Settle completed league matchdays, or every ready CPU cup tie (a cup's later
  * rounds open up as earlier ones finish). Each result comes from a generator
  * seeded with the tournament and fixture ids, so every device — and every
  * reload — gets exactly the same scores without saving them anywhere.
@@ -402,7 +415,16 @@ export function readyFixtures(t) {
 export function settleCpu(t) {
   let cur = t
   for (let guard = 0; guard < 200; guard++) {
-    const f = readyFixtures(cur).find((x) => !needsHuman(cur, x))
+    // A league starts with an empty table. Settle a matchday only after all
+    // its human matches finish, including intervening CPU-only bye days.
+    // Never pre-play the computer's entire season at creation or on reload.
+    const hasHumans = cur?.format === 'league' && cur.teams.some((x) => !x.cpu)
+    if (hasHumans && !cur.fixtures.some((x) => x.result)) break
+    const nextHuman = hasHumans ? cur.fixtures.find((x) => !x.result && needsHuman(cur, x)) : null
+    const available = hasHumans
+      ? cur.fixtures.filter((x) => !x.result && (!nextHuman || x.round < nextHuman.round))
+      : readyFixtures(cur)
+    const f = available.find((x) => !needsHuman(cur, x))
     if (!f) break
     const after = recordResult(cur, f.id, simulateResult(cur, f, seededRng(`${cur.id}:${f.id}`)))
     if (after === cur) break
@@ -418,7 +440,7 @@ export function settleCpu(t) {
 export function applyResults(start, results) {
   let cur = settleCpu(start)
   let pending = [...(results || [])]
-  for (let pass = 0; pass < 10 && pending.length; pass++) {
+  for (let pass = 0; pass < (results?.length || 0) + 1 && pending.length; pass++) {
     const left = []
     for (const r of pending) {
       const f = readyFixtures(cur).find((x) => x.id === r.fixtureId)

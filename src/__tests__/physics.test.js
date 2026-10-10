@@ -395,3 +395,48 @@ describe('free kicks can be scored', () => {
     expect(open).toBeGreaterThan(5)
   })
 })
+
+describe('goal contact history', () => {
+  function contact(a, b) {
+    Matter.Events.trigger(getEngine(), 'collisionStart', { pairs: [{ bodyA: a, bodyB: b }] })
+  }
+  function goalReady() {
+    useMatchStore.setState({ phase: PHASE.RESOLVE, kickoffGuard: false, lastFlickedCapId: 'team1_atk1', firstCollisionTracked: true })
+    place('ball', PITCH.halfW + 0.8, 0)
+  }
+
+  it('counts a direct goal when the shooter cap hits a pitch edge', () => {
+    goalReady()
+    const cushion = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion')
+    contact(getBodies().team1_atk1, cushion)
+    expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+
+  it('does not turn net contact after entry into a disallowed bank shot', () => {
+    goalReady()
+    const net = Matter.Composite.allBodies(getEngine().world).find((b) => b.isStatic && b.position.x > PITCH.halfW + PITCH.goalDepth)
+    expect(net).toBeTruthy()
+    contact(getBodies().ball, net)
+    expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+
+  it('allows a shot deflected off the goalpost tip into the net', () => {
+    goalReady()
+    place('ball', PITCH.halfW - 0.2, PITCH.goalWidth / 2 + 0.2)
+    const post = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion' && b.position.x > PITCH.halfW)
+    contact(getBodies().ball, post)
+    place('ball', PITCH.halfW + 0.8, 0)
+    expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+
+  it('disallows a ball off a pitch cushion, until another cap touches it', () => {
+    goalReady()
+    place('ball', 0, PITCH.halfH - 0.5)
+    const cushion = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion')
+    contact(getBodies().ball, cushion)
+    place('ball', PITCH.halfW + 0.8, 0)
+    expect(checkGoal(getBodies().ball).outcome).toBe('bank_shot')
+    contact(getBodies().ball, getBodies().team2_def1)
+    expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+})

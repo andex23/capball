@@ -421,9 +421,10 @@ export default function TournamentHubScreen() {
 
   const league = t.format === 'league'
   const mine = isOnline ? myTeamIds(snapshot) : t.teams.filter((x) => !x.cpu).map((x) => x.id)
+  const readyIds = new Set(readyFixtures(t).map((f) => f.id))
   const actionFor = isOnline
     ? (f) => fixtureAction(t, snapshot, f)
-    : (f) => (!f.result && !f.winner && f.home && f.away && needsHuman(t, f) ? { kind: 'play' } : null)
+    : (f) => (readyIds.has(f.id) && needsHuman(t, f) ? { kind: 'play' } : null)
   const ready = readyFixtures(t)
   // Best next fixture: one we can play now, else one we're waiting on
   const withActions = ready.map((f) => ({ f, a: actionFor(f) })).filter((x) => x.a)
@@ -462,7 +463,7 @@ export default function TournamentHubScreen() {
                   <ProgressBar played={p.played} total={p.total} label={league ? 'Season' : 'Cup'} />
                   <p className="muted t-note">
                     {league
-                      ? 'Win 3 pts · draw 1. Computer-only games play out by themselves.'
+                      ? 'Win 3 pts · draw 1. Play one matchday at a time. Computer results follow when its player matches finish.'
                       : 'Lose and you’re out. Level at full time goes to penalties.'}
                   </p>
                   {isOnline && !next && mine.length > 0 && <p className="muted t-note">No match for you right now — waiting on other results.</p>}

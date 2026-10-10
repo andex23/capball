@@ -624,9 +624,6 @@ export const useMatchStore = create((set, get) => ({
   setMusicVolume: (v) => set({ musicVolume: v }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
 
-  // Spoken commentary (the phone's own voice)
-  voiceCommentary: true,
-  toggleVoiceCommentary: () => set((s) => ({ voiceCommentary: !s.voiceCommentary })),
   // Phone vibration on flicks, hard cushion hits, goals and fouls
   vibration: true,
   toggleVibration: () => set((s) => ({ vibration: !s.vibration })),

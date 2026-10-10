@@ -10,7 +10,7 @@
  *   null                           not our fixture (or already played)
  */
 
-import { teamById } from './tournament'
+import { teamById, leagueMatchday } from './tournament'
 
 export function myTeamIds(snapshot) {
   return (snapshot?.seats || []).filter((s) => s.mine).map((s) => s.teamId)
@@ -18,6 +18,7 @@ export function myTeamIds(snapshot) {
 
 export function fixtureAction(t, snapshot, f) {
   if (!t || !f || f.result || f.winner || !f.home || !f.away) return null
+  if (t.format === 'league' && f.round !== leagueMatchday(t)) return null
   const mine = new Set(myTeamIds(snapshot))
   const homeMine = mine.has(f.home)
   const awayMine = mine.has(f.away)

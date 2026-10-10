@@ -244,7 +244,7 @@ export const useTournamentStore = create((set, get) => ({
   /** Set the match up for a fixture played on this device (vs CPU or pass-and-play). */
   playFixture(kind, fixture) {
     const t = kind === 'local' ? get().local : kind === 'career' ? useCareerStore.getState().career?.league : get().online?.tournament
-    if (!t) return
+    if (!t || (kind !== 'career' && !readyFixtures(t).some((f) => f.id === fixture.id))) return
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
     if (!home || !away) return

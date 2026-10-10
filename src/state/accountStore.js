@@ -18,7 +18,7 @@ const SESSION_KEY = 'capball:account'
 // tournament seats follow the player to a new phone)
 const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1', 'capball.tutorialDone', 'capball.coached', 'capball.device']
 // Progress that belongs to the account: cleared from the phone on sign out (it stays on the server)
-export const PROGRESS_KEYS = ['capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1']
+export const PROGRESS_KEYS = ['capball:tournaments:v1', 'capball.device', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1']
 
 /** Is a player signed in on this phone? (Stats, streaks and rewards only count when they are.) */
 export const isSignedIn = () => !!useAccountStore.getState().username
@@ -57,13 +57,17 @@ export function collectSave() {
 
 /** Put a save from the server onto this phone. Returns true if anything changed. */
 export function applySave(data) {
-  if (!data || typeof data !== 'object' || !data.items || typeof data.items !== 'object') return false
+  if (!data || data.v !== 1 || !data.items || typeof data.items !== 'object' || Array.isArray(data.items)) return false
   let changed = false
   for (const key of SAVE_KEYS) {
     const v = data.items[key]
-    if (typeof v !== 'string') continue
     try {
-      if (storage()?.getItem(key) !== v) { storage()?.setItem(key, v); changed = true }
+      if (typeof v === 'string') {
+        if (storage()?.getItem(key) !== v) { storage()?.setItem(key, v); changed = true }
+      } else if (!Object.hasOwn(data.items, key) && storage()?.getItem(key) != null) {
+        storage()?.removeItem(key)
+        changed = true
+      }
     } catch { /* storage full or blocked */ }
   }
   return changed
@@ -73,6 +77,7 @@ const hasItems = (data) => !!data?.items && Object.keys(data.items).some((k) => 
 
 let timer = null
 let lastSent = ''
+let saveTask = null
 
 export const useAccountStore = create((set, get) => ({
   username: readSession()?.username || null,
@@ -96,9 +101,11 @@ export const useAccountStore = create((set, get) => ({
     try {
       const res = await rpc(fn, { p_username: username, p_password: password })
       if (res?.error) throw new ApiError(res.error)
-      writeSession({ token: res.token, username: res.username })
-      set({ token: res.token, username: res.username })
+      if (typeof res?.token !== 'string' || !res.token || typeof res?.username !== 'string') throw new Error('The server did not return an account session.')
       const cloud = await rpc('cb_account_load', { p_token: res.token })
+      writeSession({ token: res.token, username: res.username })
+      lastSent = ''
+      set({ token: res.token, username: res.username, savedAt: null })
       if (hasItems(cloud?.data)) {
         // Their save is on the server: load it and restart from it
         if (applySave(cloud.data) && typeof window !== 'undefined') {
@@ -107,7 +114,7 @@ export const useAccountStore = create((set, get) => ({
         }
         set({ savedAt: cloud.savedAt })
       } else {
-        await get().save({ force: true })
+        if (!await get().save({ force: true })) return false
       }
       get().startAutosave()
       return true
@@ -121,20 +128,38 @@ export const useAccountStore = create((set, get) => ({
 
   /** Upload this phone's save (skipped when nothing changed since the last upload). */
   async save({ force = false } = {}) {
-    const { token, saving } = get()
-    if (!token || saving) return
+    // Wait for an earlier upload, then collect again: career changes made
+    // during that request must not be dropped or acknowledged too early.
+    if (saveTask) {
+      await saveTask
+      return get().save({ force })
+    }
+    const { token } = get()
+    if (!token) return false
     const data = collectSave()
     const json = JSON.stringify(data)
-    if (!force && json === lastSent) return
+    if (!force && json === lastSent) return true
     set({ saving: true })
-    try {
-      const res = await rpc('cb_account_save', { p_token: token, p_data: data })
-      lastSent = json
-      set({ savedAt: res?.savedAt || new Date().toISOString(), error: null })
-    } catch (e) {
-      if (e.code === 'signed-out') get().forget()
-      set({ error: e.message })
-    } finally {
+    const task = (async () => {
+      try {
+        const res = await rpc('cb_account_save', { p_token: token, p_data: data })
+        if (!res?.ok) throw new Error('The server did not confirm that your progress was saved.')
+        if (get().token !== token) return false
+        lastSent = json
+        set({ savedAt: res.savedAt || new Date().toISOString(), error: null })
+        return true
+      } catch (e) {
+        if (get().token === token) {
+          if (e.code === 'signed-out') get().forget()
+          set({ error: e.message })
+        }
+        return false
+      }
+    })()
+    saveTask = task
+    try { return await task }
+    finally {
+      if (saveTask === task) saveTask = null
       set({ saving: false })
     }
   },
@@ -142,7 +167,7 @@ export const useAccountStore = create((set, get) => ({
   /** Save, sign out, and take this account's progress off the phone (it stays on the server). */
   async signOut() {
     const { token } = get()
-    await get().save({ force: true })
+    if (token && !await get().save({ force: true })) return false
     rpc('cb_account_logout', { p_token: token }).catch(() => {})
     get().forget()
     for (const key of PROGRESS_KEYS) { try { storage()?.removeItem(key) } catch { /* blocked */ } }
@@ -152,6 +177,7 @@ export const useAccountStore = create((set, get) => ({
   /** Drop the session on this phone (the save stays on the server). */
   forget() {
     writeSession(null)
+    lastSent = ''
     if (timer) { clearInterval(timer); timer = null }
     set({ token: null, username: null, savedAt: null })
   },

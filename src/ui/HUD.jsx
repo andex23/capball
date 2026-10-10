@@ -16,7 +16,6 @@ import RulesPanel from './RulesPanel'
 import { displayColor, inkOn } from './color'
 import { canFullscreen, toggleFullscreen, typing } from './fullscreen'
 import { goalLine, line } from '../game/commentary'
-import { speak, stopSpeaking } from '../audio/voice'
 import { isCoached, markCoached, COACH_FLICKS } from '../game/tutorial'
 import { STADIUMS } from '../data/StadiumData'
 import CapPreview from './CapPreview'
@@ -123,7 +122,6 @@ function GoalMoment({ c }) {
   const kit = p ? teamConfig[p.team] : teamConfig[c.team]
   const shown = shootout ? pens : score
   const color = displayColor(teamConfig[c.team]?.primary)
-  useEffect(() => { speak(`${c.own ? 'Own goal!' : 'Goal!'} ${c.line}`, { big: true }) }, [c.line, c.own])
   return (
     <div className="goal-moment" role="status" style={{ '--team': color, '--team-ink': inkOn(teamConfig[c.team]?.primary) }}>
       <div className="goal-moment-burst" aria-hidden />
@@ -207,13 +205,7 @@ function Banner() {
   return <BannerView b={b} phase={phase} colorOf={colorOf} />
 }
 
-// Moments worth saying out loud (corners and goal kicks just show)
-const SPOKEN = [PHASE.KICKOFF, PHASE.FOUL, PHASE.PENALTY_SETUP, PHASE.MISSED, PHASE.MATCH_OVER, PHASE.NO_GOAL]
-
 function BannerView({ b, phase, colorOf }) {
-  useEffect(() => {
-    if (SPOKEN.includes(phase) && b.sub) speak(b.sub, { big: phase === PHASE.MATCH_OVER || phase === PHASE.PENALTY_SETUP })
-  }, [phase, b.sub])
   return (
     <div className="banner" key={phase} role="status" style={{ '--team': colorOf(b.team) }}>
       <div className="banner-stripe" />
@@ -236,7 +228,6 @@ function ShotCall() {
     setShown(call)
     if (call.type === 'post' || call.type === 'wide') playCrowdGroan()
     else playCrowdMurmur()
-    speak(line(call.type, { teamConfig: useMatchStore.getState().teamConfig, team: call.cap?.split('_')[0], cap: call.cap, by: call.by, seed: `${useMatchStore.getState().matchKey}:${call.key}` }))
     const id = setTimeout(() => setShown(null), 2200)
     return () => clearTimeout(id)
   }, [call])
@@ -365,7 +356,6 @@ export default function HUD() {
   const turnText = useTurnText()
   const timeUp = useMatchStore(timedOut)
   const [camLabel, setCamLabel] = useState(null)
-  useEffect(() => () => stopSpeaking(), []) // leaving the match: stop mid-sentence
   const camTimer = useRef(null)
   const [notice, setNotice] = useState(null)
   const noticeTimer = useRef(null)

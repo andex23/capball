@@ -200,3 +200,70 @@ describe('any-order play', () => {
     expect(t).toEqual(settleCpu(start))
   })
 })
+
+describe('league matchday progression', () => {
+  it('starts with an empty table and only offers the first human matchday', () => {
+    const t = createTournament({ format: 'league', teams: teams(6), rng: seeded(30) })
+    expect(settleCpu(t)).toEqual(t)
+    expect(standings(settleCpu(t)).every((row) => row.p === 0)).toBe(true)
+    expect(new Set(readyFixtures(t).map((f) => f.round))).toEqual(new Set([0]))
+  })
+
+  it('settles each matchday after its human matches, never future CPU games', () => {
+    for (const count of [3, 4, 5, 6, 7, 8]) {
+      let t = createTournament({ format: 'league', legs: 2, teams: teams(count), rng: seeded(count) })
+      expect(settleCpu(t)).toEqual(t)
+      for (let guard = 0; !t.championId && guard < 30; guard++) {
+        const f = readyFixtures(t).find((x) => needsHuman(t, x))
+        expect(f).toBeTruthy()
+        t = settleCpu(recordResult(t, f.id, { home: 2, away: 1 }))
+        const pendingHuman = t.fixtures.find((x) => !x.result && needsHuman(t, x))
+        if (pendingHuman) {
+          expect(t.fixtures.filter((x) => x.round >= pendingHuman.round && !needsHuman(t, x)).every((x) => !x.result)).toBe(true)
+        }
+        expect(settleCpu(t)).toEqual(t)
+      }
+      expect(t.championId).toBeTruthy()
+      expect(standings(t).every((row) => row.p === 2 * (count - 1))).toBe(true)
+    }
+  })
+
+  it('waits for all player matches in the matchday before simulating CPU matches', () => {
+    let t = createTournament({ format: 'league', teams: teams(8, 3), rng: seeded(33) })
+    const round = readyFixtures(t)
+    const humans = round.filter((f) => needsHuman(t, f))
+    const cpus = round.filter((f) => !needsHuman(t, f))
+    expect(humans.length).toBeGreaterThan(1)
+    expect(cpus.length).toBeGreaterThan(0)
+    t = settleCpu(recordResult(t, humans[0].id, { home: 1, away: 0 }))
+    expect(cpus.every((f) => !t.fixtures.find((x) => x.id === f.id).result)).toBe(true)
+    for (const f of humans.slice(1)) t = settleCpu(recordResult(t, f.id, { home: 1, away: 0 }))
+    expect(cpus.every((f) => t.fixtures.find((x) => x.id === f.id).result)).toBe(true)
+  })
+
+  it('reconstructs an online season from reversed reports without advancing future rounds', () => {
+    const start = createTournament({ format: 'league', legs: 2, teams: teams(8), rng: seeded(34) })
+    let t = start
+    const reports = []
+    for (let i = 0; i < 14; i++) {
+      const f = readyFixtures(t).find((x) => needsHuman(t, x))
+      reports.push({ fixtureId: f.id, homeTeam: f.home, awayTeam: f.away, home: 2, away: 1 })
+      t = settleCpu(recordResult(t, f.id, { home: 2, away: 1 }))
+    }
+    expect(applyResults(start, reports.reverse())).toEqual(t)
+    expect(applyResults(start, [])).toEqual(start)
+  })
+})
+
+
+describe('balanced league venues', () => {
+  it.each([3, 4, 5, 6, 7, 8])('%i teams share home and away games fairly', (n) => {
+    const ids = Array.from({ length: n }, (_, i) => `T${i + 1}`)
+    const fixtures = leagueFixtures(ids)
+    for (const id of ids) {
+      const home = fixtures.filter((f) => f.home === id).length
+      const away = fixtures.filter((f) => f.away === id).length
+      expect(Math.abs(home - away)).toBeLessThanOrEqual(1)
+    }
+  })
+})
