@@ -14,7 +14,13 @@ class MapStorage {
   setItem(key, value) { this.values.set(key, value) }
 }
 
-describe('CAPBALL analytics', () => {
+describe('Counterball analytics', () => {
+  it.each(['counterball.vercel.app', 'capball.vercel.app'])('preserves the existing game identity on %s', hostname => {
+    const env = browser(), request = vi.fn().mockResolvedValue({ status: 204 })
+    env.location.hostname = hostname
+    createTracker({ browser: env, request })('page_view', '/')
+    expect(JSON.parse(request.mock.calls[0][1].body).metadata).toMatchObject({ gameId: 'capball', gameTitle: 'COUNTERBALL' })
+  })
   it('uses its own site key, persistent identity and referrer origin without query data', () => {
     const request = vi.fn().mockResolvedValue({ status: 204 }), env = browser()
     const track = createTracker({ browser: env, request })

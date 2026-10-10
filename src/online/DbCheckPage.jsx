@@ -13,7 +13,7 @@ export default function DbCheckPage() {
   return (
     <div className="screen" style={{ padding: 'calc(var(--safe-top) + 20px) var(--gutter-r) 40px var(--gutter-l)' }}>
       <div className="card card-pad" style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div className="eyebrow">COUNTER BALL · online tournaments</div>
+        <div className="eyebrow">COUNTERBALL · online tournaments</div>
         <h1 className="display" style={{ fontSize: 38 }}>Database check</h1>
         <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {rows.map((r, i) => (

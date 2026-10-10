@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import Icon from './Icon'
+import { SITE } from '../seo/meta'
 
 // Share the public landing page, never a private room, account or LAN link.
-const GAME_URL = 'https://capball.vercel.app/'
+const GAME_URL = SITE + '/'
 
 export default function ShareGame() {
   const [status, setStatus] = useState('')
@@ -16,7 +17,7 @@ export default function ShareGame() {
     try {
       if (navigator.share) {
         try {
-          await navigator.share({ title: 'Counter Ball', text: 'Play Counter Ball with me — flick your caps and score!', url: GAME_URL })
+          await navigator.share({ title: 'Counterball', text: 'Play Counterball with me — flick your caps and score!', url: GAME_URL })
           return
         } catch (error) {
           if (error.name === 'AbortError') return
