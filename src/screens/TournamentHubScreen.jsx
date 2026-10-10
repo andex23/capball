@@ -447,7 +447,7 @@ export default function TournamentHubScreen() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen tournament-hub-screen">
       {anytimeError && <div role="alert" className="card card-pad t-warn">{anytimeError}</div>}
       {teamDraft && <KitEditor
         team={teamDraft}
