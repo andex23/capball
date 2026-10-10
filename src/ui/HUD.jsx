@@ -56,7 +56,7 @@ function ScoreBug() {
   return <MatchScoreboard teams={teamConfig} score={shootout ? pens : score}
     active={phase === PHASE.MATCH_OVER ? null : activeTeam}
     myTeam={gameMode === 'online' ? onlineMyTeam : gameMode === 'ai' ? otherTeam(aiTeam) : null}
-    label={clock} detail={detail} popping={phase === PHASE.GOAL ? lastScorer : null}
+    label={shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : 'TIMED MATCH'} clock={!shootout && !goalTarget ? clock : null} detail={detail} popping={phase === PHASE.GOAL ? lastScorer : null}
     rail={<span>{gameMode === 'online' ? 'LIVE ONLINE' : gameMode === 'ai' ? 'VS CPU' : 'LOCAL MATCH'}</span>} />
 
 }
