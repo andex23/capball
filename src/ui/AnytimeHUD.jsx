@@ -1,3 +1,4 @@
+import MatchResultSplash from './MatchResultSplash'
 import ShareGame from './ShareGame'
 import GoalSplash from './GoalSplash'
 import AimWarning from './AimWarning'
@@ -11,6 +12,7 @@ import { useMatchStore } from '../state/MatchStore'
 
 export default function AnytimeHUD({ children }) {
   const { match, busy, pending, watching, error } = useAnytimeStore()
+  const [dismissedResult, setDismissedResult] = useState(null)
   const [confirm, setConfirm] = useState(false)
   const [menu, setMenu] = useState(false)
   const [rules, setRules] = useState(false)
@@ -28,6 +30,10 @@ export default function AnytimeHUD({ children }) {
   const actions = useAnytimeStore.getState()
   const explanation = s.lastTurn?.decision ? decisionText(s.lastTurn.decision) : null
   return <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+    {s.complete && !watching && dismissedResult !== match.code && <MatchResultSplash
+      teams={match.config.teams} score={s.score} winner={s.winner}
+      penaltyScore={s.shootout ? s.penaltyScores : null}
+      onContinue={() => setDismissedResult(match.code)} />}
     <AnytimeScoreboard match={match} busy={busy} pending={pending} watching={watching} onMenu={() => showMenu(true)} />
     <AimWarning />
     <GoalSplash />
