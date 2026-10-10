@@ -179,7 +179,7 @@ export function drawShareCard({ teamConfig, score, penaltyScore, goalLog, matchE
   ctx.lineWidth = 8; ctx.strokeStyle = INK
   ctx.strokeText('PLAY FREE', W / 2, H - 200); ctx.fillText('PLAY FREE', W / 2, H - 200)
   ctx.font = "700 46px 'Silkscreen', monospace"; ctx.fillStyle = YELLOW
-  ctx.strokeText('CAPBALL.VERCEL.APP', W / 2, H - 135); ctx.fillText('CAPBALL.VERCEL.APP', W / 2, H - 135)
+  ctx.strokeText('COUNTERBALL.VERCEL.APP', W / 2, H - 135, W - 100); ctx.fillText('COUNTERBALL.VERCEL.APP', W / 2, H - 135, W - 100)
   ctx.font = "600 28px 'Inter', sans-serif"; ctx.fillStyle = 'rgba(255,255,255,0.75)'
   const venue = STADIUMS[stadium]?.name
   ctx.fillText(`${venue ? `${venue} · ` : ''}${new Date().toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}`, W / 2, H - 80)
@@ -193,7 +193,7 @@ export async function shareResultCard(match) {
   const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
   if (!blob) return 'failed'
   const file = new File([blob], 'counter-ball-result.png', { type: 'image/png' })
-  const text = `${match.teamConfig.team1.name} ${match.score.team1}–${match.score.team2} ${match.teamConfig.team2.name} on Counter Ball — play free at capball.vercel.app`
+  const text = `${match.teamConfig.team1.name} ${match.score.team1}–${match.score.team2} ${match.teamConfig.team2.name} on Counter Ball — play free at counterball.vercel.app`
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'Counter Ball result', text })

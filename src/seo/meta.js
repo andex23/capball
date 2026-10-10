@@ -4,7 +4,7 @@
  * (?room=CODE, ?tournament=CODE) get their own title and card from the edge
  * middleware (middleware.js), which swaps the block between the seo markers.
  */
-export const SITE = 'https://capball.vercel.app'
+export const SITE = 'https://counterball.vercel.app'
 export const SEO_START = '<!-- seo:start -->'
 export const SEO_END = '<!-- seo:end -->'
 

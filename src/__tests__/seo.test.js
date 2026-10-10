@@ -20,10 +20,10 @@ describe('link previews', () => {
     expect(m.title).toContain('ABC123')
     expect(m.image).toBe('/og/counter-ball-invite.jpg')
     const out = injectMeta(html, m)
-    expect(out).toContain('og:image" content="https://capball.vercel.app/og/counter-ball-invite.jpg"')
+    expect(out).toContain('og:image" content="https://counterball.vercel.app/og/counter-ball-invite.jpg"')
     expect(out).toContain('noindex')
-    expect(out).toContain('<link rel="canonical" href="https://capball.vercel.app/" />')
-    expect(out).not.toContain('og:image" content="https://capball.vercel.app/og/counter-ball-default.jpg"')
+    expect(out).toContain('<link rel="canonical" href="https://counterball.vercel.app/" />')
+    expect(out).not.toContain('og:image" content="https://counterball.vercel.app/og/counter-ball-default.jpg"')
     expect(out).toContain('<div id="root">') // the rest of the page is untouched
   })
 

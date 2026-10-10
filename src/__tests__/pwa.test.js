@@ -5,7 +5,7 @@ import {
   initInstallPrompt, promptInstall, IOS_HINT_KEY,
 } from '../pwa/install'
 
-const ORIGIN = 'https://capball.vercel.app'
+const ORIGIN = 'https://counterball.vercel.app'
 const u = (s) => new URL(s, ORIGIN)
 
 describe('service worker routes', () => {

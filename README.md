@@ -1,10 +1,10 @@
-# CAPBALL
+# COUNTER BALL
 
 A browser game inspired by tabletop bottle-cap football. Players take turns flicking caps to move the ball and score, on a 3D pitch with a broadcast-style presentation.
 
-[Play CAPBALL](https://capball.vercel.app/)
+[Play COUNTER BALL](https://counterball.vercel.app/)
 
-![CAPBALL main menu over a tabletop football pitch](docs/images/preview.jpg)
+![Counter Ball tabletop football](public/og/counter-ball-default.jpg)
 
 ## Features
 
@@ -121,7 +121,7 @@ Deployment prerequisites:
 1. Apply `supabase/anytime.sql` after `tournaments.sql` and `accounts.sql`.
    `/setup-anytime.html` provides a Copy SQL button for phones.
 2. Set **server-only** `SUPABASE_SERVICE_ROLE_KEY` in Vercel Production and
-   redeploy. Optional `SUPABASE_URL` overrides the default CAPBALL project.
+   redeploy. Optional `SUPABASE_URL` overrides the default COUNTER BALL project.
    Never prefix this key with `VITE_` or commit it.
 3. The Vercel Node function `/api/anytime` validates the account and resolves
    shots using the same Matter physics and scoring rules as the game. Only
@@ -137,7 +137,7 @@ results. It does not require production credentials.
 
 ## Offline LAN matches
 
-Load or install CapBall on both devices before disconnecting from the internet.
+Load or install Counter Ball on both devices before disconnecting from the internet.
 Connect to the same Wi-Fi or phone hotspot, then open **Quick Match → LAN Match**.
 The guest scans the host invite; the host scans the guest reply. Full-code
 copy/paste is also available. Choose teams and start the match.

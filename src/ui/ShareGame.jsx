@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Icon from './Icon'
 
 // Share the public landing page, never a private room, account or LAN link.
-const GAME_URL = 'https://capball.vercel.app/'
+const GAME_URL = 'https://counterball.vercel.app/'
 
 export default function ShareGame() {
   const [status, setStatus] = useState('')

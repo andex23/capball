@@ -3,7 +3,7 @@ import { createTracker, watchMatchAnalytics } from '../analytics'
 import { SCREEN } from '../state/MatchStore'
 
 const browser = () => ({
-  location: { hostname: 'capball.vercel.app' }, navigator: {},
+  location: { hostname: 'counterball.vercel.app' }, navigator: {},
   crypto: { randomUUID: () => crypto.randomUUID() },
   document: { referrer: 'https://jaded.online/play?invite=private' },
   localStorage: new MapStorage(), sessionStorage: new MapStorage(),

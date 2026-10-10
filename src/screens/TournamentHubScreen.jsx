@@ -1,3 +1,4 @@
+import { SITE } from '../seo/meta'
 import { useAnytimeStore } from '../state/anytimeStore'
 import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
@@ -277,7 +278,7 @@ function FixtureList({ t, nextId, actionFor, onAct }) {
 
 function CodeCard({ code }) {
   const [copied, setCopied] = useState(false)
-  const url = `${window.location.origin}${window.location.pathname}?tournament=${code}`
+  const url = `${SITE}/?tournament=${code}`
   const copy = async (text) => {
     try {
       await navigator.clipboard.writeText(text)

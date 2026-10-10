@@ -12,7 +12,7 @@ export function platformOf(nav = typeof navigator !== 'undefined' ? navigator : 
 
 const STEPS = {
   'ios-safari': ['Tap the Share button (the square with an arrow) at the bottom of Safari.', 'Scroll down and tap Add to Home Screen.', 'Tap Add — Counter Ball appears on your home screen.'],
-  'ios-other': ['Tap the Share button next to the address bar.', 'Tap Add to Home Screen. (Not there? Open capball.vercel.app in Safari and do it from there.)', 'Tap Add.'],
+  'ios-other': ['Tap the Share button next to the address bar.', 'Tap Add to Home Screen. (Not there? Open counterball.vercel.app in Safari and do it from there.)', 'Tap Add.'],
   android: ['Tap the ⋮ menu at the top right of Chrome.', 'Tap Install app (or Add to Home screen).', 'Tap Install — Counter Ball opens full screen like any other app.'],
   samsung: ['Tap the ☰ menu at the bottom right.', 'Tap Add page to → Home screen.', 'Tap Add.'],
   desktop: ['In Chrome or Edge, click the install icon at the right end of the address bar (a screen with a down arrow).', 'Or open the browser menu and choose Install Counter Ball / Apps → Install this site as an app.', 'Counter Ball opens in its own window and gets a desktop and Start menu icon.'],

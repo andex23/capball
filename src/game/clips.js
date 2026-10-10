@@ -68,7 +68,7 @@ export async function shareClip(clip) {
   const file = new File([clip.blob], `counter-ball-goal.${ext}`, { type: clip.type })
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: 'Counter Ball goal', text: `${clip.scorer ? `${clip.scorer} score! ` : ''}${clip.title} — capball.vercel.app` })
+      await navigator.share({ files: [file], title: 'Counter Ball goal', text: `${clip.scorer ? `${clip.scorer} score! ` : ''}${clip.title} — counterball.vercel.app` })
       return 'shared'
     } catch (e) {
       if (e?.name === 'AbortError') return 'cancelled'

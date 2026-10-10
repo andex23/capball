@@ -1,3 +1,4 @@
+import { SITE } from '../seo/meta'
 import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerManager'
@@ -69,7 +70,7 @@ export default function OnlineScreen() {
     else { setView('menu'); setRoomCode(''); setBusy(false) }
   }
 
-  const inviteUrl = roomCode ? `${window.location.origin}${window.location.pathname}?room=${roomCode}` : ''
+  const inviteUrl = roomCode ? `${SITE}/?room=${roomCode}` : ''
 
   const share = async () => {
     playButtonSelect()

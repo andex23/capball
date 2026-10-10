@@ -17,7 +17,7 @@ export function createTracker({ browser = globalThis.window, request = globalThi
   return (event, path, metadata = {}) => {
     try {
       if (!browser || browser.navigator?.doNotTrack === '1' || browser.navigator?.globalPrivacyControl) return
-      if (!['capball.vercel.app', 'capball-drus-projects-68c924fa.vercel.app'].includes(browser.location.hostname)) return
+      if (!['counterball.vercel.app', 'capball.vercel.app', 'capball-drus-projects-68c924fa.vercel.app'].includes(browser.location.hostname)) return
       if (!identity) {
         const id = (storage, key) => {
           const fresh = browser.crypto.randomUUID()
