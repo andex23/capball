@@ -1,3 +1,4 @@
+import ShareGame from '../ui/ShareGame'
 import { useState, useEffect, useCallback } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import Modal from '../ui/Modal'
@@ -114,6 +115,7 @@ export default function MenuScreen() {
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: 'Leagues and cups · local, LAN or online', tag: '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
+      { key: 'share', title: 'Share game', sub: 'Send CapBall to your friends', action: () => openDialog('share') },
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
@@ -207,6 +209,7 @@ export default function MenuScreen() {
         </footer>
       </div>
 
+      {dialog === 'share' && <Modal title="Share CapBall" onClose={() => setDialog(null)}><p>Send the game to your friends and get them on the pitch.</p><ShareGame /></Modal>}
       {dialog === 'settings' && (
         <Modal title="Settings" onClose={() => setDialog(null)}>
           <SettingsPanel />

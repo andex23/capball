@@ -1,3 +1,4 @@
+import ShareGame from './ShareGame'
 import GoalSplash from './GoalSplash'
 import AimWarning from './AimWarning'
 import { useEffect, useState } from 'react'
@@ -53,6 +54,7 @@ export default function AnytimeHUD({ children }) {
         <button className="btn btn-primary" onClick={() => actions.leave()}>{pending ? 'Leave · confirm turn later' : s.complete ? 'My matches' : 'Save and leave'}</button>
         {!s.complete && <button className="btn btn-secondary" disabled={busy || !!pending} onClick={() => { showMenu(false); setConfirm(true) }}>Resign</button>}
       </div>
+      <ShareGame />
     </Modal>}
     {confirm && <Modal title="Resign this match?" onClose={() => setConfirm(false)} footer={<><button className="btn btn-secondary" onClick={() => setConfirm(false)}>Keep playing</button><button className="btn btn-primary" onClick={() => { setConfirm(false); actions.resign() }}>Resign</button></>}><p>Your opponent wins. To keep your progress instead, use Save and leave.</p></Modal>}
   </div>
