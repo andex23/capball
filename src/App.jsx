@@ -14,7 +14,7 @@ import UnlockToast from './ui/UnlockToast'
 import { disconnect, isConnected } from './multiplayer/MultiplayerManager'
 import { fadeOutMenuMusic } from './audio/MusicManager'
 import SplashScreen from './screens/SplashScreen'
-import MenuScreen from './screens/MenuScreen'
+import MenuScreen, { markStarted } from './screens/MenuScreen'
 import TeamSelectScreen from './screens/TeamSelectScreen'
 import OnlineScreen from './screens/OnlineScreen'
 import StadiumSelectScreen from './screens/StadiumSelectScreen'
@@ -109,6 +109,19 @@ function Screen({ screen }) {
 
 export default function App() {
   const screen = useMatchStore((s) => s.screen)
+
+  useEffect(() => {
+    const openLanInvite = () => {
+      const state = useMatchStore.getState()
+      // A camera link opens joining directly; never replace an active match.
+      if (!window.location.hash.startsWith('#lan=') || ![SCREEN.SPLASH, SCREEN.MENU].includes(state.screen)) return
+      markStarted()
+      state.goToScreen(SCREEN.LAN)
+    }
+    openLanInvite()
+    window.addEventListener('hashchange', openLanInvite)
+    return () => window.removeEventListener('hashchange', openLanInvite)
+  }, [])
 
   useEffect(() => {
     // Start fetching the 3D engine while players are still in setup

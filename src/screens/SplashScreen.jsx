@@ -17,7 +17,7 @@ export default function SplashScreen() {
       // Invite links go straight in: ?room=CODE to the online lobby,
       // ?tournament=CODE to tournaments (which opens that one)
       const params = new URLSearchParams(window.location.search)
-      goToScreen(params.has('room') ? SCREEN.ONLINE : params.has('tournament') ? SCREEN.TOURNAMENT_HOME : SCREEN.MENU)
+      goToScreen(window.location.hash.startsWith('#lan=') ? SCREEN.LAN : params.has('room') ? SCREEN.ONLINE : params.has('tournament') ? SCREEN.TOURNAMENT_HOME : SCREEN.MENU)
     }
     window.addEventListener('keydown', start)
     window.addEventListener('pointerdown', start)
@@ -32,7 +32,7 @@ export default function SplashScreen() {
       <RetroBackdrop />
       <div className="iss-layout">
         <RetroLogo />
-        <p className="iss-press" role="button">Press start</p>
+        <p className="iss-press" role="button">{window.location.hash.startsWith('#lan=') ? 'Join LAN match' : 'Press start'}</p>
         <footer className="iss-foot"><span>© 2026 Counterball</span></footer>
       </div>
     </div>

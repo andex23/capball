@@ -136,3 +136,18 @@ export function createLanPeer({ onChannel, onFailure, onInterruption, PeerConnec
     destroy() { closed = true; clearTimeout(connectTimer); pc.close() },
   }
 }
+
+/** URL-safe form for phone camera apps; the invitation stays in the fragment. */
+export function lanSignalToken(code) {
+  const signal = decodeLanSignal(code, 'offer')
+  const bytes = zlibSync(strToU8(JSON.stringify(signal)), { level: 9 })
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+export function lanSignalFromToken(token) {
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]+$/.test(token) || token.length > LIMIT * 2) throw new Error('Invalid LAN invite.')
+  const bytes = Uint8Array.from(atob(token.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+  const code = PREFIX + pack(bytes)
+  decodeLanSignal(code, 'offer')
+  return code
+}

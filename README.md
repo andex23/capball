@@ -141,7 +141,7 @@ results. It does not require production credentials.
 
 Load or install Counterball on both devices before disconnecting from the internet.
 Connect to the same Wi-Fi or phone hotspot, then open **Quick Match → LAN Match**.
-The guest scans the host invite; the host scans the guest reply. Full-code
+The guest can scan the host invite with the phone Camera to open the game and tap **Join this host**, or use the in-game scanner. The host scans the guest reply **inside the game**, keeping the original host session open. The invite payload stays in the URL fragment and is not sent to the web server. Full-code
 copy/paste is also available. Choose teams and start the match.
 
 LAN uses a native WebRTC data channel with host-only ICE and no STUN, TURN,

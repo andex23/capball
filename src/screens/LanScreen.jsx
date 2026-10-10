@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import jsQR from 'jsqr'
 import { isLanSignal } from '../multiplayer/lan'
+import { lanInviteUrl, readLanInvite } from '../multiplayer/lanInvite'
 import { useTournamentStore } from '../state/tournamentStore'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { createLanRoom, joinLanRoom, finishLanPairing, disconnect, getIsHost } from '../multiplayer/MultiplayerManager'
@@ -10,6 +11,7 @@ import Icon from '../ui/Icon'
 import './lan.css'
 
 function PairingCode({ value, reply }) {
+  const qrValue = reply ? value : lanInviteUrl(value)
   const [image, setImage] = useState('')
   const container = useRef(null)
   const [width, setWidth] = useState(260)
@@ -25,20 +27,20 @@ function PairingCode({ value, reply }) {
     let active = true
     setImage('')
     setQrError(false)
-    try { setGrid(QRCode.create(value, { errorCorrectionLevel: 'L' }).modules.size + 8) } catch { setGrid(0) }
-    QRCode.toDataURL(value, { scale: 6, margin: 4, errorCorrectionLevel: 'L' })
+    try { setGrid(QRCode.create(qrValue, { errorCorrectionLevel: 'L' }).modules.size + 8) } catch { setGrid(0) }
+    QRCode.toDataURL(qrValue, { scale: 6, margin: 4, errorCorrectionLevel: 'L' })
       .then(url => { if (active) setImage(url) }).catch(() => { if (active) setQrError(true) })
     return () => { active = false }
-  }, [value])
+  }, [qrValue])
   return <div className="lan-code" ref={container}>
-    <p>{reply ? 'Show this reply to the host. The host scans it to finish pairing.' : 'On your friend’s device: LAN Match → Join LAN match → Scan host’s invite.'}</p>
-    <p className="muted">Scan inside Counterball, not your phone’s Camera app. Update the game on both devices before pairing.</p>
+    <p>{reply ? 'Show this reply to the host. The host scans it to finish pairing.' : 'Your friend can scan this invite with their phone’s Camera app to open Counterball and join.'}</p>
+    <p className="muted">{reply ? "Host: use Scan guest’s reply inside the game. Keep your host session open." : "The in-game scanner works too. Both devices must use the same Wi-Fi or hotspot. Load the game before going offline."}</p>
     {qrError && <p role="alert">This connection is too large for a QR code. Use the complete copy-and-paste code below.</p>}
     {image && <img src={image} style={{ width: grid ? Math.max(1, Math.floor(Math.min(width, 360) / grid)) * grid : 260 }} width="260" height="260" alt={reply ? 'LAN reply QR code' : 'LAN invite QR code'} />}
-    <details><summary>Copy pairing code instead</summary>
-      <textarea className="field" readOnly value={value} aria-label="Your pairing code" onFocus={e => e.target.select()} />
-      <button className="btn btn-secondary btn-block" onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true) } catch { setCopied(false) } }}>{copied ? 'Copied' : 'Copy code'}</button>
-      <p className="muted">Transfer the complete code to the other device and paste it there.</p>
+    <details><summary>{reply ? 'Copy pairing code instead' : 'Copy invite link instead'}</summary>
+      <textarea className="field" readOnly value={qrValue} aria-label="Your pairing code" onFocus={e => e.target.select()} />
+      <button className="btn btn-secondary btn-block" onClick={async () => { try { await navigator.clipboard.writeText(qrValue); setCopied(true) } catch { setCopied(false) } }}>{copied ? 'Copied' : reply ? 'Copy code' : 'Copy invite link'}</button>
+      <p className="muted">{reply ? 'Transfer the complete reply to the host and paste it there.' : 'Open this link on your friend’s phone, or paste it into Join LAN match.'}</p>
     </details>
   </div>
 }
@@ -62,7 +64,8 @@ function Scanner({ onRead, onClose }) {
         ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const code = jsQR(frame.data, frame.width, frame.height)
-        if (isLanSignal(code?.data)) { read.current(code.data); return }
+        const signal = isLanSignal(code?.data) ? code.data : readLanInvite(code?.data)
+        if (signal) { read.current(signal); return }
         if (code?.data) setHint('That is not a LAN pairing code. Scan the invite or reply shown inside LAN Match.')
       }
       timer = setTimeout(scan, 180)
@@ -90,12 +93,16 @@ export default function LanScreen() {
   const fixture = useTournamentStore(s => s.playing)
   const hostingFixture = fixture?.lan && fixture.kind !== 'lanGuest'
   const status = useMatchStore(s => s.onlineStatus)
-  const [step, setStep] = useState('choose')
+  const [invite] = useState(() => readLanInvite(window.location.href))
+  const [step, setStep] = useState(() => window.location.hash.startsWith('#lan=') ? 'join' : 'choose')
   const [code, setCode] = useState('')
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(invite)
   const [scan, setScan] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => window.location.hash.startsWith('#lan=') && !invite ? 'This LAN invite is incomplete. Ask the host to generate a new invite.' : '')
+  useEffect(() => {
+    if (window.location.hash.startsWith('#lan=')) window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  }, [])
   const generation = useRef(0)
   useEffect(() => () => { generation.current++ }, [])
   useEffect(() => {
@@ -121,6 +128,7 @@ export default function LanScreen() {
     finally { if (generation.current === version) setBusy(false) }
   }
   const receive = value => {
+    value = readLanInvite(value) || value
     setScan(false); setInput(value)
     if (step === 'host') perform(() => finishLanPairing(value))
     else perform(() => joinLanRoom(value), 'reply')
@@ -148,7 +156,8 @@ export default function LanScreen() {
             <p className="muted">For cups, leagues and career, the host opens a fixture and chooses LAN. The other player joins here.</p>
           </>}
         </> : <>
-          <h2 className="eyebrow">{step === 'host' ? '1. Share invite · 2. Scan reply' : step === 'reply' ? 'Let the host scan your reply' : 'Scan the host’s invite'}</h2>
+          <h2 className="eyebrow">{step === 'host' ? '1. Share invite · 2. Scan reply' : step === 'reply' ? 'Let the host scan your reply' : invite ? 'Host invite loaded' : 'Scan the host’s invite'}</h2>
+          {step === 'join' && invite && <div className="lan-invite-ready"><p>Host invite loaded. Keep the host’s game open and connect both devices to the same Wi-Fi or hotspot.</p><button className="btn btn-gold btn-block" disabled={busy} onClick={() => receive(invite)}>Join this host</button></div>}
           {code && <PairingCode value={code} reply={step === 'reply'} />}
           {step !== 'reply' && (!busy || code) && <>
             <button className="btn btn-blue btn-block" disabled={busy} onClick={() => setScan(true)}>{step === 'host' ? 'Scan guest’s reply' : 'Scan host’s invite'}</button>
