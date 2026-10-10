@@ -1,5 +1,7 @@
 // Small stroke icon set (24×24, currentColor). Decorative unless a label is passed.
 const PATHS = {
+  mic: <><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v3M9 21h6" /></>,
+  micOff: <><path d="M3 3l18 18M9 9v3a3 3 0 0 0 5 2M9 5a3 3 0 0 1 6 1v5M6 10v2a6 6 0 0 0 10 4M18 10v2M12 18v3M9 21h6" /></>,
   play: <path d="M7 5v14l12-7z" fill="currentColor" stroke="none" />,
   pause: <><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" /><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" /></>,
   menu: <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>,

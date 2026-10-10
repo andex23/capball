@@ -1,3 +1,5 @@
+import VoiceChat from './VoiceChat'
+import { leaveVoice } from '../multiplayer/voiceStore'
 import ShareGame from './ShareGame'
 import GoalSplash from './GoalSplash'
 import AimWarning from './AimWarning'
@@ -204,6 +206,7 @@ function PauseMenu({ onClose }) {
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('settings') }}><Icon name="volume" size={18} /> Sound</button>
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('rules') }}><Icon name="help" size={18} /> Rules</button>
       </div>
+      <VoiceChat />
       <ShareGame />
       {authority && gameMode !== 'online' && (
         <button className="btn btn-orange btn-block" onClick={restart}><Icon name="restart" size={18} /> Restart {shootout ? 'shootout' : 'match'}</button>
@@ -222,6 +225,7 @@ function PauseMenu({ onClose }) {
 }
 
 export default function HUD() {
+  useEffect(() => () => leaveVoice(), [])
   const phase = useMatchStore((s) => s.phase)
   const aimHint = useMatchStore((s) => (s.swipeAim ? 'Swipe' : 'Drag back'))
   // The how-to-flick hints go once the player has the hang of it
@@ -340,6 +344,7 @@ export default function HUD() {
       </div>
 
       <div className="hud-corner br">
+        <VoiceChat compact />
         {camLabel && <span className="chip" style={{ cursor: 'default', background: 'var(--surface)' }}>{camLabel}</span>}
         <CameraStick />
         {canFullscreen() && (

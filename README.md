@@ -174,3 +174,7 @@ LAN competitions use local saved schedules, not the cloud-hosted tournament
 service or saved online turns. A cloud-hosted competition still needs its online
 service to coordinate seats and results. Only two devices participate in each
 LAN fixture; this is not a multi-device spectator lobby.
+
+### Live voice chat
+
+During a live online or LAN match, open the match menu and choose **Join voice** on both devices. Allow microphone access, then use the pitch microphone button to mute/unmute or **Leave voice** in the menu to stop. If audio playback is blocked, use **Hear opponent**. Voice uses an audio-only WebRTC connection signalled over the existing match connection, with the same ICE configuration (no STUN/TURN for LAN). It is not recorded by the game. Leaving, losing the match connection, or backgrounding the app releases the microphone; rejoining voice requires another explicit tap. HTTPS (or localhost during development) is required for microphone access. Play anytime does not open a live voice channel.

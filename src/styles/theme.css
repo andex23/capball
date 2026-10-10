@@ -2217,3 +2217,9 @@ button { cursor: pointer; background: none; border: 0; }
 .sheet-body > .btn { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .sheet .segmented.stretch { flex-wrap: wrap; }
 .sheet .segmented.stretch button { flex: 1 1 80px; min-width: 0; white-space: normal; }
+
+.voice-panel { min-width: 0; padding: 14px; border: 1px solid rgba(255,255,255,.25); }
+.voice-panel p { margin: 8px 0; font-size: 14px; }
+.voice-panel small { display: block; margin-top: 10px; line-height: 1.5; opacity: .75; }
+.voice-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.voice-actions .btn { flex: 1 1 120px; min-width: 0; }

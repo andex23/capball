@@ -5,6 +5,15 @@ import Icon from './Icon'
 
 const SECTIONS = [
   {
+    title: 'Live voice chat',
+    items: [
+      'In a live online or LAN match, open the match menu and choose Join voice. Each player must join and allow microphone access before you can talk.',
+      'Use the microphone button on the pitch to mute or unmute. Leave voice in the match menu stops your microphone and opponent audio. Hear opponent enables sound if your browser blocks playback.',
+      'Voice is live and is not recorded by the game. Switching apps, losing the match connection, or leaving the match turns your microphone off. Join again when you return.',
+      'Voice works in live matches across quick matches, cups, leagues, career fixtures and penalty shootouts. Play anytime uses saved turns and has no live voice channel.',
+    ],
+  },
+  {
     title: 'LAN — same Wi-Fi or hotspot',
     items: [
       'Open Quick Match → LAN Match on both devices. Load or install Counter Ball before going offline.',
