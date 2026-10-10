@@ -220,6 +220,59 @@ describe('decision replays', () => {
     replay.dispose()
   })
 
+  it.each(['local', 'online'])('hands straight from a finished replay to kickoff for a %s host', gameMode => {
+    const { replay } = shot()
+    useMatchStore.setState({ gameMode, onlineMyTeam: 'team1' })
+    useMatchStore.getState().scoreGoal('team1')
+    startReplay(replay)
+    for (let i = 0; i < 70 && useMatchStore.getState().replaying; i++) replay.frame(0.05)
+    expect(useMatchStore.getState()).toMatchObject({
+      replaying: false, phase: PHASE.KICKOFF, screen: 'PLAYING', activeTeam: 'team2',
+    })
+    vi.advanceTimersByTime(TIMING.kickoff)
+    expect(useMatchStore.getState().phase).toBe(PHASE.SELECT)
+    useMatchStore.setState({ activeTeam: 'team1' })
+    vi.advanceTimersByTime(TIMING.goal)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team1', screen: 'PLAYING' })
+    replay.dispose()
+  })
+
+  it('does not let a guest complete the host’s scoring decision', () => {
+    shot()
+    useMatchStore.setState({ gameMode: 'online', onlineMyTeam: 'team1' })
+    useMatchStore.getState().scoreGoal('team1')
+    useMatchStore.setState({ onlineMyTeam: 'team2' })
+    useMatchStore.getState().completeDecisionReplay()
+    expect(useMatchStore.getState().phase).toBe(PHASE.GOAL)
+  })
+
+  it('does not expire the goal while its replay is paused or still playing', () => {
+    const { replay } = shot()
+    useMatchStore.getState().scoreGoal('team1')
+    startReplay(replay)
+    useMatchStore.getState().setPaused(true)
+    vi.advanceTimersByTime(TIMING.goal + 1000)
+    expect(useMatchStore.getState().phase).toBe(PHASE.GOAL)
+    useMatchStore.getState().setPaused(false)
+    vi.advanceTimersByTime(1000)
+    expect(useMatchStore.getState().phase).toBe(PHASE.GOAL)
+    for (let i = 0; i < 70 && useMatchStore.getState().replaying; i++) replay.frame(0.05)
+    expect(useMatchStore.getState().phase).toBe(PHASE.KICKOFF)
+    replay.dispose()
+  })
+
+  it('advances a shootout exactly once when the scored-kick replay ends', () => {
+    shot()
+    useMatchStore.getState().startPenaltyShootout()
+    vi.advanceTimersByTime(TIMING.kickoff)
+    useMatchStore.getState().penaltyAttemptResult(true)
+    useMatchStore.getState().completeDecisionReplay()
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.KICKOFF, activeTeam: 'team2', penaltyKicks: { team1: 1, team2: 0 } })
+    useMatchStore.getState().completeDecisionReplay()
+    vi.advanceTimersByTime(TIMING.goal)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.KEEPER_PICK, activeTeam: 'team2', penaltyKicks: { team1: 1, team2: 0 } })
+  })
+
   it('replays a disallowed entry before awarding the defending goal kick', () => {
     const { refs, replay } = shot()
     const restart = { kind: 'goalKick', team: 'team2', ex: 1, ey: 0, reason: 'bank' }
@@ -230,9 +283,9 @@ describe('decision replays', () => {
     for (let i = 0; i < 60; i++) replay.frame(0.05)
     expect(refs.current.ball.position.x).toBeCloseTo(21)
     expect(useMatchStore.getState().replaying).toBe(false)
-    expect(useMatchStore.getState().phase).toBe(PHASE.NO_GOAL)
-    vi.advanceTimersByTime(TIMING.noGoal)
     expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.GOAL_KICK_SETUP, activeTeam: 'team2', restart })
+    vi.advanceTimersByTime(TIMING.noGoal)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2', restart })
     replay.dispose()
   })
 
