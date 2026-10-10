@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAnytimeStore } from '../state/anytimeStore'
 import { decisionText } from '../game/replay'
 import Modal from './Modal'
+import AnytimeScoreboard from './AnytimeScoreboard'
 import { useMatchStore } from '../state/MatchStore'
 
 export default function AnytimeHUD({ children }) {
@@ -18,33 +19,24 @@ export default function AnytimeHUD({ children }) {
     return () => { clearInterval(timer); window.removeEventListener('online', refresh); document.removeEventListener('visibilitychange', refresh) }
   }, [])
   if (!match) return null
-  const { state: s, config: c } = match
+  const { state: s } = match
   const actions = useAnytimeStore.getState()
   const explanation = s.lastTurn?.decision ? decisionText(s.lastTurn.decision) : null
-  const status = busy ? 'Confirming turn…' : pending ? 'Turn needs confirmation — retry below' : watching ? 'Saved · watching last turn' : s.complete ? (s.winner ? `${c.teams[s.winner].name} wins` : 'Match drawn') : match.status === 'waiting' ? 'Waiting for your friend to join' : s.activeTeam === match.myTeam ? 'Your turn · drag a cap to shoot' : 'Saved · waiting for your opponent'
   return <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-    <div style={{ padding: 'max(6px, env(safe-area-inset-top)) 8px 0', flexShrink: 0, display: 'grid', justifyItems: 'center', gap: 6 }}>
-      <div className="card card-pad" style={{ position: 'relative', padding: '10px 16px', textAlign: 'center', maxWidth: 580 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <b style={{ overflowWrap: 'anywhere' }}>{c.teams.team1.name} {s.score.team1} – {s.score.team2} {c.teams.team2.name}</b>
-        <button className="btn btn-secondary" style={{ minHeight: 34, padding: '6px 10px' }} onClick={() => showMenu(true)}>Menu</button>
-        </div>
-        <p className="muted">Turns: {s.turns.team1}/{c.turnsPerPlayer} · {s.turns.team2}/{c.turnsPerPlayer}</p>
-        {s.shootout && <p>Penalties: {s.penaltyScores.team1} – {s.penaltyScores.team2}</p>}
-        <p role="status">{status}</p>
-        {s.finishReason && <p>{s.finishReason === 'deadline' ? 'Turn deadline passed · opponent wins by forfeit' : 'Match ended by resignation'}</p>}
-        {match.dueAt && !s.complete && <small>Turn due {new Date(match.dueAt).toLocaleString()} · leaving does not stop the deadline</small>}
-        {!match.dueAt && !s.complete && <small>No turn deadline</small>}
-        {match.status === 'waiting' && <p>Invite code: {match.code}</p>}
-        {(error || pending) && <p role="alert" className="t-warn">{error || 'Turn needs confirmation. Open Menu to retry.'}</p>}
-        {s.penaltyKick && !s.complete && <p className="muted">Penalty · goalkeeper holds the centre in Play anytime</p>}
-        {explanation && <p>{explanation.title}: {explanation.detail}</p>}
-        {s.lastTurn?.kind === 'foul' && <p>Foul · opponent’s cap was hit before the ball</p>}
-      </div>
-    </div>
+    <AnytimeScoreboard match={match} busy={busy} pending={pending} watching={watching} onMenu={() => showMenu(true)} />
+    {match.status === 'waiting' && <p className="at-match-note">Invite code <strong>{match.code}</strong></p>}
+    {(error || pending) && <p className="at-match-note" data-error="true" role="alert">{error || 'Open the menu to confirm your turn.'}</p>}
+    {watching && explanation && <p className="at-match-note"><strong>{explanation.title}</strong> · {explanation.detail}</p>}
     <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{children}</div>
     {menu && <Modal title="Match menu" onClose={() => showMenu(false)} footer={<button className="btn btn-primary btn-block" onClick={() => showMenu(false)}>Back to pitch</button>}>
       <div style={{ display: 'grid', gap: 10 }}>
+        <p className="muted">Drag a cap back to aim, then release to shoot.</p>
+        {match.dueAt && !s.complete && <p>Turn due {new Date(match.dueAt).toLocaleString()}</p>}
+        {!match.dueAt && !s.complete && <p>No turn deadline</p>}
+        {s.finishReason && <p>{s.finishReason === 'deadline' ? 'The turn deadline passed. Opponent wins by forfeit.' : 'Match ended by resignation.'}</p>}
+        {s.penaltyKick && !s.complete && <p>Penalty: the goalkeeper holds the centre in Play anytime.</p>}
+        {explanation && <p><b>{explanation.title}</b> · {explanation.detail}</p>}
+        {s.lastTurn?.kind === 'foul' && <p>Foul · opponent’s cap was hit before the ball.</p>}
         <p className="muted">{match.dueAt ? 'The turn deadline continues while this menu is open or you are away.' : 'Your confirmed turns are saved. Leave and return whenever you like.'}</p>
         {match.status === 'waiting' && <button className="btn btn-primary" onClick={async () => { try { await navigator.clipboard.writeText(match.code); setCopied(true) } catch { setCopied(false) } }}>{copied ? 'Copied' : `Copy code: ${match.code}`}</button>}
         {pending && <button className="btn btn-primary" disabled={busy} onClick={() => { showMenu(false); actions.retry() }}>Retry confirmation</button>}

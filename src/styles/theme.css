@@ -2165,3 +2165,13 @@ button { cursor: pointer; background: none; border: 0; }
 .rival-name small { font-weight: 600; color: var(--text-2); }
 .rival-rec { font: 800 18px/1 var(--font-display); color: #fff; }
 .rival-rec .good { color: #6dff9b; } .rival-rec .bad { color: #ff8c9a; }
+
+/* Match menu stays in the top-right corner, including on phones. */
+.hud-corner.tr { top: calc(var(--safe-top) + 12px); right: calc(var(--safe-right) + 12px); }
+.hud-top { max-width: calc(100% - 128px); }
+@media (max-width: 560px) {
+  .hud-top { left: calc(var(--safe-left) + 12px); right: calc(var(--safe-right) + 68px); transform: none; width: auto; max-width: none; }
+  .scorebug { height: auto; min-height: 44px; }
+  .scorebug-team { white-space: normal; padding-block: 5px; }
+  .scorebug-team span { overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+}
