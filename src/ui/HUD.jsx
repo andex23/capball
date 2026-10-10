@@ -449,7 +449,7 @@ export default function HUD() {
         )}
       </div>
 
-      <div className="hud-corner tl">
+      <div className="hud-corner tr">
         <button className="icon-btn" onClick={() => setPaused(true)} aria-label="Pause" disabled={phase === PHASE.MATCH_OVER}>
           <Icon name="pause" size={18} />
         </button>
