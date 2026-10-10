@@ -153,3 +153,10 @@ or reloading a tab, a permanently closed channel, or an expired recovery window
 ends the session; start a new match in those cases.
 Camera scanning needs HTTPS and camera permission. Networks with client
 isolation may prevent device-to-device connections.
+
+### Lagos Lifestyle integration preparation
+
+The dedicated integration branch tracks the
+[readiness plan and code integration points](docs/integrations/lagos-lifestyle.md).
+Implementation depends on Lagos Lifestyle's official API contract; no partner
+features are enabled yet.
