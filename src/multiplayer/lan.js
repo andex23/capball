@@ -55,7 +55,7 @@ function channelAdapter(channel, pc) {
   }
 }
 
-export function createLanPeer({ onChannel, onFailure, PeerConnection = globalThis.RTCPeerConnection } = {}) {
+export function createLanPeer({ onChannel, onFailure, onInterruption, PeerConnection = globalThis.RTCPeerConnection } = {}) {
   if (!PeerConnection) throw new Error('LAN play needs a browser with WebRTC support.')
   const pc = new PeerConnection({ iceServers: [] })
   let closed = false
@@ -67,6 +67,7 @@ export function createLanPeer({ onChannel, onFailure, PeerConnection = globalThi
   })
   pc.addEventListener('connectionstatechange', () => {
     if (pc.connectionState === 'connected') clearTimeout(connectTimer)
+    if (!closed && pc.connectionState === 'disconnected') onInterruption?.()
     if (!closed && pc.connectionState === 'failed') onFailure?.('LAN connection failed. Check that both devices are on the same network and client isolation is off.')
   })
   const waitForConnection = () => {

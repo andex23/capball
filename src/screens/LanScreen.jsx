@@ -112,7 +112,7 @@ export default function LanScreen() {
       <div className="sheet-body">
         {step === 'choose' ? <>
           <p>Connect both devices to the same Wi-Fi or phone hotspot. One player hosts; the other joins.</p>
-          <p className="muted">Load or install CapBall on both devices before going offline. Keep both games open while playing.</p>
+          <p className="muted">Load or install CapBall on both devices before going offline. Brief interruptions pause the match for up to two minutes. Return to the game to resume; do not close or reload it.</p>
           <button className="btn btn-gold btn-block" onClick={() => { setStep('host'); perform(createLanRoom) }}>Host LAN match</button>
           <button className="btn btn-blue btn-block" onClick={() => setStep('join')}>Join LAN match</button>
         </> : <>

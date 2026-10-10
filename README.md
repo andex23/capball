@@ -145,6 +145,11 @@ copy/paste is also available. Choose teams and start the match.
 LAN uses a native WebRTC data channel with host-only ICE and no STUN, TURN,
 PeerJS signaling, account, or backend dependency. The host runs authoritative
 physics and validates guest input using the existing multiplayer protocol.
-Keep both games open; disconnected LAN sessions must be paired again.
+Brief app/background or network interruptions pause LAN matches for up to two
+minutes while the existing WebRTC channel recovers. Fresh round-trip probes
+confirm both apps are active before the host resumes its clock and physics.
+Scores, board positions, turns and pre-existing pauses are preserved. Closing
+or reloading a tab, a permanently closed channel, or an expired recovery window
+ends the session; start a new match in those cases.
 Camera scanning needs HTTPS and camera permission. Networks with client
 isolation may prevent device-to-device connections.
