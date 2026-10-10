@@ -162,6 +162,9 @@ export function tickAnytime(delta) {
   const decision = !!p.turn.decision
   const normal = p.replayOnly ? 0 : p.duration
   const replayStart = normal + (p.replayOnly ? 0 : 1)
+  const celebrate = !p.replayOnly && p.turn.decision?.outcome === 'goal' && p.elapsed >= normal && p.elapsed < replayStart
+  const phase = celebrate ? PHASE.GOAL : PHASE.RESOLVE
+  if (useMatchStore.getState().phase !== phase) useMatchStore.setState({ phase, lastGoalOwn: false, replaying: false })
   const total = decision || p.replayOnly ? replayStart + playbackDuration(p.duration) + 1 : normal + 0.25
   let time = Math.min(p.elapsed, p.duration)
   if (p.elapsed >= replayStart && (decision || p.replayOnly)) time = playbackTime(p.elapsed - replayStart, 0, p.duration)
