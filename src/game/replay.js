@@ -13,7 +13,6 @@ export const REPLAY = {
   slowTail: 0.9, // the last this-many seconds play at slowSpeed
   leadSpeed: 3.0,
   slowSpeed: 0.4,
-  minSpan: 0.01, // even a short goal-line nudge deserves a replay
 }
 
 /**
