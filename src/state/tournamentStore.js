@@ -1,3 +1,4 @@
+import { anytimeRequest } from './anytimeStore'
 /**
  * Tournaments in the app: the one on this device, online ones from the
  * database, the winners' history, and the fixture being played right now.
@@ -159,10 +160,11 @@ export const useTournamentStore = create((set, get) => ({
 
   /* ── Online ── */
 
-  async createOnline({ format, legs, teams, matchDuration }) {
+  async createOnline({ format, legs, teams, matchDuration, playMode, turnsPerPlayer, deadlineHours }) {
     set({ busy: true, error: null })
     try {
-      const t = createTournament({ format, legs, teams, matchDuration })
+      if (playMode === 'anytime') await anytimeRequest('list')
+      const t = createTournament({ format, legs, teams, matchDuration, playMode, turnsPerPlayer, deadlineHours })
       const { code } = await api.create(t)
       // Seats the host picked as theirs
       for (let i = 0; i < teams.length; i++) {

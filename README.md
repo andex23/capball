@@ -99,3 +99,37 @@ If the link drops during setup or a match, the host keeps the room open and paus
 Run [supabase/team-editing.sql](supabase/team-editing.sql) in the Supabase SQL Editor after the tournament schema. Existing projects only need this migration; no tournament data is reset.
 
 Friends choose an open seat and edit their own team name, colours, cap designs and squad in the hub. Saves are shared through `cb_update_team`. The database checks seat ownership, preserves team IDs and fixtures, and prevents edits while a match room is open or the tournament is closed. The host must claim a seat to edit that team's identity too.
+
+## Play anytime (saved online turns)
+
+Live rooms still use PeerJS and their existing clocks. **Online → Play anytime**
+uses account-backed server turns: create a match, share its 10-character code,
+play and leave, then resume from My matches on any signed-in device. Casual
+matches have no deadline and give each player 10, 20 or 30 shots. Tied cup games
+continue to penalties. In this mode penalty keepers hold the centre.
+
+Hosted cups/leagues can also choose Play anytime with no deadline, 24 hours or
+48 hours per turn. Each friend needs their own account and team seat. Both
+players must open a fixture before its deadline starts. Missing a deadline or
+resigning forfeits the fixture 3–0; closing the app does not suspend deadlines.
+The hub settles overdue fixtures when it refreshes. Results and match completion
+are written in one transaction. Team edits apply to the next match; a match's
+teams are fixed when both players have accepted it.
+
+Deployment prerequisites:
+
+1. Apply `supabase/anytime.sql` after `tournaments.sql` and `accounts.sql`.
+   `/setup-anytime.html` provides a Copy SQL button for phones.
+2. Set **server-only** `SUPABASE_SERVICE_ROLE_KEY` in Vercel Production and
+   redeploy. Optional `SUPABASE_URL` overrides the default CAPBALL project.
+   Never prefix this key with `VITE_` or commit it.
+3. The Vercel Node function `/api/anytime` validates the account and resolves
+   shots using the same Matter physics and scoring rules as the game. Only
+   that function can invoke `cb_anytime_service`; public clients cannot write
+   results or board positions. Requests carry a version and idempotency UUID.
+
+Locally put the server key in ignored `.env.local`, run `npm run dev:api`, then
+`npm run dev` in another terminal. Vite proxies only `/api/anytime` to port 3001.
+`npm run check` includes PostgreSQL integration tests (PGlite) for account
+ownership, resumption, retries, concurrent turns, deadlines and competition
+results. It does not require production credentials.

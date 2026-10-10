@@ -5,7 +5,7 @@
  * rule can be unit tested directly and shared between the host and the AI.
  */
 
-import { PITCH, BALL_RADIUS } from '../data/TeamData'
+import { PITCH, BALL_RADIUS } from '../data/TeamData.js'
 
 export const SHOOTOUT_ROUNDS = 3
 

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -41,7 +42,14 @@ const pwa = VitePWA({
 })
 
 export default defineConfig({
-  plugins: [react(), pwa],
+  plugins: [react(), pwa, {
+    name: 'anytime-migration',
+    generateBundle() { this.emitFile({ type: 'asset', fileName: 'anytime.sql', source: readFileSync('supabase/anytime.sql', 'utf8') }) },
+    configureServer(server) {
+      server.middlewares.use('/anytime.sql', (_req, res) => { res.setHeader('Content-Type', 'text/plain'); res.end(readFileSync('supabase/anytime.sql', 'utf8')) })
+    },
+  }],
+  server: { proxy: { '/api/anytime': 'http://127.0.0.1:3001' } },
   build: {
     // three.js is one big lazily-loaded chunk by design
     chunkSizeWarningLimit: 1000,

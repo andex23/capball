@@ -1,3 +1,5 @@
+import AnytimeScreen from './screens/AnytimeScreen'
+import AnytimeHUD from './ui/AnytimeHUD'
 import { Component, Suspense, lazy, useEffect } from 'react'
 import { toggleFullscreen, typing } from './ui/fullscreen'
 import { useMatchStore, SCREEN } from './state/MatchStore'
@@ -76,19 +78,20 @@ function ConnectionLost() {
 }
 
 function Screen({ screen }) {
+  const anytime = useMatchStore(s => s.gameMode === 'anytime')
   switch (screen) {
     case SCREEN.SPLASH: return <SplashScreen />
     case SCREEN.PLAYING:
+      if (anytime) return <AnytimeHUD><Suspense fallback={<p className="muted">Loading pitch…</p>}><Scene /></Suspense></AnytimeHUD>
       return (
         <>
           <Suspense fallback={<div className="screen" style={{ display: 'grid', placeItems: 'center' }}><span className="eyebrow">Loading pitch…</span></div>}>
             <Scene />
           </Suspense>
-          <HUD />
-          <Tutorial />
-          <GameEffects />
+          <HUD /><Tutorial /><GameEffects />
         </>
       )
+    case SCREEN.ANYTIME: return <AnytimeScreen />
     case SCREEN.ONLINE: return <OnlineScreen />
     case SCREEN.TEAM_SELECT: return <TeamSelectScreen />
     case SCREEN.STADIUM_SELECT: return <StadiumSelectScreen />
