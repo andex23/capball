@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import jsQR from 'jsqr'
 import { isLanSignal } from '../multiplayer/lan'
-import { lanInviteUrl, readLanInvite } from '../multiplayer/lanInvite'
+import { lanInviteUrl, readLanInvite, isAutomaticLanInvite } from '../multiplayer/lanInvite'
 import { useTournamentStore } from '../state/tournamentStore'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { createLanRoom, joinLanRoom, finishLanPairing, disconnect, getIsHost } from '../multiplayer/MultiplayerManager'
+import { createLanRoom, joinLanRoom, createAutomaticLanRoom, joinAutomaticLanRoom, finishLanPairing, disconnect, getIsHost } from '../multiplayer/MultiplayerManager'
 import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
 import './lan.css'
@@ -34,7 +34,7 @@ function PairingCode({ value, reply }) {
   }, [qrValue])
   return <div className="lan-code" ref={container}>
     <p>{reply ? 'Show this reply to the host. The host scans it to finish pairing.' : 'Your friend can scan this invite with their phone’s Camera app to open Counterball and join.'}</p>
-    <p className="muted">{reply ? "Host: use Scan guest’s reply inside the game. Keep your host session open." : "The in-game scanner works too. Both devices must use the same Wi-Fi or hotspot. Load the game before going offline."}</p>
+    <p className="muted">{reply ? "Host: use Scan guest’s reply inside the game. Keep your host session open." : isAutomaticLanInvite(value) ? "Keep this screen open. Internet is needed only until pairing finishes; the match then stays local." : "The in-game scanner works too. Both devices must use the same Wi-Fi or hotspot. Load the game before going offline."}</p>
     {qrError && <p role="alert">This connection is too large for a QR code. Use the complete copy-and-paste code below.</p>}
     {image && <img src={image} style={{ width: grid ? Math.max(1, Math.floor(Math.min(width, 360) / grid)) * grid : 260 }} width="260" height="260" alt={reply ? 'LAN reply QR code' : 'LAN invite QR code'} />}
     <details><summary>{reply ? 'Copy pairing code instead' : 'Copy invite link instead'}</summary>
@@ -64,7 +64,7 @@ function Scanner({ onRead, onClose }) {
         ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const code = jsQR(frame.data, frame.width, frame.height)
-        const signal = isLanSignal(code?.data) ? code.data : readLanInvite(code?.data)
+        const signal = isLanSignal(code?.data) || isAutomaticLanInvite(code?.data) ? code.data : readLanInvite(code?.data)
         if (signal) { read.current(signal); return }
         if (code?.data) setHint('That is not a LAN pairing code. Scan the invite or reply shown inside LAN Match.')
       }
@@ -95,6 +95,7 @@ export default function LanScreen() {
   const status = useMatchStore(s => s.onlineStatus)
   const [invite] = useState(() => readLanInvite(window.location.href))
   const [step, setStep] = useState(() => window.location.hash.startsWith('#lan=') ? 'join' : 'choose')
+  const [manual, setManual] = useState(() => !!invite && !isAutomaticLanInvite(invite))
   const [code, setCode] = useState('')
   const [input, setInput] = useState(invite)
   const [scan, setScan] = useState(false)
@@ -130,8 +131,18 @@ export default function LanScreen() {
   const receive = value => {
     value = readLanInvite(value) || value
     setScan(false); setInput(value)
-    if (step === 'host') perform(() => finishLanPairing(value))
-    else perform(() => joinLanRoom(value), 'reply')
+    if (step === 'host' && manual) perform(() => finishLanPairing(value))
+    else if (isAutomaticLanInvite(value)) {
+      setManual(false)
+      perform(() => joinAutomaticLanRoom(value), 'connecting')
+    } else {
+      setManual(true)
+      perform(() => joinLanRoom(value), 'reply')
+    }
+  }
+  const host = offline => {
+    setManual(offline); setCode(''); setInput(''); setStep('host')
+    perform(offline ? createLanRoom : createAutomaticLanRoom)
   }
   const back = () => {
     generation.current++; disconnect(); setBusy(false); setCode(''); setInput(''); setError('')
@@ -139,34 +150,38 @@ export default function LanScreen() {
       if (hostingFixture) useTournamentStore.getState().backToHub()
       else useMatchStore.getState().goToScreen(SCREEN.MENU)
     }
-    else setStep('choose')
+    else { setStep('choose'); setManual(false) }
   }
   return <div className="screen online-screen lan-screen">
     <section className="card lan-panel">
-      <div className="sheet-head"><div><div className="eyebrow">Same Wi-Fi · No internet needed</div><h1 className="display">{hostingFixture ? 'LAN fixture' : 'LAN Match'}</h1></div></div>
+      <div className="sheet-head"><div><div className="eyebrow">{manual ? 'Same Wi-Fi · Offline pairing' : 'Same Wi-Fi · Scan once to join'}</div><h1 className="display">{hostingFixture ? 'LAN fixture' : 'LAN Match'}</h1></div></div>
       <div className="sheet-body">
         {step === 'choose' ? <>
-          <p>Connect both devices to the same Wi-Fi or phone hotspot. One player hosts; the other joins.</p>
-          <p className="muted">Load or install Counterball on both devices before going offline. Brief interruptions pause the match for up to two minutes. Return to the game to resume; do not close or reload it.</p>
-          <button className="btn btn-gold btn-block" onClick={() => { setStep('host'); perform(createLanRoom) }}>Host LAN match</button>
+          <p>Connect both devices to the same Wi-Fi or phone hotspot. Your friend scans your invite and joins — no reply scan.</p>
+          <p className="muted">Automatic pairing needs internet briefly. Once connected, play stays on your local network and can continue without internet. Keep the game open on both devices.</p>
+          <button className="btn btn-gold btn-block" onClick={() => host(false)}>Host LAN match</button>
           {!hostingFixture && <button className="btn btn-blue btn-block" onClick={() => setStep('join')}>Join LAN match</button>}
+          <details><summary>No internet? Offline pairing</summary><p className="muted">Load the game on both devices before going offline. With no internet at all, exchange an invite and reply inside the game.</p><button className="btn btn-secondary btn-block" onClick={() => host(true)}>Host offline match</button></details>
           {hostingFixture ? <p className="muted">You control {useMatchStore.getState().teamConfig.team1.name}. Your friend controls {useMatchStore.getState().teamConfig.team2.name}. Progress is saved on this host device.</p> : <>
             <button className="btn btn-secondary btn-block" onClick={() => { useTournamentStore.getState().setLocalTransport('lan'); useMatchStore.getState().goToScreen(SCREEN.TOURNAMENT_HOME) }}>LAN cups &amp; leagues</button>
             <button className="btn btn-secondary btn-block" onClick={() => useMatchStore.getState().goToScreen(SCREEN.CAREER)}>Career · play a friend over LAN</button>
             <p className="muted">For cups, leagues and career, the host opens a fixture and chooses LAN. The other player joins here.</p>
           </>}
         </> : <>
-          <h2 className="eyebrow">{step === 'host' ? '1. Share invite · 2. Scan reply' : step === 'reply' ? 'Let the host scan your reply' : invite ? 'Host invite loaded' : 'Scan the host’s invite'}</h2>
-          {step === 'join' && invite && <div className="lan-invite-ready"><p>Host invite loaded. Keep the host’s game open and connect both devices to the same Wi-Fi or hotspot.</p><button className="btn btn-gold btn-block" disabled={busy} onClick={() => receive(invite)}>Join this host</button></div>}
+          <h2 className="eyebrow">{step === 'host' ? manual ? 'Offline: share invite · scan reply' : 'Your friend scans once · connects automatically' : step === 'reply' ? 'Let the host scan your reply' : invite ? 'Host invite loaded' : 'Scan the host’s invite'}</h2>
+          {step === 'join' && invite && <div className="lan-invite-ready"><p>Host invite loaded. Keep the host’s game open and connect both devices to the same Wi-Fi or hotspot.</p>{isAutomaticLanInvite(invite) && <p className="muted">Keep internet available until pairing finishes. You will connect automatically — no reply scan.</p>}<button className="btn btn-gold btn-block" disabled={busy} onClick={() => receive(invite)}>Join this host</button></div>}
           {code && <PairingCode value={code} reply={step === 'reply'} />}
-          {step !== 'reply' && (!busy || code) && <>
+          {step !== 'reply' && step !== 'connecting' && (step !== 'host' || manual) && (!busy || code) && <>
             <button className="btn btn-blue btn-block" disabled={busy} onClick={() => setScan(true)}>{step === 'host' ? 'Scan guest’s reply' : 'Scan host’s invite'}</button>
             <details><summary>Paste a pairing code instead</summary>
               <textarea className="field" value={input} onChange={e => setInput(e.target.value)} maxLength={48000} aria-label={step === 'host' ? 'Guest reply code' : 'Host invite code'} spellCheck={false} autoCapitalize="off" />
               <button className="btn btn-secondary btn-block" disabled={busy || !input.trim()} onClick={() => receive(input)}>Connect</button>
             </details>
           </>}
-          {busy && <p role="status">Preparing local connection…</p>}
+          {busy && <p role="status">{manual ? 'Preparing local connection…' : step === 'host' ? 'Preparing your invite…' : 'Connecting to the host automatically…'}</p>}
+          {step === 'host' && !manual && code && <p role="status">Waiting for your friend to join. Keep this screen open — there is nothing else to scan.</p>}
+          {step === 'host' && !manual && !busy && <button className="btn btn-ghost btn-block" onClick={() => host(true)}>Use offline pairing instead</button>}
+          {step === 'connecting' && <p role="status">Opening match setup…</p>}
           {step === 'reply' && <p role="status">Waiting for the host to scan your reply…</p>}
         </>}
         {status.status === 'connected' && <p role="status">Connected over LAN. Opening match setup…</p>}

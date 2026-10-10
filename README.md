@@ -137,15 +137,15 @@ ownership, resumption, retries, concurrent turns, deadlines and competition
 results. It does not require production credentials.
 
 
-## Offline LAN matches
+## LAN matches
 
 Load or install Counterball on both devices before disconnecting from the internet.
 Connect to the same Wi-Fi or phone hotspot, then open **Quick Match → LAN Match**.
-The guest can scan the host invite with the phone Camera to open the game and tap **Join this host**, or use the in-game scanner. The host scans the guest reply **inside the game**, keeping the original host session open. The invite payload stays in the URL fragment and is not sent to the web server. Full-code
-copy/paste is also available. Choose teams and start the match.
+The host shows one QR invite. The guest scans with the phone Camera (then taps **Join this host**) or uses the in-game scanner. Automatic pairing returns the connection details without a reply scan. It uses the existing PeerJS signalling service briefly, then disconnects signalling once the match is connected. The invite uses a short random room reference in the URL fragment. Copy/paste is also available.
 
-LAN uses a native WebRTC data channel with host-only ICE and no STUN, TURN,
-PeerJS signaling, account, or backend dependency. The host runs authoritative
+For fully offline setup, choose **No internet? Offline pairing**. This keeps the manual invite/reply exchange available without contacting any server. Load the game on both devices before going offline.
+
+Both LAN pairing options use WebRTC data channels with host-only ICE and no STUN or TURN. After pairing, gameplay and voice stay local; neither requires internet. The host runs authoritative
 physics and validates guest input using the existing multiplayer protocol.
 Brief app/background or network interruptions pause LAN matches for up to two
 minutes while the existing WebRTC channel recovers. Fresh round-trip probes
