@@ -15,7 +15,7 @@ export function hash(seed) {
 const pick = (list, seed) => list[hash(seed) % list.length]
 const fill = (line, vars) => line.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '')
 
-/** "#9 Okafor" for a cap id like "team1_atk1", from the team's kit. */
+/** Player name and separate shirt number, resolved from the team’s kit. */
 export function playerOf(teamConfig, capId) {
   if (!capId || typeof capId !== 'string') return null
   const i = capId.indexOf('_')
@@ -25,7 +25,7 @@ export function playerOf(teamConfig, capId) {
   if (!kit || !CAP_ROLES.includes(role)) return null
   const number = Number.isInteger(kit.numbers?.[role]) ? kit.numbers[role] : null
   const name = playerNames(kit)[role]
-  return { team, role, number, name, label: number != null ? `#${number} ${name}` : name }
+  return { team, role, number, name, label: name }
 }
 
 const GOAL = {
@@ -81,9 +81,9 @@ const GOAL = {
     'No mistake from {p} from the spot.',
   ],
   own: [
-    'Oh dear! {p} turns it into their own net.',
-    'Disaster for {other} — {p} puts through their own goal!',
-    '{p} won’t want to see that again. Own goal!',
+    'Own goal — {p} turns it into their own net.',
+    'Own goal by {p}. {team} get the goal.',
+    '{p} scores an own goal. {team} benefit.',
   ],
 }
 
