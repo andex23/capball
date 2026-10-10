@@ -229,10 +229,16 @@ export function clampBodyMap(bodies, team1Side, diveStop = null) {
       const team = id.startsWith('team1') ? 'team1' : 'team2'
       const homeDir = teamHomeDir(team, team1Side)
       const onLeft = homeDir === -1
-      const xMin = onLeft ? (-halfW + r) : (halfW - PEN_AREA_W + r)
-      const xMax = onLeft ? (-halfW + PEN_AREA_W - r) : (halfW - r)
+      // The keeper may step through his own goalmouth to get behind a
+      // ball on the line. The posts and net remain physical boundaries.
+      const behindLine = x * homeDir > halfW - r
+      const goalLane = Math.abs(y) <= goalHalf - r || behindLine
+      const back = goalLane ? backWallX - r : halfW - r
+      const xMin = onLeft ? -back : (halfW - PEN_AREA_W + r)
+      const xMax = onLeft ? (-halfW + PEN_AREA_W - r) : back
       let yMin = -penHalfH + r
       let yMax = penHalfH - r
+      if (behindLine) { yMin = -goalHalf + r; yMax = goalHalf - r }
       if (diveStop?.id === id) { yMin = Math.max(yMin, -diveStop.maxAbsY); yMax = Math.min(yMax, diveStop.maxAbsY) }
 
       let cx = x, cy = y, nvx = vx, nvy = vy, fix = false
