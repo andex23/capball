@@ -9,7 +9,7 @@ import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
 import { haptic } from './haptics'
 import { classifyContact } from '../game/rules'
-import { predictShot, createShot, createPrediction, capBounds, goalFor } from '../game/predict'
+import { predictShot, createShot, createPrediction, capBounds, goalFor, ownGoalRisk } from '../game/predict'
 import { holdCamera } from '../scene/camera'
 
 const DOT_SPACING = 0.5
@@ -354,11 +354,13 @@ export function useFlickController(meshRefs, trajectoryRef) {
     // opponent's goal, red into your own)
     let dots = layDots(t, pred.capPath, pred.capPoints, capRadius + 0.2, 0, 0.07, 1, 1, 1, 0.55)
     const goal = goalFor(pred, capId, team1Side)
+    const ownRisk = ownGoalRisk(pred, capId, team1Side)
+    if (state.aimOwnGoal !== ownRisk) useMatchStore.setState({ aimOwnGoal: ownRisk })
     const ballOnPath = pred.contact === 'ball' && pred.ballPoints >= 2
     if (ballOnPath) {
       let r = 0.3, g = 0.95, b = 1
       if (goal === 'score') { r = 1; g = 0.78; b = 0.16 }
-      else if (goal === 'own') { r = 1; g = 0.2; b = 0.2 }
+      else if (ownRisk) { r = 1; g = 0.2; b = 0.2 }
       dots = layDots(t, pred.ballPath, pred.ballPoints, BALL_RADIUS + 0.15, dots, 0.11, r, g, b, 0.95)
       if (goal) {
         const e = (pred.ballPoints - 1) * 2

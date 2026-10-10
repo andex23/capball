@@ -117,3 +117,6 @@
 @media (max-height: 480px) and (orientation: landscape) {
   .match-event { max-width: 460px; font-size: 11px; padding-block: 3px; }
 }
+
+.aim-warning { color: #ffc8cd; border-color: #c65162; }
+.aim-warning strong { color: #ff9ca8; }

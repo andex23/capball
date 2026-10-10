@@ -336,3 +336,19 @@ export function goalFor(prediction, capId, team1Side = 'left') {
   if (prediction.bounces > 0) return null
   return prediction.goalDir === teamHomeDir(teamOf(capId), team1Side) ? 'own' : 'score'
 }
+
+/** Warn about a goalward clearance even when a cap truncates the preview.
+ * This is a risk cue, not a goal verdict: a deflection can still send it in.
+ */
+export function ownGoalRisk(prediction, capId, team1Side = 'left') {
+  if (goalFor(prediction, capId, team1Side) === 'own') return true
+  if (prediction.contact !== 'ball' || prediction.ballPoints < 2) return false
+  const [x, y, nextX, nextY] = prediction.ballPath
+  const home = teamHomeDir(teamOf(capId), team1Side)
+  if (x * home < PITCH.halfW - PITCH.penAreaW || Math.abs(y) > PITCH.penAreaH / 2) return false
+  const dx = nextX - x
+  if (dx * home <= 0.001) return false
+  const t = (home * (PITCH.halfW + BALL_RADIUS) - x) / dx
+  const goalY = y + (nextY - y) * t
+  return t > 0 && Math.abs(goalY) < PITCH.goalWidth / 2 + BALL_RADIUS
+}
