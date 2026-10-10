@@ -67,6 +67,14 @@ const SECTIONS = [
     ],
   },
   {
+    title: 'Penalties',
+    items: [
+      'Before a live or local penalty, the defending player secretly chooses a keeper dive: left, centre or right. On a shared phone, the kicker should look away while the keeper chooses.',
+      'The keeper moves as the ball is struck. Aim for a corner to beat a keeper who stays, or down the middle if you expect a dive.',
+      'In Play anytime, the goalkeeper holds the centre.',
+    ],
+  },
+  {
     title: 'Draws',
     items: ['A draw can be settled with a penalty shootout: best of three each, then sudden death.'],
   },

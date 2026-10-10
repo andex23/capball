@@ -104,3 +104,16 @@
 @media (max-height: 480px) and (orientation: landscape) {
   .hud-top > .at-scoreboard { max-width: 460px; }
 }
+
+/* Quiet match updates belong with the score, never across the pitch. */
+.hud-top { bottom: auto; justify-content: flex-start; gap: 4px; }
+.match-event {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 3px 8px;
+  max-width: 100%; padding: 5px 10px; background: #111724eb; color: #d9e0eb;
+  font: 500 12px/1.35 'Inter', sans-serif; text-align: center;
+  border-bottom: 1px solid #465064; pointer-events: none;
+}
+.match-event strong { color: #ffd54a; font-weight: 700; }
+@media (max-height: 480px) and (orientation: landscape) {
+  .match-event { max-width: 460px; font-size: 11px; padding-block: 3px; }
+}
