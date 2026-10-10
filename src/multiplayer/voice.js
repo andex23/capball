@@ -1,6 +1,33 @@
+function voiceError(code) { return Object.assign(new Error(code), { name: code }) }
+
+export function requestMicrophone(constraints) {
+  if (globalThis.isSecureContext === false) throw voiceError('InsecureContext')
+  if (!globalThis.navigator?.mediaDevices?.getUserMedia) throw voiceError('MediaUnsupported')
+  return navigator.mediaDevices.getUserMedia(constraints)
+}
+
+export function microphoneErrorMessage(error) {
+  switch (error?.name) {
+    case 'NotAllowedError': case 'PermissionDeniedError': case 'SecurityError':
+      return 'Microphone access was denied. On iPhone, open Safari’s website settings and set Microphone to Allow, then join voice again. [MIC_PERMISSION]'
+    case 'NotReadableError': case 'TrackStartError': case 'AbortError':
+      return 'Your phone could not start the microphone. End any phone or voice call, close other apps using the microphone, then try again. [MIC_BUSY]'
+    case 'NotFoundError': case 'DevicesNotFoundError': case 'NoMicrophone':
+      return 'No microphone was found. Check your headset or use the phone’s built-in microphone, then try again. [MIC_MISSING]'
+    case 'OverconstrainedError': case 'ConstraintNotSatisfiedError':
+      return 'Your microphone could not use these audio settings. Try the phone’s built-in microphone. [MIC_SETTINGS]'
+    case 'InsecureContext':
+      return 'Microphone access needs a secure connection. Open the game using its HTTPS address. [MIC_HTTPS]'
+    case 'MediaUnsupported': case 'VoiceUnsupported':
+      return 'This browser does not provide voice access. Open the game directly in Safari or Chrome and join the match there. [MIC_BROWSER]'
+    default:
+      return 'Voice could not start. Try joining again; if this continues, open the game directly in Safari or Chrome. [VOICE_START]'
+  }
+}
+
 /** Audio-only WebRTC. Signalling travels over the already authenticated match channel. */
 export function createVoiceChat({ send, isHost, iceServers = [], onState = () => {},
-  getUserMedia = constraints => navigator.mediaDevices.getUserMedia(constraints),
+  getUserMedia = requestMicrophone,
   PeerConnection = globalThis.RTCPeerConnection, createAudio = () => new Audio(),
   makeId = () => crypto.randomUUID(), gatherTimeout = 12000,
 }) {
@@ -109,10 +136,18 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
     const token = ++generation
     publish({ status: 'permission', error: '' })
     try {
-      if (!PeerConnection) throw new Error('unsupported')
-      const result = await getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
+      if (!PeerConnection) throw voiceError('VoiceUnsupported')
+      let result
+      try {
+        result = await getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
+      } catch (error) {
+        if (disposed || generation !== token) return
+        if (!['OverconstrainedError', 'ConstraintNotSatisfiedError'].includes(error?.name)) throw error
+        // Some phone/headset combinations reject processing settings. Keep capture audio-only.
+        result = await getUserMedia({ audio: true, video: false })
+      }
       if (disposed || generation !== token) { result.getTracks().forEach(track => track.stop()); return }
-      if (!result.getAudioTracks().length) { result.getTracks().forEach(track => track.stop()); throw new Error('no-mic') }
+      if (!result.getAudioTracks().length) { result.getTracks().forEach(track => track.stop()); throw voiceError('NoMicrophone') }
       stream = result
       localId = makeId()
       for (const track of stream.getAudioTracks()) track.onended = () => { if (stream === result) leave('Microphone disconnected. Join voice again to reconnect it.') }
@@ -120,9 +155,7 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
       transmit({ kind: 'ready', id: localId })
       await offer()
     } catch (error) {
-      if (generation === token) fail(error.name === 'NotAllowedError'
-        ? 'Microphone access was denied. Allow it in your browser settings, then try again.'
-        : 'Microphone unavailable. Use HTTPS and a browser that supports microphone access.')
+      if (generation === token) fail(microphoneErrorMessage(error))
     } finally { if (generation === token) pending = false }
   }
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { createVoiceChat } from '../multiplayer/voice'
+import { createVoiceChat, microphoneErrorMessage, requestMicrophone } from '../multiplayer/voice'
 
 const active = []
-afterEach(() => { active.splice(0).forEach(v => v.dispose()); vi.useRealTimers() })
+afterEach(() => { active.splice(0).forEach(v => v.dispose()); vi.useRealTimers(); vi.unstubAllGlobals() })
 function setup(extra = {}) {
   const track = { enabled: true, stop: vi.fn() }
   const stream = { getTracks: () => [track], getAudioTracks: () => [track] }
@@ -100,5 +100,39 @@ describe('opt-in live voice', () => {
     await vi.advanceTimersByTimeAsync(30000)
     expect(t.state.enabled).toBe(false)
     expect(t.track.stop).toHaveBeenCalledOnce()
+  })
+})
+
+
+describe('phone microphone recovery', () => {
+  it('falls back to basic audio when processing settings are rejected', async () => {
+    const gum = vi.fn().mockRejectedValueOnce({ name: 'OverconstrainedError' })
+    const t = setup({ getUserMedia: gum })
+    gum.mockResolvedValueOnce(t.stream)
+    await t.voice.enable()
+    expect(gum).toHaveBeenLastCalledWith({ audio: true, video: false })
+    expect(t.state.enabled).toBe(true)
+  })
+  it.each(['NotAllowedError', 'NotReadableError', 'NotFoundError'])('does not repeat capture requests for %s', async name => {
+    const gum = vi.fn().mockRejectedValue({ name })
+    const t = setup({ getUserMedia: gum })
+    await t.voice.enable()
+    expect(gum).toHaveBeenCalledTimes(1)
+    expect(t.state.error).toBe(microphoneErrorMessage({ name }))
+    expect(t.state.error).not.toMatch(/HTTPS/)
+    expect(t.state.enabled).toBe(false)
+  })
+  it('distinguishes insecure pages from browsers without microphone support', () => {
+    vi.stubGlobal('isSecureContext', false)
+    expect(() => requestMicrophone({ audio: true })).toThrow('InsecureContext')
+    vi.stubGlobal('isSecureContext', true)
+    vi.stubGlobal('navigator', {})
+    expect(() => requestMicrophone({ audio: true })).toThrow('MediaUnsupported')
+  })
+  it('releases capture if setup fails after microphone permission succeeds', async () => {
+    const t = setup({ makeId: () => { throw new Error('setup failed') } })
+    await t.voice.enable()
+    expect(t.track.stop).toHaveBeenCalledOnce()
+    expect(t.state.error).toContain('[VOICE_START]')
   })
 })
