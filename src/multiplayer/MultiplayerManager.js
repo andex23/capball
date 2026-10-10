@@ -1,4 +1,5 @@
 import { createLanPeer } from './lan'
+import { createLanRecovery } from './lanRecovery'
 /**
  * CAPBALL online multiplayer (PeerJS, peer-to-peer).
  *
@@ -37,6 +38,7 @@ const RETRY_TIMEOUT_MS = 10000
 // Host: how often to check the signalling server link while a room is open
 const SIGNAL_CHECK_MS = 5000
 
+let lanRecovery = null
 let lan = false
 let peer = null
 let conn = null
@@ -143,6 +145,7 @@ function stopSync() {
 
 function handleAsHost(msg) {
   const store = useMatchStore.getState()
+  if (lan && store.onlineReconnect && msg?.type !== 'bye') return
   const action = validateGuestMessage(msg, store)
   if (!action) return
   switch (action.type) {
@@ -189,6 +192,11 @@ function canReconnect() {
 }
 
 function connectionLost(reason) {
+  // A silent channel can recover on its own. Closing it makes that impossible.
+  if (lan && reason === 'timeout' && lanRecovery) {
+    lanRecovery.interrupt()
+    return
+  }
   stopSync()
   stopWatchdog()
   const c = conn
@@ -250,6 +258,7 @@ function resumeAfterDrop() {
 
 /** Give up on the session; the ConnectionLost modal takes it from here. */
 function endSession(msg) {
+  lanRecovery?.stop(); lanRecovery = null
   stopSync()
   stopWatchdog()
   stopSignalling()
@@ -269,6 +278,7 @@ function startWatchdog() {
   lastReceived = Date.now()
   watchdog = setInterval(() => {
     if (!conn) return
+    if (lanRecovery) { lanRecovery.tick(); return }
     if (!isHost) send('ping', {})
     if (Date.now() - lastReceived > TIMEOUT_MS) connectionLost('timeout')
   }, HEARTBEAT_MS)
@@ -296,6 +306,7 @@ function attachConnection(connection) {
   connection.on('data', (msg) => {
     if (conn !== connection) return
     lastReceived = Date.now()
+    if (lanRecovery?.receive(msg)) return
     if (isHost) handleAsHost(msg)
     else handleAsGuest(msg)
   })
@@ -312,9 +323,35 @@ function onConnected(rejoin) {
   lobbyHint = ''
   if (rejoin) setStatus('connected', isHost ? `${opponentName()} is back!` : 'Reconnected!')
   else setStatus('connected', isHost ? 'Opponent connected!' : 'Connected to host!')
+  if (lan) startLanRecovery()
   if (isHost) startSync()
   startWatchdog()
   if (rejoin && reconnector?.active) reconnector.succeed()
+}
+
+function startLanRecovery() {
+  lanRecovery?.stop()
+  lanRecovery = createLanRecovery({
+    send,
+    visible: () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
+    onLost(deadline) {
+      const store = useMatchStore.getState()
+      if (isHost) {
+        pausedByDrop = store.screen === SCREEN.PLAYING && !store.paused
+        if (pausedByDrop) store.setPaused(true)
+      }
+      useMatchStore.setState({ onlineReconnect: { phase: 'lost', deadline, attempts: 0 } })
+      setStatus('reconnecting', 'Return both devices to CapBall on the same Wi-Fi or hotspot.')
+    },
+    onRestored() {
+      useMatchStore.setState({ onlineReconnect: null })
+      setStatus('connected', 'LAN connection restored.')
+      resumeAfterDrop()
+      if (isHost) startSync()
+    },
+    onExpired() { endSession('LAN reconnection timed out. Start a new LAN match when both devices are ready.') },
+  })
+  lanRecovery.tick()
 }
 
 /* ── Host: accepting guests ── */
@@ -429,6 +466,7 @@ function setupLan(host) {
         onConnected(false)
       })
     },
+    onInterruption() { if (peer === endpoint) lanRecovery?.interrupt() },
     onFailure(message) { if (peer === endpoint) endSession(message) },
   })
   peer = endpoint
@@ -510,7 +548,13 @@ export function joinRoom(input) {
 }
 
 // Closing the tab tells the other side straight away where the browser allows it
-if (typeof window !== 'undefined') window.addEventListener('pagehide', () => { if (conn) disconnect() })
+if (typeof window !== 'undefined') window.addEventListener('pagehide', () => {
+  if (lan) lanRecovery?.interrupt()
+  else if (conn) disconnect()
+})
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => {
+  if (lan) lanRecovery?.visibilityChanged()
+})
 
 /* Guest requests (the host ignores anything it doesn't allow) */
 export function sendTeamConfig(config) { send('teamConfig', { config }) }
@@ -528,6 +572,7 @@ export function isConnected() { return !!conn?.open }
 
 /** Leave on purpose: say goodbye (so the other side doesn't wait for us) and tear down. */
 export function disconnect() {
+  lanRecovery?.stop(); lanRecovery = null
   const c = conn
   const p = peer
   conn = null

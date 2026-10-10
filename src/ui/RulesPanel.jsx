@@ -10,7 +10,7 @@ const SECTIONS = [
       'Open Quick Match → LAN Match on both devices. Load or install CapBall before going offline.',
       'One player hosts. The guest scans the host’s invite, then the host scans the guest’s reply. You can also copy and paste the full pairing codes.',
       'Choose your teams and play directly over your local network. No internet or account is needed after the game has loaded.',
-      'Keep both games open. Leaving a LAN session ends it; pair again for a new match. Guest Wi-Fi with device isolation may block pairing.',
+      'Brief app or network interruptions pause LAN matches for up to two minutes. Return both devices to the game on the same network to resume automatically. Closing or reloading ends the session. Guest Wi-Fi with device isolation may block pairing.',
     ],
   },
   {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { disconnect } from '../multiplayer/MultiplayerManager'
+import { LAN_GRACE_MS } from '../multiplayer/lanRecovery'
 import { RECONNECT, formatCountdown } from '../multiplayer/reconnect'
 import { playButtonSelect } from '../audio/SoundManager'
 import Modal from './Modal'
@@ -24,6 +25,7 @@ function useNow(active, ms = 250) {
  * When the grace period runs out, ConnectionLost (App.jsx) takes over.
  */
 export default function OnlineReconnect() {
+  const lan = useMatchStore(s => s.onlineTransport === 'lan')
   const reconnect = useMatchStore((s) => s.onlineReconnect)
   const gameMode = useMatchStore((s) => s.gameMode)
   const screen = useMatchStore((s) => s.screen)
@@ -49,7 +51,7 @@ export default function OnlineReconnect() {
   }
 
   const remaining = Math.max(0, reconnect.deadline - now)
-  const progress = Math.min(1, remaining / RECONNECT.graceMs)
+  const progress = Math.min(1, remaining / (lan ? LAN_GRACE_MS : RECONNECT.graceMs))
 
   const leave = () => {
     playButtonSelect()
@@ -74,7 +76,9 @@ export default function OnlineReconnect() {
         <i style={{ transform: `scaleX(${progress})` }} />
       </div>
       <p className="muted">
-        {isHost
+        {lan
+          ? 'The match is paused. Return both devices to CapBall on the same Wi-Fi or hotspot within two minutes. Play resumes automatically when the connection returns. Keep the game open; closing or reloading it ends the session.'
+          : isHost
           ? `${screen === SCREEN.PLAYING ? 'The match is paused. ' : ''}If they aren’t back within a minute, the match ends.`
           : `${reconnect.attempts ? `Attempt ${reconnect.attempts}. ` : ''}${screen === SCREEN.PLAYING ? 'The match is paused while we get you back in.' : 'Hang on while we get you back in.'}`}
       </p>
