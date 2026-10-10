@@ -2175,3 +2175,10 @@ button { cursor: pointer; background: none; border: 0; }
   .scorebug-team { white-space: normal; padding-block: 5px; }
   .scorebug-team span { overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 }
+
+/* Phone match controls: centered scoreboard above, menu at the bottom-right. */
+@media (max-width: 700px), (max-height: 500px) and (max-width: 1000px) {
+  .hud-top { left: 50%; right: auto; transform: translateX(-50%); width: calc(100% - 24px); max-width: 560px; }
+  .hud-corner.tr { top: auto; bottom: calc(var(--safe-bottom) + 12px); }
+  .hud-corner.br { right: calc(var(--safe-right) + 68px); }
+}

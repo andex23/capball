@@ -9,6 +9,7 @@ import { onlineInterrupted } from '../multiplayer/reconnect'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer, playCrowdGroan, playCrowdMurmur } from '../audio/SoundManager'
 import Icon from './Icon'
+import MatchScoreboard from './MatchScoreboard'
 import CameraStick from './CameraStick'
 import Modal from './Modal'
 import SettingsPanel from './SettingsPanel'
@@ -46,31 +47,20 @@ function ScoreBug() {
   const kicks = useMatchStore((s) => s.penaltyKicks)
   const lastScorer = useMatchStore((s) => s.lastScorer)
   const phase = useMatchStore((s) => s.phase)
-  const popping = phase === PHASE.GOAL
-
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const onlineMyTeam = useMatchStore((s) => s.onlineMyTeam)
+  const aiTeam = useMatchStore((s) => s.aiTeam)
   const round = Math.min(kicks.team1, kicks.team2) + 1
-  const team = (key) => ({ '--team': displayColor(teamConfig[key].primary), '--team-ink': inkOn(teamConfig[key].primary), '--team-shadow': inkOn(teamConfig[key].primary) === '#ffffff' ? undefined : 'none' })
+  const clock = shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : formatClock(timeRemaining)
+  const detail = phase === PHASE.MATCH_OVER ? 'FULL TIME' : shootout
+    ? round > SHOOTOUT_ROUNDS ? 'SUDDEN DEATH' : `ROUND ${round}/${SHOOTOUT_ROUNDS}`
+    : goalTarget ? 'VS' : half === 1 ? '1ST HALF' : '2ND HALF'
+  return <MatchScoreboard teams={teamConfig} score={shootout ? pens : score}
+    active={phase === PHASE.MATCH_OVER ? null : activeTeam}
+    myTeam={gameMode === 'online' ? onlineMyTeam : gameMode === 'ai' ? otherTeam(aiTeam) : null}
+    label={clock} detail={detail} popping={phase === PHASE.GOAL ? lastScorer : null}
+    rail={<span>{gameMode === 'online' ? 'LIVE ONLINE' : gameMode === 'ai' ? 'VS CPU' : 'LOCAL MATCH'}</span>} />
 
-  return (
-    <div className="scorebug" role="group" aria-label="Scoreboard">
-      <div className="scorebug-team home" style={team('team1')} data-active={activeTeam === 'team1'}>
-        <span>{teamConfig.team1.name}</span><i className="team-dot" />
-      </div>
-      <div className={`scorebug-score${popping && lastScorer === 'team1' ? ' pop' : ''}`} style={team('team1')} aria-label={`${teamConfig.team1.name} ${score.team1}`}>
-        {shootout ? pens.team1 : score.team1}
-      </div>
-      <div className="scorebug-clock" aria-live="off">
-        <b>{shootout ? 'PENS' : goalTarget ? `TO ${goalTarget}` : formatClock(timeRemaining)}</b>
-        <small>{shootout ? (round > SHOOTOUT_ROUNDS ? 'Sudden death' : `Round ${Math.min(round, SHOOTOUT_ROUNDS)}/${SHOOTOUT_ROUNDS}`) : goalTarget ? 'First to score' : half === 1 ? '1st half' : '2nd half'}</small>
-      </div>
-      <div className={`scorebug-score${popping && lastScorer === 'team2' ? ' pop' : ''}`} style={team('team2')} aria-label={`${teamConfig.team2.name} ${score.team2}`}>
-        {shootout ? pens.team2 : score.team2}
-      </div>
-      <div className="scorebug-team" style={team('team2')} data-active={activeTeam === 'team2'}>
-        <i className="team-dot" /><span>{teamConfig.team2.name}</span>
-      </div>
-    </div>
-  )
 }
 
 function useTurnText() {
@@ -451,7 +441,7 @@ export default function HUD() {
 
       <div className="hud-corner tr">
         <button className="icon-btn" onClick={() => setPaused(true)} aria-label="Pause" disabled={phase === PHASE.MATCH_OVER}>
-          <Icon name="pause" size={18} />
+          <Icon name="menu" size={18} />
         </button>
       </div>
 

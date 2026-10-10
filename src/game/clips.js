@@ -22,16 +22,32 @@ function pickType() {
 export const canRecord = () => !!pickType() && typeof HTMLCanvasElement !== 'undefined' && !!HTMLCanvasElement.prototype.captureStream
 
 let recorder = null
-let chunks = []
+let generation = 0
 
-function start() {
+function start(s) {
   const canvas = getCanvas()
   const type = pickType()
   if (!canvas?.captureStream || !type || recorder) return
   try {
     const stream = canvas.captureStream(30)
     recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 3_000_000 })
-    chunks = []
+    const chunks = []
+    const matchGeneration = generation
+    const name = (t) => s.teamConfig[t]?.name || t
+    const title = `${name('team1')} ${s.score.team1}–${s.score.team2} ${name('team2')}`
+    const who = playerOf(s.teamConfig, s.lastGoalCap)
+    const scorer = who && !s.lastGoalOwn ? `${who.label} (${name(who.team)})` : s.lastScorer ? name(s.lastScorer) : ''
+    const r = recorder
+    r.onstop = () => {
+      r.stream?.getTracks?.().forEach((t) => t.stop())
+      if (matchGeneration !== generation || !chunks.length) return
+      const type = (r.mimeType || 'video/webm').split(';')[0]
+      const blob = new Blob(chunks, { type })
+      const clip = { url: URL.createObjectURL(blob), blob, type, title, scorer, outcome: 'goal' }
+      const clips = [clip, ...useClipStore.getState().clips]
+      clips.slice(MAX_CLIPS).forEach((c) => URL.revokeObjectURL(c.url))
+      useClipStore.setState({ clips: clips.slice(0, MAX_CLIPS) })
+    }
     recorder.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data) }
     recorder.start(250)
   } catch {
@@ -43,22 +59,6 @@ function stop() {
   const r = recorder
   recorder = null
   if (!r) return
-  const s = useMatchStore.getState()
-  const name = (t) => s.teamConfig[t]?.name || t
-  const title = `${name('team1')} ${s.score.team1}–${s.score.team2} ${name('team2')}`
-  const who = playerOf(s.teamConfig, s.lastGoalCap)
-  const scorer = who && !s.lastGoalOwn ? `${who.label} (${name(who.team)})` : s.lastScorer ? name(s.lastScorer) : ''
-  r.onstop = () => {
-    r.stream?.getTracks?.().forEach((t) => t.stop())
-    const type = (r.mimeType || 'video/webm').split(';')[0]
-    if (!chunks.length) return
-    const blob = new Blob(chunks, { type })
-    chunks = []
-    const clip = { url: URL.createObjectURL(blob), blob, type, title, scorer }
-    const clips = [clip, ...useClipStore.getState().clips]
-    clips.slice(MAX_CLIPS).forEach((c) => URL.revokeObjectURL(c.url))
-    useClipStore.setState({ clips: clips.slice(0, MAX_CLIPS) })
-  }
   try { r.stop() } catch { /* already stopped */ }
 }
 
@@ -85,12 +85,17 @@ export async function shareClip(clip) {
 
 /** Record every goal replay; forget the clips when a new match starts. */
 export function initClips() {
-  useMatchStore.subscribe((m, prev) => {
-    if (m.replaying && !prev.replaying) start()
-    else if (!m.replaying && prev.replaying) stop()
-    if (m.matchKey !== prev.matchKey && !m.penaltyShootout && !m.challenge) {
+  return useMatchStore.subscribe((m, prev) => {
+    if (m.matchKey !== prev.matchKey) {
+      generation++
+      stop()
       useClipStore.getState().clips.forEach((c) => URL.revokeObjectURL(c.url))
       useClipStore.setState({ clips: [] })
     }
+    // Decision replays also include disallowed goals. Only confirmed goals
+    // belong in the scored-goal gallery or its share/download actions.
+    if (m.replaying && !prev.replaying && m.replayDecision?.outcome === 'goal') start(m)
+    else if (!m.replaying && prev.replaying) stop()
+
   })
 }

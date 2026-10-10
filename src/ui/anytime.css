@@ -88,3 +88,19 @@
   .at-possession { padding-block: 4px; }
   .at-menu-toggle { top: 8px; }
 }
+
+/* On phones the scoreboard owns the full top edge; the menu sits by the thumb. */
+@media (max-width: 700px), (max-height: 500px) and (max-width: 1000px) {
+  .at-match-header { padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right)); }
+  .at-menu-toggle { position: fixed; top: auto; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 10; }
+}
+
+.hud-top > .at-scoreboard { width: 100%; }
+.hud-top { width: min(560px, calc(100% - 128px)); }
+.at-score-numbers strong.pop { animation: score-pop .6s ease; }
+@media (max-width: 700px), (max-height: 500px) and (max-width: 1000px) {
+  .hud-top { width: calc(100% - 24px); }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  .hud-top > .at-scoreboard { max-width: 460px; }
+}
