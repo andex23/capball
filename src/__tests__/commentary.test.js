@@ -8,9 +8,11 @@ const teamConfig = {
 const g = (o) => goalLine({ teamConfig, scorerTeam: 'team1', cap: 'team1_atk1', score: { team1: 1, team2: 0 }, goalLog: [{ cap: 'team1_atk1' }], seed: 's', ...o })
 
 describe('commentary', () => {
-  it('names the player with their number', () => {
-    expect(playerOf(teamConfig, 'team1_atk1').label).toBe('#9 Okafor')
-    expect(g().line).toContain('#9 Okafor')
+  it('uses the player name in prose and keeps the shirt number separate', () => {
+    expect(playerOf(teamConfig, 'team1_atk1').label).toBe('Okafor')
+    expect(g().line).toContain('Okafor')
+    expect(g().line).not.toContain('#9')
+    expect(playerOf(teamConfig, 'team1_atk1').number).toBe(9)
   })
 
   it('reads the situation', () => {
