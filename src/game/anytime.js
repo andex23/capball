@@ -127,7 +127,7 @@ export function resolveAnytimeTurn(saved, configInput, move) {
       if (verdict?.outcome === 'goal' && verdict.scorer === team) state.penaltyScores[team]++
       const status = shootoutStatus(state.penaltyKicks, state.penaltyScores)
       if (status.decided) { state.complete = true; state.winner = status.winner }
-      else { layouts.setupPenalty(state.activeTeam); state.freeKickCapId = layoutState.freeKickCapId; state.penaltyKick = true }
+      else { layouts.setupPenalty(state.activeTeam, { shootout: true }); state.freeKickCapId = layoutState.freeKickCapId; state.penaltyKick = true }
     } else {
       state.turns[team]++
       if (first === 'foul') {
@@ -161,7 +161,7 @@ export function resolveAnytimeTurn(saved, configInput, move) {
         if (winner || !config.knockout) { state.complete = true; state.winner = winner }
         else {
           state.shootout = true; state.activeTeam = 'team1'; state.kickoffGuard = false; state.goalKickGuard = false
-          layouts.setupPenalty('team1'); state.freeKickCapId = layoutState.freeKickCapId; state.penaltyKick = true
+          layouts.setupPenalty('team1', { shootout: true }); state.freeKickCapId = layoutState.freeKickCapId; state.penaltyKick = true
         }
       } else if (state.turns[state.activeTeam] >= config.turnsPerPlayer) {
         // Own goals or repeated restarts must not give one player extra turns.

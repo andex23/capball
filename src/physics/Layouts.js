@@ -326,7 +326,7 @@ function diveKeeper(keeperTeam, dive) {
   Body.setVelocity(gk, { x: 0, y: dive * KEEPER_DIVE_SPEED })
 }
 
-function setupPenalty(fouledTeam) {
+function setupPenalty(fouledTeam, { shootout = !!getState().penaltyShootout } = {}) {
   diveStop = null
   const { halfW } = PITCH
   const defTeam = otherTeam(fouledTeam)
@@ -351,18 +351,36 @@ function setupPenalty(fouledTeam) {
     Body.setPosition(keeper, { x: defGkDir * (halfW - GK_RADIUS - 0.02), y: 0 })
     Body.setVelocity(keeper, { x: 0, y: 0 })
   }
-  safePlace(`${fouledTeam}_gk`, atkGkDir * (halfW - 1.2), 0)
+  if (shootout) safePlace(`${fouledTeam}_gk`, atkGkDir * (halfW - 1.2), 0)
 
-  // The 7 remaining outfield caps: spread in a line along the halfway line
+  // Remaining outfield caps; a halfway lineup is only for shootouts.
   const others = [
     `${fouledTeam}_atk2`, `${fouledTeam}_mid`, `${fouledTeam}_def1`, `${fouledTeam}_def2`,
     `${defTeam}_def1`, `${defTeam}_def2`, `${defTeam}_mid`, `${defTeam}_atk1`, `${defTeam}_atk2`,
   ]
-  const spacing = 2.2
-  const startY = -((others.length - 1) * spacing) / 2
-  others.forEach((id, i) => {
-    safePlace(id, 0, startY + i * spacing)
-  })
+  if (shootout) {
+    const spacing = 2.2
+    const startY = -((others.length - 1) * spacing) / 2
+    others.forEach((id, i) => safePlace(id, 0, startY + i * spacing))
+  } else {
+    // A match penalty preserves the formation wherever it is already legal.
+    // Move encroaching caps behind the spot, outside the box and clear of the kicker.
+    const legal = p => p.x * defGkDir <= halfW - PITCH.penAreaW - CAP_RADIUS - 0.2
+      && Math.hypot(p.x - penX, p.y) >= 4
+    const moving = others.filter(id => bodies[id] && !legal(bodies[id].position))
+    const occupied = Object.entries(bodies)
+      .filter(([id]) => id !== 'ball' && !moving.includes(id))
+      .map(([, body]) => body.position)
+    const slots = [4.5, 1.8, -0.9, -3.6, -6.3].flatMap(x =>
+      [-6.4, -3.2, 0, 3.2, 6.4].map(y => ({ x: x * defGkDir, y })))
+    for (const id of moving) {
+      const origin = bodies[id].position
+      const candidates = slots.filter(p => legal(p) && occupied.every(q => Math.hypot(p.x - q.x, p.y - q.y) >= 2))
+      candidates.sort((a, b) => Math.hypot(a.x - origin.x, a.y - origin.y) - Math.hypot(b.x - origin.x, b.y - origin.y))
+      const target = candidates[0]
+      if (target) { safePlace(id, target.x, target.y); occupied.push(target) }
+    }
+  }
 
   deOverlapBodies()
 
