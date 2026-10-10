@@ -1409,7 +1409,7 @@ button { cursor: pointer; background: none; border: 0; }
 .iss-logo-word {
   position: relative; display: inline-block;
   font-family: var(--font-display); font-style: italic; font-weight: 800;
-  font-size: clamp(64px, 17vw, 132px); letter-spacing: 0.02em;
+  font-size: clamp(38px, 11vw, 100px); letter-spacing: 0.02em;
   padding: 0 0.12em 0.06em 0.04em;
   color: transparent;
   background: linear-gradient(180deg, #fffbe6 0 22%, #ffe36a 22% 46%, #ffb21a 46% 62%, #ff7a12 62% 80%, #e8261f 80% 100%);
@@ -1420,7 +1420,7 @@ button { cursor: pointer; background: none; border: 0; }
 .iss-logo-depth {
   position: absolute; left: 0; top: 0; display: inline-block;
   font-family: var(--font-display); font-style: italic; font-weight: 800;
-  font-size: clamp(64px, 17vw, 132px); letter-spacing: 0.02em;
+  font-size: clamp(38px, 11vw, 100px); letter-spacing: 0.02em;
   padding: 0 0.12em 0.06em 0.04em;
   transform: skewX(-6deg);
   color: var(--iss-ink);
@@ -1531,7 +1531,7 @@ button { cursor: pointer; background: none; border: 0; }
   .iss-brand { grid-row: 1; grid-column: 1; }
   .iss-press, .iss-window { grid-row: 1; grid-column: 2; justify-self: center; }
   .iss-foot { grid-row: 2; grid-column: 1 / -1; }
-  .iss-logo-word, .iss-logo-depth { font-size: clamp(56px, 11vw, 96px); }
+  .iss-logo-word, .iss-logo-depth { font-size: clamp(36px, 8vw, 76px); }
   .iss-window { padding: 20px 10px 8px; }
   .iss-row { min-height: 38px; }
   .iss-opt { min-height: 32px; }

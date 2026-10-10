@@ -1,5 +1,5 @@
 /**
- * CAPBALL match rules as pure functions.
+ * COUNTER BALL match rules as pure functions.
  *
  * Nothing in here touches the physics engine, the store or the DOM, so every
  * rule can be unit tested directly and shared between the host and the AI.

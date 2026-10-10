@@ -65,10 +65,10 @@ function stop() {
 /** Share a clip with the phone's share sheet, or download it where sharing files isn't possible. */
 export async function shareClip(clip) {
   const ext = clip.type.includes('mp4') ? 'mp4' : 'webm'
-  const file = new File([clip.blob], `capball-goal.${ext}`, { type: clip.type })
+  const file = new File([clip.blob], `counter-ball-goal.${ext}`, { type: clip.type })
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: 'CapBall goal', text: `${clip.scorer ? `${clip.scorer} score! ` : ''}${clip.title} — capball.vercel.app` })
+      await navigator.share({ files: [file], title: 'Counter Ball goal', text: `${clip.scorer ? `${clip.scorer} score! ` : ''}${clip.title} — capball.vercel.app` })
       return 'shared'
     } catch (e) {
       if (e?.name === 'AbortError') return 'cancelled'

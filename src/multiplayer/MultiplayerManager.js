@@ -2,7 +2,7 @@ import { useTournamentStore } from '../state/tournamentStore'
 import { createLanPeer } from './lan'
 import { createLanRecovery } from './lanRecovery'
 /**
- * CAPBALL online multiplayer (PeerJS, peer-to-peer).
+ * COUNTER BALL online multiplayer (PeerJS, peer-to-peer).
  *
  * - The host (team1) is the authority: it runs physics and the rules and
  *   streams store state + body positions to the guest.
@@ -343,7 +343,7 @@ function startLanRecovery() {
         if (pausedByDrop) store.setPaused(true)
       }
       useMatchStore.setState({ onlineReconnect: { phase: 'lost', deadline, attempts: 0 } })
-      setStatus('reconnecting', 'Return both devices to CapBall on the same Wi-Fi or hotspot.')
+      setStatus('reconnecting', 'Return both devices to Counter Ball on the same Wi-Fi or hotspot.')
     },
     onRestored() {
       useMatchStore.setState({ onlineReconnect: null })

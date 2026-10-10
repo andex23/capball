@@ -33,7 +33,7 @@ export default function SplashScreen() {
       <div className="iss-layout">
         <RetroLogo />
         <p className="iss-press" role="button">Press start</p>
-        <footer className="iss-foot"><span>© 2026 Capball</span></footer>
+        <footer className="iss-foot"><span>© 2026 Counter Ball</span></footer>
       </div>
     </div>
   )

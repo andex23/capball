@@ -77,7 +77,7 @@ export default function OnlineReconnect() {
       </div>
       <p className="muted">
         {lan
-          ? 'The match is paused. Return both devices to CapBall on the same Wi-Fi or hotspot within two minutes. Play resumes automatically when the connection returns. Keep the game open; closing or reloading it ends the session.'
+          ? 'The match is paused. Return both devices to Counter Ball on the same Wi-Fi or hotspot within two minutes. Play resumes automatically when the connection returns. Keep the game open; closing or reloading it ends the session.'
           : isHost
           ? `${screen === SCREEN.PLAYING ? 'The match is paused. ' : ''}If they aren’t back within a minute, the match ends.`
           : `${reconnect.attempts ? `Attempt ${reconnect.attempts}. ` : ''}${screen === SCREEN.PLAYING ? 'The match is paused while we get you back in.' : 'Hang on while we get you back in.'}`}

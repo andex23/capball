@@ -1,4 +1,4 @@
-/* CAPBALL service worker (built by vite-plugin-pwa, injectManifest strategy).
+/* COUNTER BALL service worker (built by vite-plugin-pwa, injectManifest strategy).
  *
  * - Precaches the app shell plus every built JS/CSS/font chunk — including the lazily
  *   loaded three.js/Scene chunks — so a match works offline after a single visit.

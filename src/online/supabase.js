@@ -1,5 +1,5 @@
 /**
- * Tiny client for the CAPBALL Supabase project (online tournaments).
+ * Tiny client for the COUNTER BALL Supabase project (online tournaments).
  *
  * Only calls the cb_* database functions (see supabase/tournaments.sql) over
  * plain fetch — no SDK, so it adds almost nothing to the download. The anon

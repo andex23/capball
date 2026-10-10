@@ -12,9 +12,9 @@ export function RetroBackdrop() {
 export function RetroLogo({ ribbon = 'Tabletop Football', as: Tag = 'h1' }) {
   return (
     <header className="iss-brand">
-      <Tag className="iss-logo" aria-label="Capball">
-        <span className="iss-logo-depth" aria-hidden="true">CAPBALL</span>
-        <span className="iss-logo-word">CAPBALL</span>
+      <Tag className="iss-logo" aria-label="Counter Ball">
+        <span className="iss-logo-depth" aria-hidden="true">COUNTER BALL</span>
+        <span className="iss-logo-word">COUNTER BALL</span>
       </Tag>
       {ribbon && <div className="iss-ribbon">{ribbon}</div>}
     </header>

@@ -16,7 +16,7 @@ function Team({ config, side, active, mine, used, total }) {
 
 export default function MatchScoreboard({ teams, score, active, myTeam, turns, total, label, detail, rail, popping, clock }) {
   return <div className="at-scoreboard" role="group" aria-label={`${teams.team1.name} ${score.team1}, ${teams.team2.name} ${score.team2}`}>
-    <div className="at-score-rail"><span>CAPBALL <i /> {label}</span>{rail}</div>
+    <div className="at-score-rail"><span>COUNTER BALL <i /> {label}</span>{rail}</div>
     <div className="at-score-main">
       <Team config={teams.team1} side="home" active={active === 'team1'} mine={myTeam === 'team1'} used={turns?.team1} total={total} />
       <div className="at-score-numbers"><div><strong className={popping === 'team1' ? 'pop' : undefined}>{score.team1}</strong><span>:</span><strong className={popping === 'team2' ? 'pop' : undefined}>{score.team2}</strong></div>{clock && <b className="at-match-clock" aria-label={`Time remaining ${clock}`}>{clock}</b>}<small>{detail}</small></div>

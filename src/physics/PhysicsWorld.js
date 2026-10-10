@@ -1,5 +1,5 @@
 /**
- * CAPBALL Physics System
+ * COUNTER BALL Physics System
  * ─────────────────────────────────────────────────────────
  * Clean, crisp, deterministic tabletop football physics.
  *

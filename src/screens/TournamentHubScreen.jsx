@@ -287,9 +287,9 @@ function CodeCard({ code }) {
   }
   const share = async () => {
     playButtonSelect()
-    const text = `Join my CAPBALL tournament. Code ${code}`
+    const text = `Join my COUNTER BALL tournament. Code ${code}`
     if (navigator.share) {
-      try { await navigator.share({ title: 'CAPBALL tournament', text, url }); return } catch { /* cancelled */ }
+      try { await navigator.share({ title: 'COUNTER BALL tournament', text, url }); return } catch { /* cancelled */ }
     }
     copy(`${text}\n${url}`)
   }
