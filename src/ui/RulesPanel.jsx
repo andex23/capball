@@ -29,6 +29,7 @@ const SECTIONS = [
     title: 'How to play',
     items: [
       'Teams take turns. On your turn, flick one of your caps.',
+      'For timed matches, your selected time applies to each half: 1 minute means two 1-minute halves, and 3 minutes means two 3-minute halves. Stoppages and pauses do not use playing time.',
       'Press on a cap, drag back like a slingshot, and let go. Longer drag = more power. (Prefer swiping forward? Switch it in Settings → Aiming.)',
       'The arrow shows where your cap goes; the blue ring shows where the ball will be hit.',
       'Your turn ends when everything stops moving.',

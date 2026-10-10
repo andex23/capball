@@ -3,7 +3,7 @@ import { formatClock } from '../game/rules'
 import { playButtonSelect } from '../audio/SoundManager'
 
 /**
- * How a match ends: on the clock (1 to 3 minutes) or first to 3 / 5 goals.
+ * How a match ends: on the clock (1 to 3 minutes per half) or first to 3 / 5 goals.
  * Used on the venue screen and again right before kick-off.
  */
 export default function MatchLengthPicker({ disabled = false, compact = false }) {
@@ -20,8 +20,9 @@ export default function MatchLengthPicker({ disabled = false, compact = false })
           <button key={n} aria-pressed={goalTarget === n} disabled={disabled} onClick={pick(() => setGoalTarget(n))}>First to {n}</button>
         ))}
       </div>
+      {!goalTarget && <div className="eyebrow" style={{ marginTop: 10 }}>Time per half</div>}
       {!goalTarget && (
-        <div className="segmented stretch" role="group" aria-label="Match length" style={{ marginTop: 6 }}>
+        <div className="segmented stretch" role="group" aria-label="Time per half" style={{ marginTop: 6 }}>
           {MATCH_DURATIONS.map((d) => (
             <button key={d} aria-pressed={matchDuration === d} disabled={disabled} onClick={pick(() => setMatchDuration(d))}>
               {formatClock(d)}
@@ -32,7 +33,7 @@ export default function MatchLengthPicker({ disabled = false, compact = false })
       <p className="muted match-length-note">
         {goalTarget
           ? `The first side to score ${goalTarget} wins. No clock.`
-          : `Two halves of ${formatClock(matchDuration / 2)}. The clock stops between turns.`}
+          : `Two halves of ${formatClock(matchDuration)}. The clock stops between turns.`}
       </p>
     </div>
   )

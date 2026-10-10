@@ -62,8 +62,8 @@ function StartCareer() {
         <p className="muted t-note">Pick a design, or open Edit team for colours, pattern, badge, text and squad numbers. Your club keeps this kit all season — you can change it again before the next season kicks off.</p>
         <button className="btn btn-secondary btn-block" style={{ margin: '8px 0 10px' }} onClick={() => { playButtonSelect(); setKitOpen(true) }}><Icon name="settings" size={18} /> Edit team</button>
         <CapDesigns config={club} onPick={(patch) => setClub({ ...club, ...patch })} />
-        <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Match length</div>
-        <div className="segmented stretch" role="group" aria-label="Match length">
+        <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Time per half</div>
+        <div className="segmented stretch" role="group" aria-label="Time per half">
           {MATCH_DURATIONS.map((d) => (
             <button key={d} aria-pressed={duration === d} onClick={() => { playButtonSelect(); setDuration(d) }}>{formatClock(d)}</button>
           ))}

@@ -62,6 +62,22 @@ describe('match start', () => {
 })
 
 describe('clock', () => {
+  it.each([60, 90, 120, 150, 180])('gives each half the selected %i seconds', duration => {
+    get().setMatchDuration(duration)
+    startAndKickOff()
+    expect(get().timeRemaining).toBe(duration)
+    get().tickTimer(duration - 1)
+    expect(get()).toMatchObject({ half: 1, timeRemaining: 1 })
+    get().tickTimer(1)
+    expect(get()).toMatchObject({ half: 2, timeRemaining: duration })
+    vi.advanceTimersByTime(TIMING.kickoff)
+    get().tickTimer(duration - 1)
+    expect(get()).toMatchObject({ half: 2, timeRemaining: 1 })
+    expect(get().matchResult).toBeNull()
+    get().tickTimer(1)
+    expect(get().phase).toBe(PHASE.MATCH_OVER)
+  })
+
   it('only runs during live play and not while paused', () => {
     startAndKickOff()
     const t0 = get().timeRemaining

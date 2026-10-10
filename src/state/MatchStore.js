@@ -44,8 +44,8 @@ export const INPUT_PHASES = [PHASE.SELECT, PHASE.AIM]
 /** Phases where the match clock runs. */
 export const CLOCK_PHASES = [PHASE.SELECT, PHASE.AIM, PHASE.RESOLVE]
 
-// Match duration options (seconds, whole match)
-export const MATCH_DURATIONS = [60, 90, 120, 150, 180] // up to 3 minutes: longer games drag
+// Match duration options (seconds per half)
+export const MATCH_DURATIONS = [60, 90, 120, 150, 180] // 1–3 minutes per half
 // Or no clock: the first side to this many goals wins
 export const GOAL_TARGETS = [3, 5]
 // Shot clock options (seconds per turn, 0 = off)
@@ -198,8 +198,8 @@ export const useMatchStore = create((set, get) => ({
   setFormation: (team, formation) => set((s) => ({ formations: { ...s.formations, [team]: formation } })),
 
   // --- Match clock ---
-  matchDuration: 180, // whole match, split into two halves
-  timeRemaining: 90,
+  matchDuration: 180, // seconds per half
+  timeRemaining: 180,
   timerRunning: false,
   paused: false,
   half: 1,
@@ -275,7 +275,7 @@ export const useMatchStore = create((set, get) => ({
       kickoffGuard: true,
       lastConceded: null,
       lastScorer: null,
-      timeRemaining: Math.floor(s.matchDuration / 2),
+      timeRemaining: s.matchDuration,
       timerRunning: false,
       paused: false,
       half: 1,
@@ -323,7 +323,7 @@ export const useMatchStore = create((set, get) => ({
       ...clearTurn,
       team1Side: team1Side === 'left' ? 'right' : 'left',
       half: 2,
-      timeRemaining: Math.floor(matchDuration / 2),
+      timeRemaining: matchDuration,
       timerRunning: false,
       phase: PHASE.KICKOFF,
       kickoffGuard: true,

@@ -304,8 +304,8 @@ export default function TournamentSetupScreen() {
                 <p className="muted t-note">One account and one team per friend. Matches save after each shot. A missed deadline forfeits the match 3–0; leaving does not stop it. Deadlines begin when both players open their fixture.</p>
                 {mine !== 1 && <p className="t-warn">Choose exactly one “Me” team; leave the rest for friends.</p>}
               </> : <>
-              <div className="eyebrow" style={{ marginBottom: 10 }}>Match length</div>
-              <div className="segmented stretch" role="group" aria-label="Match length">
+              <div className="eyebrow" style={{ marginBottom: 10 }}>Time per half</div>
+              <div className="segmented stretch" role="group" aria-label="Time per half">
                 {MATCH_DURATIONS.map((d) => (
                   <button key={d} aria-pressed={duration === d} onClick={pick(() => setDuration(d))}>{formatClock(d)}</button>
                 ))}
