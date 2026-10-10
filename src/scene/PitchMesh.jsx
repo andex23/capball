@@ -514,7 +514,7 @@ function GoalFrame({ x, goalHalf, flip, postColor = '#e8e8e8' }) {
   const dir = flip ? 1 : -1
   const postRadius = 0.18
   const postHeight = 1.8         // taller goal posts — more visible and realistic
-  const goalDepth = 1.8          // deeper net pocket recessed into wall
+  const goalDepth = PITCH.goalDepth // match the playable net pocket
   const goalW = goalHalf * 2
 
   const postMat = { color: postColor, metalness: 0.85, roughness: 0.1 }

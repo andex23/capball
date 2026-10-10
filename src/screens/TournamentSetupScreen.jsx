@@ -87,13 +87,14 @@ function summary(format, legs, teams, online) {
 }
 
 /** Edit a team: optional name, kit, and squad (numbers, name on caps). */
-export function KitEditor({ team, onUpdate, onClose, withName = false, squadNames = null }) {
+export function KitEditor({ team, onUpdate, onClose, withName = false, squadNames = null, onSave = null, saving = false, error = null }) {
   return (
     <Modal
       title="Edit team"
       onClose={onClose}
-      footer={<button className="btn btn-gold btn-block" onClick={() => { playConfirm(); onClose() }}>Done <Icon name="check" size={18} /></button>}
+      footer={<button className="btn btn-gold btn-block" disabled={saving} onClick={() => { playConfirm(); if (onSave) onSave(); else onClose() }}>{saving ? 'Saving…' : onSave ? 'Save team' : 'Done'} <Icon name="check" size={18} /></button>}
     >
+      {error && <p className="t-warn" role="alert">{error}</p>}
       <div className="t-kit-preview"><CapPreview config={team} size={110} number={team.numbers?.atk1 ?? 10} /></div>
       {withName && (
         <div>

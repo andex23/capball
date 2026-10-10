@@ -10,7 +10,7 @@ export const PITCH = {
   penAreaW: 6,   // penalty area extends 6 units from goal line
   penAreaH: 12,  // penalty area height (y = ±6)
   centerCircleR: 3,
-  goalDepth: 1.8,
+  goalDepth: 3.0, // room for a cap to get behind a ball still touching the goal line
   penSpotDist: 5.8, // penalty spot distance from the goal line (inside the 6-deep box)
 }
 

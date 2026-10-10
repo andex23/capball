@@ -158,7 +158,7 @@ describe('penalty shootout', () => {
     get().pickKeeperDive(1)
     expect(get()).toMatchObject({ phase: PHASE.SELECT, keeperDive: 1 })
     get().penaltyAttemptResult(scored)
-    vi.advanceTimersByTime(TIMING.shootoutResult)
+    vi.advanceTimersByTime(scored ? TIMING.goal : TIMING.shootoutResult)
   }
 
   it('alternates shooters and ends when decided', () => {

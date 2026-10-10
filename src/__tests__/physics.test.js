@@ -3,7 +3,7 @@ import Matter from 'matter-js'
 import {
   createPhysicsWorld, getBodies, resetToKickoff, setupFreeKick, setupPenalty,
   FREE_KICK_WALL_DISTANCE, FREE_KICK_WALL_MIN, setupCorner, setupGoalKick,
-  clampAllBodies, stepPhysics, allBodiesSettled, radiusOf, snapshotBodies, applyBodySnapshot, getEngine,
+  clampAllBodies, stepPhysics, allBodiesSettled, radiusOf, snapshotBodies, applyBodySnapshot, getEngine, getGoalEvidence,
 } from '../physics/PhysicsWorld'
 import { checkGoal } from '../physics/GoalDetector'
 import { useMatchStore, PHASE, clearMatchTimers } from '../state/MatchStore'
@@ -334,15 +334,37 @@ describe('simulated play', () => {
     expect(verdict).toEqual({ outcome: 'goal', scorer: 'team1' })
   })
 
-  it('caps can never leave the pitch through a goal mouth', () => {
+  it('caps can enter the goal mouth to reach a ball on the line', () => {
     resetToKickoff('team1')
     readyTurn()
     place('team1_atk1', PITCH.halfW - 3, 0)
     place('team2_gk', PITCH.halfW - 1.2, 5)
     place('ball', 0, 8)
     performFlick('team1_atk1', { x: 4.5, y: 0 })
-    simulate()
-    expect(pos('team1_atk1').x).toBeLessThanOrEqual(PITCH.halfW)
+    let furthest = pos('team1_atk1').x
+    for (let i = 0; i < 1200; i++) {
+      stepPhysics(2)
+      clampAllBodies()
+      furthest = Math.max(furthest, pos('team1_atk1').x)
+    }
+    expect(furthest).toBeGreaterThan(PITCH.halfW)
+    expect(furthest).toBeLessThanOrEqual(PITCH.halfW + PITCH.goalDepth - radiusOf('team1_atk1') + 0.01)
+  })
+})
+
+
+describe('goal-line clearances', () => {
+  it('lets a cap behind a ball on the line clear it back into play', () => {
+    isolate('team1_atk1', 'ball')
+    useMatchStore.setState({ phase: PHASE.SELECT, activeTeam: 'team1', team1Side: 'left', kickoffGuard: false })
+    place('team2_gk', PITCH.halfW - 1.2, 5)
+    place('ball', PITCH.halfW + 0.2, 0)
+    place('team1_atk1', PITCH.halfW + 1.6, 0)
+    expect(checkGoal(getBodies().ball)).toBeNull()
+    expect(performFlick('team1_atk1', { x: -0.6, y: 0 })).toBeNull()
+    simulate(4000)
+    expect(pos('ball').x).toBeLessThan(PITCH.halfW - 1)
+    expect(checkGoal(getBodies().ball)).toBeNull()
   })
 })
 
@@ -409,6 +431,7 @@ describe('goal contact history', () => {
     goalReady()
     const cushion = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion')
     contact(getBodies().team1_atk1, cushion)
+    expect(getGoalEvidence().capHitEdge).toBe(true)
     expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
   })
 
@@ -425,6 +448,7 @@ describe('goal contact history', () => {
     place('ball', PITCH.halfW - 0.2, PITCH.goalWidth / 2 + 0.2)
     const post = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion' && b.position.x > PITCH.halfW)
     contact(getBodies().ball, post)
+    expect(getGoalEvidence().postContact).toBe(true)
     place('ball', PITCH.halfW + 0.8, 0)
     expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
   })
@@ -437,6 +461,7 @@ describe('goal contact history', () => {
     place('ball', PITCH.halfW + 0.8, 0)
     expect(checkGoal(getBodies().ball).outcome).toBe('bank_shot')
     contact(getBodies().ball, getBodies().team2_def1)
+    expect(getGoalEvidence().capAfterBank).toBe(true)
     expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
   })
 })

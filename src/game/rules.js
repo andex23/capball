@@ -35,8 +35,8 @@ export function teamHomeDir(team, team1Side = 'left') {
 export function scorerForBall(x, y, team1Side = 'left') {
   if (Math.abs(y) >= PITCH.goalWidth / 2) return null
   let goalDir = 0
-  if (x < -PITCH.halfW) goalDir = -1
-  else if (x > PITCH.halfW) goalDir = 1
+  if (x < -PITCH.halfW - BALL_RADIUS) goalDir = -1
+  else if (x > PITCH.halfW + BALL_RADIUS) goalDir = 1
   if (!goalDir) return null
   // The goal belongs to the team whose home dir matches — the OTHER team scores.
   return teamHomeDir('team1', team1Side) === goalDir ? 'team2' : 'team1'

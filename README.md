@@ -92,3 +92,10 @@ If the link drops during setup or a match, the host keeps the room open and paus
 | `src/__tests__/` | Unit and physics simulation tests |
 | `src/sw.js`, `src/pwa/` | Offline service worker (production builds only), install prompt, update toast |
 | `scripts/generate-icons.js` | Renders the app icons in `public/icons/` (`node scripts/generate-icons.js`) |
+
+
+### Online tournament team editing
+
+Run [supabase/team-editing.sql](supabase/team-editing.sql) in the Supabase SQL Editor after the tournament schema. Existing projects only need this migration; no tournament data is reset.
+
+Friends choose an open seat and edit their own team name, colours, cap designs and squad in the hub. Saves are shared through `cb_update_team`. The database checks seat ownership, preserves team IDs and fixtures, and prevents edits while a match room is open or the tournament is closed. The host must claim a seat to edit that team's identity too.

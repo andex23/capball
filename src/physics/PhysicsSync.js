@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
-  stopAllBodies, placeBallAt, deOverlapBodies, getLastBallTeam, clearKeeperDive,
+  stopAllBodies, getLastBallTeam, getGoalEvidence, clearKeeperDive,
 } from './PhysicsWorld'
 import { ballInCorner, cornerRestart, otherTeam } from '../game/rules'
 import { checkGoal } from './GoalDetector'
@@ -144,27 +144,26 @@ export function usePhysicsSync(meshRefs) {
     const verdict = checkGoal(bodies.ball)
     if (verdict) {
       resolved.current = true
+      const decision = { outcome: verdict.outcome === 'goal' ? 'goal' : 'no_goal', reason: verdict.outcome, evidence: getGoalEvidence() }
       if (s.penaltyShootout) {
         stopAllBodies()
         if (verdict.outcome === 'goal') playGoal()
-        s.penaltyAttemptResult(verdict.outcome === 'goal')
+        s.penaltyAttemptResult(verdict.outcome === 'goal', decision)
       } else if (verdict.outcome === 'goal') {
         stopBall()
         playGoal()
         const touched = getLastBallTeam()
-        s.scoreGoal(verdict.scorer, { ownGoal: !s.penaltyShootout && !!touched && touched !== verdict.scorer })
+        s.scoreGoal(verdict.scorer, { decision, ownGoal: !s.penaltyShootout && !!touched && touched !== verdict.scorer })
       } else if (verdict.outcome === 'bank_shot') {
         // In off the wall: no goal, the defending side restarts with a goal kick
         stopAllBodies()
         playWhistle()
         const b = bodies.ball.position
-        s.awardRestart({ kind: 'goalKick', team: otherTeam(verdict.scorer), ex: b.x < 0 ? -1 : 1, ey: b.y < 0 ? -1 : 1, reason: 'bank' })
+        s.disallowGoal('bank_shot', { evidence: decision.evidence, restart: { kind: 'goalKick', team: otherTeam(verdict.scorer), ex: b.x < 0 ? -1 : 1, ey: b.y < 0 ? -1 : 1, reason: 'bank' } })
       } else {
         // Doesn't count — ball back to the centre spot, possession changes.
         stopAllBodies()
-        placeBallAt(0, 0)
-        deOverlapBodies()
-        s.disallowGoal(verdict.outcome)
+        s.disallowGoal(verdict.outcome, { evidence: decision.evidence })
       }
       return
     }
