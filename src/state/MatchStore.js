@@ -7,6 +7,7 @@ export const SCREEN = {
   MENU: 'MENU',
   ONLINE: 'ONLINE',
   ANYTIME: 'ANYTIME',
+  LAN: 'LAN',
   TEAM_SELECT: 'TEAM_SELECT',
   STADIUM_SELECT: 'STADIUM_SELECT',
   FORMATION: 'FORMATION',
@@ -138,6 +139,7 @@ export const useMatchStore = create((set, get) => ({
 
   // --- Online (local-only, never synced) ---
   onlineMyTeam: null, // 'team1' (host) or 'team2' (guest)
+  onlineTransport: 'internet',
   onlineStatus: { status: 'idle', msg: '' },
   onlineReady: { team1: false, team2: false },
   onlineReconnect: null, // { phase: 'lost' | 'restored', deadline, attempts } while a dropped link is recovered

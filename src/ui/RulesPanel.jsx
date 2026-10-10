@@ -5,6 +5,15 @@ import Icon from './Icon'
 
 const SECTIONS = [
   {
+    title: 'LAN — same Wi-Fi or hotspot',
+    items: [
+      'Open Quick Match → LAN Match on both devices. Load or install CapBall before going offline.',
+      'One player hosts. The guest scans the host’s invite, then the host scans the guest’s reply. You can also copy and paste the full pairing codes.',
+      'Choose your teams and play directly over your local network. No internet or account is needed after the game has loaded.',
+      'Keep both games open. Leaving a LAN session ends it; pair again for a new match. Guest Wi-Fi with device isolation may block pairing.',
+    ],
+  },
+  {
     title: 'How to play',
     items: [
       'Teams take turns. On your turn, flick one of your caps.',

@@ -1,3 +1,4 @@
+import { createLanPeer } from './lan'
 /**
  * CAPBALL online multiplayer (PeerJS, peer-to-peer).
  *
@@ -36,6 +37,7 @@ const RETRY_TIMEOUT_MS = 10000
 // Host: how often to check the signalling server link while a room is open
 const SIGNAL_CHECK_MS = 5000
 
+let lan = false
 let peer = null
 let conn = null
 let isHost = false
@@ -181,6 +183,7 @@ function publishReconnect(s) {
 }
 
 function canReconnect() {
+  if (lan) return false
   if (useMatchStore.getState().screen === SCREEN.MENU) return false
   return isHost ? roomBound && !!peer && !peer.destroyed : !!roomCode && !!sessionToken
 }
@@ -191,6 +194,8 @@ function connectionLost(reason) {
   const c = conn
   conn = null
   if (c) c.close()
+
+  if (lan) { endSession('LAN connection closed. Keep both devices on the same network and pair again.'); return }
 
   // Host lobby: a join attempt that never got going — keep waiting for someone
   if (isHost && !roomBound) {
@@ -408,6 +413,47 @@ function connectToRoom(code, token, timeoutMs) {
 
 /* ── Public API ── */
 
+function setupLan(host) {
+  disconnect()
+  lan = true
+  isHost = host
+  useMatchStore.setState({ onlineTransport: 'lan' })
+  setStatus('connecting', 'Pair with a device on the same Wi-Fi or hotspot.')
+  const endpoint = createLanPeer({
+    onChannel(connection) {
+      conn = connection
+      attachConnection(connection)
+      connection.on('open', () => {
+        if (conn !== connection) return
+        roomBound = true
+        onConnected(false)
+      })
+    },
+    onFailure(message) { if (peer === endpoint) endSession(message) },
+  })
+  peer = endpoint
+  return endpoint
+}
+
+export async function createLanRoom() {
+  const endpoint = setupLan(true)
+  try { return await endpoint.offer() }
+  catch (error) { if (peer === endpoint) { endSession(error.message); setStatus('error', error.message) } throw error }
+}
+
+export async function joinLanRoom(offer) {
+  const endpoint = setupLan(false)
+  try { return await endpoint.answer(offer) }
+  catch (error) { if (peer === endpoint) { endSession(error.message); setStatus('error', error.message) } throw error }
+}
+
+export async function finishLanPairing(answer) {
+  if (!lan || !isHost || !peer) throw new Error('Create a LAN invite first.')
+  const endpoint = peer
+  await endpoint.accept(answer)
+  if (peer === endpoint && !conn?.open) setStatus('connecting', 'Connecting over your local network…')
+}
+
 export function createRoom(attempt = 0) {
   disconnect()
   return new Promise((resolve, reject) => {
@@ -495,10 +541,11 @@ export function disconnect() {
   // Give the goodbye a moment to leave before closing the link
   if (c || p) setTimeout(() => { c?.close(); p?.destroy() }, sayBye ? 150 : 0)
   isHost = false
+  lan = false
   roomCode = ''
   sessionToken = null
   roomBound = false
   pausedByDrop = false
   lobbyHint = ''
-  useMatchStore.setState({ onlineMyTeam: null, onlineStatus: { status: 'idle', msg: '' }, onlineReconnect: null })
+  useMatchStore.setState({ onlineTransport: 'internet', onlineMyTeam: null, onlineStatus: { status: 'idle', msg: '' }, onlineReconnect: null })
 }
