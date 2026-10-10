@@ -148,6 +148,7 @@ export function resumeSavedMatch() {
     foulData: null,
     restart: null,
     kickoffGuard: false,
+    goalKickGuard: false,
     timerRunning: !save.match.goalTarget,
     paused: false,
     matchResult: null,

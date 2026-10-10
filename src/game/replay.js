@@ -126,7 +126,7 @@ export function decisionText(decision) {
     const reasons = {
       bank_shot: 'The ball hit the pitch edge and entered without another cap touching it. Goal kick.',
       kickoff_violation: 'A direct goal from kick-off does not count. Possession changes.',
-      gk_violation: 'A goalkeeper cannot score for their own team. Possession changes.',
+      goal_kick_violation: 'A direct goal from a goal kick does not count. Possession changes.',
     }
     return { title: 'No goal', detail: reasons[decision.reason] || 'The shot broke a scoring rule.' }
   }

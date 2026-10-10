@@ -102,6 +102,7 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
       team: aiTeam,
       team1Side: state.team1Side || 'left',
       kickoffGuard: !!state.kickoffGuard,
+      goalKickGuard: !!state.goalKickGuard,
       penaltyShootout: !!state.penaltyShootout,
       requiredCapId,
     })

@@ -243,6 +243,8 @@ function attachKeeperGrip(eng, bodyMap) {
 export function createPhysicsWorld() {
   diveStop = null
   goalEvidence = {}
+  lastBallTeam = null
+  ballBanked = false
   // Destroy previous engine if exists
   if (engine) {
     World.clear(engine.world)
@@ -341,6 +343,7 @@ export function createPhysicsWorld() {
       const other = a === 'ball' ? pair.bodyB : pair.bodyA
       const team = teamOf(other.label)
       if (team) {
+        if (other.label !== flicked && useMatchStore.getState().goalKickGuard) useMatchStore.setState({ goalKickGuard: false })
         if (ballBanked) goalEvidence.capAfterBank = true
         lastBallTeam = team
         ballBanked = false

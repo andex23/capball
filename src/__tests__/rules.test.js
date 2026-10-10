@@ -68,8 +68,10 @@ describe('judgeGoal', () => {
     expect(judgeGoal({ ...base, kickoffGuard: true }).outcome).toBe('kickoff_violation')
   })
 
-  it('stops a goalkeeper scoring for their own team', () => {
-    expect(judgeGoal({ ...base, lastFlickedCapId: 'team1_gk' }).outcome).toBe('gk_violation')
+  it('allows goalkeeper goals in open play but not direct goal kicks', () => {
+    expect(judgeGoal({ ...base, lastFlickedCapId: 'team1_gk' })).toEqual({ outcome: 'goal', scorer: 'team1' })
+    expect(judgeGoal({ ...base, goalKickGuard: true, lastFlickedCapId: 'team1_gk' }).outcome).toBe('goal_kick_violation')
+    expect(judgeGoal({ ...base, goalKickGuard: true, lastFlickedCapId: 'team2_gk' })).toEqual({ outcome: 'goal', scorer: 'team1' })
   })
 
   it('still counts an own goal off a goalkeeper', () => {

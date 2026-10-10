@@ -55,10 +55,10 @@ export function readPositions(bodies) {
  * Everything the planner needs to know about the current turn.
  * @param positions  readPositions() output (must include 'ball')
  */
-export function makeContext({ positions, team, team1Side = 'left', kickoffGuard = false, penaltyShootout = false, requiredCapId = null }) {
+export function makeContext({ positions, team, team1Side = 'left', kickoffGuard = false, goalKickGuard = false, penaltyShootout = false, requiredCapId = null }) {
   const homeDir = teamHomeDir(team, team1Side)
   return {
-    positions, team, opp: otherTeam(team), team1Side, kickoffGuard, penaltyShootout, requiredCapId,
+    positions, team, opp: otherTeam(team), team1Side, kickoffGuard, goalKickGuard, penaltyShootout, requiredCapId,
     homeDir,
     attackDir: -homeDir,
     ownGoal: { x: homeDir * PITCH.halfW, y: 0 },
@@ -424,7 +424,7 @@ export function heuristicScore(ctx, c) {
   const ownLine = ctx.ownGoal.x
   const shot = crossing(ball, c.u, theirLine)
   const mouth = PITCH.goalWidth / 2 - BALL_RADIUS
-  if (shot && Math.abs(shot.y) < mouth && !ctx.kickoffGuard) {
+  if (shot && Math.abs(shot.y) < mouth && !ctx.kickoffGuard && !ctx.goalKickGuard) {
     const blocked = shot.bounced ? 0 : blockersOnLine(positions, c.capId, ball, { x: theirLine, y: shot.y })
     // In off the wall doesn't count, so only straight shots are worth anything
     if (!shot.bounced) s += 12 - blocked * 7 - Math.abs(shot.y) * 0.5
@@ -477,6 +477,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
   track.first = null
   track.foulAt = null
   track.banked = false
+  track.otherCapTouched = false
 
   let verdict = null
   let frames = 0
@@ -490,7 +491,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
     if (track.first === 'foul' && !ctx.penaltyShootout) break
     verdict = judgeGoal({
       x: ball.position.x, y: ball.position.y, team1Side: ctx.team1Side,
-      kickoffGuard: ctx.kickoffGuard, lastFlickedCapId: capId, banked: track.banked,
+      kickoffGuard: ctx.kickoffGuard, goalKickGuard: ctx.goalKickGuard && !track.otherCapTouched, lastFlickedCapId: capId, banked: track.banked,
     })
     if (verdict) break
     if (frames > 5 && settled(world.bodies)) break
@@ -514,14 +515,23 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
  */
 export function createPlannerWorld(ctx) {
   const world = createSimulationWorld(ctx.positions, { team1Side: ctx.team1Side })
-  const track = { capId: null, first: null, foulAt: null, banked: false }
+  const track = { capId: null, first: null, foulAt: null, banked: false, otherCapTouched: false }
   // Ball off a cushion since a cap last touched it: a goal from there won't count
   Events.on(world.engine, 'collisionStart', (event) => {
     for (const pair of event.pairs) {
       const a = pair.bodyA.label
       const b = pair.bodyB.label
       if (a !== 'ball' && b !== 'ball') continue
-      track.banked = !teamOf(a === 'ball' ? b : a)
+      const other = a === 'ball' ? pair.bodyB : pair.bodyA
+      if (teamOf(other.label)) {
+        track.banked = false
+        if (other.label !== track.capId) track.otherCapTouched = true
+      } else if (other.label === 'pitch_cushion') {
+        const { x, y } = world.bodies.ball.position
+        const atPost = Math.abs(x) >= PITCH.halfW - BALL_RADIUS
+          && Math.abs(y) <= PITCH.goalWidth / 2 + BALL_RADIUS
+        if (Math.abs(x) <= PITCH.halfW && !atPost) track.banked = true
+      }
     }
   })
   Events.on(world.engine, 'collisionStart', (event) => {

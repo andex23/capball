@@ -103,6 +103,7 @@ const clearTurn = {
   foulData: null,
   dragPower: 0,
   penaltyKick: false,
+  goalKickGuard: false,
   keeperDive: null,
 }
 
@@ -369,6 +370,7 @@ export const useMatchStore = create((set, get) => ({
   firstCollisionTracked: false,
   // True for the flick straight from a kick-off, which may not score.
   kickoffGuard: false,
+  goalKickGuard: false, // direct goal-kick flick only; clears on another cap touching the ball
   // Only this cap may take the current free kick / penalty.
   freeKickCapId: null,
   foulData: null, // { foulSpot: {x, y}, fouledTeam, inPenaltyBox }
@@ -534,6 +536,7 @@ export const useMatchStore = create((set, get) => ({
       phase: kind === 'corner' ? PHASE.CORNER_SETUP : PHASE.GOAL_KICK_SETUP,
       activeTeam: team,
       restart: { kind, team, ex, ey, reason },
+      goalKickGuard: kind === 'goalKick',
       kickoffGuard: false,
     })
     // The scene lays the caps out as soon as the setup phase starts

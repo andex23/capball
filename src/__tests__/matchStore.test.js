@@ -121,10 +121,23 @@ describe('turns and goals', () => {
 
   it('a disallowed goal passes possession', () => {
     startAndKickOff()
-    get().disallowGoal('gk_violation')
-    expect(get()).toMatchObject({ phase: PHASE.NO_GOAL, noGoalReason: 'gk_violation', score: { team1: 0, team2: 0 } })
+    get().disallowGoal('goal_kick_violation')
+    expect(get()).toMatchObject({ phase: PHASE.NO_GOAL, noGoalReason: 'goal_kick_violation', score: { team1: 0, team2: 0 } })
     vi.advanceTimersByTime(TIMING.noGoal)
     expect(get()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2' })
+  })
+})
+
+describe('goal-kick scoring guard', () => {
+  it('persists through the restart flick and clears before the next turn', () => {
+    startAndKickOff()
+    get().awardRestart({ kind: 'goalKick', team: 'team1', ex: -1, ey: 1 })
+    vi.advanceTimersByTime(TIMING.setPiece)
+    expect(get().goalKickGuard).toBe(true)
+    get().commitFlick('team1_gk')
+    expect(get()).toMatchObject({ phase: PHASE.RESOLVE, goalKickGuard: true })
+    get().switchTurn()
+    expect(get().goalKickGuard).toBe(false)
   })
 })
 

@@ -19,7 +19,7 @@ const SECTIONS = [
     items: [
       'Knock the ball into your opponent’s goal. Most goals at full time wins.',
       'You can’t score straight from a kick-off flick.',
-      'Goalkeepers can’t score (own goals still count).',
+      'Goalkeepers can score in open play, but not directly from a goal kick. Own goals still count.',
       'Goalkeepers must stay inside their penalty area.',
       'You can only flick your goalkeeper when the ball is inside his penalty area (where he can reach it).',
       'Teams swap ends at half time.',
