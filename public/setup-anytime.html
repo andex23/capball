@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>COUNTER BALL · Play anytime setup</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>COUNTERBALL · Play anytime setup</title>
 <style>body{font:16px system-ui;background:#080e25;color:#fff;max-width:900px;margin:auto;padding:24px}button,a{font:inherit;color:inherit}button{background:#2868d8;border:0;border-radius:8px;padding:14px 20px;cursor:pointer}textarea{display:block;box-sizing:border-box;width:100%;height:55vh;margin:20px 0;background:#111a37;color:#fff;font:13px monospace;padding:16px}p{line-height:1.6}code{overflow-wrap:anywhere}</style></head>
 <body><h1>Play anytime setup</h1><p>Copy this migration into your project’s <strong>Supabase → SQL Editor</strong> and run it. It adds saved online matches; existing live matches keep working. Run the accounts and tournaments migrations first if this is a new project.</p>
 <button id="copy" disabled>Loading SQL…</button><span id="status" role="status"></span><textarea id="sql" readonly aria-label="SQL migration"></textarea>
-<p>Then add <code>SUPABASE_SERVICE_ROLE_KEY</code> under <strong>Vercel → capball → Settings → Environment Variables → Production</strong> and redeploy. This must be a server-only variable. This page does not ask for or store the key.</p><p><a href="/">Return to COUNTER BALL</a></p>
+<p>Then add <code>SUPABASE_SERVICE_ROLE_KEY</code> under <strong>Vercel → capball → Settings → Environment Variables → Production</strong> and redeploy. This must be a server-only variable. This page does not ask for or store the key.</p><p><a href="/">Return to COUNTERBALL</a></p>
 <script>
 const sql=document.getElementById('sql'),button=document.getElementById('copy'),status=document.getElementById('status');
 fetch('/anytime.sql',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Unable to load SQL');return r.text()}).then(text=>{sql.value=text;button.disabled=false;button.textContent='Copy SQL';}).catch(()=>{status.textContent='Could not load the migration. Reload this page.'});

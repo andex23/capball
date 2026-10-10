@@ -204,7 +204,7 @@ export default function MenuScreen() {
         )}
 
         <footer className="iss-foot">
-          <span>© 2026 Counter Ball</span>
+          <span>© 2026 Counterball</span>
           <span className="iss-keys">▲▼ Select &nbsp; Enter OK &nbsp; Esc Back</span>
         </footer>
       </div>
@@ -213,7 +213,7 @@ export default function MenuScreen() {
         <Icon name="share" size={22} />
       </button>}
 
-      {dialog === 'share'  && <Modal title="Share Counter Ball" onClose={() => setDialog(null)}><p>Send the game to your friends and get them on the pitch.</p><ShareGame /></Modal>}
+      {dialog === 'share'  && <Modal title="Share Counterball" onClose={() => setDialog(null)}><p>Send the game to your friends and get them on the pitch.</p><ShareGame /></Modal>}
       {dialog === 'settings' && (
         <Modal title="Settings" onClose={() => setDialog(null)}>
           <SettingsPanel />

@@ -1,7 +1,7 @@
 import { useMatchStore, SCREEN } from './state/MatchStore'
 
 const TRACKER_URL = 'https://yerwptchfksahaiiezki.supabase.co/functions/v1/site-track'
-// Public installation key for COUNTER BALL, separate from JADED's collection tracker.
+// Public installation key for COUNTERBALL, separate from JADED's collection tracker.
 const SITE_KEY = '9fd56acb-b44d-46ca-89df-7db36f4f9393'
 const PATHS = {
   [SCREEN.SPLASH]: '/', [SCREEN.MENU]: '/', [SCREEN.ONLINE]: '/online',
@@ -17,7 +17,7 @@ export function createTracker({ browser = globalThis.window, request = globalThi
   return (event, path, metadata = {}) => {
     try {
       if (!browser || browser.navigator?.doNotTrack === '1' || browser.navigator?.globalPrivacyControl) return
-      if (!['capball.vercel.app', 'capball-drus-projects-68c924fa.vercel.app'].includes(browser.location.hostname)) return
+      if (!['counterball.vercel.app', 'capball.vercel.app', 'capball-drus-projects-68c924fa.vercel.app'].includes(browser.location.hostname)) return
       if (!identity) {
         const id = (storage, key) => {
           const fresh = browser.crypto.randomUUID()
@@ -37,7 +37,7 @@ export function createTracker({ browser = globalThis.window, request = globalThi
       Promise.resolve(request(TRACKER_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
         body: JSON.stringify({ siteKey: SITE_KEY, event, path, ...identity, referrer,
-          metadata: { gameId: 'capball', gameTitle: 'COUNTER BALL', ...metadata } }),
+          metadata: { gameId: 'capball', gameTitle: 'COUNTERBALL', ...metadata } }),
       })).catch(() => {})
     } catch { /* Tracking must never interrupt a match, including offline play. */ }
   }

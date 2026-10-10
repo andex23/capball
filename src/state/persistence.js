@@ -97,7 +97,7 @@ export function initPersistence({ storage = getStorage(), debounceMs = 300 } = {
 
       if (WATCHED_KEYS.some((k) => state[k] !== prev[k])) scheduleSave()
     } catch (err) {
-      console.error('COUNTER BALL: could not save progress', err)
+      console.error('COUNTERBALL: could not save progress', err)
     }
   })
 

@@ -13,6 +13,7 @@ import TournamentFinale from '../ui/TournamentFinale'
 import { TeamTag, scoreText, ProgressBar } from '../ui/TournamentBits'
 import { KitEditor } from './TournamentSetupScreen'
 import { displayColor } from '../ui/color'
+import { inviteUrl } from '../utils/inviteUrl'
 
 const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
 // How often an online hub checks for new results, taken seats and open rooms
@@ -277,7 +278,7 @@ function FixtureList({ t, nextId, actionFor, onAct }) {
 
 function CodeCard({ code }) {
   const [copied, setCopied] = useState(false)
-  const url = `${window.location.origin}${window.location.pathname}?tournament=${code}`
+  const url = inviteUrl('tournament', code)
   const copy = async (text) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -287,9 +288,9 @@ function CodeCard({ code }) {
   }
   const share = async () => {
     playButtonSelect()
-    const text = `Join my COUNTER BALL tournament. Code ${code}`
+    const text = `Join my Counterball tournament. Code ${code}`
     if (navigator.share) {
-      try { await navigator.share({ title: 'COUNTER BALL tournament', text, url }); return } catch { /* cancelled */ }
+      try { await navigator.share({ title: 'Counterball tournament', text, url }); return } catch { /* cancelled */ }
     }
     copy(`${text}\n${url}`)
   }

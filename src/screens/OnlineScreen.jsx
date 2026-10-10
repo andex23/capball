@@ -4,6 +4,7 @@ import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerMana
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
 import { useOnline } from '../pwa/useOnline'
+import { inviteUrl as makeInviteUrl } from '../utils/inviteUrl'
 
 const CODE_LENGTH = 6
 
@@ -69,13 +70,13 @@ export default function OnlineScreen() {
     else { setView('menu'); setRoomCode(''); setBusy(false) }
   }
 
-  const inviteUrl = roomCode ? `${window.location.origin}${window.location.pathname}?room=${roomCode}` : ''
+  const inviteUrl = roomCode ? makeInviteUrl('room', roomCode) : ''
 
   const share = async () => {
     playButtonSelect()
-    const text = `Play COUNTER BALL with me! Room code ${roomCode}`
+    const text = `Play Counterball with me! Room code ${roomCode}`
     if (navigator.share) {
-      try { await navigator.share({ title: 'COUNTER BALL', text, url: inviteUrl }); return } catch { /* cancelled */ }
+      try { await navigator.share({ title: 'Counterball', text, url: inviteUrl }); return } catch { /* cancelled */ }
     }
     copy(`${text}\n${inviteUrl}`)
   }

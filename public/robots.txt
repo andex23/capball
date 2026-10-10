@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://capball.vercel.app/sitemap.xml
+Sitemap: https://counterball.vercel.app/sitemap.xml

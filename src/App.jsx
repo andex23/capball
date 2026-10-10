@@ -41,7 +41,7 @@ class ErrorBoundary extends Component {
     return { error }
   }
   componentDidCatch(error, info) {
-    console.error('COUNTER BALL crashed:', error, info?.componentStack)
+    console.error('COUNTERBALL crashed:', error, info?.componentStack)
   }
   render() {
     if (!this.state.error) return this.props.children

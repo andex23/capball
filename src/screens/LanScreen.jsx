@@ -123,7 +123,7 @@ export default function LanScreen() {
       <div className="sheet-body">
         {step === 'choose' ? <>
           <p>Connect both devices to the same Wi-Fi or phone hotspot. One player hosts; the other joins.</p>
-          <p className="muted">Load or install Counter Ball on both devices before going offline. Brief interruptions pause the match for up to two minutes. Return to the game to resume; do not close or reload it.</p>
+          <p className="muted">Load or install Counterball on both devices before going offline. Brief interruptions pause the match for up to two minutes. Return to the game to resume; do not close or reload it.</p>
           <button className="btn btn-gold btn-block" onClick={() => { setStep('host'); perform(createLanRoom) }}>Host LAN match</button>
           {!hostingFixture && <button className="btn btn-blue btn-block" onClick={() => setStep('join')}>Join LAN match</button>}
           {hostingFixture ? <p className="muted">You control {useMatchStore.getState().teamConfig.team1.name}. Your friend controls {useMatchStore.getState().teamConfig.team2.name}. Progress is saved on this host device.</p> : <>

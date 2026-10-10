@@ -16,7 +16,7 @@ const SECTIONS = [
   {
     title: 'LAN — same Wi-Fi or hotspot',
     items: [
-      'Open Quick Match → LAN Match on both devices. Load or install Counter Ball before going offline.',
+      'Open Quick Match → LAN Match on both devices. Load or install Counterball before going offline.',
       'Cups and leagues: select LAN in tournament setup or the competition hub, choose a fixture and your team, then pair. Each player can edit their own team. The host saves the competition; the guest can view the updated table or bracket.',
       'Career: choose Play this match over LAN. You keep your club, even for away matches; your friend plays the opposition. The result progresses the host’s career.',
       'Pair again for each competition fixture. Download the game before going offline; an existing signed-in career can continue without internet, with cloud saving when back online.',
