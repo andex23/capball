@@ -2,7 +2,7 @@
  * Fresh challenge replies prevent queued packets from resuming a stale link.
  */
 export const LAN_GRACE_MS = 120000
-export const LAN_SILENCE_MS = 5000
+export const LAN_SILENCE_MS = 10000
 
 export function createLanRecovery({
   send, onLost, onRestored, onExpired,
@@ -20,6 +20,8 @@ export function createLanRecovery({
     deadline = now() + LAN_GRACE_MS
     pending.clear()
     onLost(deadline)
+    // Tell the other phone immediately so its authoritative clock pauses too.
+    send('lanAway', {})
   }
   function expire() {
     if (!deadline || now() < deadline) return false
@@ -42,10 +44,11 @@ export function createLanRecovery({
     interrupt: lose,
     visibilityChanged() {
       if (stopped) return
-      hidden = !visible()
+      const nextHidden = !visible()
+      if (nextHidden === hidden) return
+      hidden = nextHidden
       pending.clear()
       if (hidden) {
-        send('lanAway', {})
         lose()
       } else {
         // The app may have slept without delivering a visibility event.
