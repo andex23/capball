@@ -154,9 +154,10 @@ ends the session; start a new match in those cases.
 Camera scanning needs HTTPS and camera permission. Networks with client
 isolation may prevent device-to-device connections.
 
-### Lagos Lifestyle integration preparation
+### Lagos Life integration preparation
 
 The dedicated integration branch tracks the
 [readiness plan and code integration points](docs/integrations/lagos-lifestyle.md).
-Implementation depends on Lagos Lifestyle's official API contract; no partner
-features are enabled yet.
+The planned flow is embedded play with existing Lagos Life accounts and purchases
+using its in-game money. Implementation depends on the official API contract;
+no partner features are enabled yet.

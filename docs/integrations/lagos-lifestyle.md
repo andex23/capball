@@ -1,19 +1,55 @@
-# Lagos Lifestyle integration preparation
+# Lagos Life integration preparation
 
 Status: discovery and implementation plan; no partner API calls or integration
 features are enabled. Work lives on `integration/lagos-lifestyle`, based on
 `ab2fb8a` (LAN interruption recovery). Keep this work on the integration branch
 until the partner contract is available and the integration is verified.
 
-## What is known
+## Confirmed direction
 
-Lagos Lifestyle plans to expose an API for game integration. No official API
-documentation, SDK, sandbox, launch mechanism, authentication scheme, or result
-format has been supplied. The initial player experience is still to be selected:
-launch CapBall within their game, link accounts/share results, or earn rewards.
+The user selected **launch and play CapBall inside Lagos Life** and supplied this
+announcement from its owner:
 
-These are possible integration capabilities, not claims about their API.
-No endpoints, scopes, environment variables, or payloads are prescribed here.
+> Devs, we’ll be releasing our APIs so you can bring your games into Lagos Life!
+> Players join with their existing accounts and spend their in-game money in your games.
+
+Source: owner announcement quoted by the user; no official documentation URL
+has been supplied. The branch retains its original `lagos-lifestyle` name.
+
+The intended integration is:
+- Open CapBall from inside Lagos Life.
+- Verify the player's existing Lagos Life identity without asking for their
+  Lagos Life password or requiring a separate CapBall login for this journey.
+- Allow purchases using Lagos Life in-game money through its documented flow.
+
+The launch container, identity contract and spending mechanism are still unknown.
+This announcement does not establish wallet endpoints, revenue sharing, payouts,
+reward credits, currency conversion, wagering, or which items CapBall will sell.
+No endpoints, scopes, environment variables, prices, or payloads are prescribed.
+
+## Intended first player journey
+
+1. The player chooses CapBall inside Lagos Life.
+2. CapBall verifies the launch/session using the official SDK or server protocol.
+   Show a retry/return option if verification fails; never infer identity from a
+   display name or unsigned launch parameter.
+3. Load progress associated with that verified partner identity. Existing CapBall
+   players can explicitly link their account if supported; never silently merge
+   or replace saves. This requires a server identity mapping, not a fake
+   CapBall username/password session.
+4. Let the player choose a team and play. Preserve touch, sound unlock, safe areas
+   and the host's agreed back/pause/resume behavior.
+5. If they choose a purchasable item, show its description and authoritative price
+   in Lagos Life currency. Use the documented confirmation/authorization flow.
+6. Grant the item only after server verification of a successful transaction.
+   A pending/unknown payment stays pending until reconciled; it is not a failed
+   purchase to charge again.
+7. Persist owned items and progress for the same verified identity, and return
+   through the platform's documented exit flow.
+
+Candidate first purchases are cosmetic cap designs, team kits or pitch themes.
+These are suggestions only; catalogue, prices and ownership rules remain product
+decisions. Existing earned unlocks must retain their current behavior.
 
 ## Existing CapBall integration points
 
@@ -26,6 +62,7 @@ No endpoints, scopes, environment variables, or payloads are prescribed here.
 | Hosted competition results | `src/state/tournamentStore.js` | Keep a partner match identifier separate from competition and fixture identifiers. |
 | Server-authoritative saved turns | `api/anytime.js`, `server/anytime.js`, `supabase/anytime.sql` | Existing server validation and versioned commits are a starting point for results that need independent verification. Production prerequisites still need verification. |
 | Live multiplayer / LAN | `src/multiplayer/MultiplayerManager.js`, `src/multiplayer/lanRecovery.js` | Support partner lifecycle signals through the existing pause/recovery flow once specified. Browser-hosted physics are not independent proof of a reward-worthy result. |
+| Earned cosmetics | `src/state/unlocks.js`, `src/data/TeamOptions.js` | Keep earned unlocks distinct from server-verified purchased entitlements. Current local progress is not a purchase ledger. |
 | Offline application | `src/sw.js`, `vite.config.js` | Preserve standalone offline/LAN play. Partner identity responses, tokens and authenticated API responses must not enter the app-shell cache. |
 
 ## Details to request from Lagos Lifestyle
@@ -37,7 +74,10 @@ No endpoints, scopes, environment variables, or payloads are prescribed here.
    refresh, audience and issuer requirements, and account-link/unlink behavior.
 4. Supported game lifecycle: ready, start, pause, background, resume, quit and
    completion. Confirm whether the host provides these events at all.
-5. Whether results, leaderboards or rewards are in scope; accepted match modes,
+5. Spending API/SDK, player confirmation, authoritative pricing and currency units,
+   transaction lookup, idempotency, cancellation, refunds, reconciliation,
+   merchant settlement and sandbox test transactions. Separately confirm whether
+   results, leaderboards or rewards are in scope; accepted match modes,
    verification requirements, duplicate handling and correction/revocation rules.
 6. Result delivery: request/response or webhooks, schemas, signatures, event IDs,
    retry policy, rate limits and out-of-order delivery behavior.
@@ -47,9 +87,9 @@ No endpoints, scopes, environment variables, or payloads are prescribed here.
 
 ## Implementation order after the contract arrives
 
-### 1. Confirm one player journey
+### 1. Validate the selected player journey against the contract
 
-Write the launch-to-exit flow for the selected initial capability. Document
+Map the launch-to-exit flow above to the official host capabilities. Document
 which CapBall modes are included and what a player sees if Lagos Lifestyle
 is unavailable. Avoid coupling every game mode to the partner service.
 
@@ -71,11 +111,32 @@ If the platform launches an external browser, do not build an unnecessary bridge
 Acceptance: launch, unsupported version, expired credentials, cancellation and
 partner unavailability are tested; ordinary CapBall startup remains independent.
 
-### 3. Add identity or result delivery only when in scope
+### 3. Implement verified identity and spending
 
 Link accounts only after verifying both identities and obtaining the player's
 choice. Display-name matching is not an identity link. Preserve the existing
 account/save when linking, unlinking or cancelling.
+
+For spending, add a server-side purchase ledger and persistent item entitlements.
+Use stable purchase identifiers and the partner's transaction identifiers.
+Validate the player, catalogue item, amount and currency on the server. Keep the
+state transitions explicit: pending, confirmed, cancelled/failed, and refunded
+as supported by the contract. A timeout is an unknown outcome to reconcile.
+A retry or duplicate webhook must not cause another debit or another grant.
+
+Do not assume the partner debit and our item grant can share one transaction:
+persist the pending operation, confirm the debit via the official verification
+mechanism, and grant idempotently. Recover after a crash between confirmation and
+grant. If delivery cannot be completed, follow the documented refund/support
+process. Verify webhook signatures and bind every receipt to the expected
+account and item. Store partner secrets only on the server.
+
+Acceptance: insufficient balance, cancellation, duplicate taps, timeout after
+debit, duplicate/out-of-order callbacks, restart before item grant, and refunds
+are covered by sandbox tests. Owned items survive relaunch and cannot be claimed
+by a different account.
+
+### Optional later scope: results and rewards
 
 For results/rewards, persist a stable event identifier and delivery status on the
 server. Retries must reuse that identifier. Submit after a committed final result;
@@ -106,7 +167,10 @@ disabling CapBall.
 | Ordinary standalone or offline launch | Existing menus, saves and LAN work without a partner dependency. |
 | Valid partner launch / cancelled launch | Enter the agreed flow / return cleanly without changing accounts. |
 | Invalid, expired or replayed launch credentials | No identity link, result submission or reward; clear recovery path. |
-| New and existing CapBall accounts | Explicit linking behavior, no silent save overwrite. |
+| Existing Lagos Life account / optional CapBall link | Verified partner identity, no second login required for a new partner player, no silent save overwrite. |
+| Purchase confirmed / insufficient balance / cancelled | Grant exactly once only after verified success; no grant or extra charge for failure/cancellation. |
+| Timeout after debit / duplicate tap or callback | Reconcile the original transaction; no double debit or entitlement. |
+| Crash before grant / refund / account switch | Recover delivery, apply the agreed refund policy, enforce ownership. |
 | Host pauses/backgrounds during play | Clock and input follow the agreed lifecycle; resume preserves state. |
 | Normal finish / shootout / resignation | Exactly the documented final outcome is delivered. |
 | Goal replay / rematch / restored result screen | No duplicate final event or reward. |
@@ -119,4 +183,4 @@ disabling CapBall.
 This branch prepares the integration plan and maps it to the codebase. It does
 not implement SSO, an embedded launch, partner result delivery, or rewards, and
 does not claim sandbox or real-device verification. Those require the official
-contract and the selected player journey.
+contract; the selected player journey is recorded above.
