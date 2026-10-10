@@ -86,7 +86,8 @@ function clampInPitch(x, y, r = CAP_RADIUS) {
  *   goal itself is nearer than that, never under FREE_KICK_WALL_MIN)
  *   - Near the goal (within FREE_KICK_TWO_CAP_WALL_WITHIN of the line): 2 wall caps
  *   - Further out: 1 wall cap
- * - ALL other caps pushed to their own half, far from ball
+ * - Attackers offer forward and wide passing options with cover behind.
+ * - Defenders protect goal-side space at staggered depths.
  * - After placement: no cap but the kicker may stand closer to the ball than the wall
  */
 // How far the defending wall stands back from a free kick (world units; the
@@ -138,11 +139,14 @@ function setupFreeKick(foulSpot, fouledTeam) {
   // enough that the aim is controllable, like lining up a real set piece)
   safePlace(`${fouledTeam}_atk1`, bx - nxToGoal * FREE_KICK_RUN_UP, by - nyToGoal * FREE_KICK_RUN_UP)
 
-  // ── ALL other attacking caps: FAR on own half ──
-  safePlace(`${fouledTeam}_atk2`, atkHome * halfW * 0.5, by > 0 ? -halfH * 0.35 : halfH * 0.35)
-  safePlace(`${fouledTeam}_def1`, atkHome * halfW * 0.6, -halfH * 0.4)
-  safePlace(`${fouledTeam}_def2`, atkHome * halfW * 0.6, halfH * 0.4)
-  safePlace(`${fouledTeam}_mid`, atkHome * halfW * 0.3, 0)
+  // Support follows the kick instead of resetting everyone to their own half.
+  // A forward receiver and a wide midfielder offer two different passing lanes;
+  // the defenders retain staggered cover behind the taker.
+  const wing = by >= 0 ? -1 : 1
+  safePlace(`${fouledTeam}_atk2`, bx + defHome * 4.5, wing * 5.5)
+  safePlace(`${fouledTeam}_mid`, bx + defHome * 1.5, -wing * 6.5)
+  safePlace(`${fouledTeam}_def1`, bx - defHome * 4.5, -4.5)
+  safePlace(`${fouledTeam}_def2`, bx - defHome * 7, 4.5)
   safePlace(`${fouledTeam}_gk`, atkHome * (halfW - 1.2), 0)
   // A free kick right outside your own box: the taker can end up on top of
   // your keeper, and the pitch edge stops them being pushed apart along x.
@@ -182,13 +186,13 @@ function setupFreeKick(foulSpot, fouledTeam) {
     safePlace(defFieldCaps[i], wallCx + perpX * off, wallCy + perpY * off)
   }
 
-  // Remaining defending field caps: back behind the ball (towards halfway),
-  // spread across the pitch — out of the shooting lane but ready for a rebound
-  const backX = Math.max(-halfW + 2, Math.min(halfW - 2, bx - defHome * 5))
+  // Defenders stay goal-side, covering different lanes rather than being
+  // parked behind the attacking taker. Depth scales to the room left to goal.
+  const depths = [0.65, 0.82, 0.35, 0.52]
+  const lanes = [-5.2, 5.2, -7.4, 7.4]
   for (let i = wallCount; i < defFieldCaps.length; i++) {
     const k = i - wallCount
-    const spreadY = (k % 2 === 0 ? -1 : 1) * halfH * (0.3 + Math.floor(k / 2) * 0.35)
-    safePlace(defFieldCaps[i], backX - defHome * Math.floor(k / 2) * 1.5, spreadY)
+    safePlace(defFieldCaps[i], bx + defHome * spaceToGoal * depths[k], lanes[k])
   }
 
   // Defending GK on goal line — slid along it if the ball sits right in front of him
@@ -234,6 +238,19 @@ function setupFreeKick(foulSpot, fouledTeam) {
         if (Math.hypot(p.x - bx, p.y - by) >= radius && free(p)) { spot = p; break }
       }
       if (spot) break
+    }
+    if (!spot) {
+      // Near a touchline the short directional searches can all be occupied.
+      // Choose the nearest legal open lane instead of leaving a cap by the ball.
+      const candidates = []
+      for (let x = -halfW + 1.5; x <= halfW - 1.5; x += 1.8) {
+        for (let y = -halfH + 1.5; y <= halfH - 1.5; y += 1.8) {
+          const p = { x, y }
+          if (Math.hypot(x - bx, y - by) >= radius + 0.2 && free(p)) candidates.push(p)
+        }
+      }
+      candidates.sort((a, b) => Math.hypot(a.x - body.position.x, a.y - body.position.y) - Math.hypot(b.x - body.position.x, b.y - body.position.y))
+      spot = candidates[0]
     }
     if (spot) safePlace(id, spot.x, spot.y)
   }

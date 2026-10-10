@@ -270,6 +270,23 @@ describe('set pieces', () => {
     for (const id of capIds().filter(id => !id.endsWith('_gk') && id !== 'team1_atk1')) expect(pos(id).x).toBeCloseTo(0)
   })
 
+  it.each(['left', 'right'])('free kicks provide forward options and goal-side defenders with home side %s', (side) => {
+    useMatchStore.setState({ team1Side: side })
+    const direction = side === 'left' ? 1 : -1
+    for (const x of [-7, 0, 6]) {
+      setupFreeKick({ x: x * direction, y: 2 }, 'team1')
+      const ball = pos('ball')
+      expect((pos('team1_atk2').x - ball.x) * direction).toBeGreaterThan(0)
+      expect((pos('team1_mid').x - ball.x) * direction).toBeGreaterThan(0)
+      expect((pos('team1_def1').x - ball.x) * direction).toBeLessThan(0)
+      for (const id of ['team2_def2', 'team2_mid', 'team2_atk1', 'team2_atk2']) {
+        expect((pos(id).x - ball.x) * direction).toBeGreaterThan(0)
+      }
+      expectNoOverlaps()
+      expectInsidePitch()
+    }
+  })
+
   it('penalty: ball on the spot of the defending goal, keeper on the line', () => {
     useMatchStore.setState({ team1Side: 'left' })
     setupPenalty('team1') // team1 attacks the right goal
