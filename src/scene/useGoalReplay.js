@@ -6,11 +6,11 @@ import { PITCH } from '../data/TeamData'
 
 /* ── Goal replay ──
    Records where every mesh was drawn each frame (so it works the same for an
-   online guest, which only mirrors the host) and, after a goal, plays the
+   online guest, which only mirrors the host) and, after a scoring decision, plays the
    run-up back on the meshes in slow motion. It only ever moves meshes: the
-   physics bodies stay frozen at the goal (nothing steps in the GOAL phase) and
+   physics bodies stay frozen during the decision phase and
    the meshes fall back to them as soon as the replay ends. The replay also
-   ends the moment the phase leaves GOAL, so it can't fight the kick-off
+   ends the moment the decision phase ends, so it can't fight the restart
    layout. */
 
 const IDS = [
@@ -28,8 +28,8 @@ const HOLD_S = 0.15 // linger on the final frame before handing back
 const lerp3 = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k)
 const smooth = (k) => k * k * (3 - 2 * k)
 
-function createReplayController(meshRefs) {
-  const buffer = createReplayBuffer(IDS)
+export function createReplayController(meshRefs) {
+  const buffer = createReplayBuffer(IDS, { capacity: 900, windowSec: REPLAY.window })
   const frame = new Float32Array(IDS.length * 2)
   let recClock = 0 // advances only while recording, so pauses leave no dead air
   let wallClock = 0
@@ -40,6 +40,7 @@ function createReplayController(meshRefs) {
   let elapsed = 0
   let savedCam = null
   let replayCam = null
+  let lastPhase = null
 
   function record() {
     const meshes = meshRefs.current
@@ -100,31 +101,46 @@ function createReplayController(meshRefs) {
     /** Run once per frame, right after the meshes have been synced to physics. */
     frame(delta) {
       const step = Math.min(delta, MAX_STEP_S)
-      wallClock += step
-      const { phase, penaltyShootout, paused } = useMatchStore.getState()
+      const { phase, paused } = useMatchStore.getState()
+      if (paused) return
+      wallClock += delta
+      const decisionPhase = phase === PHASE.GOAL || phase === PHASE.NO_GOAL
+      if (phase === PHASE.RESOLVE && lastPhase !== PHASE.RESOLVE) buffer.clear()
+      lastPhase = phase
 
-      if (phase !== PHASE.GOAL || penaltyShootout) {
+      if (!decisionPhase) {
         if (goalAt !== null) { finish(); goalAt = null }
         if (!RECORD_PHASES.includes(phase)) buffer.clear()
         else if (!paused) { recClock += step; record() }
         return
       }
 
-      // GOAL: the record stops at the moment the ball went in
-      if (goalAt === null) { goalAt = wallClock; done = false }
+      // The record stops at the moment the ball went in
+      if (goalAt === null) {
+        // Capture entry before any restart; the last RESOLVE frame can still
+        // show the ball short of the line, especially on a network guest.
+        recClock += step
+        record()
+        goalAt = wallClock
+        done = false
+      }
       if (done) return
       if (!playing) {
         if (wallClock - goalAt < REPLAY.bannerMs / 1000) return // "GOAL!" banner first
         if (buffer.span < REPLAY.minSpan) { done = true; return }
         start()
+        show(playbackTime(0, buffer.start, buffer.end))
+        return // do not charge the banner frame against playback
       }
       if (skipped) {
         finish()
-        useMatchStore.getState().skipGoal() // offline: straight to kick-off
+        const s = useMatchStore.getState()
+        if (phase === PHASE.NO_GOAL) s.skipNoGoal()
+        else s.skipGoal() // online: skip only this client's view
         return
       }
 
-      elapsed += step
+      elapsed += delta
       show(playbackTime(elapsed, buffer.start, buffer.end))
       if (replayCam) {
         const k = smooth(Math.min(1, elapsed / CAMERA_EASE_S))
@@ -133,7 +149,7 @@ function createReplayController(meshRefs) {
           target: lerp3(savedCam.target, replayCam.target, k),
         })
       }
-      if (elapsed >= playbackDuration(buffer.span) + HOLD_S) finish()
+      if (elapsed >= Math.max(1.5, playbackDuration(buffer.span)) + HOLD_S) finish()
     },
   }
 }

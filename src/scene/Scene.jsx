@@ -17,7 +17,7 @@ import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
 import { applyPendingBodies } from '../state/savedMatch'
-import { createPhysicsWorld, resetToKickoff, setupFreeKick, setupPenalty, setupCorner, setupGoalKick } from '../physics/PhysicsWorld'
+import { createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick } from '../physics/PhysicsWorld'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 
@@ -196,11 +196,19 @@ function GameWorld() {
     applyPendingBodies() // a saved match being picked back up
   }, [])
 
+  const previousPhase = useRef(phase)
+
   // Place the caps whenever play restarts. Only the authority does this; an
   // online guest receives positions from the host.
   useEffect(() => {
     const s = useMatchStore.getState()
+    const previous = previousPhase.current
+    previousPhase.current = phase
     if (!isAuthority(s)) return
+    if (previous === PHASE.NO_GOAL && phase === PHASE.SELECT) {
+      placeBallAt(0, 0)
+      deOverlapBodies()
+    }
     if (phase === PHASE.KICKOFF) {
       if (s.penaltyShootout) setupPenalty(s.activeTeam)
       else resetToKickoff(s.activeTeam)

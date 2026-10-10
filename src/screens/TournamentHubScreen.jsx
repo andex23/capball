@@ -10,6 +10,7 @@ import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
 import TournamentFinale from '../ui/TournamentFinale'
 import { TeamTag, scoreText, ProgressBar } from '../ui/TournamentBits'
+import { KitEditor } from './TournamentSetupScreen'
 import { displayColor } from '../ui/color'
 
 const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
@@ -306,12 +307,13 @@ function CodeCard({ code }) {
   )
 }
 
-function Seats({ t, snapshot, busy, onClaim, onRelease }) {
+function Seats({ t, snapshot, busy, onClaim, onRelease, onEdit }) {
   const seats = snapshot?.seats || []
   if (!seats.length) return null
   return (
     <div className="t-seats">
       <div className="eyebrow" style={{ marginBottom: 8 }}>Players</div>
+      <p className="muted">Choose an open team slot, then bring your own name, kit and squad.</p>
       <ul>
         {seats.map((s) => {
           const team = teamById(t, s.teamId)
@@ -322,12 +324,13 @@ function Seats({ t, snapshot, busy, onClaim, onRelease }) {
               {s.mine ? (
                 <span className="t-seat-right">
                   <span className="chip t-static-chip t-seat-you">You</span>
+                  {!t.championId && !snapshot.closed && <button className="btn btn-blue t-seat-btn" onClick={() => onEdit(team)} disabled={busy}>Edit team</button>}
                   {!t.championId && <button className="btn btn-ghost t-seat-btn" onClick={() => onRelease(s.teamId)} disabled={busy}>Let go</button>}
                 </span>
               ) : s.claimed ? (
                 <span className="chip t-static-chip">Taken</span>
               ) : (
-                <button className="btn btn-blue t-seat-btn" onClick={() => onClaim(s.teamId)} disabled={busy || !!t.championId}>Take this team</button>
+                <button className="btn btn-blue t-seat-btn" onClick={() => onClaim(s.teamId)} disabled={busy || !!t.championId}>Choose team</button>
               )}
             </li>
           )
@@ -376,6 +379,7 @@ export default function TournamentHubScreen() {
   const storeError = useTournamentStore((s) => s.error)
   const store = useTournamentStore.getState()
   const [tab, setTab] = useState('table')
+  const [teamDraft, setTeamDraft] = useState(null)
 
   const isOnline = kind === 'online'
   const finaleSeen = useTournamentStore((s) => s.finaleSeen)
@@ -440,6 +444,15 @@ export default function TournamentHubScreen() {
 
   return (
     <div className="screen">
+      {teamDraft && <KitEditor
+        team={teamDraft}
+        withName
+        onUpdate={(patch) => setTeamDraft(draft => ({ ...draft, ...patch }))}
+        onClose={() => setTeamDraft(null)}
+        onSave={async () => { if (await store.updateOnlineTeam(teamDraft.id, teamDraft)) setTeamDraft(null) }}
+        saving={busy}
+        error={storeError}
+      />}
       <div className="shell">
         <header className="shell-head">
           <div>
@@ -478,7 +491,14 @@ export default function TournamentHubScreen() {
                 t={t}
                 snapshot={snapshot}
                 busy={busy}
-                onClaim={(id) => { playButtonSelect(); store.claimSeat(id) }}
+                onEdit={(team) => setTeamDraft({ ...team })}
+                onClaim={async (id) => {
+                  playButtonSelect()
+                  if (await store.claimSeat(id)) {
+                    const team = teamById(useTournamentStore.getState().online.tournament, id)
+                    setTeamDraft({ ...team, ...useMatchStore.getState().teamConfig.team1, id })
+                  }
+                }}
                 onRelease={(id) => { playButtonSelect(); store.releaseSeat(id) }}
               />
               {!mine.length && !t.championId && <p className="muted t-note">Take a team above to play in this tournament.</p>}

@@ -3,7 +3,7 @@ import {
   otherTeam, teamOf, teamHomeDir, scorerForBall, judgeGoal, classifyContact,
   isInPenaltyArea, shootoutStatus, nextShooter, matchWinner, formatClock,
 } from '../game/rules'
-import { PITCH } from '../data/TeamData'
+import { BALL_RADIUS, PITCH } from '../data/TeamData'
 import { ballInCorner, cornerRestart } from '../game/rules'
 
 const inLeftGoal = { x: -PITCH.halfW - 0.5, y: 0 }
@@ -28,6 +28,15 @@ describe('teams', () => {
 })
 
 describe('scorerForBall', () => {
+  it('requires the whole ball to cross the line at either end', () => {
+    for (const side of [-1, 1]) {
+      for (const offset of [-0.1, 0, BALL_RADIUS / 2, BALL_RADIUS]) {
+        expect(scorerForBall(side * (PITCH.halfW + offset), 0)).toBeNull()
+      }
+      expect(scorerForBall(side * (PITCH.halfW + BALL_RADIUS + 0.01), 0)).not.toBeNull()
+    }
+  })
+
   it('credits the team attacking that goal', () => {
     expect(scorerForBall(inLeftGoal.x, 0, 'left')).toBe('team2')
     expect(scorerForBall(inRightGoal.x, 0, 'left')).toBe('team1')

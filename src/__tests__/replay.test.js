@@ -1,6 +1,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { createReplayBuffer, playbackDuration, playbackTime, REPLAY } from '../game/replay'
+import { createReplayBuffer, playbackDuration, playbackTime, REPLAY, decisionText } from '../game/replay'
 import { useMatchStore, PHASE, TIMING, clearMatchTimers } from '../state/MatchStore'
+
+import { createReplayController } from '../scene/useGoalReplay'
+import { pickSynced, filterSynced } from '../multiplayer/protocol'
 
 const IDS = ['a', 'ball']
 
@@ -102,7 +105,7 @@ describe('replay playback', () => {
   it('fits the banner and the longest replay inside the GOAL phase', () => {
     const total = REPLAY.bannerMs + playbackDuration(REPLAY.window) * 1000
     expect(total).toBeLessThanOrEqual(TIMING.goal)
-    expect(TIMING.goal).toBeLessThanOrEqual(5000)
+    expect(TIMING.goal).toBeLessThanOrEqual(8000)
     // Mostly real slow motion
     expect(REPLAY.slowSpeed).toBeLessThanOrEqual(0.5)
   })
@@ -142,5 +145,121 @@ describe('skipping the goal replay', () => {
     expect(useMatchStore.getState().phase).toBe(PHASE.GOAL)
     vi.advanceTimersByTime(TIMING.goal)
     expect(useMatchStore.getState().phase).toBe(PHASE.KICKOFF)
+  })
+})
+
+
+describe('decision replays', () => {
+  const initial = useMatchStore.getState()
+  afterEach(() => {
+    clearMatchTimers()
+    vi.useRealTimers()
+    useMatchStore.setState(initial, true)
+  })
+
+  function shot() {
+    vi.useFakeTimers()
+    useMatchStore.getState().startGame()
+    vi.advanceTimersByTime(TIMING.kickoff)
+    const ids = ['ball', ...['team1', 'team2'].flatMap(team =>
+      ['gk', 'def1', 'def2', 'mid', 'atk1', 'atk2'].map(role => `${team}_${role}`))]
+    const refs = { current: Object.fromEntries(ids.map(id => [id, { position: { x: 0, z: 0 } }])) }
+    const replay = createReplayController(refs)
+    useMatchStore.setState({ phase: PHASE.RESOLVE })
+    for (let i = 0; i < 20; i++) {
+      refs.current.ball.position.x = i
+      replay.frame(0.05)
+    }
+    refs.current.ball.position.x = 21
+    return { refs, replay }
+  }
+
+  function startReplay(replay) {
+    for (let i = 0; i < 23; i++) replay.frame(0.05)
+    expect(useMatchStore.getState().replaying).toBe(true)
+  }
+
+  it('replays a disallowed entry before awarding the defending goal kick', () => {
+    const { refs, replay } = shot()
+    const restart = { kind: 'goalKick', team: 'team2', ex: 1, ey: 0, reason: 'bank' }
+    useMatchStore.getState().disallowGoal('bank_shot', { restart })
+    startReplay(replay)
+    expect(refs.current.ball.position.x).toBeLessThan(19)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.NO_GOAL, score: { team1: 0, team2: 0 } })
+    for (let i = 0; i < 60; i++) replay.frame(0.05)
+    expect(refs.current.ball.position.x).toBeCloseTo(21)
+    expect(useMatchStore.getState().replaying).toBe(false)
+    expect(useMatchStore.getState().phase).toBe(PHASE.NO_GOAL)
+    vi.advanceTimersByTime(TIMING.noGoal)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.GOAL_KICK_SETUP, activeTeam: 'team2', restart })
+    replay.dispose()
+  })
+
+  it('skips a no-goal replay offline without a second restart from its old timer', () => {
+    const { replay } = shot()
+    useMatchStore.getState().disallowGoal('kickoff_violation')
+    startReplay(replay)
+    replay.skip()
+    replay.frame(0.05)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2', replaying: false })
+    vi.advanceTimersByTime(TIMING.noGoal)
+    expect(useMatchStore.getState().activeTeam).toBe('team2')
+    replay.dispose()
+  })
+
+  it('synchronizes the ruling while online skips affect only the local view', () => {
+    const { replay } = shot()
+    useMatchStore.setState({ gameMode: 'online' })
+    useMatchStore.getState().disallowGoal('gk_violation')
+    startReplay(replay)
+    const synced = filterSynced(pickSynced(useMatchStore.getState()))
+    expect(synced.replayDecision).toEqual({ outcome: 'no_goal', reason: 'gk_violation', evidence: {} })
+    expect(synced).not.toHaveProperty('replaying')
+    replay.skip()
+    replay.frame(0.05)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.NO_GOAL, replaying: false })
+    vi.advanceTimersByTime(TIMING.noGoal)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.SELECT, activeTeam: 'team2' })
+    replay.dispose()
+  })
+
+  it('starts the decision replay even when rendering frames are slow', () => {
+    const { replay } = shot()
+    useMatchStore.getState().disallowGoal('kickoff_violation')
+    replay.frame(0.5)
+    replay.frame(0.5)
+    replay.frame(0.5)
+    replay.frame(0.5)
+    expect(useMatchStore.getState().replaying).toBe(true)
+    replay.dispose()
+  })
+
+  it('keeps a disallowed shootout kick on screen without counting it twice', () => {
+    vi.useFakeTimers()
+    useMatchStore.getState().startPenaltyShootout()
+    useMatchStore.getState().penaltyAttemptResult(false, { outcome: 'no_goal', reason: 'bank_shot' })
+    useMatchStore.getState().skipNoGoal()
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.NO_GOAL, penaltyKicks: { team1: 1, team2: 0 } })
+    vi.advanceTimersByTime(TIMING.noGoal)
+    expect(useMatchStore.getState()).toMatchObject({ phase: PHASE.KICKOFF, activeTeam: 'team2', penaltyKicks: { team1: 1, team2: 0 } })
+  })
+
+  it('ends a first-to-one match when its winning goal replay is skipped', () => {
+    shot()
+    useMatchStore.setState({ goalTarget: 1 })
+    useMatchStore.getState().scoreGoal('team1')
+    useMatchStore.getState().skipGoal()
+    expect(useMatchStore.getState().phase).toBe(PHASE.MATCH_OVER)
+  })
+
+  it('explains ball-edge violations and legal cap or post contacts', () => {
+    expect(decisionText({ outcome: 'no_goal', reason: 'bank_shot' }).detail).toContain('without another cap')
+    expect(decisionText({ outcome: 'no_goal', reason: 'kickoff_violation' }).detail).toContain('kick-off')
+    expect(decisionText({ outcome: 'no_goal', reason: 'gk_violation' }).detail).toContain('goalkeeper')
+    expect(decisionText({ outcome: 'goal', evidence: { capHitEdge: true } })).toEqual({
+      title: 'Goal stands', detail: 'The cap hit the pitch edge, not the ball. The goal counts.',
+    })
+    expect(decisionText({ outcome: 'goal', evidence: { capAfterBank: true } }).detail).toContain('after its edge bounce')
+    expect(decisionText({ outcome: 'goal', evidence: { postContact: true } }).detail).toContain('Goalpost contact is allowed')
   })
 })

@@ -99,7 +99,6 @@ const PEN_AREA_H = PITCH.penAreaH
 
 // Collision categories
 const CAT_DEFAULT = 0x0001
-const CAT_GOAL_BLOCKER = 0x0002
 
 let engine = null
 let bodies = {}
@@ -108,6 +107,8 @@ let lastBallTeam = null // 'team1' | 'team2' | null — last side to touch the b
 // goes in off the wall doesn't count (rules.judgeGoal → 'bank_shot').
 let ballBanked = false
 export const getBallBanked = () => ballBanked
+let goalEvidence = {}
+export const getGoalEvidence = () => ({ ...goalEvidence })
 
 /** Direction of a team's own goal for the current half. -1 = left, +1 = right */
 function getTeamDir(team) {
@@ -123,7 +124,7 @@ function getTeam1Side() {
   return useMatchStore.getState().team1Side || 'left'
 }
 
-/** Static pitch boundary, goal nets and goal-mouth cap blockers (shared by every world). */
+/** Static pitch boundary and goal nets (shared by every world). */
 function createWallBodies() {
   const { halfW, halfH, goalWidth, goalDepth } = PITCH
   const goalHalf = goalWidth / 2
@@ -159,17 +160,6 @@ function createWallBodies() {
   const rightGoalTop = Bodies.rectangle(halfW + sideLen / 2, -goalHalf - wallThick / 2, sideLen, wallThick, wallOpts)
   const rightGoalBottom = Bodies.rectangle(halfW + sideLen / 2, goalHalf + wallThick / 2, sideLen, wallThick, wallOpts)
 
-  // Goal blockers — invisible walls that block CAPS but allow BALL through
-  const blockerOpts = {
-    isStatic: true,
-    restitution: PHYSICS.restitution,
-    friction: 0,
-    frictionStatic: 0,
-    collisionFilter: { category: CAT_GOAL_BLOCKER, mask: CAT_DEFAULT },
-  }
-  const leftGoalBlocker = Bodies.rectangle(-halfW - wallThick / 2, 0, wallThick, goalWidth, blockerOpts)
-  const rightGoalBlocker = Bodies.rectangle(halfW + wallThick / 2, 0, wallThick, goalWidth, blockerOpts)
-
   // Goal frame/net contacts are not pitch-cushion bank shots.
   for (const wall of [topWall, bottomWall, leftTop, leftBottom, rightTop, rightBottom]) {
     wall.label = 'pitch_cushion'
@@ -180,7 +170,6 @@ function createWallBodies() {
     leftTop, leftBottom, rightTop, rightBottom,
     leftGoalBack, leftGoalTop, leftGoalBottom,
     rightGoalBack, rightGoalTop, rightGoalBottom,
-    leftGoalBlocker, rightGoalBlocker,
   ]
 }
 
@@ -253,6 +242,7 @@ function attachKeeperGrip(eng, bodyMap) {
 
 export function createPhysicsWorld() {
   diveStop = null
+  goalEvidence = {}
   // Destroy previous engine if exists
   if (engine) {
     World.clear(engine.world)
@@ -343,17 +333,30 @@ export function createPhysicsWorld() {
     for (const pair of event.pairs) {
       const a = pair.bodyA.label
       const b = pair.bodyB.label
+      const flicked = useMatchStore.getState().lastFlickedCapId
+      if ((a === flicked && b === 'pitch_cushion') || (b === flicked && a === 'pitch_cushion')) {
+        goalEvidence.capHitEdge = true
+      }
       if (a !== 'ball' && b !== 'ball') continue
       const other = a === 'ball' ? pair.bodyB : pair.bodyA
       const team = teamOf(other.label)
-      if (team) { lastBallTeam = team; ballBanked = false }
+      if (team) {
+        if (ballBanked) goalEvidence.capAfterBank = true
+        lastBallTeam = team
+        ballBanked = false
+      }
       else if (other.label === 'pitch_cushion') {
         const { x, y } = bodies.ball.position
         // The inside tip of an end cushion is the goalpost, not a bank off
         // the pitch edge. Contacts beyond the goal line cannot undo entry.
         const atPost = Math.abs(x) >= PITCH.halfW - BALL_RADIUS
           && Math.abs(y) <= PITCH.goalWidth / 2 + BALL_RADIUS
-        if (Math.abs(x) <= PITCH.halfW && !atPost) ballBanked = true
+        if (atPost) goalEvidence.postContact = true
+        if (Math.abs(x) <= PITCH.halfW && !atPost) {
+          ballBanked = true
+          goalEvidence.capAfterBank = false
+          goalEvidence.edgeContact = { x, y }
+        }
       }
     }
   })
@@ -405,9 +408,7 @@ function makeDynamicBody(id, x, y) {
     restitution: isBall ? PHYSICS.ballRestitution : PHYSICS.restitution,
     label: id,
     slop: 0.001,  // very tight — prevents sinking into walls
-    collisionFilter: isBall
-      ? { category: CAT_DEFAULT, mask: CAT_DEFAULT }
-      : { category: CAT_DEFAULT, mask: CAT_DEFAULT | CAT_GOAL_BLOCKER },
+    collisionFilter: { category: CAT_DEFAULT, mask: CAT_DEFAULT },
   })
   Body.setMass(body, mass)
   Body.setInertia(body, Infinity) // no rotation — pure translation
@@ -449,6 +450,7 @@ export function getBody(id) { return bodies[id] }
 export function applyFlick(capId, velocity, maxSpeed = PHYSICS.maxFlickVelocity) {
   const body = bodies[capId]
   if (!body) return
+  goalEvidence = {}
   // Clamp to max flick velocity
   const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
   if (speed > maxSpeed) {
@@ -551,11 +553,11 @@ function clampBodyMap(bodies, team1Side) {
     }
 
     // ── BALL & CAPS: rescue from tunneling ──
-    const inGoalLane = isBall && Math.abs(y) < goalHalf + BALL_RADIUS
+    const inGoalLane = Math.abs(y) < (isBall ? goalHalf + BALL_RADIUS : goalHalf - radius)
 
     let xLimit
     if (inGoalLane) {
-      xLimit = backWallX - BALL_RADIUS
+      xLimit = backWallX - radius
     } else {
       xLimit = halfW - radius
     }
@@ -589,6 +591,7 @@ function clampBodyMap(bodies, team1Side) {
 
 export function placeBallAt(x, y) {
   ballBanked = false
+  goalEvidence = {}
   const ball = bodies.ball
   if (ball) {
     Body.setPosition(ball, { x, y })

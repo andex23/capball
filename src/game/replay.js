@@ -3,17 +3,17 @@
    and the maths for playing a stretch of it back in slow motion. Pure — no
    three.js, no store — so it can be unit tested. */
 
-// How the replay is played back. The lead-up runs a little under real speed,
-// the final moments (the shot going in) at slow motion. Banner + replay
-// (1.0 + 3.6 s) fit inside TIMING.goal with a little slack for the online
-// guest, whose GOAL phase starts a network hop later.
+// How the replay is played back. The lead-up runs at a faster pace,
+// the final moments (the shot going in) at slow motion. A whole resolving
+// turn fits, so a cushion contact earlier in the shot is not omitted. The
+// banner and replay fit inside the decision phase with network slack.
 export const REPLAY = {
   bannerMs: 1000, // "GOAL!" banner before the replay starts
-  window: 2.0, // seconds of play shown
+  window: 12.0, // seconds of play shown
   slowTail: 0.9, // the last this-many seconds play at slowSpeed
-  leadSpeed: 0.8,
+  leadSpeed: 3.0,
   slowSpeed: 0.4,
-  minSpan: 0.3, // don't bother replaying less than this
+  minSpan: 0.01, // even a short goal-line nudge deserves a replay
 }
 
 /**
@@ -116,4 +116,27 @@ export function playbackTime(elapsed, start, end, opts = REPLAY) {
     ? from + e * opts.leadSpeed
     : from + lead + (e - leadDur) * opts.slowSpeed
   return Math.min(t, end)
+}
+
+
+/** Explain the actual decision, independently of celebration commentary. */
+export function decisionText(decision) {
+  if (!decision) return { title: 'Goal', detail: 'The ball crossed the goal line.' }
+  if (decision.outcome !== 'goal') {
+    const reasons = {
+      bank_shot: 'The ball hit the pitch edge and entered without another cap touching it. Goal kick.',
+      kickoff_violation: 'A direct goal from kick-off does not count. Possession changes.',
+      gk_violation: 'A goalkeeper cannot score for their own team. Possession changes.',
+    }
+    return { title: 'No goal', detail: reasons[decision.reason] || 'The shot broke a scoring rule.' }
+  }
+  const evidence = decision.evidence || {}
+  const detail = evidence.capAfterBank
+    ? 'A cap touched the ball after its edge bounce. The goal counts.'
+    : evidence.capHitEdge
+      ? 'The cap hit the pitch edge, not the ball. The goal counts.'
+      : evidence.postContact
+        ? 'Off the goalpost and in. Goalpost contact is allowed.'
+        : 'The ball crossed the goal line without a scoring-rule violation.'
+  return { title: 'Goal stands', detail }
 }

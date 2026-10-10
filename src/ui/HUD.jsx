@@ -16,6 +16,7 @@ import RulesPanel from './RulesPanel'
 import { displayColor, inkOn } from './color'
 import { canFullscreen, toggleFullscreen, typing } from './fullscreen'
 import { goalLine, line } from '../game/commentary'
+import { decisionText } from '../game/replay'
 import { isCoached, markCoached, COACH_FLICKS } from '../game/tutorial'
 import { STADIUMS } from '../data/StadiumData'
 import CapPreview from './CapPreview'
@@ -26,7 +27,8 @@ import { playDaily } from '../state/dailyStore'
 
 const NO_GOAL_TEXT = {
   kickoff_violation: 'You can’t score straight from kick-off',
-  gk_violation: 'Goalkeepers can’t score',
+  gk_violation: 'Goalkeepers can’t score for their own team',
+  bank_shot: 'The ball went in off the pitch edge — goal kick',
 }
 
 // The shot clock ran out on this turn (a timed-out shootout kick shows as MISSED)
@@ -250,10 +252,16 @@ function ShotCall() {
 function ReplayOverlay() {
   const replaying = useMatchStore((s) => s.replaying)
   const paused = useMatchStore((s) => s.paused)
+  const decision = useMatchStore((s) => s.replayDecision)
   if (!replaying || paused) return null
+  const explanation = decisionText(decision)
   return (
     <div className="replay" aria-live="polite">
       <div className="replay-bar top" />
+      <div className="replay-decision" data-outcome={decision?.outcome || 'goal'}>
+        <strong>{explanation.title}</strong>
+        <p>{explanation.detail}</p>
+      </div>
       <div className="replay-bar bottom">
         <div className="replay-badge"><i aria-hidden /> Replay <span>Tap or Space to skip</span></div>
       </div>

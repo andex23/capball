@@ -52,10 +52,10 @@ export const SHOT_CLOCKS = [0, 10, 15, 20]
 // How long each overlay stays up before play continues (ms)
 export const TIMING = {
   kickoff: 2000,
-  goal: 5000, // banner + slow-motion replay (see game/replay.js)
+  goal: 8000, // banner + slow-motion replay (see game/replay.js)
   foul: 1200,
   setPiece: 1500,
-  noGoal: 1500,
+  noGoal: 8000,
   shootoutResult: 1500,
   fullTime: 1500,
   timeUp: 1200,
@@ -67,6 +67,7 @@ export const TIMING = {
    could fire into the next one. */
 const pendingTimers = new Set()
 let goalTimer = null
+let noGoalTimer = null
 
 export function later(fn, ms) {
   const id = setTimeout(() => {
@@ -234,6 +235,8 @@ export const useMatchStore = create((set, get) => ({
       goalLog: [],
       matchEvents: [],
       lastGoalCap: null,
+      replayDecision: null,
+      pendingNoGoalRestart: null,
       stats: emptyStats(),
       team1Side: s.chosenTeam1Side,
       activeTeam: s.firstHalfKicker,
@@ -444,11 +447,12 @@ export const useMatchStore = create((set, get) => ({
   },
 
   // ownGoal: the last cap to touch the ball was the conceding side's
-  scoreGoal: (scoringTeam, { ownGoal = false } = {}) => {
+  scoreGoal: (scoringTeam, { ownGoal = false, decision = null } = {}) => {
     const { score } = get()
+    const replayDecision = decision || { outcome: 'goal' }
     if (get().challenge) {
       // Celebrate, then the challenge is done (into your own net is a fail)
-      set({ ...clearTurn, score: { ...score, [scoringTeam]: score[scoringTeam] + 1 }, phase: PHASE.GOAL, lastScorer: scoringTeam, lastGoalOwn: !!ownGoal, lastConceded: otherTeam(scoringTeam) })
+      set({ ...clearTurn, score: { ...score, [scoringTeam]: score[scoringTeam] + 1 }, phase: PHASE.GOAL, replayDecision, lastScorer: scoringTeam, lastGoalOwn: !!ownGoal, lastConceded: otherTeam(scoringTeam) })
       goalTimer = later(() => get().endChallenge(scoringTeam === 'team1'), TIMING.goal)
       return
     }
@@ -459,6 +463,7 @@ export const useMatchStore = create((set, get) => ({
       ...clearTurn,
       score: { ...score, [scoringTeam]: score[scoringTeam] + 1 },
       phase: PHASE.GOAL,
+      replayDecision,
       lastScorer: scoringTeam,
       lastGoalOwn: !!ownGoal,
       lastGoalCap: cap,
@@ -481,18 +486,35 @@ export const useMatchStore = create((set, get) => ({
     if (s.phase !== PHASE.GOAL || s.penaltyShootout || s.gameMode === 'online') return
     cancelLater(goalTimer)
     if (s.challenge) { s.endChallenge(s.lastScorer === 'team1'); return }
+    if (s.goalTarget && s.score[s.lastScorer] >= s.goalTarget) { s.endMatch(); return }
     s.startKickoff(s.lastConceded)
   },
 
   // True while this client is showing a goal replay (local only, never synced)
+  replayDecision: null,
   replaying: false,
   setReplaying: (v) => { if (get().replaying !== v) set({ replaying: v }) },
 
-  /** A ball in the net that doesn't count. Possession passes over. */
-  disallowGoal: (reason) => {
+  /** Preserve the shot while the decision replay plays, then restart. */
+  disallowGoal: (reason, { restart = null, evidence = {} } = {}) => {
+    set({ ...clearTurn, phase: PHASE.NO_GOAL, noGoalReason: reason,
+      replayDecision: { outcome: 'no_goal', reason, evidence }, pendingNoGoalRestart: restart })
+    noGoalTimer = later(() => get().resumeNoGoal(), TIMING.noGoal)
+  },
+  pendingNoGoalRestart: null,
+  resumeNoGoal: () => {
+    if (get().phase !== PHASE.NO_GOAL || get().penaltyShootout) return
+    const restart = get().pendingNoGoalRestart
+    set({ pendingNoGoalRestart: null })
     if (get().challenge) { get().challengeFlickUsed(); return }
-    set({ ...clearTurn, phase: PHASE.NO_GOAL, noGoalReason: reason })
-    later(() => get().switchTurn(), TIMING.noGoal)
+    if (restart) get().awardRestart(restart)
+    else get().switchTurn()
+  },
+  skipNoGoal: () => {
+    const s = get()
+    if (s.phase !== PHASE.NO_GOAL || s.penaltyShootout || s.gameMode === 'online') return
+    cancelLater(noGoalTimer)
+    s.resumeNoGoal()
   },
   noGoalReason: null,
 
@@ -575,7 +597,7 @@ export const useMatchStore = create((set, get) => ({
   },
 
   /** A shootout kick has finished — show the result, then move on. */
-  penaltyAttemptResult: (scored) => {
+  penaltyAttemptResult: (scored, decision = null) => {
     const { activeTeam, penaltyKicks, penaltyScores } = get()
     const kicks = { ...penaltyKicks, [activeTeam]: penaltyKicks[activeTeam] + 1 }
     const goals = { ...penaltyScores, [activeTeam]: penaltyScores[activeTeam] + (scored ? 1 : 0) }
@@ -584,7 +606,9 @@ export const useMatchStore = create((set, get) => ({
       ...clearTurn,
       penaltyKicks: kicks,
       penaltyScores: goals,
-      phase: scored ? PHASE.GOAL : PHASE.MISSED,
+      phase: scored ? PHASE.GOAL : decision ? PHASE.NO_GOAL : PHASE.MISSED,
+      replayDecision: decision || (scored ? { outcome: 'goal' } : null),
+      noGoalReason: decision?.reason || null,
       lastScorer: scored ? activeTeam : null,
       lastGoalOwn: false,
       lastGoalCap: kicker,
@@ -611,7 +635,7 @@ export const useMatchStore = create((set, get) => ({
       }
       set({ phase: PHASE.KICKOFF, activeTeam: nextShooter(kicks) })
       later(() => get().beginPlay(), TIMING.kickoff)
-    }, TIMING.shootoutResult)
+    }, scored ? TIMING.goal : decision ? TIMING.noGoal : TIMING.shootoutResult)
   },
 
   // --- Audio settings ---

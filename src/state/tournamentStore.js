@@ -12,7 +12,7 @@ import { create } from 'zustand'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from './MatchStore'
 import {
   createTournament, recordResult, settleCpu, applyResults, sanitizeTournament, historyEntry,
-  teamById, readyFixtures,
+  teamById, readyFixtures, sanitizeTeam,
 } from '../game/tournament'
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected } from '../multiplayer/MultiplayerManager'
@@ -216,9 +216,33 @@ export const useTournamentStore = create((set, get) => ({
     const code = get().online?.code
     if (!code) return
     set({ busy: true, error: null })
-    try { await api.claim(code, teamId); await get().openOnline(code, { quiet: true }) }
-    catch (e) { set({ error: e.message }) }
+    try { await api.claim(code, teamId); await get().openOnline(code, { quiet: true }); return true }
+    catch (e) { set({ error: e.message }); return false }
     finally { set({ busy: false }) }
+  },
+
+  /** A seat holder owns the team's identity; fixtures and ownership stay intact. */
+  async updateOnlineTeam(teamId, draft) {
+    const online = get().online
+    if (!online?.snapshot?.seats?.some(s => s.teamId === teamId && s.mine)) {
+      set({ error: 'Take this team before editing it.' })
+      return false
+    }
+    const current = teamById(online.tournament, teamId)
+    if (!current || online.snapshot.closed || online.tournament.championId) return false
+    set({ busy: true, error: null })
+    try {
+      const config = sanitizeTeam({ ...current, ...draft })
+      delete config.id
+      delete config.cpu
+      delete config.difficulty
+      await api.updateTeam(online.code, teamId, config)
+      await get().openOnline(online.code, { quiet: true })
+      return true
+    } catch (e) {
+      set({ error: e.message })
+      return false
+    } finally { set({ busy: false }) }
   },
 
   async releaseSeat(teamId) {

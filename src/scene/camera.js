@@ -1,3 +1,5 @@
+import { PITCH } from '../data/TeamData'
+
 // Camera presets, kept out of Scene.jsx so the HUD doesn't pull in three.js.
 
 // Each preset has a landscape pose and, for tall phone screens, a pose that
@@ -13,7 +15,7 @@ export const CAMERA_PRESETS = [
 const PORTRAIT_BELOW = 0.9
 const FOV = 55
 // Area the camera must keep in view (pitch + goals + frame), in world units
-const FOOTPRINT = { long: 34, short: 24 }
+const FOOTPRINT = { long: PITCH.width + 2 * PITCH.goalDepth + 2, short: 24 }
 const BASE_DISTANCE = Math.hypot(30, 5)
 
 // Refs registered by the 3D scene so the HUD can move the camera

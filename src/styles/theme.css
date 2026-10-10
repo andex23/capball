@@ -881,6 +881,20 @@ button { cursor: pointer; background: none; border: 0; }
   text-transform: none;
   color: var(--text-3);
 }
+.replay-decision {
+  position: absolute;
+  bottom: calc(clamp(32px, 9vh, 76px) + 12px + var(--safe-bottom));
+  left: 50%; transform: translateX(-50%);
+  width: min(460px, calc(100% - 32px));
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: rgba(6, 9, 19, 0.92);
+  border-left: 3px solid var(--good);
+  text-align: center;
+}
+.replay-decision[data-outcome="no_goal"] { border-left-color: var(--bad); }
+.replay-decision strong { font-family: var(--font-display); font-size: 24px; text-transform: uppercase; }
+.replay-decision p { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--text-2); }
 .replay ~ .banner, .replay ~ .hint { display: none; }
 @keyframes replay-bar-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @media (max-width: 560px) {

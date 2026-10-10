@@ -47,6 +47,7 @@ const MESSAGES = {
   'not-your-team': 'That isn’t your team.',
   'needs-winner': 'A cup tie needs a winner — go to penalties.',
   'host-only': 'Only the tournament’s host can do that.',
+  'match-in-progress': 'Wait until the current match finishes before editing teams.',
   'bad-setup': 'That tournament set-up isn’t valid.',
   'offline': 'You’re offline — check your connection.',
   'username-taken': 'That username is taken. Try another.',
@@ -98,6 +99,7 @@ export const api = {
   get: (code) => rpc('cb_get_tournament', { p_code: code, p_token: deviceToken() }),
   create: (setup) => rpc('cb_create_tournament', { p_setup: setup, p_token: deviceToken() }),
   claim: (code, teamId) => rpc('cb_claim_seat', { p_code: code, p_team_id: teamId, p_token: deviceToken() }),
+  updateTeam: (code, teamId, config) => rpc('cb_update_team', { p_code: code, p_team_id: teamId, p_token: deviceToken(), p_config: config }),
   release: (code, teamId) => rpc('cb_release_seat', { p_code: code, p_team_id: teamId, p_token: deviceToken() }),
   report: (code, fixture, result) => rpc('cb_report_result', {
     p_code: code, p_token: deviceToken(), p_fixture_id: fixture.id,
