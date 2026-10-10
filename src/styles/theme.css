@@ -2223,3 +2223,7 @@ button { cursor: pointer; background: none; border: 0; }
 .voice-panel small { display: block; margin-top: 10px; line-height: 1.5; opacity: .75; }
 .voice-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .voice-actions .btn { flex: 1 1 120px; min-width: 0; }
+
+/* A persistent share shortcut, clear of menu content and phone safe areas. */
+.iss-menu .iss-layout { padding-bottom: calc(var(--safe-bottom) + 80px); }
+.iss-share { position: fixed; left: calc(var(--safe-left) + 16px); bottom: calc(var(--safe-bottom) + 16px); z-index: 10; }
