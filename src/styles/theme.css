@@ -2197,3 +2197,23 @@ button { cursor: pointer; background: none; border: 0; }
   .tournament-hub-screen .shell-foot-inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .tournament-hub-screen .shell-foot-inner .btn { min-width: 0; white-space: normal; padding: 10px 8px; font-size: 11px; text-align: center; }
 }
+
+/* Responsive controls must size to their panel, including long pixel-font labels. */
+.shell-head > div, .sheet-head > div, .sheet-head > h2 { min-width: 0; }
+.sheet-head h1, .sheet-head h2 { overflow-wrap: anywhere; }
+.sheet-head > .icon-btn { flex: none; }
+.btn-block { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.kit-tabs { flex-wrap: wrap; }
+.kit-tabs button { min-width: 0; }
+@media (max-width: 700px) {
+  .shell-foot-inner { flex-wrap: wrap; }
+  .shell-foot-inner > .btn { flex: 1 1 120px; min-width: 0; white-space: normal; padding: 10px 12px; }
+  .ready-group { flex-wrap: wrap; max-width: 100%; }
+}
+.online-screen { grid-template-columns: minmax(0, 1fr); }
+.online-screen > .card { min-width: 0; }
+.sheet { min-width: 0; max-width: 100%; }
+.sheet-body { min-width: 0; }
+.sheet-body > .btn { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.sheet .segmented.stretch { flex-wrap: wrap; }
+.sheet .segmented.stretch button { flex: 1 1 80px; min-width: 0; white-space: normal; }
