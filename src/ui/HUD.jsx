@@ -7,22 +7,19 @@ import { formatClock, otherTeam, SHOOTOUT_ROUNDS } from '../game/rules'
 import { sendPause, disconnect } from '../multiplayer/MultiplayerManager'
 import { onlineInterrupted } from '../multiplayer/reconnect'
 import { stopAllBodies } from '../physics/PhysicsWorld'
-import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer, playCrowdGroan, playCrowdMurmur } from '../audio/SoundManager'
+import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer } from '../audio/SoundManager'
 import Icon from './Icon'
 import MatchScoreboard from './MatchScoreboard'
 import CameraStick from './CameraStick'
 import Modal from './Modal'
 import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
-import { displayColor, inkOn } from './color'
+import { displayColor } from './color'
 import { canFullscreen, toggleFullscreen, typing } from './fullscreen'
-import { goalLine, line } from '../game/commentary'
 import { decisionText } from '../game/replay'
 import { isCoached, markCoached, COACH_FLICKS } from '../game/tutorial'
-import { STADIUMS } from '../data/StadiumData'
-import CapPreview from './CapPreview'
 import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
-import KeeperPick, { PenaltyTip } from './KeeperPick'
+import KeeperPick from './KeeperPick'
 import ChallengeHud from './ChallengeHud'
 import { playDaily } from '../state/dailyStore'
 
@@ -104,154 +101,42 @@ function ShotClock() {
   )
 }
 
-/** The scorer's moment: a big GOAL!, their cap, number and name, the new score and a line of commentary. */
-function GoalMoment({ c }) {
-  const teamConfig = useMatchStore((s) => s.teamConfig)
-  const score = useMatchStore((s) => s.score)
-  const pens = useMatchStore((s) => s.penaltyScores)
-  const shootout = useMatchStore((s) => s.penaltyShootout)
-  const p = c.player
-  const kit = p ? teamConfig[p.team] : teamConfig[c.team]
-  const shown = shootout ? pens : score
-  const color = displayColor(teamConfig[c.team]?.primary)
-  return (
-    <div className="goal-moment" role="status" style={{ '--team': color, '--team-ink': inkOn(teamConfig[c.team]?.primary) }}>
-      <div className="goal-moment-burst" aria-hidden />
-      <div className="goal-moment-word" data-own={c.own ? 'true' : undefined}>{c.own ? 'OWN GOAL!' : 'GOAL!'}</div>
-      <div className="goal-moment-card">
-        {kit && <CapPreview config={kit} size={72} number={p?.number ?? null} role={p?.role || 'atk1'} />}
-        <div className="goal-moment-who">
-          {p ? (
-            <>
-              <b className="goal-moment-name">{p.number != null && <span className="goal-moment-num">{p.number}</span>}{p.name}</b>
-              <small>{kit?.name}{c.own ? ' · own goal' : shootout ? ' · penalty' : ''}</small>
-            </>
-          ) : <b className="goal-moment-name">{teamConfig[c.team]?.name}</b>}
-        </div>
-        <div className="goal-moment-score" aria-label={`${teamConfig.team1.name} ${shown.team1}, ${teamConfig.team2.name} ${shown.team2}`}>
-          <span style={{ '--t': displayColor(teamConfig.team1.primary) }}>{shown.team1}</span>
-          <i>–</i>
-          <span style={{ '--t': displayColor(teamConfig.team2.primary) }}>{shown.team2}</span>
-        </div>
-      </div>
-      <p className="goal-moment-line">{c.line}</p>
-    </div>
-  )
-}
-
-function Banner() {
+function MatchEvent() {
   const s = useMatchStore()
-  const { phase, activeTeam, teamConfig, lastGoalOwn, lastScorer, foulData, noGoalReason, restart, half, penaltyKicks: kicks, freeKickCapId, matchKey, goalLog = [], score, stadium } = s
-  const shootout = s.penaltyShootout
-  const timeUp = timedOut(s)
-  const nameOf = (t) => teamConfig[t]?.name || ''
-  const colorOf = (t) => (t ? displayColor(teamConfig[t].primary) : undefined)
-  // One seed per moment, so a line stays put while it's on screen
-  const seed = `${matchKey}:${phase}:${goalLog.length}:${kicks.team1 + kicks.team2}:${s.stats?.team1?.fouls || 0}:${s.stats?.team2?.fouls || 0}`
-  const ctx = { teamConfig, team: activeTeam, seed, venue: STADIUMS[stadium]?.name?.toLowerCase(), score }
-  let b
-  switch (phase) {
-    case PHASE.KICKOFF: {
-      if (shootout) {
-        b = { title: kicks.team1 + kicks.team2 === 0 ? 'Penalties' : 'Next kick', sub: line(kicks.team1 + kicks.team2 === 0 ? 'shootout' : 'nextKick', ctx), team: activeTeam }
-        break
-      }
-      const halfStart = s.timeRemaining >= Math.floor(s.matchDuration / 2) - 0.01 && !s.goalTarget
-      const kind = half === 2 && halfStart ? 'secondHalf' : score.team1 + score.team2 > 0 && s.lastConceded === activeTeam ? 'restartAfterGoal' : 'kickoff'
-      b = { title: half === 2 && halfStart ? 'Second half' : 'Kick off', sub: line(kind, ctx), team: activeTeam }
-      break
+  const name = team => s.teamConfig[team]?.name || ''
+  let title
+  let detail = ''
+  if (s.replaying) {
+    const decision = decisionText(s.replayDecision)
+    title = decision.title
+    detail = decision.detail
+  } else {
+    switch (s.phase) {
+      case PHASE.KICKOFF: title = s.penaltyShootout ? 'Next penalty' : s.half === 2 ? 'Second-half kick-off' : 'Kick-off'; break
+      case PHASE.GOAL: title = s.lastGoalOwn && !s.penaltyShootout ? 'Own goal' : 'Goal'; detail = name(s.lastScorer); break
+      case PHASE.NO_GOAL: title = 'No goal'; detail = NO_GOAL_TEXT[s.noGoalReason] || ''; break
+      case PHASE.FOUL: title = s.foulData?.inPenaltyBox ? 'Penalty' : 'Foul'; break
+      case PHASE.TIMEOUT: title = 'Time’s up'; break
+      case PHASE.MISSED: title = timedOut(s) ? 'Time’s up' : 'Penalty missed'; break
+      case PHASE.FREE_KICK_SETUP: title = 'Free kick'; break
+      case PHASE.CORNER_SETUP: title = 'Corner'; break
+      case PHASE.GOAL_KICK_SETUP: title = 'Goal kick'; break
+      case PHASE.PENALTY_SETUP: title = 'Penalty'; break
+      case PHASE.MATCH_OVER: title = s.penaltyShootout ? 'Shootout over' : 'Full time'; break
+      default: return null
     }
-    case PHASE.GOAL: {
-      const own = lastGoalOwn && !shootout
-      const late = !shootout && !s.goalTarget && half === 2 && s.timeRemaining <= 20
-      const winner = !shootout && !!s.goalTarget && score[lastScorer] >= s.goalTarget
-      const g = goalLine({ teamConfig, scorerTeam: lastScorer, cap: s.lastGoalCap, own, shootout, score, goalLog, late, winner, seed })
-      return <GoalMoment c={{ ...g, own, team: lastScorer }} />
-    }
-    case PHASE.MISSED: b = timeUp
-      ? { title: 'Time’s up', tone: 'bad', sub: line('penTimeUp', ctx) }
-      : { title: 'Saved!', sub: line('saved', { ...ctx, cap: s.lastKicker }) }; break
-    case PHASE.TIMEOUT: b = {
-      title: 'Time’s up',
-      tone: 'bad',
-      sub: freeKickCapId ? `${nameOf(activeTeam)} lose the ${foulData?.inPenaltyBox ? 'penalty' : 'free kick'}` : line('timeout', ctx),
-      team: otherTeam(activeTeam),
-    }; break
-    case PHASE.NO_GOAL: b = { title: 'No goal', tone: 'bad', sub: NO_GOAL_TEXT[noGoalReason] || 'Doesn’t count' }; break
-    case PHASE.FOUL: b = { title: foulData?.inPenaltyBox ? 'Penalty!' : 'Foul!', tone: 'bad', sub: line(foulData?.inPenaltyBox ? 'foulBox' : 'foul', { ...ctx, team: foulData?.fouledTeam, cap: foulData?.byCap }), team: foulData?.fouledTeam }; break
-    case PHASE.FREE_KICK_SETUP: b = { title: 'Free kick', sub: line('freeKick', ctx), team: activeTeam }; break
-    case PHASE.CORNER_SETUP: b = { title: 'Corner', sub: line('corner', ctx), team: activeTeam }; break
-    case PHASE.GOAL_KICK_SETUP: b = restart?.reason === 'bank'
-      ? { title: 'No goal', tone: 'bad', sub: line('bank', ctx), team: activeTeam }
-      : { title: 'Goal kick', sub: line('goalKick', ctx), team: activeTeam }; break
-    case PHASE.PENALTY_SETUP: b = { title: 'Penalty', sub: line('penalty', ctx), team: activeTeam }; break
-    case PHASE.MATCH_OVER: {
-      const r = s.matchResult
-      if (shootout) { b = { title: 'Shootout over', sub: r?.winner ? line('shootoutOver', { ...ctx, winner: r.winner }) : '' }; break }
-      const w = score.team1 === score.team2 ? null : score.team1 > score.team2 ? 'team1' : 'team2'
-      b = { title: 'Full time', sub: line(w ? 'fullTimeWin' : 'fullTimeDraw', { ...ctx, winner: w }), team: w || undefined }
-      break
-    }
-    default: return null
   }
-  return <BannerView b={b} phase={phase} colorOf={colorOf} />
-}
-
-function BannerView({ b, phase, colorOf }) {
-  return (
-    <div className="banner" key={phase} role="status" style={{ '--team': colorOf(b.team) }}>
-      <div className="banner-stripe" />
-      <div className={`display banner-title ${b.tone || ''}`}>{b.title}</div>
-      {b.sub && <div className="banner-sub">{b.sub}</div>}
-    </div>
-  )
-}
-
-const SHOT_TITLES = { post: 'Off the post!', wide: 'Just wide!', save: 'Saved!', block: 'Blocked!' }
-
-/** A quick call when a shot nearly goes in, with a line of commentary. */
-function ShotCall() {
-  const call = useMatchStore((s) => s.shotCall)
-  const teamConfig = useMatchStore((s) => s.teamConfig)
-  const matchKey = useMatchStore((s) => s.matchKey)
-  const [shown, setShown] = useState(null)
-  useEffect(() => {
-    if (!call) return undefined
-    setShown(call)
-    if (call.type === 'post' || call.type === 'wide') playCrowdGroan()
-    else playCrowdMurmur()
-    const id = setTimeout(() => setShown(null), 2200)
-    return () => clearTimeout(id)
-  }, [call])
-  useEffect(() => { setShown(null) }, [matchKey])
-  const phase = useMatchStore((s) => s.phase)
-  if (!shown || phase === PHASE.GOAL) return null
-  const team = shown.cap?.split('_')[0]
-  const keeperTeam = shown.by?.split('_')[0]
-  const tone = shown.type === 'save' || shown.type === 'block' ? keeperTeam : team
-  const text = line(shown.type, { teamConfig, team, cap: shown.cap, by: shown.by, seed: `${matchKey}:${shown.key}` })
-  return (
-    <div className="shot-call" key={shown.key} data-type={shown.type} role="status" style={{ '--team': displayColor(teamConfig[tone]?.primary || '#ffd23f') }}>
-      <b className="shot-call-title">{SHOT_TITLES[shown.type]}</b>
-      <span className="shot-call-line">{text}</span>
-    </div>
-  )
+  return <div className="match-event" role="status"><strong>{title}</strong>{detail && <span>{detail}</span>}</div>
 }
 
 /** Broadcast-style letterbox + badge while a goal replay plays. */
 function ReplayOverlay() {
   const replaying = useMatchStore((s) => s.replaying)
   const paused = useMatchStore((s) => s.paused)
-  const decision = useMatchStore((s) => s.replayDecision)
   if (!replaying || paused) return null
-  const explanation = decisionText(decision)
   return (
     <div className="replay" aria-live="polite">
       <div className="replay-bar top" />
-      <div className="replay-decision" data-outcome={decision?.outcome || 'goal'}>
-        <strong>{explanation.title}</strong>
-        <p>{explanation.detail}</p>
-      </div>
       <div className="replay-bar bottom">
         <div className="replay-badge"><i aria-hidden /> Replay <span>Tap or Space to skip</span></div>
       </div>
@@ -431,6 +316,8 @@ export default function HUD() {
       <ReplayOverlay />
       <div className="hud-top">
         <ScoreBug />
+        {!paused && <MatchEvent />}
+        {notice && !paused && <div className="match-event" role="status">{notice}</div>}
         {turnText && !paused && (
           <div className="turn-pill" style={{ '--team': displayColor(teamConfig[activeTeam].primary) }} aria-live="polite">
             <i className="team-dot" /> {turnText}
@@ -456,14 +343,12 @@ export default function HUD() {
         <button className="icon-btn" onClick={cycleCamera} aria-label="Change camera view" title="Change camera (C)"><Icon name="camera" size={20} /></button>
       </div>
 
-      {notice && !paused && <div className="hud-notice" role="status">{notice}</div>}
+
 
       <PowerMeter />
-      {!paused && <Banner />}
-      {!paused && <ShotCall />}
+
       <KeeperPick />
       <ChallengeHud />
-      {!paused && <PenaltyTip />}
 
       {!coached && <div className="hint">
         <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn · Scroll to zoom · C camera · F full screen · P pause</span>
