@@ -27,7 +27,7 @@ import { playDaily } from '../state/dailyStore'
 
 const NO_GOAL_TEXT = {
   kickoff_violation: 'You can’t score straight from kick-off',
-  gk_violation: 'Goalkeepers can’t score for their own team',
+  goal_kick_violation: 'You can’t score directly from a goal kick',
   bank_shot: 'The ball went in off the pitch edge — goal kick',
 }
 

@@ -427,6 +427,26 @@ describe('goal contact history', () => {
     place('ball', PITCH.halfW + 0.8, 0)
   }
 
+  it('allows an open-play goalkeeper goal off the post', () => {
+    goalReady()
+    useMatchStore.setState({ lastFlickedCapId: 'team1_gk', goalKickGuard: false })
+    place('ball', PITCH.halfW - 0.2, PITCH.goalWidth / 2 + 0.2)
+    const post = Matter.Composite.allBodies(getEngine().world).find(b => b.label === 'pitch_cushion' && b.position.x > PITCH.halfW)
+    contact(getBodies().ball, post)
+    place('ball', PITCH.halfW + 0.8, 0)
+    expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+
+  it('keeps a direct goal kick guarded until another cap touches the ball', () => {
+    goalReady()
+    useMatchStore.setState({ lastFlickedCapId: 'team1_gk', goalKickGuard: true })
+    contact(getBodies().ball, getBodies().team1_gk)
+    expect(checkGoal(getBodies().ball).outcome).toBe('goal_kick_violation')
+    contact(getBodies().ball, getBodies().team2_def1)
+    expect(store().goalKickGuard).toBe(false)
+    expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+
   it('counts a direct goal when the shooter cap hits a pitch edge', () => {
     goalReady()
     const cushion = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion')

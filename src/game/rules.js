@@ -46,18 +46,18 @@ export function scorerForBall(x, y, team1Side = 'left') {
  * Decide what a ball crossing a goal line means.
  *
  * - The flick straight from a kick-off can't score (kickoffGuard).
- * - A goalkeeper can't score for their own team, but an own goal off a
- *   goalkeeper still counts for the opponent.
+ * - Goalkeepers may score in open play. A direct goal kick cannot score
+ *   for the taker's team; own goals still count.
  *
- * Returns { outcome: 'goal' | 'kickoff_violation' | 'gk_violation', scorer }
+ * Returns { outcome: 'goal' | 'kickoff_violation' | 'goal_kick_violation', scorer }
  * or null when the ball isn't in a goal.
  */
-export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, banked = false }) {
+export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, banked = false, goalKickGuard = false }) {
   const scorer = scorerForBall(x, y, team1Side)
   if (!scorer) return null
   if (kickoffGuard) return { outcome: 'kickoff_violation', scorer }
-  if (isGoalkeeper(lastFlickedCapId) && teamOf(lastFlickedCapId) === scorer) {
-    return { outcome: 'gk_violation', scorer }
+  if (goalKickGuard && teamOf(lastFlickedCapId) === scorer) {
+    return { outcome: 'goal_kick_violation', scorer }
   }
   // Straight off the wall into the net doesn't count: a goal kick to the defenders
   if (banked) return { outcome: 'bank_shot', scorer }

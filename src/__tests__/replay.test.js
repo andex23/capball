@@ -210,10 +210,10 @@ describe('decision replays', () => {
   it('synchronizes the ruling while online skips affect only the local view', () => {
     const { replay } = shot()
     useMatchStore.setState({ gameMode: 'online' })
-    useMatchStore.getState().disallowGoal('gk_violation')
+    useMatchStore.getState().disallowGoal('goal_kick_violation')
     startReplay(replay)
     const synced = filterSynced(pickSynced(useMatchStore.getState()))
-    expect(synced.replayDecision).toEqual({ outcome: 'no_goal', reason: 'gk_violation', evidence: {} })
+    expect(synced.replayDecision).toEqual({ outcome: 'no_goal', reason: 'goal_kick_violation', evidence: {} })
     expect(synced).not.toHaveProperty('replaying')
     replay.skip()
     replay.frame(0.05)
@@ -255,7 +255,7 @@ describe('decision replays', () => {
   it('explains ball-edge violations and legal cap or post contacts', () => {
     expect(decisionText({ outcome: 'no_goal', reason: 'bank_shot' }).detail).toContain('without another cap')
     expect(decisionText({ outcome: 'no_goal', reason: 'kickoff_violation' }).detail).toContain('kick-off')
-    expect(decisionText({ outcome: 'no_goal', reason: 'gk_violation' }).detail).toContain('goalkeeper')
+    expect(decisionText({ outcome: 'no_goal', reason: 'goal_kick_violation' }).detail).toContain('goal kick')
     expect(decisionText({ outcome: 'goal', evidence: { capHitEdge: true } })).toEqual({
       title: 'Goal stands', detail: 'The cap hit the pitch edge, not the ball. The goal counts.',
     })
