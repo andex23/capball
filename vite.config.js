@@ -20,8 +20,8 @@ const pwa = VitePWA({
   },
   manifest: {
     id: '/',
-    name: 'CAPBALL',
-    short_name: 'CAPBALL',
+    name: 'COUNTER BALL',
+    short_name: 'COUNTER BALL',
     description: 'Flick-to-play tabletop football. Play a friend, the computer, or online.',
     // A game wants every pixel: fullscreen hides the system bars on Android;
     // browsers without it fall back to standalone automatically (iOS always does).

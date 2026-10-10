@@ -9,10 +9,10 @@ export const SEO_START = '<!-- seo:start -->'
 export const SEO_END = '<!-- seo:end -->'
 
 export const DEFAULT_META = {
-  title: 'CapBall — Tabletop Bottle-Cap Football | Free on Phone & PC',
+  title: 'Counter Ball — Tabletop Bottle-Cap Football | Free on Phone & PC',
   description: 'Flick bottle caps to score on a 3D table. Play the computer, a friend on one phone, or online. Career mode, tournaments, a daily challenge and custom kits. Free in your browser.',
-  image: '/og/og-default.jpg',
-  imageAlt: 'CapBall: red and purple bottle caps on a green tabletop pitch, a shot flying into the goal',
+  image: '/og/counter-ball-default.jpg',
+  imageAlt: 'Counter Ball tabletop football — flick, pass, score',
   path: '/',
 }
 
@@ -23,10 +23,10 @@ export function metaFor(params) {
   const room = clean(params.get('room'))
   if (room.length >= 4) {
     return {
-      title: `You're invited to a CapBall match (code ${room})`,
+      title: `You're invited to a Counter Ball match (code ${room})`,
       description: 'A friend wants to play bottle-cap football online. Tap to join their table — free, no download, on phone or PC.',
-      image: '/og/og-invite.jpg',
-      imageAlt: "CapBall: You're invited to a match",
+      image: '/og/counter-ball-invite.jpg',
+      imageAlt: "Counter Ball: You're invited to a match",
       path: `/?room=${room}`,
       noindex: true,
     }
@@ -34,10 +34,10 @@ export function metaFor(params) {
   const tour = clean(params.get('tournament'))
   if (tour.length >= 4) {
     return {
-      title: `Join my CapBall tournament (code ${tour})`,
+      title: `Join my Counter Ball tournament (code ${tour})`,
       description: 'A bottle-cap football league or cup with friends. Pick your team and play every game from your own phone — free, no download.',
-      image: '/og/og-tournament.jpg',
-      imageAlt: 'CapBall: Join my tournament',
+      image: '/og/counter-ball-tournament.jpg',
+      imageAlt: 'Counter Ball: Join my tournament',
       path: `/?tournament=${tour}`,
       noindex: true,
     }
@@ -57,7 +57,7 @@ export function metaTags(meta = DEFAULT_META) {
     meta.noindex ? '<meta name="robots" content="noindex, follow" />' : '<meta name="robots" content="index, follow, max-image-preview:large" />',
     `<link rel="canonical" href="${esc(meta.noindex ? SITE + '/' : url)}" />`,
     '<meta property="og:type" content="website" />',
-    '<meta property="og:site_name" content="CapBall" />',
+    '<meta property="og:site_name" content="Counter Ball" />',
     `<meta property="og:url" content="${esc(url)}" />`,
     `<meta property="og:title" content="${esc(meta.title)}" />`,
     `<meta property="og:description" content="${esc(meta.description)}" />`,

@@ -73,9 +73,9 @@ export default function OnlineScreen() {
 
   const share = async () => {
     playButtonSelect()
-    const text = `Play CAPBALL with me! Room code ${roomCode}`
+    const text = `Play COUNTER BALL with me! Room code ${roomCode}`
     if (navigator.share) {
-      try { await navigator.share({ title: 'CAPBALL', text, url: inviteUrl }); return } catch { /* cancelled */ }
+      try { await navigator.share({ title: 'COUNTER BALL', text, url: inviteUrl }); return } catch { /* cancelled */ }
     }
     copy(`${text}\n${inviteUrl}`)
   }

@@ -18,18 +18,18 @@ describe('link previews', () => {
   it('a match invite gets its own title, card and stays out of search', () => {
     const m = metaFor(new URLSearchParams('room=abc123'))
     expect(m.title).toContain('ABC123')
-    expect(m.image).toBe('/og/og-invite.jpg')
+    expect(m.image).toBe('/og/counter-ball-invite.jpg')
     const out = injectMeta(html, m)
-    expect(out).toContain('og:image" content="https://capball.vercel.app/og/og-invite.jpg"')
+    expect(out).toContain('og:image" content="https://capball.vercel.app/og/counter-ball-invite.jpg"')
     expect(out).toContain('noindex')
     expect(out).toContain('<link rel="canonical" href="https://capball.vercel.app/" />')
-    expect(out).not.toContain('og:image" content="https://capball.vercel.app/og/og-default.jpg"')
+    expect(out).not.toContain('og:image" content="https://capball.vercel.app/og/counter-ball-default.jpg"')
     expect(out).toContain('<div id="root">') // the rest of the page is untouched
   })
 
   it('a tournament link gets the tournament card', () => {
     const m = metaFor(new URLSearchParams('tournament=QWER78'))
-    expect(m.image).toBe('/og/og-tournament.jpg')
+    expect(m.image).toBe('/og/counter-ball-tournament.jpg')
     expect(m.path).toBe('/?tournament=QWER78')
   })
 

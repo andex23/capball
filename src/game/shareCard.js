@@ -110,12 +110,12 @@ export function drawShareCard({ teamConfig, score, penaltyScore, goalLog, matchE
 
   // Logo
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
-  ctx.font = "italic 800 150px 'Barlow Condensed', sans-serif"
+  ctx.font = "italic 800 110px 'Barlow Condensed', sans-serif"
   const lg = ctx.createLinearGradient(0, 70, 0, 200)
   lg.addColorStop(0, '#fff6b0'); lg.addColorStop(0.45, YELLOW); lg.addColorStop(0.7, '#ff9a1f'); lg.addColorStop(1, '#e53935')
   ctx.lineWidth = 16; ctx.strokeStyle = INK; ctx.lineJoin = 'round'
-  ctx.strokeText('CAPBALL', W / 2, 200)
-  ctx.fillStyle = lg; ctx.fillText('CAPBALL', W / 2, 200)
+  ctx.strokeText('COUNTER BALL', W / 2, 200)
+  ctx.fillStyle = lg; ctx.fillText('COUNTER BALL', W / 2, 200)
   // Tag
   ctx.font = "700 40px 'Silkscreen', monospace"
   const tw = ctx.measureText(title).width + 56
@@ -192,11 +192,11 @@ export async function shareResultCard(match) {
   const canvas = drawShareCard(match)
   const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
   if (!blob) return 'failed'
-  const file = new File([blob], 'capball-result.png', { type: 'image/png' })
-  const text = `${match.teamConfig.team1.name} ${match.score.team1}–${match.score.team2} ${match.teamConfig.team2.name} on CapBall — play free at capball.vercel.app`
+  const file = new File([blob], 'counter-ball-result.png', { type: 'image/png' })
+  const text = `${match.teamConfig.team1.name} ${match.score.team1}–${match.score.team2} ${match.teamConfig.team2.name} on Counter Ball — play free at capball.vercel.app`
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: 'CapBall result', text })
+      await navigator.share({ files: [file], title: 'Counter Ball result', text })
       return 'shared'
     } catch (e) {
       if (e?.name === 'AbortError') return 'cancelled'

@@ -8,7 +8,7 @@ export function encodeLanSignal(description) {
 
 export function decodeLanSignal(text, expected) {
   const value = String(text).trim()
-  if (!value.startsWith(PREFIX) || value.length > LIMIT * 2) throw new Error('Use a CapBall LAN pairing code.')
+  if (!value.startsWith(PREFIX) || value.length > LIMIT * 2) throw new Error('Use a Counter Ball LAN pairing code.')
   let signal
   try { signal = JSON.parse(atob(value.slice(PREFIX.length))) } catch { throw new Error('That pairing code is incomplete. Scan or copy it again.') }
   if (!signal || signal.type !== expected || typeof signal.sdp !== 'string' || signal.sdp.length > LIMIT || !signal.sdp.startsWith('v=0')) {

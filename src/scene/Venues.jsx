@@ -1,5 +1,5 @@
 /**
- * The world around the board. CapBall is a tabletop game, so every venue is
+ * The world around the board. Counter Ball is a tabletop game, so every venue is
  * a table somewhere:
  *   arena  — Game Room: a glossy black table with LED trim, neon signs, trophies, an arcade cabinet
  *   table  — Kitchen Table: a wooden table, tiled floor, cupboards, a mug, spare caps, the score pad
@@ -402,11 +402,11 @@ function neonTexture(text, color, w = 512, h = 128) {
     ctx.shadowBlur = 24
     ctx.strokeStyle = color
     ctx.lineWidth = 6
-    ctx.strokeText(text, w / 2, h / 2)
+    ctx.strokeText(text, w / 2, h / 2, w - 48)
     ctx.shadowBlur = 8
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 2
-    ctx.strokeText(text, w / 2, h / 2)
+    ctx.strokeText(text, w / 2, h / 2, w - 48)
   })
 }
 
@@ -557,7 +557,7 @@ function Trophy({ position, s = 1 }) {
 
 function GameRoom() {
   const carpet = useMemo(carpetTexture, [])
-  const neonA = useMemo(() => neonTexture('CAPBALL', '#ff2bd6'), [])
+  const neonA = useMemo(() => neonTexture('COUNTER BALL', '#ff2bd6'), [])
   const neonB = useMemo(() => neonTexture('FLICK IT', '#00e5ff'), [])
   const posters = useMemo(() => [1, 2, 3].map(posterTexture), [])
   return (

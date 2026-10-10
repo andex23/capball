@@ -16,7 +16,7 @@ export default function ShareGame() {
     try {
       if (navigator.share) {
         try {
-          await navigator.share({ title: 'CapBall', text: 'Play CapBall with me — flick your caps and score!', url: GAME_URL })
+          await navigator.share({ title: 'Counter Ball', text: 'Play Counter Ball with me — flick your caps and score!', url: GAME_URL })
           return
         } catch (error) {
           if (error.name === 'AbortError') return
