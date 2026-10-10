@@ -1,3 +1,4 @@
+import AimWarning from './AimWarning'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMatchStore, PHASE, SCREEN, INPUT_PHASES, isAuthority } from '../state/MatchStore'
@@ -316,6 +317,7 @@ export default function HUD() {
       <ReplayOverlay />
       <div className="hud-top">
         <ScoreBug />
+        <AimWarning />
         {!paused && <MatchEvent />}
         {notice && !paused && <div className="match-event" role="status">{notice}</div>}
         {turnText && !paused && (

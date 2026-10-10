@@ -379,9 +379,10 @@ export const useMatchStore = create((set, get) => ({
   setFirstCollisionTracked: (v) => set({ firstCollisionTracked: v }),
 
   dragPower: 0,
-  setDragPower: (power) => { if (get().dragPower !== power) set({ dragPower: power }) },
+  aimOwnGoal: false,
+  setDragPower: (power) => { if (get().dragPower !== power || (!power && get().aimOwnGoal)) set({ dragPower: power, ...(!power ? { aimOwnGoal: false } : {}) }) },
 
-  selectCap: (capId) => set({ selectedCapId: capId, phase: PHASE.AIM }),
+  selectCap: (capId) => set({ selectedCapId: capId, phase: PHASE.AIM, aimOwnGoal: false }),
   // Only while aiming: a late release after the turn has moved on must not rewind it
   cancelAim: () => { if (get().phase === PHASE.AIM) set({ selectedCapId: null, phase: PHASE.SELECT, dragPower: 0 }) },
 
