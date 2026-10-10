@@ -120,7 +120,7 @@ export default function TournamentHomeScreen() {
               </>
             ) : (
               <>
-                <p className="muted">A knockout cup or a league for 3 to 8 teams. Friends take turns on this phone; the computer runs any team nobody picks, and its games play out by themselves.</p>
+                <p className="muted">A knockout cup or a league for 3 to 8 teams. Play on this phone or over LAN with friends on the same Wi-Fi or hotspot. Choose LAN in the competition hub. Computer games follow the fixture schedule.</p>
                 <div className="t-actions">
                   <button className="btn btn-gold btn-lg" onClick={() => { playConfirm(); startSetup('local') }} onMouseEnter={playHoverTick}>
                     New tournament <Icon name="next" size={18} />
@@ -128,6 +128,13 @@ export default function TournamentHomeScreen() {
                 </div>
               </>
             )}
+          </section>
+
+          <section className="card card-pad t-home-card">
+            <div className="eyebrow">Same Wi-Fi or hotspot · no internet</div>
+            <h2 className="display t-card-title">LAN cups &amp; leagues</h2>
+            <p className="muted">The host creates or continues a competition on this device and selects LAN in its hub. Friends join each fixture on their own devices.</p>
+            <button className="btn btn-blue" onClick={() => goToScreen(SCREEN.LAN)}><Icon name="wifi" size={18} /> Join LAN fixture</button>
           </section>
 
           <section className="card card-pad t-home-card t-home-online">

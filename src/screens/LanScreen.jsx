@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import jsQR from 'jsqr'
+import { useTournamentStore } from '../state/tournamentStore'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { createLanRoom, joinLanRoom, finishLanPairing, disconnect } from '../multiplayer/MultiplayerManager'
+import { createLanRoom, joinLanRoom, finishLanPairing, disconnect, getIsHost } from '../multiplayer/MultiplayerManager'
 import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
 import './lan.css'
@@ -70,6 +71,8 @@ function Scanner({ onRead, onClose }) {
 }
 
 export default function LanScreen() {
+  const fixture = useTournamentStore(s => s.playing)
+  const hostingFixture = fixture?.lan && fixture.kind !== 'lanGuest'
   const status = useMatchStore(s => s.onlineStatus)
   const [step, setStep] = useState('choose')
   const [code, setCode] = useState('')
@@ -81,7 +84,12 @@ export default function LanScreen() {
   useEffect(() => () => { generation.current++ }, [])
   useEffect(() => {
     if (status.status !== 'connected') return
-    const timer = setTimeout(() => useMatchStore.getState().goToScreen(SCREEN.TEAM_SELECT), 500)
+    // Only the host advances screens; the guest waits for the authoritative snapshot.
+    if (!getIsHost()) return
+    const timer = setTimeout(() => {
+      const p = useTournamentStore.getState().playing
+      useMatchStore.getState().goToScreen(p?.kind === 'career' ? SCREEN.FORMATION : SCREEN.TEAM_SELECT)
+    }, 500)
     return () => clearTimeout(timer)
   }, [status.status])
   const perform = async (action, nextStep) => {
@@ -103,18 +111,26 @@ export default function LanScreen() {
   }
   const back = () => {
     generation.current++; disconnect(); setBusy(false); setCode(''); setInput(''); setError('')
-    if (step === 'choose') useMatchStore.getState().goToScreen(SCREEN.MENU)
+    if (step === 'choose') {
+      if (hostingFixture) useTournamentStore.getState().backToHub()
+      else useMatchStore.getState().goToScreen(SCREEN.MENU)
+    }
     else setStep('choose')
   }
   return <div className="screen online-screen lan-screen">
     <section className="card lan-panel">
-      <div className="sheet-head"><div><div className="eyebrow">Same Wi-Fi · No internet needed</div><h1 className="display">LAN Match</h1></div></div>
+      <div className="sheet-head"><div><div className="eyebrow">Same Wi-Fi · No internet needed</div><h1 className="display">{hostingFixture ? 'LAN fixture' : 'LAN Match'}</h1></div></div>
       <div className="sheet-body">
         {step === 'choose' ? <>
           <p>Connect both devices to the same Wi-Fi or phone hotspot. One player hosts; the other joins.</p>
           <p className="muted">Load or install CapBall on both devices before going offline. Brief interruptions pause the match for up to two minutes. Return to the game to resume; do not close or reload it.</p>
           <button className="btn btn-gold btn-block" onClick={() => { setStep('host'); perform(createLanRoom) }}>Host LAN match</button>
-          <button className="btn btn-blue btn-block" onClick={() => setStep('join')}>Join LAN match</button>
+          {!hostingFixture && <button className="btn btn-blue btn-block" onClick={() => setStep('join')}>Join LAN match</button>}
+          {hostingFixture ? <p className="muted">You control {useMatchStore.getState().teamConfig.team1.name}. Your friend controls {useMatchStore.getState().teamConfig.team2.name}. Progress is saved on this host device.</p> : <>
+            <button className="btn btn-secondary btn-block" onClick={() => { useTournamentStore.getState().setLocalTransport('lan'); useMatchStore.getState().goToScreen(SCREEN.TOURNAMENT_HOME) }}>LAN cups &amp; leagues</button>
+            <button className="btn btn-secondary btn-block" onClick={() => useMatchStore.getState().goToScreen(SCREEN.CAREER)}>Career · play a friend over LAN</button>
+            <p className="muted">For cups, leagues and career, the host opens a fixture and chooses LAN. The other player joins here.</p>
+          </>}
         </> : <>
           <h2 className="eyebrow">{step === 'host' ? '1. Share invite · 2. Scan reply' : step === 'reply' ? 'Let the host scan your reply' : 'Scan the host’s invite'}</h2>
           {code && <PairingCode value={code} reply={step === 'reply'} />}
@@ -128,7 +144,7 @@ export default function LanScreen() {
           {busy && <p role="status">Preparing local connection…</p>}
           {step === 'reply' && <p role="status">Waiting for the host to scan your reply…</p>}
         </>}
-        {status.status === 'connected' && <p role="status">Connected over LAN. Opening team selection…</p>}
+        {status.status === 'connected' && <p role="status">Connected over LAN. Opening match setup…</p>}
         {(error || ['error', 'disconnected'].includes(status.status)) && <p role="alert">{error || status.msg}</p>}
         <button className="btn btn-ghost btn-block" onClick={back}><Icon name="back" size={16} /> Back</button>
       </div>

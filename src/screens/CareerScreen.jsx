@@ -246,6 +246,8 @@ export default function CareerScreen() {
                 <TeamTag team={opponent} size={34} strong />
               </div>
               <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Play match</button>
+              <button className="btn btn-blue btn-block" onClick={() => { playConfirm(); useTournamentStore.getState().playLanFixture('career', next) }}><Icon name="wifi" size={18} /> Play this match over LAN</button>
+              <p className="muted t-note">LAN: you control your club; your friend plays the opposition. Your career result saves on this device.</p>
               <p className="muted t-note">Computer level: {division.difficulty}. Other clubs’ games play out by themselves.</p>
             </section>
           )}

@@ -13,10 +13,11 @@ import { create } from 'zustand'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from './MatchStore'
 import {
   createTournament, recordResult, settleCpu, applyResults, sanitizeTournament, historyEntry,
-  teamById, readyFixtures, sanitizeTeam,
+  teamById, readyFixtures, sanitizeTeam, allFixtures,
 } from '../game/tournament'
 import { api } from '../online/supabase'
-import { createRoom, joinRoom, disconnect, isConnected } from '../multiplayer/MultiplayerManager'
+import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
+import { nextMatch } from '../game/career'
 import { useCareerStore } from './careerStore'
 import { squadRatings, clubRatings, squadSurnames, matchRatings } from '../game/squad'
 import { playerOf } from '../game/commentary'
@@ -34,13 +35,14 @@ const storage = () => {
 }
 
 function load() {
-  const empty = { local: null, history: [], recentOnline: [], seenChampions: [], finaleSeen: [] }
+  const empty = { localTransport: 'device', local: null, history: [], recentOnline: [], seenChampions: [], finaleSeen: [] }
   try {
     const raw = storage()?.getItem(STORAGE_KEY)
     if (!raw || raw.length > 400_000) return empty
     const data = JSON.parse(raw)
     return {
       local: sanitizeTournament(data.local),
+      localTransport: data.localTransport === 'lan' ? 'lan' : 'device',
       history: Array.isArray(data.history) ? data.history.filter((h) => h && typeof h.id === 'string' && h.champion?.name).slice(0, HISTORY_MAX) : [],
       recentOnline: Array.isArray(data.recentOnline)
         ? data.recentOnline.filter((r) => r && /^[A-Z0-9]{6}$/.test(r.code)).slice(0, RECENT_MAX) : [],
@@ -56,6 +58,7 @@ function save(state) {
   try {
     storage()?.setItem(STORAGE_KEY, JSON.stringify({
       local: state.local,
+      localTransport: state.localTransport,
       history: state.history,
       recentOnline: state.recentOnline,
       seenChampions: state.seenChampions,
@@ -85,11 +88,15 @@ function kitFor(team, side, ratings = null, players = null) {
   }
 }
 
-/** The fixture's result from the match store's point of view (team1 = home). */
-export function resultFromMatch(matchResult, knockout) {
+/** Map match sides back to the scheduled fixture, including an away LAN host. */
+export function resultFromMatch(matchResult, knockout, reversed = false) {
   if (!matchResult?.score) return null
   const result = { home: matchResult.score.team1, away: matchResult.score.team2 }
   if (matchResult.penaltyScore) result.pens = { home: matchResult.penaltyScore.team1, away: matchResult.penaltyScore.team2 }
+  if (reversed) {
+    ;[result.home, result.away] = [result.away, result.home]
+    if (result.pens) [result.pens.home, result.pens.away] = [result.pens.away, result.pens.home]
+  }
   // A cup tie that ends level isn't finished until the shootout
   if (knockout && result.home === result.away && !result.pens) return null
   return result
@@ -100,6 +107,8 @@ export const useTournamentStore = create((set, get) => ({
 
   // Online tournament on screen: { code, snapshot, tournament, loading, error }
   online: null,
+  lanGuestTournament: null,
+  lanGuestTeamId: null,
   // Which tournament the hub shows, and which kind the set-up screen makes
   hubKind: 'local',
   setupKind: 'local',
@@ -111,6 +120,8 @@ export const useTournamentStore = create((set, get) => ({
   stash: null,
   busy: false,
   error: null,
+
+  setLocalTransport(value) { set({ localTransport: value === 'lan' ? 'lan' : 'device' }); save(get()) },
 
   /* ── This device ── */
 
@@ -297,6 +308,69 @@ export const useTournamentStore = create((set, get) => ({
     useMatchStore.getState().goToScreen(SCREEN.FORMATION)
   },
 
+  /** A saved local cup/league or career fixture, played on two LAN devices. */
+  playLanFixture(kind, fixture, hostTeamId = fixture?.home) {
+    if (!['local', 'career'].includes(kind)) return false
+    const t = kind === 'career' ? useCareerStore.getState().career?.league : get().local
+    if (!t) return false
+    const eligible = kind === 'career' ? nextMatch(t) : readyFixtures(t).find(f => f.id === fixture?.id)
+    if (!eligible || eligible.id !== fixture?.id) return false
+    // Use the saved fixture, never home/away identifiers supplied by a caller.
+    fixture = eligible
+    if (kind === 'career') hostTeamId = 'T1'
+    if (![fixture.home, fixture.away].includes(hostTeamId)) return false
+    get().playFixture(kind, fixture)
+    if (!get().playing) return false
+    const reversed = hostTeamId === fixture.away
+    const ms = useMatchStore.getState()
+    set({ playing: { ...get().playing, lan: true, reversed } })
+    useMatchStore.setState({
+      ...(reversed ? { teamConfig: { team1: ms.teamConfig.team2, team2: ms.teamConfig.team1 } } : {}),
+      matchResult: null, goalTarget: 0, gameMode: 'local',
+    })
+    useMatchStore.getState().goToScreen(SCREEN.LAN)
+    return true
+  },
+
+  /** Host snapshot, sent over the existing LAN channel, never to Supabase. */
+  lanSnapshot() {
+    const p = get().playing
+    if (!p?.lan || p.kind === 'lanGuest') return null
+    return {
+      kind: p.kind, fixture: p.fixture, reversed: !!p.reversed,
+      tournament: p.kind === 'career' ? useCareerStore.getState().career?.league : get().local,
+    }
+  },
+
+  receiveLanSnapshot(snapshot) {
+    if (!snapshot || !['local', 'career'].includes(snapshot.kind)) return
+    const t = sanitizeTournament(snapshot.tournament)
+    if (!t || !snapshot.fixture) return
+    const fixture = allFixtures(t).find(f => f.id === snapshot.fixture.id && f.home === snapshot.fixture.home && f.away === snapshot.fixture.away)
+    if (!fixture) return
+    const ms = useMatchStore.getState()
+    const stash = get().stash || Object.fromEntries(BORROWED.map(k => [k, ms[k]]))
+    set({
+      stash, lanGuestTournament: t, lanGuestTeamId: snapshot.reversed === true ? fixture.home : fixture.away, hubKind: 'lanGuest',
+      playing: { kind: 'lanGuest', lan: true, remoteKind: snapshot.kind, fixture: { id: fixture.id, home: fixture.home, away: fixture.away }, knockout: t.format === 'knockout', recorded: true },
+    })
+  },
+
+  /** Persist both players' selected kits to their competition teams before kick-off. */
+  saveLanTeams() {
+    const p = get().playing
+    const t = get().local
+    if (!p?.lan || p.kind !== 'local' || !t) return
+    const config = useMatchStore.getState().teamConfig
+    const home = p.reversed ? config.team2 : config.team1
+    const away = p.reversed ? config.team1 : config.team2
+    set({ local: { ...t, teams: t.teams.map((team, i) => {
+      const kit = team.id === p.fixture.home ? home : team.id === p.fixture.away ? away : null
+      return kit ? sanitizeTeam({ ...team, ...kit, id: team.id, cpu: team.cpu, difficulty: team.difficulty }, i) : team
+    }) } })
+    save(get())
+  },
+
   /**
    * Live online fixture between two devices. The home side opens a room and
    * posts its code; the away side joins it from the hub.
@@ -364,13 +438,13 @@ export const useTournamentStore = create((set, get) => ({
   async recordPlayed(matchResult) {
     const p = get().playing
     if (!p || p.recorded) return
-    const result = resultFromMatch(matchResult, p.knockout)
+    const result = resultFromMatch(matchResult, p.knockout, p.reversed)
     if (!result) return
     set({ playing: { ...p, recorded: true } })
     if (p.kind === 'career') {
-      // How each of your players did (your club is team1 at home, team2 away)
+      // LAN hosts always control team1; solo career sides follow home/away.
       const ms = useMatchStore.getState()
-      const side = p.fixture.home === 'T1' ? 'team1' : 'team2'
+      const side = p.lan || p.fixture.home === 'T1' ? 'team1' : 'team2'
       const ratings = matchRatings({ side, goalLog: ms.goalLog, matchEvents: ms.matchEvents, score: matchResult.score })
       const goalsByRole = {}
       for (const g of ms.goalLog || []) if (!g.own && !g.shootout && g.cap?.startsWith(`${side}_`)) goalsByRole[g.cap.slice(6)] = (goalsByRole[g.cap.slice(6)] || 0) + 1
@@ -384,7 +458,7 @@ export const useTournamentStore = create((set, get) => ({
       const ms = useMatchStore.getState()
       const scorers = (ms.goalLog || []).filter((g) => !g.shootout).map((g) => {
         const who = playerOf(ms.teamConfig, g.cap)
-        return who ? { side: (g.own ? who.team !== 'team1' : who.team === 'team1') ? 'home' : 'away', name: who.name, number: who.number, own: !!g.own } : null
+        return who ? { side: ((g.own ? who.team !== 'team1' : who.team === 'team1') !== !!p.reversed) ? 'home' : 'away', name: who.name, number: who.number, own: !!g.own } : null
       }).filter(Boolean)
       const after = settleCpu(recordResult(t, p.fixture.id, { ...result, scorers }))
       set({ local: after })
@@ -420,6 +494,7 @@ export const useTournamentStore = create((set, get) => ({
   /** From the full-time screen (or a cancelled set-up) back to the hub. */
   backToHub() {
     const p = get().playing
+    if (p?.lan && p.kind !== 'lanGuest') flushLanState()
     if (useMatchStore.getState().gameMode === 'online' || isConnected()) disconnect()
     useMatchStore.getState().quitMatch(p?.kind === 'career' ? SCREEN.CAREER : SCREEN.TOURNAMENT_HUB)
     get().restore()
@@ -428,7 +503,7 @@ export const useTournamentStore = create((set, get) => ({
 }))
 
 // Screens that belong to a fixture in progress (anything else means it was left)
-const MATCH_SCREENS = [SCREEN.FORMATION, SCREEN.PLAYING, SCREEN.MATCH_END, SCREEN.ONLINE, SCREEN.TOURNAMENT_HUB, SCREEN.CAREER]
+const MATCH_SCREENS = [SCREEN.LAN, SCREEN.TEAM_SELECT, SCREEN.STADIUM_SELECT, SCREEN.FORMATION, SCREEN.PLAYING, SCREEN.MATCH_END, SCREEN.ONLINE, SCREEN.TOURNAMENT_HUB, SCREEN.CAREER]
 
 /** Is a tournament fixture being set up or played right now? */
 export const inTournamentPlay = () => !!useTournamentStore.getState().playing
@@ -456,6 +531,7 @@ export function initTournamentWatch() {
       ts.restore()
       return
     }
+    if (p.lan && s.screen === SCREEN.STADIUM_SELECT && prev.screen === SCREEN.TEAM_SELECT) ts.saveLanTeams()
     if (s.matchResult && s.matchResult !== prev.matchResult) ts.recordPlayed(s.matchResult)
     // Host of a live fixture: opponent connected → straight to formations
     if (p.live === 'hosting' && s.onlineStatus?.status === 'connected' && prev.onlineStatus?.status !== 'connected') {

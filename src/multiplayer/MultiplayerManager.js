@@ -1,3 +1,4 @@
+import { useTournamentStore } from '../state/tournamentStore'
 import { createLanPeer } from './lan'
 import { createLanRecovery } from './lanRecovery'
 /**
@@ -113,7 +114,7 @@ function syncTick() {
   const state = useMatchStore.getState()
   const now = Date.now()
 
-  const stateJson = JSON.stringify(pickSynced(state))
+  const stateJson = JSON.stringify({ ...pickSynced(state), ...(lan ? { lanCompetition: useTournamentStore.getState().lanSnapshot() } : {}) })
   const bodiesJson = state.screen === SCREEN.PLAYING ? JSON.stringify(snapshotBodies()) : ''
   const stateChanged = stateJson !== lastSentState
   const bodiesChanged = bodiesJson !== lastSentBodies
@@ -165,6 +166,7 @@ function handleAsGuest(msg) {
   if (!isObj(msg)) return
   const store = useMatchStore.getState()
   if (msg.type === 'sync' && msg.data) {
+    if (lan && msg.data.state?.lanCompetition) useTournamentStore.getState().receiveLanSnapshot(msg.data.state.lanCompetition)
     const update = filterSynced(msg.data.state)
     // A new screen means a new ready round
     if (update.screen && update.screen !== store.screen) update.onlineReady = { team1: false, team2: false }
@@ -566,6 +568,8 @@ export function sendKeeperDive(dive) { send('keeperDive', { dive }) }
 export function sendPause(paused) { send('pause', { paused }) }
 /** Either side: my ready state. On the full-time screen, `choice` is 'rematch' or 'penalties'. */
 export function sendReady(ready, choice) { send('ready', ready && choice ? { ready, choice } : { ready }) }
+
+export function flushLanState() { if (lan && isHost) { lastSentState = ''; lastHeartbeat = 0; syncTick() } }
 
 export function getIsHost() { return isHost }
 export function isConnected() { return !!conn?.open }

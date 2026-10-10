@@ -128,7 +128,7 @@ export default function FormationScreen() {
     >
       <div className="card card-pad match-length-card">
         <div className="eyebrow" style={{ marginBottom: 8 }}>How the match ends</div>
-        <MatchLengthPicker disabled={!canSetLength} compact />
+        <MatchLengthPicker disabled={!canSetLength || inTournament} compact />
       </div>
       <div className="versus">
         <FormationCard team="team1" config={teamConfig.team1} formation={formations.team1} onSelect={(k) => choose('team1', k)} locked={isOnline && myTeam !== 'team1'} tag={tagFor('team1')} />

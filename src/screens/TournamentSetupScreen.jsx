@@ -203,6 +203,7 @@ export default function TournamentSetupScreen() {
   const createLocal = useTournamentStore((s) => s.createLocal)
   const createOnline = useTournamentStore((s) => s.createOnline)
   const openHub = useTournamentStore((s) => s.openHub)
+  const lan = useTournamentStore(s => s.localTransport === 'lan')
   const online = useTournamentStore((s) => s.setupKind === 'online')
   const busy = useTournamentStore((s) => s.busy)
 
@@ -257,14 +258,22 @@ export default function TournamentSetupScreen() {
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow shell-eyebrow">Tournament · {online ? 'Online' : 'On this device'}</div>
-            <h1 className="display shell-title">{online ? 'Online tournament' : 'New tournament'}</h1>
+            <div className="eyebrow shell-eyebrow">Tournament · {online ? 'Online' : lan ? 'LAN' : 'On this device'}</div>
+            <h1 className="display shell-title">{online ? 'Online tournament' : lan ? 'LAN tournament' : 'New tournament'}</h1>
           </div>
           <span className="mode-icon"><Icon name="trophy" size={24} /></span>
         </header>
 
         <main className="shell-body t-setup">
           <div className="t-setup-options">
+            {!online && <section className="card card-pad">
+              <div className="eyebrow">Where to play</div>
+              <div className="segmented stretch">
+                <button aria-pressed={!lan} onClick={() => useTournamentStore.getState().setLocalTransport('device')}>This device</button>
+                <button aria-pressed={lan} onClick={() => useTournamentStore.getState().setLocalTransport('lan')}>LAN · own devices</button>
+              </div>
+              {lan && <p className="muted t-note">Play each fixture over the same Wi-Fi or hotspot. The host keeps the schedule and saved results; each friend joins their fixture and edits their own team.</p>}
+            </section>}
             <div className="card card-pad">
               <div className="eyebrow" style={{ marginBottom: 10 }}>Format</div>
               <div className="segmented stretch" role="group" aria-label="Format">

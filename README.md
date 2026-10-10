@@ -153,3 +153,24 @@ or reloading a tab, a permanently closed channel, or an expired recovery window
 ends the session; start a new match in those cases.
 Camera scanning needs HTTPS and camera permission. Networks with client
 isolation may prevent device-to-device connections.
+
+
+### LAN competitions and career
+
+Cups and leagues support **LAN · own devices** in setup and **LAN · two devices**
+in the competition hub. Select a ready fixture, choose the host's team, and pair.
+Each player edits their own team's kit before play. The host device owns the
+schedule and saves results; guests receive a read-only table/bracket without
+overwriting their own competition. Pair for each fixture, allowing different
+friends to join different games. CPU-only fixtures retain normal scheduling.
+
+Career fixtures have **Play this match over LAN**. The career owner controls
+their club at home and away; the friend controls the opposing club. Match scores,
+penalties and player performance map back to the original fixture. Career
+progress belongs to the host's career. Existing signed-in careers remain usable
+offline, with account sync requiring internet.
+
+LAN competitions use local saved schedules, not the cloud-hosted tournament
+service or saved online turns. A cloud-hosted competition still needs its online
+service to coordinate seats and results. Only two devices participate in each
+LAN fixture; this is not a multi-device spectator lobby.
