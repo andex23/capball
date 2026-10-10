@@ -70,7 +70,7 @@ export default function StadiumSelectScreen() {
     <SetupShell
       step={1}
       title="Choose the table"
-      subtitle={isGuest ? 'The host picks the venue, match length and shot clock.' : 'Pick where you play, the ends, and how long.'}
+      subtitle={isGuest ? 'The host picks the venue, time per half and shot clock.' : 'Pick where you play, the ends, and how long.'}
       onBack={() => goToScreen(SCREEN.TEAM_SELECT)}
       next={{ label: 'Formations', onClick: () => goToScreen(SCREEN.FORMATION) }}
       onBothReady={() => goToScreen(SCREEN.FORMATION)}
