@@ -22,10 +22,11 @@ beforeEach(() => { vi.useFakeTimers(); mocks.peers.length = 0 })
 afterEach(() => { disconnect(); vi.clearAllTimers(); vi.useRealTimers() })
 
 describe('automatic LAN transport', () => {
-  it('creates an automatic invite using only local ICE candidates', async () => {
+  it('creates an automatic invite with discovery servers and no relay', async () => {
     const opening = createAutomaticLanRoom()
     const peer = mocks.peers[0]
-    expect(peer.options.config.iceServers).toEqual([])
+    expect(peer.options.config.iceServers.length).toBeGreaterThan(0)
+    expect(JSON.stringify(peer.options.config.iceServers)).not.toMatch(/turns?:/)
     peer.emit('open')
     expect(await opening).toMatch(/^COUNTERBALL-AUTO1:[A-Z2-9]{12}$/)
     expect(useMatchStore.getState().onlineTransport).toBe('lan')
@@ -40,7 +41,8 @@ describe('automatic LAN transport', () => {
   it('joins without a guest reply scan and disconnects signalling once ready', async () => {
     const joining = joinAutomaticLanRoom('COUNTERBALL-AUTO1:ABCDEFGHJKLM')
     const peer = mocks.peers[0]
-    expect(peer.options.config.iceServers).toEqual([])
+    expect(peer.options.config.iceServers.length).toBeGreaterThan(0)
+    expect(JSON.stringify(peer.options.config.iceServers)).not.toMatch(/turns?:/)
     peer.emit('open')
     peer.connection.emit('data', { type: 'welcome', data: { token: 'a'.repeat(32) } })
     await joining
@@ -52,9 +54,40 @@ describe('automatic LAN transport', () => {
   it('times out unavailable signalling and offers offline pairing', async () => {
     const opening = createAutomaticLanRoom()
     const rejected = expect(opening).rejects.toThrow(/offline pairing/)
-    await vi.advanceTimersByTimeAsync(15000)
+    await vi.advanceTimersByTimeAsync(35000)
     await rejected
     expect(mocks.peers[0].destroy).toHaveBeenCalled()
+  })
+  it('preserves the host invite after an unsuccessful guest connection', async () => {
+    const opening = createAutomaticLanRoom()
+    const peer = mocks.peers[0]
+    peer.emit('open'); await opening
+    const connection = peer.connect()
+    connection.open = false
+    peer.emit('connection', connection)
+    connection.emit('close')
+    expect(peer.destroy).not.toHaveBeenCalled()
+    expect(peer.disconnect).not.toHaveBeenCalled()
+    expect(useMatchStore.getState().onlineStatus.status).toBe('waiting')
+    expect(useMatchStore.getState().onlineStatus.msg).toMatch(/try again/)
+  })
+  it('reports a missing host rather than hiding it behind a generic message', async () => {
+    const joining = joinAutomaticLanRoom('COUNTERBALL-AUTO1:ABCDEFGHJKLM')
+    const rejected = expect(joining).rejects.toMatchObject({ type: 'peer-unavailable', message: expect.stringContaining('[HOST_UNAVAILABLE]') })
+    mocks.peers[0].emit('error', { type: 'peer-unavailable' })
+    await rejected
+  })
+  it('allows a slower mobile connection before reporting a Wi-Fi failure', async () => {
+    const joining = joinAutomaticLanRoom('COUNTERBALL-AUTO1:ABCDEFGHJKLM')
+    const rejected = expect(joining).rejects.toMatchObject({ type: 'connect-timeout', message: expect.stringContaining('[WIFI_CONNECTION]') })
+    const peer = mocks.peers[0]
+    peer.open = true; peer.emit('open')
+    peer.connection.emit('iceStateChanged', 'checking')
+    await vi.advanceTimersByTimeAsync(15000)
+    expect(peer.destroy).not.toHaveBeenCalled()
+    expect(useMatchStore.getState().onlineStatus.msg).toMatch(/Host found/)
+    await vi.advanceTimersByTimeAsync(20000)
+    await rejected
   })
   it('rejects malformed automatic room references before networking', async () => {
     await expect(joinAutomaticLanRoom('not-a-room')).rejects.toThrow(/fresh host invite/)

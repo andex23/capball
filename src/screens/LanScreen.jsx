@@ -178,7 +178,7 @@ export default function LanScreen() {
               <button className="btn btn-secondary btn-block" disabled={busy || !input.trim()} onClick={() => receive(input)}>Connect</button>
             </details>
           </>}
-          {busy && <p role="status">{manual ? 'Preparing local connection…' : step === 'host' ? 'Preparing your invite…' : 'Connecting to the host automatically…'}</p>}
+          {busy && <p role="status">{manual ? 'Preparing local connection…' : step === 'host' ? 'Preparing your invite…' : status.msg || 'Connecting to the host automatically…'}</p>}
           {step === 'host' && !manual && code && <p role="status">Waiting for your friend to join. Keep this screen open — there is nothing else to scan.</p>}
           {step === 'host' && !manual && !busy && <button className="btn btn-ghost btn-block" onClick={() => host(true)}>Use offline pairing instead</button>}
           {step === 'connecting' && <p role="status">Opening match setup…</p>}

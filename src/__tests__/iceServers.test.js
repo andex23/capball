@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildIceServers, parseIceServersJson, turnServerFromEnv, normalizeIceServer, hasRelay,
-  isIceFailure, connectErrorMessage, DEFAULT_ICE_SERVERS, ICE_FAILED_MSG,
+  isIceFailure, connectErrorMessage, DEFAULT_ICE_SERVERS, ICE_FAILED_MSG, lanDiscoveryServers, lanConnectErrorMessage,
 } from '../multiplayer/iceServers'
 
 const TURN = { urls: 'turn:turn.example.com:3478', username: 'u', credential: 'p' }
@@ -88,5 +88,26 @@ describe('connection error messages', () => {
     expect(connectErrorMessage({ type: 'connection-closed' })).toMatch(/Try again/)
     expect(connectErrorMessage({ type: 'mystery' })).toBe('Connection error (mystery).')
     expect(connectErrorMessage(undefined)).toBe('Connection error (unknown).')
+  })
+})
+
+
+describe('automatic LAN discovery', () => {
+  it('keeps STUN discovery but strips TURN and its credentials, including mixed URL entries', () => {
+    expect(lanDiscoveryServers([
+      { urls: ['stun:stun.example.test:3478', 'turn:relay.example.test'], username: 'user', credential: 'password' },
+      { urls: 'turns:relay.example.test', username: 'user', credential: 'password' },
+      { urls: 'stuns:secure.example.test' },
+    ])).toEqual([{ urls: 'stun:stun.example.test:3478' }, { urls: 'stuns:secure.example.test' }])
+  })
+  it.each([
+    ['socket-error', 'PAIRING_SERVICE'], ['server-timeout', 'PAIRING_SERVICE'],
+    ['peer-unavailable', 'HOST_UNAVAILABLE'], ['ice-failed', 'WIFI_CONNECTION'],
+    ['connect-timeout', 'WIFI_CONNECTION'], ['room-in-use', 'ROOM_FULL'],
+    ['connection-closed', 'CONNECTION_CLOSED'], ['browser-incompatible', 'BROWSER_UNSUPPORTED'],
+  ])('identifies %s without exposing private connection details', (type, code) => {
+    const message = lanConnectErrorMessage({ type, message: 'private SDP and addresses' })
+    expect(message).toContain('[' + code + ']')
+    expect(message).not.toContain('private SDP')
   })
 })

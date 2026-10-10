@@ -26,7 +26,7 @@ import {
   validateGuestMessage, validateJoin, makeSessionToken, readyValue, pickSynced, filterSynced,
   SESSION_TOKEN, GUEST_TEAM, HOST_TEAM,
 } from './protocol'
-import { buildIceServers, hasRelay, connectErrorMessage, ICE_FAILED_MSG } from './iceServers'
+import { buildIceServers, hasRelay, connectErrorMessage, ICE_FAILED_MSG, lanDiscoveryServers, lanConnectErrorMessage } from './iceServers'
 import { createReconnectMachine } from './reconnect'
 
 const ROOM_PREFIX = 'capball-'
@@ -37,12 +37,14 @@ const HEARTBEAT_MS = 1000
 const TIMEOUT_MS = 20000
 // A first join / one reconnect attempt that hasn't finished by now has failed
 const CONNECT_TIMEOUT_MS = 15000
+const LAN_CONNECT_TIMEOUT_MS = 35000
 const RETRY_TIMEOUT_MS = 10000
 // Host: how often to check the signalling server link while a room is open
 const SIGNAL_CHECK_MS = 5000
 
 let lanRecovery = null
 let lan = false
+let automaticLan = false
 let peer = null
 let conn = null
 let isHost = false
@@ -66,6 +68,7 @@ let lobbyHint = ''       // host: why the last join attempt failed
 const ENV = import.meta.env || {}
 // PeerJS's own defaults are kept as a fallback when no relay is configured
 const ICE_SERVERS = buildIceServers(ENV, { fallback: peerUtil?.defaultConfig?.iceServers || [] })
+const LAN_ICE_SERVERS = lanDiscoveryServers(ICE_SERVERS)
 const RELAY_CONFIGURED = hasRelay(buildIceServers(ENV))
 
 /**
@@ -74,7 +77,7 @@ const RELAY_CONFIGURED = hasRelay(buildIceServers(ENV))
  * plus the ICE servers.
  */
 function peerOptions() {
-  const options = { config: { ...(peerUtil?.defaultConfig || {}), iceServers: lan ? [] : ICE_SERVERS } }
+  const options = { config: { ...(peerUtil?.defaultConfig || {}), iceServers: lan ? LAN_ICE_SERVERS : ICE_SERVERS } }
   if (!ENV.VITE_PEER_HOST) return options
   return {
     ...options,
@@ -209,6 +212,10 @@ function connectionLost(reason) {
   conn = null
   if (c) c.close()
 
+  if (lan && automaticLan && isHost && !roomBound && peer && !peer.destroyed) {
+    setStatus('waiting', 'That join attempt did not connect. Keep this invite open and let your friend try again.')
+    return
+  }
   if (lan) { endSession('LAN connection closed. Keep both devices on the same network and pair again.'); return }
 
   // Host lobby: a join attempt that never got going — keep waiting for someone
@@ -322,7 +329,7 @@ function attachConnection(connection) {
 }
 
 function onConnected(rejoin) {
-  connectVoice({ send: data => send('voice', data), isHost, iceServers: lan ? [] : ICE_SERVERS })
+  connectVoice({ send: data => send('voice', data), isHost, iceServers: lan ? automaticLan ? LAN_ICE_SERVERS : [] : ICE_SERVERS })
   const myTeam = isHost ? HOST_TEAM : GUEST_TEAM
   useMatchStore.setState({
     gameMode: 'online',
@@ -398,7 +405,7 @@ function onIncoming(connection) {
     if (conn !== connection || connection.open) return
     if (!roomBound) lobbyHint = `Someone tried to join. ${ICE_FAILED_MSG}`
     connectionLost('timeout')
-  }, CONNECT_TIMEOUT_MS)
+  }, lan ? LAN_CONNECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS)
 
   connection.on('open', () => {
     if (conn !== connection) return
@@ -441,7 +448,10 @@ function connectToRoom(code, token, timeoutMs) {
       if (done) return
       setStatus(useMatchStore.getState().onlineStatus.status, token ? 'Reconnecting…' : 'Connecting to host…')
       connection = p.connect(ROOM_PREFIX + code, { reliable: true, metadata: token ? { token } : {} })
-      connection.on('iceStateChanged', (state) => { if (state === 'failed') iceFailed = true })
+      connection.on('iceStateChanged', (state) => {
+        if (state === 'failed') iceFailed = true
+        if (lan && !done && state === 'checking') setStatus('connecting', 'Host found. Connecting the two phones over Wi-Fi…')
+      })
       connection.on('error', (err) => finish(iceFailed ? connectError('ice-failed') : err))
       connection.on('close', () => finish(connectError(iceFailed ? 'ice-failed' : 'connection-closed')))
       const handshake = (msg) => {
@@ -510,6 +520,7 @@ export async function finishLanPairing(answer) {
 export function createRoom(attempt = 0, transport = 'internet') {
   disconnect()
   lan = transport === 'lan'
+  automaticLan = lan
   useMatchStore.setState({ onlineTransport: transport })
   return new Promise((resolve, reject) => {
     const code = generateCode(lan ? 12 : 6)
@@ -522,10 +533,10 @@ export function createRoom(attempt = 0, transport = 'internet') {
     let opened = false
     const timer = lan ? setTimeout(() => {
       if (opened) return
-      const error = new Error('Automatic pairing needs internet briefly. Reconnect, or choose offline pairing.')
+      const error = Object.assign(new Error(lanConnectErrorMessage({ type: 'server-timeout' })), { type: 'server-timeout' })
       if (peer === p) { peer = null; p.destroy(); setStatus('error', error.message) }
       reject(error)
-    }, CONNECT_TIMEOUT_MS) : null
+    }, LAN_CONNECT_TIMEOUT_MS) : null
 
     p.on('open', () => {
       if (peer !== p) return
@@ -546,7 +557,7 @@ export function createRoom(attempt = 0, transport = 'internet') {
           createRoom(attempt + 1, transport).then(resolve, reject)
           return
         }
-        setStatus('error', errorMessage(err))
+        setStatus('error', lan ? lanConnectErrorMessage(err) : errorMessage(err))
         reject(err)
         return
       }
@@ -560,30 +571,31 @@ export function createRoom(attempt = 0, transport = 'internet') {
 export function joinRoom(input, transport = 'internet') {
   disconnect()
   lan = transport === 'lan'
+  automaticLan = lan
   useMatchStore.setState({ onlineTransport: transport })
   const code = String(input).toUpperCase().replace(/[^A-Z0-9]/g, '')
   isHost = false
   roomCode = code
   setStatus('connecting', 'Connecting to room…')
-  return connectToRoom(code, null, CONNECT_TIMEOUT_MS).then(
+  return connectToRoom(code, null, lan ? LAN_CONNECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS).then(
     () => onConnected(false),
     (err) => {
-      if (roomCode === code && !isHost) setStatus('error', errorMessage(err))
+      if (roomCode === code && !isHost) setStatus('error', lan ? lanConnectErrorMessage(err) : errorMessage(err))
       throw err
     },
   )
 }
 
-/** Automatic LAN discovery uses signalling briefly, never STUN/TURN for the match. */
+/** Automatic LAN discovery uses signalling and STUN briefly, never a TURN relay. */
 export async function createAutomaticLanRoom() {
   try { return automaticLanInvite(await createRoom(0, 'lan')) }
-  catch { throw new Error('Could not prepare automatic pairing. Check internet access, or choose offline pairing.') }
+  catch (error) { throw Object.assign(new Error(lanConnectErrorMessage(error)), { type: error?.type }) }
 }
 export async function joinAutomaticLanRoom(invite) {
   const code = automaticLanRoomCode(invite)
   if (!code) throw new Error('Scan a fresh host invite.')
   try { await joinRoom(code, 'lan') }
-  catch { throw new Error('Could not join this host. Keep the host’s game open, use the same Wi-Fi or hotspot, and allow internet briefly for pairing. Ask the host for a fresh invite if needed.') }
+  catch (error) { throw Object.assign(new Error(lanConnectErrorMessage(error)), { type: error?.type }) }
 }
 
 // Closing the tab tells the other side straight away where the browser allows it
@@ -629,6 +641,7 @@ export function disconnect() {
   if (c || p) setTimeout(() => { c?.close(); p?.destroy() }, sayBye ? 150 : 0)
   isHost = false
   lan = false
+  automaticLan = false
   roomCode = ''
   sessionToken = null
   roomBound = false

@@ -121,3 +121,24 @@ export function connectErrorMessage(err, { relay = false } = {}) {
   if (SERVER_ERRORS.has(type)) return 'Couldn’t reach the matchmaking server. Check your internet connection and try again.'
   return `Connection error (${type || 'unknown'}).`
 }
+
+/** Automatic LAN pairing can use STUN for browsers that hide local addresses.
+ * Never allow a TURN relay to silently turn LAN play into a relayed match.
+ */
+export function lanDiscoveryServers(servers = DEFAULT_ICE_SERVERS) {
+  return servers.flatMap(server => {
+    const urls = cleanUrls(server.urls).filter(url => /^stuns?:/i.test(url))
+    return urls.length ? [{ urls: urls.length === 1 ? urls[0] : urls }] : []
+  })
+}
+
+export function lanConnectErrorMessage(error) {
+  const type = error?.type
+  if (type === 'peer-unavailable') return 'The host invite is no longer available. Keep the host’s game open and create a fresh invite. [HOST_UNAVAILABLE]'
+  if (SERVER_ERRORS.has(type)) return 'Could not reach the pairing service. Both phones need internet until connected. Try again or use offline pairing. [PAIRING_SERVICE]'
+  if (isIceFailure(error)) return 'The phones could not establish a direct Wi-Fi connection. Allow Local Network access if prompted, and check whether the router blocks devices from talking to each other. [WIFI_CONNECTION]'
+  if (type === 'room-in-use') return 'This host already has another player. Create a new match for these two phones. [ROOM_FULL]'
+  if (type === 'connection-closed' || type === 'bad-welcome') return 'The connection closed before pairing finished. Keep both games open and create a fresh host invite. [CONNECTION_CLOSED]'
+  if (type === 'browser-incompatible') return 'This browser does not support the connection. Open the invite in an up-to-date Safari or Chrome. [BROWSER_UNSUPPORTED]'
+  return 'Pairing could not finish. Keep both games open and try a fresh invite. [PAIRING_FAILED]'
+}
