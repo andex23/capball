@@ -1,3 +1,4 @@
+import ShareGame from './ShareGame'
 import GoalSplash from './GoalSplash'
 import AimWarning from './AimWarning'
 import { useEffect, useRef, useState } from 'react'
@@ -203,6 +204,7 @@ function PauseMenu({ onClose }) {
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('settings') }}><Icon name="volume" size={18} /> Sound</button>
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('rules') }}><Icon name="help" size={18} /> Rules</button>
       </div>
+      <ShareGame />
       {authority && gameMode !== 'online' && (
         <button className="btn btn-orange btn-block" onClick={restart}><Icon name="restart" size={18} /> Restart {shootout ? 'shootout' : 'match'}</button>
       )}
