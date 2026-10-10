@@ -247,6 +247,29 @@ describe('set pieces', () => {
     expectInsidePitch()
   })
 
+  it.each(['left', 'right'])('preserves legal caps during a match penalty with home side %s', (side) => {
+    useMatchStore.setState({ team1Side: side, penaltyShootout: false })
+    resetToKickoff('team1')
+    const dir = side === 'left' ? 1 : -1
+    place('team1_def1', -3 * dir, -4)
+    place('team2_def1', 12 * dir, 2)
+    place('team2_def2', 11 * dir, -2)
+    const before = { ...pos('team1_def1') }
+    setupPenalty('team1')
+    expect(pos('team1_def1')).toEqual(before)
+    for (const id of capIds().filter(id => !id.endsWith('_gk') && id !== 'team1_atk1')) {
+      expect(pos(id).x * dir).toBeLessThan(PITCH.halfW - PITCH.penAreaW - 0.7)
+      expect(Math.hypot(pos(id).x - pos('ball').x, pos(id).y)).toBeGreaterThanOrEqual(3.9)
+    }
+    expectNoOverlaps()
+  })
+
+  it('keeps the halfway lineup for shootouts only', () => {
+    useMatchStore.setState({ team1Side: 'left', penaltyShootout: true })
+    setupPenalty('team1')
+    for (const id of capIds().filter(id => !id.endsWith('_gk') && id !== 'team1_atk1')) expect(pos(id).x).toBeCloseTo(0)
+  })
+
   it('penalty: ball on the spot of the defending goal, keeper on the line', () => {
     useMatchStore.setState({ team1Side: 'left' })
     setupPenalty('team1') // team1 attacks the right goal
