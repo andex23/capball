@@ -155,7 +155,7 @@ const WHO_ONLINE = [
 ]
 const whoOf = (team, online) => (team.cpu ? 'cpu' : online ? (team.mine ? 'me' : 'friend') : 'player')
 
-function TeamRow({ team, index, online, onUpdate, onEdit, onRemove, canRemove }) {
+function TeamRow({ team, index, online, anytime, onUpdate, onEdit, onRemove, canRemove }) {
   const who = whoOf(team, online)
   return (
     <li className="t-setup-team" style={{ '--team': displayColor(team.primary) }}>
@@ -173,7 +173,7 @@ function TeamRow({ team, index, online, onUpdate, onEdit, onRemove, canRemove })
       />
       <div className="t-setup-controls">
         <div className="segmented" role="group" aria-label={`Who plays team ${index + 1}`}>
-          {(online ? WHO_ONLINE : WHO_LOCAL).map((o) => (
+          {(online ? WHO_ONLINE : WHO_LOCAL).filter(o => !anytime || o.key !== 'cpu').map((o) => (
             <button key={o.key} aria-pressed={who === o.key} onClick={() => { playButtonSelect(); onUpdate(o.patch) }}>
               <Icon name={o.icon} size={14} /> {o.label}
             </button>
@@ -208,6 +208,10 @@ export default function TournamentSetupScreen() {
 
   const [format, setFormat] = useState(() => useTournamentStore.getState().setupFormat || 'knockout')
   const [legs, setLegs] = useState(1)
+  const [playMode, setPlayMode] = useState('live')
+  const [turnsPerPlayer, setTurnsPerPlayer] = useState(20)
+  const [deadlineHours, setDeadlineHours] = useState(24)
+  const anytime = online && playMode === 'anytime'
   const [duration, setDuration] = useState(MATCH_DURATIONS.includes(savedDuration) ? savedDuration : 180)
   const [teams, setTeams] = useState(() => initialTeams(ownKit, online))
   const [editing, setEditing] = useState(null)
@@ -215,12 +219,12 @@ export default function TournamentSetupScreen() {
 
   const pick = (fn) => () => { playButtonSelect(); fn() }
   const update = (key, patch) => setTeams((list) => list.map((t) => (t.key === key ? { ...t, ...patch } : t)))
-  const add = () => setTeams((list) => (list.length >= MAX_TEAMS ? list : [...list, clubTeam(nextClub(list))]))
+  const add = () => setTeams((list) => (list.length >= MAX_TEAMS ? list : [...list, { ...clubTeam(nextClub(list)), ...(anytime ? { cpu: false, mine: false } : {}) }]))
   const remove = (key) => setTeams((list) => (list.length <= MIN_TEAMS ? list : list.filter((t) => t.key !== key)))
 
   const humans = teams.filter((t) => !t.cpu).length
   const mine = teams.filter((t) => !t.cpu && t.mine).length
-  const ready = (online ? mine > 0 : humans > 0) && teams.length >= MIN_TEAMS && !busy
+  const ready = (online ? mine > 0 : humans > 0) && (!anytime || mine === 1) && teams.length >= MIN_TEAMS && !busy
   const editingTeam = teams.find((t) => t.key === editing)
 
   const create = async () => {
@@ -230,6 +234,7 @@ export default function TournamentSetupScreen() {
       format,
       legs: format === 'league' ? legs : 1,
       matchDuration: duration,
+      playMode: anytime ? 'anytime' : 'live', turnsPerPlayer, deadlineHours,
       teams: teams.map(({ key, ...t }, i) => ({ ...t, name: t.name.trim() || `Team ${i + 1}` })), // eslint-disable-line no-unused-vars
     }
     try {
@@ -275,6 +280,21 @@ export default function TournamentSetupScreen() {
               <p className="muted t-note">{summary(format, legs, teams, online)}</p>
             </div>
             <div className="card card-pad">
+              {online && <>
+                <div className="eyebrow">When to play</div>
+                <div className="segmented stretch" style={{ marginBottom: 12 }}>
+                  <button aria-pressed={!anytime} onClick={() => setPlayMode('live')}>Live</button>
+                  <button aria-pressed={anytime} onClick={() => { setPlayMode('anytime'); setTeams(list => list.map((t, i) => ({ ...t, cpu: false, mine: i === 0 }))) }}>Play anytime</button>
+                </div>
+              </>}
+              {anytime ? <>
+                <label className="eyebrow" htmlFor="competition-turns">Turns per player</label>
+                <select id="competition-turns" className="field" value={turnsPerPlayer} onChange={e => setTurnsPerPlayer(Number(e.target.value))}>{[10, 20, 30].map(n => <option key={n} value={n}>{n} turns each</option>)}</select>
+                <label className="eyebrow" htmlFor="competition-deadline">Turn deadline</label>
+                <select id="competition-deadline" className="field" value={deadlineHours} onChange={e => setDeadlineHours(Number(e.target.value))}>{[0, 24, 48].map(n => <option key={n} value={n}>{n ? `${n} hours` : 'No deadline'}</option>)}</select>
+                <p className="muted t-note">One account and one team per friend. Matches save after each shot. A missed deadline forfeits the match 3–0; leaving does not stop it. Deadlines begin when both players open their fixture.</p>
+                {mine !== 1 && <p className="t-warn">Choose exactly one “Me” team; leave the rest for friends.</p>}
+              </> : <>
               <div className="eyebrow" style={{ marginBottom: 10 }}>Match length</div>
               <div className="segmented stretch" role="group" aria-label="Match length">
                 {MATCH_DURATIONS.map((d) => (
@@ -282,6 +302,7 @@ export default function TournamentSetupScreen() {
                 ))}
               </div>
               <p className="muted t-note">Every match in the tournament. The clock stops between turns.</p>
+              </>}
             </div>
           </div>
 
@@ -303,6 +324,7 @@ export default function TournamentSetupScreen() {
                   team={t}
                   index={i}
                   online={online}
+                  anytime={anytime}
                   onUpdate={(patch) => update(t.key, patch)}
                   onEdit={() => setEditing(t.key)}
                   onRemove={() => remove(t.key)}

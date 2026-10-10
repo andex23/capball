@@ -23,6 +23,7 @@ export function fixtureAction(t, snapshot, f) {
   const homeMine = mine.has(f.home)
   const awayMine = mine.has(f.away)
   if (!homeMine && !awayMine) return null
+  if (t.playMode === 'anytime') return { kind: 'anytime' }
   if (homeMine && awayMine) return { kind: 'play' }
 
   const otherId = homeMine ? f.away : f.home

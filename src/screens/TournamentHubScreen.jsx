@@ -1,3 +1,4 @@
+import { useAnytimeStore } from '../state/anytimeStore'
 import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
@@ -26,6 +27,7 @@ function fixtureLabel(t, f) {
 function modeLabel(t, f, action) {
   const home = teamById(t, f.home)
   const away = teamById(t, f.away)
+  if (t.playMode === 'anytime') return 'Play anytime · saved turns'
   const cpu = home?.cpu ? home : away?.cpu ? away : null
   if (cpu) return `Against the computer · ${DIFF_LABEL[cpu.difficulty] || 'Medium'}`
   if (action?.kind === 'host' || action?.kind === 'join' || action?.reason === 'home-to-start') return 'Live · phone v phone'
@@ -33,8 +35,8 @@ function modeLabel(t, f, action) {
   return 'Pass and play on this phone'
 }
 
-const ACTION_LABEL = { play: 'Play match', host: 'Start match', join: 'Join match' }
-const SHORT_LABEL = { play: 'Play', host: 'Start', join: 'Join' }
+const ACTION_LABEL = { anytime: 'Open saved match', play: 'Play match', host: 'Start match', join: 'Join match' }
+const SHORT_LABEL = { anytime: 'Open', play: 'Play', host: 'Start', join: 'Join' }
 
 /* ── Next match ── */
 
@@ -373,6 +375,7 @@ export default function TournamentHubScreen() {
   const goToScreen = useMatchStore((s) => s.goToScreen)
   const kind = useTournamentStore((s) => s.hubKind)
   const local = useTournamentStore((s) => s.local)
+  const anytimeError = useAnytimeStore(s => s.error)
   const onlineView = useTournamentStore((s) => s.online)
   const playing = useTournamentStore((s) => s.playing)
   const busy = useTournamentStore((s) => s.busy)
@@ -437,13 +440,15 @@ export default function TournamentHubScreen() {
 
   const act = (f, action) => {
     playConfirm()
-    if (action.kind === 'play') store.playFixture(kind, f)
+    if (action.kind === 'anytime') useAnytimeStore.getState().openFixture(code, f.id)
+    else if (action.kind === 'play') store.playFixture(kind, f)
     else if (action.kind === 'host') store.hostLiveFixture(f)
     else if (action.kind === 'join') store.joinLiveFixture(f, action.roomCode)
   }
 
   return (
     <div className="screen">
+      {anytimeError && <div role="alert" className="card card-pad t-warn">{anytimeError}</div>}
       {teamDraft && <KitEditor
         team={teamDraft}
         withName

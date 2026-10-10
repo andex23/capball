@@ -107,7 +107,8 @@ export default function OnlineScreen() {
         <div className="sheet-body">
           {view === 'menu' && (
             <>
-              <p className="muted">One player hosts and shares a code; the other joins with it. The host plays the home team.</p>
+              <button className="btn btn-gold btn-lg btn-block" onClick={() => goToScreen(SCREEN.ANYTIME)}>Play anytime · saved turns</button>
+              <p className="muted">For a live match, one player hosts and shares a code; the other joins with it. The host plays the home team.</p>
               <button className="btn btn-purple btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick} disabled={!online}>Host a room</button>
               <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} onMouseEnter={playHoverTick} disabled={!online}>I have a code</button>
             </>

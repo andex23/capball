@@ -81,7 +81,8 @@ export function addRivalResult(rivals, opponent, { gf, ga, won, lost, online, pr
 /** Why the match on screen can't be saved right now, or null if it can. */
 export function cantSaveReason() {
   const s = useMatchStore.getState()
-  if (s.gameMode === 'online') return 'Online matches can’t be saved.'
+  if (s.gameMode === 'anytime') return 'This match is saved automatically online.'
+  if (s.gameMode === 'online') return 'Live matches can’t be saved.'
   if (s.challenge) return 'The daily challenge can’t be saved.'
   if (s.penaltyShootout) return 'A shootout can’t be saved — finish it!'
   const p = useTournamentStore.getState().playing

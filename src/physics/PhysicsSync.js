@@ -1,3 +1,4 @@
+import { tickAnytime } from '../state/anytimeStore'
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
@@ -41,6 +42,7 @@ export function usePhysicsSync(meshRefs) {
 
   useFrame((_, delta) => {
     const store = useMatchStore.getState()
+    if (store.gameMode === 'anytime') tickAnytime(delta)
     const authority = isAuthority(store)
     const frameMs = Math.min(delta * 1000, MAX_FRAME_MS)
 
@@ -134,7 +136,7 @@ export function usePhysicsSync(meshRefs) {
       rolling.current = false
     }
     // Record this frame for goal replays — or, during one, redraw the past
-    replayFrame(delta)
+    if (store.gameMode !== 'anytime') replayFrame(delta)
 
     if (!authority || store.paused || resolved.current) return
     const s = useMatchStore.getState()

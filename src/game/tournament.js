@@ -16,8 +16,8 @@
  *   result = { home: goals, away: goals, pens?: { home, away } }
  */
 
-import { AI_DIFFICULTIES } from './records'
-import { sanitizeCapText, CAP_ROLES, CAP_NAME_MODES, sanitizePlayerName } from '../data/TeamOptions'
+import { AI_DIFFICULTIES } from './records.js'
+import { sanitizeCapText, CAP_ROLES, CAP_NAME_MODES, sanitizePlayerName } from '../data/TeamOptions.js'
 
 export const TOURNAMENT_VERSION = 1
 export const MIN_TEAMS = 3
@@ -177,7 +177,7 @@ export function sanitizeTeam(input, i = 0) {
 }
 
 /** A brand-new tournament, ready to play. Throws on an impossible set-up. */
-export function createTournament({ format, legs = 1, teams, matchDuration = 180, rng = Math.random, now = Date.now() }) {
+export function createTournament({ format, legs = 1, teams, matchDuration = 180, playMode = 'live', turnsPerPlayer = 20, deadlineHours = 0, rng = Math.random, now = Date.now() }) {
   if (!FORMATS.includes(format)) throw new Error(`Unknown format: ${format}`)
   if (!Array.isArray(teams) || teams.length < MIN_TEAMS || teams.length > MAX_TEAMS) {
     throw new Error(`A tournament needs ${MIN_TEAMS}–${MAX_TEAMS} teams`)
@@ -190,6 +190,9 @@ export function createTournament({ format, legs = 1, teams, matchDuration = 180,
     format,
     legs: format === 'league' && legs === 2 ? 2 : 1,
     matchDuration,
+    playMode: playMode === 'anytime' ? 'anytime' : 'live',
+    turnsPerPlayer: [10, 20, 30].includes(turnsPerPlayer) ? turnsPerPlayer : 20,
+    deadlineHours: [0, 24, 48].includes(deadlineHours) ? deadlineHours : 0,
     createdAt: now,
     teams: clean,
     championId: null,
@@ -471,6 +474,9 @@ export function sanitizeTournament(input) {
     v: TOURNAMENT_VERSION,
     id: typeof input.id === 'string' ? input.id.slice(0, 40) : 'saved',
     format: input.format,
+    playMode: input.playMode === 'anytime' ? 'anytime' : 'live',
+    turnsPerPlayer: [10, 20, 30].includes(input.turnsPerPlayer) ? input.turnsPerPlayer : 20,
+    deadlineHours: [0, 24, 48].includes(input.deadlineHours) ? input.deadlineHours : 0,
     legs: input.legs === 2 ? 2 : 1,
     matchDuration: [60, 90, 120, 150, 180].includes(input.matchDuration) ? input.matchDuration : 180,
     createdAt: Number.isFinite(input.createdAt) ? input.createdAt : 0,

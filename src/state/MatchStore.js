@@ -6,6 +6,7 @@ export const SCREEN = {
   SPLASH: 'SPLASH',
   MENU: 'MENU',
   ONLINE: 'ONLINE',
+  ANYTIME: 'ANYTIME',
   TEAM_SELECT: 'TEAM_SELECT',
   STADIUM_SELECT: 'STADIUM_SELECT',
   FORMATION: 'FORMATION',
@@ -120,7 +121,7 @@ export const DEFAULT_TEAM_CONFIG = {
 
 /** Does this client run physics and rules? Everyone except an online guest. */
 export function isAuthority(state) {
-  return state.gameMode !== 'online' || state.onlineMyTeam === 'team1'
+  return state.gameMode !== 'anytime' && (state.gameMode !== 'online' || state.onlineMyTeam === 'team1')
 }
 
 export const useMatchStore = create((set, get) => ({

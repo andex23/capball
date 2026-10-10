@@ -1,3 +1,4 @@
+import { useAnytimeStore } from '../state/anytimeStore'
 import { useRef, useCallback, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -207,6 +208,11 @@ export function useFlickController(meshRefs, trajectoryRef) {
       const power = pull.power * PHYSICS.maxFlickVelocity
       // Three.js x,z → Matter.js x,y
       const velocity = { x: (dx / dragDist) * power, y: (dz / dragDist) * power }
+
+      if (state.gameMode === 'anytime') {
+        useAnytimeStore.getState().submit(capId, velocity)
+        return
+      }
 
       if (state.gameMode === 'online' && !getIsHost()) {
         // Guest: the host validates and runs the flick, then streams the result back

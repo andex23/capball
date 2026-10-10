@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run lint && npm run test && npm run build"
+    "check": "npm run lint && npm run test && npm run build",
+    "dev:api": "node --env-file=.env.local scripts/anytime-dev.js"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.3.0",
@@ -26,6 +27,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.11.0",
