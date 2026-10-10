@@ -119,6 +119,7 @@ export default function MenuScreen() {
     ],
     play: [
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
+      { key: 'lan', title: 'LAN Match', sub: 'Same Wi-Fi or hotspot · no internet', tag: 'LAN', action: () => { playConfirm(); goToScreen(SCREEN.LAN) } },
       { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
       { key: 'online', title: 'Online Match', sub: 'Play a friend on their own phone', tag: 'NET', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
       back,

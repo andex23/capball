@@ -133,3 +133,18 @@ Locally put the server key in ignored `.env.local`, run `npm run dev:api`, then
 `npm run check` includes PostgreSQL integration tests (PGlite) for account
 ownership, resumption, retries, concurrent turns, deadlines and competition
 results. It does not require production credentials.
+
+
+## Offline LAN matches
+
+Load or install CapBall on both devices before disconnecting from the internet.
+Connect to the same Wi-Fi or phone hotspot, then open **Quick Match → LAN Match**.
+The guest scans the host invite; the host scans the guest reply. Full-code
+copy/paste is also available. Choose teams and start the match.
+
+LAN uses a native WebRTC data channel with host-only ICE and no STUN, TURN,
+PeerJS signaling, account, or backend dependency. The host runs authoritative
+physics and validates guest input using the existing multiplayer protocol.
+Keep both games open; disconnected LAN sessions must be paired again.
+Camera scanning needs HTTPS and camera permission. Networks with client
+isolation may prevent device-to-device connections.

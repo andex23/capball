@@ -1,3 +1,4 @@
+import LanScreen from './screens/LanScreen'
 import AnytimeScreen from './screens/AnytimeScreen'
 import AnytimeHUD from './ui/AnytimeHUD'
 import { Component, Suspense, lazy, useEffect } from 'react'
@@ -62,7 +63,7 @@ function ConnectionLost() {
   const status = useMatchStore((s) => s.onlineStatus)
   const gameMode = useMatchStore((s) => s.gameMode)
   const screen = useMatchStore((s) => s.screen)
-  if (gameMode !== 'online' || status.status !== 'disconnected' || screen === SCREEN.ONLINE || screen === SCREEN.MENU || screen === SCREEN.TOURNAMENT_HUB) return null
+  if (gameMode !== 'online' || status.status !== 'disconnected' || screen === SCREEN.ONLINE || screen === SCREEN.LAN || screen === SCREEN.MENU || screen === SCREEN.TOURNAMENT_HUB) return null
 
   const leave = () => {
     if (useTournamentStore.getState().playing) { useTournamentStore.getState().backToHub(); return }
@@ -91,6 +92,7 @@ function Screen({ screen }) {
           <HUD /><Tutorial /><GameEffects />
         </>
       )
+    case SCREEN.LAN: return <LanScreen />
     case SCREEN.ANYTIME: return <AnytimeScreen />
     case SCREEN.ONLINE: return <OnlineScreen />
     case SCREEN.TEAM_SELECT: return <TeamSelectScreen />
