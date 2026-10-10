@@ -92,7 +92,7 @@ export default function OnlineScreen() {
   const connected = status.status === 'connected'
 
   return (
-    <div className="screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
+    <div className="screen online-screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
       <div className="card" style={{ width: 'min(460px, 100%)' }}>
         <div className="sheet-head">
           <div>
