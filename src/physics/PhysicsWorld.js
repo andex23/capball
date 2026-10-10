@@ -170,6 +170,11 @@ function createWallBodies() {
   const leftGoalBlocker = Bodies.rectangle(-halfW - wallThick / 2, 0, wallThick, goalWidth, blockerOpts)
   const rightGoalBlocker = Bodies.rectangle(halfW + wallThick / 2, 0, wallThick, goalWidth, blockerOpts)
 
+  // Goal frame/net contacts are not pitch-cushion bank shots.
+  for (const wall of [topWall, bottomWall, leftTop, leftBottom, rightTop, rightBottom]) {
+    wall.label = 'pitch_cushion'
+  }
+
   return [
     topWall, bottomWall,
     leftTop, leftBottom, rightTop, rightBottom,
@@ -339,8 +344,17 @@ export function createPhysicsWorld() {
       const a = pair.bodyA.label
       const b = pair.bodyB.label
       if (a !== 'ball' && b !== 'ball') continue
-      const team = teamOf(a === 'ball' ? b : a)
-      if (team) { lastBallTeam = team; ballBanked = false } else ballBanked = true
+      const other = a === 'ball' ? pair.bodyB : pair.bodyA
+      const team = teamOf(other.label)
+      if (team) { lastBallTeam = team; ballBanked = false }
+      else if (other.label === 'pitch_cushion') {
+        const { x, y } = bodies.ball.position
+        // The inside tip of an end cushion is the goalpost, not a bank off
+        // the pitch edge. Contacts beyond the goal line cannot undo entry.
+        const atPost = Math.abs(x) >= PITCH.halfW - BALL_RADIUS
+          && Math.abs(y) <= PITCH.goalWidth / 2 + BALL_RADIUS
+        if (Math.abs(x) <= PITCH.halfW && !atPost) ballBanked = true
+      }
     }
   })
 
