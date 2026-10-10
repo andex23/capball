@@ -1,16 +1,57 @@
+import { zlibSync, unzlibSync, strToU8, strFromU8 } from 'fflate'
+
 /** Offline WebRTC pairing. No signalling service, STUN or TURN is contacted. */
-const PREFIX = 'CAPBALL-LAN1:'
+const PREFIX = 'COUNTERBALL-LAN2:'
+const LEGACY_PREFIX = 'CAPBALL-LAN1:'
+export const isLanSignal = value => typeof value === 'string' && (value.startsWith(PREFIX) || value.startsWith(LEGACY_PREFIX))
 const LIMIT = 24000
 
+// QR's alphanumeric alphabet packs compressed bytes more densely than base64.
+const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:'
+function pack(bytes) {
+  let text = ''
+  for (let i = 0; i < bytes.length; i += 2) {
+    let value = bytes[i] * (i + 1 < bytes.length ? 256 : 1) + (bytes[i + 1] || 0)
+    text += ALPHABET[value % 45]; value = Math.floor(value / 45)
+    text += ALPHABET[value % 45]
+    if (i + 1 < bytes.length) text += ALPHABET[Math.floor(value / 45)]
+  }
+  return text
+}
+function unpack(text) {
+  const bytes = []
+  if (text.length % 3 === 1) throw new Error('incomplete')
+  for (let i = 0; i < text.length; i += 3) {
+    const count = Math.min(3, text.length - i)
+    let value = 0
+    for (let n = 0; n < count; n++) {
+      const digit = ALPHABET.indexOf(text[i + n])
+      if (digit < 0) throw new Error('invalid')
+      value += digit * 45 ** n
+    }
+    if (value > (count === 3 ? 65535 : 255)) throw new Error('invalid')
+    if (count === 3) bytes.push(Math.floor(value / 256), value % 256)
+    else bytes.push(value)
+  }
+  return new Uint8Array(bytes)
+}
+
 export function encodeLanSignal(description) {
-  return PREFIX + btoa(JSON.stringify({ type: description.type, sdp: description.sdp }))
+  const bytes = zlibSync(strToU8(JSON.stringify({ type: description.type, sdp: description.sdp })), { level: 9 })
+  return PREFIX + pack(bytes)
 }
 
 export function decodeLanSignal(text, expected) {
-  const value = String(text).trim()
-  if (!value.startsWith(PREFIX) || value.length > LIMIT * 2) throw new Error('Use a Counterball LAN pairing code.')
+  const value = String(text).replace(/^[\r\n\t ]+/, '').replace(/[\r\n\t]+$/, '')
+  if (!isLanSignal(value) || value.length > LIMIT * 2) throw new Error('Use a Counterball LAN pairing code.')
   let signal
-  try { signal = JSON.parse(atob(value.slice(PREFIX.length))) } catch { throw new Error('That pairing code is incomplete. Scan or copy it again.') }
+  try {
+    const legacy = value.startsWith(LEGACY_PREFIX)
+    const raw = value.slice(legacy ? LEGACY_PREFIX.length : PREFIX.length)
+    // Bound output allocation even for a malformed/compressed-bomb QR.
+    const json = legacy ? atob(raw.trim()) : strFromU8(unzlibSync(unpack(raw), { out: new Uint8Array(LIMIT + 1024) }))
+    signal = JSON.parse(json)
+  } catch { throw new Error('That pairing code is incomplete. Scan or copy it again.') }
   if (!signal || signal.type !== expected || typeof signal.sdp !== 'string' || signal.sdp.length > LIMIT || !signal.sdp.startsWith('v=0')) {
     throw new Error(expected === 'offer' ? 'Scan the host’s invite code.' : 'Scan the guest’s reply code.')
   }
