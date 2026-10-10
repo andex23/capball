@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import jsQR from 'jsqr'
+import { isLanSignal } from '../multiplayer/lan'
 import { useTournamentStore } from '../state/tournamentStore'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { createLanRoom, joinLanRoom, finishLanPairing, disconnect, getIsHost } from '../multiplayer/MultiplayerManager'
@@ -10,17 +11,30 @@ import './lan.css'
 
 function PairingCode({ value, reply }) {
   const [image, setImage] = useState('')
+  const container = useRef(null)
+  const [width, setWidth] = useState(260)
+  const [grid, setGrid] = useState(0)
+  useEffect(() => {
+    const observer = new ResizeObserver(entries => setWidth(entries[0].contentRect.width))
+    if (container.current) observer.observe(container.current)
+    return () => observer.disconnect()
+  }, [])
   const [copied, setCopied] = useState(false)
+  const [qrError, setQrError] = useState(false)
   useEffect(() => {
     let active = true
     setImage('')
+    setQrError(false)
+    try { setGrid(QRCode.create(value, { errorCorrectionLevel: 'L' }).modules.size + 8) } catch { setGrid(0) }
     QRCode.toDataURL(value, { scale: 6, margin: 4, errorCorrectionLevel: 'L' })
-      .then(url => { if (active) setImage(url) }).catch(() => {})
+      .then(url => { if (active) setImage(url) }).catch(() => { if (active) setQrError(true) })
     return () => { active = false }
   }, [value])
-  return <div className="lan-code">
-    <p>{reply ? 'Show this reply to the host. The host scans it to finish pairing.' : 'Your friend scans this invite on their device.'}</p>
-    {image && <img src={image} width="260" height="260" alt={reply ? 'LAN reply QR code' : 'LAN invite QR code'} />}
+  return <div className="lan-code" ref={container}>
+    <p>{reply ? 'Show this reply to the host. The host scans it to finish pairing.' : 'On your friend’s device: LAN Match → Join LAN match → Scan host’s invite.'}</p>
+    <p className="muted">Scan inside Counterball, not your phone’s Camera app. Update the game on both devices before pairing.</p>
+    {qrError && <p role="alert">This connection is too large for a QR code. Use the complete copy-and-paste code below.</p>}
+    {image && <img src={image} style={{ width: grid ? Math.max(1, Math.floor(Math.min(width, 360) / grid)) * grid : 260 }} width="260" height="260" alt={reply ? 'LAN reply QR code' : 'LAN invite QR code'} />}
     <details><summary>Copy pairing code instead</summary>
       <textarea className="field" readOnly value={value} aria-label="Your pairing code" onFocus={e => e.target.select()} />
       <button className="btn btn-secondary btn-block" onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true) } catch { setCopied(false) } }}>{copied ? 'Copied' : 'Copy code'}</button>
@@ -34,6 +48,7 @@ function Scanner({ onRead, onClose }) {
   const read = useRef(onRead)
   read.current = onRead
   const [error, setError] = useState('')
+  const [hint, setHint] = useState('Hold the whole QR code in view. Move closer if it is small.')
   useEffect(() => {
     let stream, timer, ended = false
     const canvas = document.createElement('canvas')
@@ -42,19 +57,20 @@ function Scanner({ onRead, onClose }) {
       const v = video.current
       if (ended || !v) return
       if (v.readyState >= 2 && v.videoWidth) {
-        canvas.width = Math.min(v.videoWidth, 800)
+        canvas.width = Math.min(v.videoWidth, 1600)
         canvas.height = canvas.width * v.videoHeight / v.videoWidth
         ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const code = jsQR(frame.data, frame.width, frame.height)
-        if (code?.data?.startsWith('CAPBALL-LAN1:')) { read.current(code.data); return }
+        if (isLanSignal(code?.data)) { read.current(code.data); return }
+        if (code?.data) setHint('That is not a LAN pairing code. Scan the invite or reply shown inside LAN Match.')
       }
       timer = setTimeout(scan, 180)
     }
     const start = async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera unavailable. Use the copy-and-paste pairing option.')
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
         if (ended) { stream.getTracks().forEach(t => t.stop()); return }
         video.current.srcObject = stream
         await video.current.play()
@@ -66,7 +82,7 @@ function Scanner({ onRead, onClose }) {
   }, [])
   return <Modal title="Scan pairing code" onClose={onClose}>
     {error ? <p role="alert">{error}</p> : <video className="lan-camera" ref={video} muted playsInline autoPlay />}
-    <p className="muted">Point at the code on the other device.</p>
+    <p className="muted" role="status">{hint}</p>
   </Modal>
 }
 
