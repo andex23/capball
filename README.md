@@ -145,7 +145,7 @@ The host shows one QR invite. The guest scans with the phone Camera (then taps *
 
 For fully offline setup, choose **No internet? Offline pairing**. This keeps the manual invite/reply exchange available without contacting any server. Load the game on both devices before going offline.
 
-Both LAN pairing options use WebRTC data channels with host-only ICE and no STUN or TURN. After pairing, gameplay and voice stay local; neither requires internet. The host runs authoritative
+Automatic pairing uses STUN discovery to support browsers that hide local addresses; it never configures a TURN relay. Fully offline pairing keeps host-only ICE and contacts no servers. Both use direct WebRTC data channels. After pairing, the signalling connection closes. Routers that isolate devices can still block direct connections. The host runs authoritative
 physics and validates guest input using the existing multiplayer protocol.
 Brief app/background or network interruptions pause LAN matches for up to two
 minutes while the existing WebRTC channel recovers. Fresh round-trip probes
@@ -179,4 +179,4 @@ LAN fixture; this is not a multi-device spectator lobby.
 
 ### Live voice chat
 
-During a live online or LAN match, open the match menu and choose **Join voice** on both devices. Allow microphone access, then use the pitch microphone button to mute/unmute or **Leave voice** in the menu to stop. If audio playback is blocked, use **Hear opponent**. Voice uses an audio-only WebRTC connection signalled over the existing match connection, with the same ICE configuration (no STUN/TURN for LAN). It is not recorded by the game. Leaving, losing the match connection, or backgrounding the app releases the microphone; rejoining voice requires another explicit tap. HTTPS (or localhost during development) is required for microphone access. Play anytime does not open a live voice channel.
+During a live online or LAN match, open the match menu and choose **Join voice** on both devices. Allow microphone access, then use the pitch microphone button to mute/unmute or **Leave voice** in the menu to stop. If audio playback is blocked, use **Hear opponent**. Voice uses an audio-only WebRTC connection signalled over the existing match connection, with the same ICE configuration (STUN discovery for automatic LAN; no discovery servers for fully offline LAN; neither LAN option uses TURN). It is not recorded by the game. Leaving, losing the match connection, or backgrounding the app releases the microphone; rejoining voice requires another explicit tap. HTTPS (or localhost during development) is required for microphone access. Play anytime does not open a live voice channel.
