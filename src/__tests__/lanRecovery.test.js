@@ -13,6 +13,25 @@ function setup() {
   }
 }
 describe('LAN recovery', () => {
+  it('notifies the other phone when a silent link is detected', () => {
+    const t = setup()
+    t.advance(LAN_SILENCE_MS)
+    t.recovery.tick()
+    expect(t.send).toHaveBeenCalledWith('lanAway', {})
+    t.recovery.tick()
+    expect(t.send.mock.calls.filter(([type]) => type === 'lanAway')).toHaveLength(1)
+  })
+  it('ignores duplicate visibility events and tolerates a brief phone scheduling delay', () => {
+    const t = setup()
+    t.show()
+    expect(t.onLost).not.toHaveBeenCalled()
+    t.recovery.tick()
+    t.advance(5500)
+    t.ack()
+    t.recovery.tick()
+    expect(t.onLost).not.toHaveBeenCalled()
+  })
+
   it('waits through lost packets and requires a fresh reply before resuming', () => {
     const t = setup()
     t.recovery.tick()

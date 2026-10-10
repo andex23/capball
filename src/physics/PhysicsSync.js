@@ -1,3 +1,4 @@
+import { onlineInterrupted } from '../multiplayer/reconnect'
 import { tickAnytime } from '../state/anytimeStore'
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
@@ -44,6 +45,7 @@ export function usePhysicsSync(meshRefs) {
     const store = useMatchStore.getState()
     if (store.gameMode === 'anytime') tickAnytime(delta)
     const authority = isAuthority(store)
+    const suspended = store.paused || onlineInterrupted(store)
     const frameMs = Math.min(delta * 1000, MAX_FRAME_MS)
 
     if (store.phase !== PHASE.RESOLVE) {
@@ -54,7 +56,7 @@ export function usePhysicsSync(meshRefs) {
     }
 
     // Only the authority simulates; an online guest just mirrors host positions.
-    if (authority && !store.paused) {
+    if (authority && !suspended) {
       store.tickTimer(Math.min(delta, MAX_CLOCK_STEP_S))
       store.tickShotClock(Math.min(delta, MAX_CLOCK_STEP_S))
       if (useMatchStore.getState().phase === PHASE.RESOLVE) {
@@ -128,7 +130,7 @@ export function usePhysicsSync(meshRefs) {
       }
     }
     // The rumble of things sliding across the board
-    if (store.phase === PHASE.RESOLVE && !store.paused) {
+    if (store.phase === PHASE.RESOLVE && !suspended) {
       setRolling(ballSpeed / ROLL_FULL_BALL, capSpeed / ROLL_FULL_CAP)
       rolling.current = true
     } else if (rolling.current) {
@@ -138,7 +140,7 @@ export function usePhysicsSync(meshRefs) {
     // Record this frame for goal replays — or, during one, redraw the past
     if (store.gameMode !== 'anytime') replayFrame(delta)
 
-    if (!authority || store.paused || resolved.current) return
+    if (!authority || suspended || resolved.current) return
     const s = useMatchStore.getState()
     if (s.phase !== PHASE.RESOLVE) return
 

@@ -62,6 +62,31 @@ describe('match start', () => {
 })
 
 describe('clock', () => {
+  it('holds a scheduled kickoff until the connection returns', () => {
+    get().startGame()
+    useMatchStore.setState({ gameMode: 'online', onlineReconnect: { phase: 'lost' } })
+    vi.advanceTimersByTime(TIMING.kickoff + 1000)
+    expect(get()).toMatchObject({ phase: PHASE.KICKOFF, timerRunning: false })
+    useMatchStore.setState({ onlineReconnect: null })
+    vi.advanceTimersByTime(100)
+    expect(get()).toMatchObject({ phase: PHASE.SELECT, timerRunning: true })
+  })
+
+  it('freezes both clocks whenever recovery is showing, even if paused was cleared', () => {
+    startAndKickOff()
+    useMatchStore.setState({ gameMode: 'online', onlineReconnect: { phase: 'lost' }, paused: false, shotClock: 15, shotClockRemaining: 9 })
+    const remaining = get().timeRemaining
+    get().tickTimer(30)
+    get().tickShotClock(30)
+    expect(get().timeRemaining).toBe(remaining)
+    expect(get().shotClockRemaining).toBe(9)
+    useMatchStore.setState({ onlineReconnect: null })
+    get().tickTimer(1)
+    get().tickShotClock(1)
+    expect(get().timeRemaining).toBe(remaining - 1)
+    expect(get().shotClockRemaining).toBe(8)
+  })
+
   it.each([60, 90, 120, 150, 180])('gives each half the selected %i seconds', duration => {
     get().setMatchDuration(duration)
     startAndKickOff()

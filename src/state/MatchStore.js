@@ -1,3 +1,4 @@
+import { onlineInterrupted } from '../multiplayer/reconnect'
 import { create } from 'zustand'
 import { otherTeam, shootoutStatus, nextShooter, matchWinner } from '../game/rules'
 
@@ -74,6 +75,7 @@ let decisionCompletion = null
 export function later(fn, ms) {
   const id = setTimeout(() => {
     pendingTimers.delete(id)
+    if (onlineInterrupted(useMatchStore.getState())) { later(fn, 100); return }
     fn()
   }, ms)
   pendingTimers.add(id)
@@ -111,7 +113,7 @@ function scheduleDecision(continuation, delay) {
     if (decisionCompletion !== complete) return
     const s = useMatchStore.getState()
     // A paused match or a replay still being drawn must not jump ahead.
-    if (s.paused) { decisionTimer = later(fallback, delay); return }
+    if (s.paused || onlineInterrupted(s)) { decisionTimer = later(fallback, delay); return }
     if (s.replaying) { decisionTimer = later(fallback, 250); return }
     complete()
   }
@@ -215,6 +217,7 @@ export const useMatchStore = create((set, get) => ({
   setShotClock: (secs) => set({ shotClock: secs, shotClockRemaining: secs }),
 
   tickShotClock: (dt) => {
+    if (onlineInterrupted(get())) return
     const { shotClock, shotClockRemaining, paused, phase, tutorialHold, challenge } = get()
     if (!shotClock || challenge || paused || tutorialHold || !INPUT_PHASES.includes(phase)) return
     const next = Math.max(0, shotClockRemaining - dt)
@@ -237,6 +240,7 @@ export const useMatchStore = create((set, get) => ({
   setTutorialHold: (hold) => { if (get().tutorialHold !== hold) set({ tutorialHold: hold }) },
 
   tickTimer: (dt) => {
+    if (onlineInterrupted(get())) return
     const { timeRemaining, timerRunning, paused, tutorialHold, phase, half, goalTarget } = get()
     if (goalTarget) return // first-to-N matches have no clock
     if (!timerRunning || paused || tutorialHold || !CLOCK_PHASES.includes(phase)) return

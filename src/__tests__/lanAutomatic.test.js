@@ -22,6 +22,25 @@ beforeEach(() => { vi.useFakeTimers(); mocks.peers.length = 0 })
 afterEach(() => { disconnect(); vi.clearAllTimers(); vi.useRealTimers() })
 
 describe('automatic LAN transport', () => {
+  it('holds guest clocks and positions while its recovery overlay is showing', async () => {
+    const joining = joinAutomaticLanRoom('COUNTERBALL-AUTO1:ABCDEFGHJKLM')
+    const peer = mocks.peers[0]
+    peer.emit('open')
+    peer.connection.emit('data', { type: 'welcome', data: { token: 'a'.repeat(32) } })
+    await joining
+    useMatchStore.setState({ screen: 'PLAYING', timeRemaining: 40, shotClockRemaining: 8 })
+    peer.connection.emit('data', { type: 'lanAway', data: {} })
+    expect(useMatchStore.getState().onlineReconnect.phase).toBe('lost')
+    peer.connection.emit('data', { type: 'sync', data: { state: { timeRemaining: 30, shotClockRemaining: 1, paused: false } } })
+    expect(useMatchStore.getState()).toMatchObject({ timeRemaining: 40, shotClockRemaining: 8 })
+    await vi.advanceTimersByTimeAsync(1000)
+    const probe = peer.connection.send.mock.calls.map(([m]) => m).findLast(m => m.type === 'lanProbe')
+    peer.connection.emit('data', { type: 'lanAck', data: { id: probe.data.id, visible: true } })
+    expect(useMatchStore.getState().onlineReconnect).toBeNull()
+    peer.connection.emit('data', { type: 'sync', data: { state: { timeRemaining: 40, shotClockRemaining: 8, paused: false } } })
+    expect(useMatchStore.getState().paused).toBe(false)
+  })
+
   it('creates an automatic invite with discovery servers and no relay', async () => {
     const opening = createAutomaticLanRoom()
     const peer = mocks.peers[0]

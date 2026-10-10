@@ -1,3 +1,4 @@
+import { onlineInterrupted } from '../multiplayer/reconnect'
 import { useEffect, useMemo } from 'react'
 import { useMatchStore, PHASE } from '../state/MatchStore'
 import { createReplayBuffer, playbackDuration, playbackTime, REPLAY } from '../game/replay'
@@ -112,7 +113,7 @@ export function createReplayController(meshRefs) {
     frame(delta) {
       const step = Math.min(delta, MAX_STEP_S)
       const { phase, paused } = useMatchStore.getState()
-      if (paused) return
+      if (paused || onlineInterrupted(useMatchStore.getState())) return
       wallClock += delta
       const decisionPhase = phase === PHASE.GOAL || phase === PHASE.NO_GOAL
       const previousPhase = lastPhase

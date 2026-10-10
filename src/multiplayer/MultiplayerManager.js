@@ -171,6 +171,8 @@ function handleAsGuest(msg) {
   if (!isObj(msg)) return
   const store = useMatchStore.getState()
   if (msg.type === 'sync' && msg.data) {
+    // Do not animate queued state or advance either displayed clock behind recovery.
+    if (lan && store.onlineReconnect) return
     if (lan && msg.data.state?.lanCompetition) useTournamentStore.getState().receiveLanSnapshot(msg.data.state.lanCompetition)
     const update = filterSynced(msg.data.state)
     // A new screen means a new ready round
