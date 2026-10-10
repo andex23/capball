@@ -53,6 +53,16 @@ export function createReplayController(meshRefs) {
     buffer.push(recClock, frame)
   }
 
+  // Keep the pre-shot position. Physics may score in its very first frame;
+  // clearing everything here loses the only image before the ball entered.
+  function retainLastFrame() {
+    if (!buffer.size) return
+    const at = buffer.end
+    buffer.sample(at, frame)
+    buffer.clear()
+    buffer.push(at, frame)
+  }
+
   function show(t) {
     buffer.sample(t, frame)
     const meshes = meshRefs.current
@@ -105,7 +115,8 @@ export function createReplayController(meshRefs) {
       if (paused) return
       wallClock += delta
       const decisionPhase = phase === PHASE.GOAL || phase === PHASE.NO_GOAL
-      if (phase === PHASE.RESOLVE && lastPhase !== PHASE.RESOLVE) buffer.clear()
+      const previousPhase = lastPhase
+      if (phase === PHASE.RESOLVE && previousPhase !== PHASE.RESOLVE) retainLastFrame()
       lastPhase = phase
 
       if (!decisionPhase) {
@@ -117,6 +128,9 @@ export function createReplayController(meshRefs) {
 
       // The record stops at the moment the ball went in
       if (goalAt === null) {
+        // A guest can receive the goal before any RESOLVE snapshot. Do not
+        // replay a long stationary wait before the only observed movement.
+        if (previousPhase !== PHASE.RESOLVE) retainLastFrame()
         // Capture entry before any restart; the last RESOLVE frame can still
         // show the ball short of the line, especially on a network guest.
         recClock += step
@@ -127,7 +141,7 @@ export function createReplayController(meshRefs) {
       if (done) return
       if (!playing) {
         if (wallClock - goalAt < REPLAY.bannerMs / 1000) return // "GOAL!" banner first
-        if (buffer.span < REPLAY.minSpan) { done = true; return }
+        if (buffer.size < 2 || buffer.span <= 0) { done = true; return }
         start()
         show(playbackTime(0, buffer.start, buffer.end))
         return // do not charge the banner frame against playback
@@ -141,7 +155,9 @@ export function createReplayController(meshRefs) {
       }
 
       elapsed += delta
-      show(playbackTime(elapsed, buffer.start, buffer.end))
+      const recordedDuration = playbackDuration(buffer.span)
+      const visibleDuration = Math.max(1.5, recordedDuration)
+      show(playbackTime(elapsed * recordedDuration / visibleDuration, buffer.start, buffer.end))
       if (replayCam) {
         const k = smooth(Math.min(1, elapsed / CAMERA_EASE_S))
         setCameraPose({
@@ -149,7 +165,7 @@ export function createReplayController(meshRefs) {
           target: lerp3(savedCam.target, replayCam.target, k),
         })
       }
-      if (elapsed >= Math.max(1.5, playbackDuration(buffer.span)) + HOLD_S) finish()
+      if (elapsed >= visibleDuration + HOLD_S) finish()
     },
   }
 }

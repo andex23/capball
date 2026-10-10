@@ -179,6 +179,47 @@ describe('decision replays', () => {
     expect(useMatchStore.getState().replaying).toBe(true)
   }
 
+  it.each(['local', 'online'])('replays a one-frame goal at 120Hz in %s play', gameMode => {
+    const { refs, replay } = shot()
+    // Start a new shot with a recorded position just outside the goal line.
+    useMatchStore.setState({ gameMode, phase: PHASE.SELECT })
+    refs.current.ball.position.x = 14
+    replay.frame(1 / 120)
+    useMatchStore.setState({ phase: PHASE.RESOLVE })
+    refs.current.ball.position.x = 16
+    replay.frame(1 / 120)
+    useMatchStore.getState().scoreGoal('team1')
+    replay.frame(1 / 120)
+    replay.frame(1.01)
+    expect(useMatchStore.getState().replaying).toBe(true)
+    expect(refs.current.ball.position.x).toBeCloseTo(14)
+    replay.frame(0.4)
+    // Short replays must show motion, not immediately jump to a frozen end.
+    expect(refs.current.ball.position.x).toBeLessThan(16)
+    for (let i = 0; i < 20; i++) replay.frame(0.1)
+    expect(useMatchStore.getState().replaying).toBe(false)
+    expect(useMatchStore.getState().score.team1).toBe(1)
+    replay.dispose()
+  })
+
+  it('replays a guest goal even if the shot finishes between network snapshots', () => {
+    const { refs, replay } = shot()
+    useMatchStore.setState({ gameMode: 'online', onlineMyTeam: 'team2', phase: PHASE.SELECT })
+    refs.current.ball.position.x = 14
+    for (let i = 0; i < 100; i++) replay.frame(0.05)
+    // Guest goes directly from a waiting snapshot to the scoring snapshot.
+    refs.current.ball.position.x = 16
+    useMatchStore.setState({ phase: PHASE.GOAL, replayDecision: { outcome: 'goal' } })
+    replay.frame(1 / 120)
+    replay.frame(1.01)
+    expect(useMatchStore.getState().replaying).toBe(true)
+    expect(refs.current.ball.position.x).toBeCloseTo(14)
+    replay.frame(0.4)
+    expect(refs.current.ball.position.x).toBeGreaterThan(14)
+    expect(refs.current.ball.position.x).toBeLessThan(16)
+    replay.dispose()
+  })
+
   it('replays a disallowed entry before awarding the defending goal kick', () => {
     const { refs, replay } = shot()
     const restart = { kind: 'goalKick', team: 'team2', ex: 1, ey: 0, reason: 'bank' }
