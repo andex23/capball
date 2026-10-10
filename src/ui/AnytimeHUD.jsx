@@ -1,3 +1,4 @@
+import GoalSplash from './GoalSplash'
 import AimWarning from './AimWarning'
 import { useEffect, useState } from 'react'
 import { useAnytimeStore } from '../state/anytimeStore'
@@ -28,6 +29,7 @@ export default function AnytimeHUD({ children }) {
   return <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
     <AnytimeScoreboard match={match} busy={busy} pending={pending} watching={watching} onMenu={() => showMenu(true)} />
     <AimWarning />
+    <GoalSplash />
     {match.status === 'waiting' && <p className="at-match-note">Invite code <strong>{match.code}</strong></p>}
     {(error || pending) && <p className="at-match-note" data-error="true" role="alert">{error || 'Open the menu to confirm your turn.'}</p>}
     {watching && explanation && <p className="at-match-note"><strong>{explanation.title}</strong> · {explanation.detail}</p>}

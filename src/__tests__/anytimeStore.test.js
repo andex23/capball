@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { useAnytimeStore } from '../state/anytimeStore'
+import { useAnytimeStore, tickAnytime } from '../state/anytimeStore'
 import { useAccountStore } from '../state/accountStore'
 import { useMatchStore } from '../state/MatchStore'
 import { anytimeConfig, createAnytimeState, resolveAnytimeTurn } from '../game/anytime'
@@ -75,4 +75,21 @@ describe('saved-match client recovery', () => {
     expect(useAnytimeStore.getState().pending).toBeNull()
     expect(useMatchStore.getState().phase).toBe('SELECT')
   })
+})
+
+
+it.each(['goal', 'no_goal'])('celebrates only a confirmed %s after saved-turn playback reaches the net', async outcome => {
+  const result = { ...initial, version: 2, state: { ...initial.state, lastTurn: {
+    frames: [{}, {}], frameSeconds: 0.2, decision: { outcome },
+  } } }
+  vi.stubGlobal('fetch', vi.fn(async (_url, options) => response(JSON.parse(options.body).action === 'get' ? initial : result)))
+  await useAnytimeStore.getState().open('get', { code: initial.code })
+  await useAnytimeStore.getState().submit('team1_atk2', { x: 0.1, y: 0 })
+  useMatchStore.setState({ paused: false })
+  tickAnytime(0.1)
+  expect(useMatchStore.getState().phase).toBe('RESOLVE')
+  tickAnytime(0.1)
+  expect(useMatchStore.getState().phase).toBe(outcome === 'goal' ? 'GOAL' : 'RESOLVE')
+  for (let i = 0; i < 11; i++) tickAnytime(0.1)
+  expect(useMatchStore.getState().phase).not.toBe('GOAL')
 })

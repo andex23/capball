@@ -1,3 +1,4 @@
+import GoalSplash from './GoalSplash'
 import AimWarning from './AimWarning'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -315,6 +316,7 @@ export default function HUD() {
   return (
     <div className="hud">
       <ReplayOverlay />
+      <GoalSplash />
       <div className="hud-top">
         <ScoreBug />
         <AimWarning />

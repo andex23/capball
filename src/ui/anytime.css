@@ -127,3 +127,9 @@
   .at-match-clock { font-size: 18px; padding-top: 2px; }
   .at-match-clock + small { font-size: 9px; padding-bottom: 2px; }
 }
+
+.goal-splash { position: absolute; inset: 0; z-index: 35; display: grid; place-items: center; pointer-events: none; animation: goal-splash-show 1s ease-out both; }
+.goal-splash strong { font: italic 800 clamp(48px, 13vw, 110px)/1 'Barlow Condensed', sans-serif; color: #ffd54a; text-shadow: 3px 4px 0 #101521, -2px -2px 0 #101521; text-align: center; }
+@keyframes goal-splash-show { 0% { opacity: 0; transform: scale(.85); } 15%, 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; visibility: hidden; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .goal-splash { animation-name: goal-splash-quiet; } }
+@keyframes goal-splash-quiet { 0%, 85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
