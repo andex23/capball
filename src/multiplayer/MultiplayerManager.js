@@ -1,3 +1,4 @@
+import { automaticLanInvite, automaticLanRoomCode } from './lanInvite'
 import { connectVoice, disconnectVoice, receiveVoice, leaveVoice } from './voiceStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { createLanPeer } from './lan'
@@ -73,7 +74,7 @@ const RELAY_CONFIGURED = hasRelay(buildIceServers(ENV))
  * plus the ICE servers.
  */
 function peerOptions() {
-  const options = { config: { ...(peerUtil?.defaultConfig || {}), iceServers: ICE_SERVERS } }
+  const options = { config: { ...(peerUtil?.defaultConfig || {}), iceServers: lan ? [] : ICE_SERVERS } }
   if (!ENV.VITE_PEER_HOST) return options
   return {
     ...options,
@@ -84,10 +85,10 @@ function peerOptions() {
   }
 }
 
-function generateCode() {
+function generateCode(length = 6) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  for (let i = 0; i < length; i++) code += chars[Math.floor(Math.random() * chars.length)]
   return code
 }
 
@@ -331,7 +332,12 @@ function onConnected(rejoin) {
   lobbyHint = ''
   if (rejoin) setStatus('connected', isHost ? `${opponentName()} is back!` : 'Reconnected!')
   else setStatus('connected', isHost ? 'Opponent connected!' : 'Connected to host!')
-  if (lan) startLanRecovery()
+  if (lan) {
+    startLanRecovery()
+    // Pairing is finished; the match and voice continue over local data channels.
+    stopSignalling()
+    peer?.disconnect?.()
+  }
   if (isHost) startSync()
   startWatchdog()
   if (rejoin && reconnector?.active) reconnector.succeed()
@@ -501,10 +507,12 @@ export async function finishLanPairing(answer) {
   if (peer === endpoint && !conn?.open) setStatus('connecting', 'Connecting over your local network…')
 }
 
-export function createRoom(attempt = 0) {
+export function createRoom(attempt = 0, transport = 'internet') {
   disconnect()
+  lan = transport === 'lan'
+  useMatchStore.setState({ onlineTransport: transport })
   return new Promise((resolve, reject) => {
-    const code = generateCode()
+    const code = generateCode(lan ? 12 : 6)
     const p = new Peer(ROOM_PREFIX + code, peerOptions())
     peer = p
     isHost = true
@@ -512,9 +520,16 @@ export function createRoom(attempt = 0) {
     sessionToken = makeSessionToken()
     roomBound = false
     let opened = false
+    const timer = lan ? setTimeout(() => {
+      if (opened) return
+      const error = new Error('Automatic pairing needs internet briefly. Reconnect, or choose offline pairing.')
+      if (peer === p) { peer = null; p.destroy(); setStatus('error', error.message) }
+      reject(error)
+    }, CONNECT_TIMEOUT_MS) : null
 
     p.on('open', () => {
       if (peer !== p) return
+      clearTimeout(timer)
       // Fires again after a signalling reconnect
       if (!roomBound && !conn) setStatus('waiting', lobbyHint || 'Waiting for opponent…')
       if (opened) return
@@ -526,8 +541,9 @@ export function createRoom(attempt = 0) {
     p.on('error', (err) => {
       if (peer !== p) return
       if (!opened) {
+        clearTimeout(timer)
         if (err.type === 'unavailable-id' && attempt < 3) {
-          createRoom(attempt + 1).then(resolve, reject)
+          createRoom(attempt + 1, transport).then(resolve, reject)
           return
         }
         setStatus('error', errorMessage(err))
@@ -541,8 +557,10 @@ export function createRoom(attempt = 0) {
   })
 }
 
-export function joinRoom(input) {
+export function joinRoom(input, transport = 'internet') {
   disconnect()
+  lan = transport === 'lan'
+  useMatchStore.setState({ onlineTransport: transport })
   const code = String(input).toUpperCase().replace(/[^A-Z0-9]/g, '')
   isHost = false
   roomCode = code
@@ -554,6 +572,18 @@ export function joinRoom(input) {
       throw err
     },
   )
+}
+
+/** Automatic LAN discovery uses signalling briefly, never STUN/TURN for the match. */
+export async function createAutomaticLanRoom() {
+  try { return automaticLanInvite(await createRoom(0, 'lan')) }
+  catch { throw new Error('Could not prepare automatic pairing. Check internet access, or choose offline pairing.') }
+}
+export async function joinAutomaticLanRoom(invite) {
+  const code = automaticLanRoomCode(invite)
+  if (!code) throw new Error('Scan a fresh host invite.')
+  try { await joinRoom(code, 'lan') }
+  catch { throw new Error('Could not join this host. Keep the host’s game open, use the same Wi-Fi or hotspot, and allow internet briefly for pairing. Ask the host for a fresh invite if needed.') }
 }
 
 // Closing the tab tells the other side straight away where the browser allows it

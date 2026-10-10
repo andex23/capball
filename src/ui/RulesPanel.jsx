@@ -20,7 +20,7 @@ const SECTIONS = [
       'Cups and leagues: select LAN in tournament setup or the competition hub, choose a fixture and your team, then pair. Each player can edit their own team. The host saves the competition; the guest can view the updated table or bracket.',
       'Career: choose Play this match over LAN. You keep your club, even for away matches; your friend plays the opposition. The result progresses the host’s career.',
       'Pair again for each competition fixture. Download the game before going offline; an existing signed-in career can continue without internet, with cloud saving when back online.',
-      'One player hosts. The guest scans the invite with their phone Camera or the in-game scanner. A Camera link opens the game: tap Join this host. The host scans the guest’s reply inside the game without closing the host session. Copy-and-paste pairing also works.',
+      'For automatic pairing, the host shows one invite. The guest scans with their phone Camera or the in-game scanner and joins. No reply scan is needed. Internet is needed briefly to pair; the match then stays on the local network. With no internet, select Offline pairing and exchange an invite and reply.',
       'Choose your teams and play directly over your local network. No internet or account is needed after the game has loaded.',
       'Brief app or network interruptions pause LAN matches for up to two minutes. Return both devices to the game on the same network to resume automatically. Closing or reloading ends the session. Guest Wi-Fi with device isolation may block pairing.',
     ],
