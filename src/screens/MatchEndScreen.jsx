@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import MatchResultSplash from '../ui/MatchResultSplash'
 import { useTournamentStore } from '../state/tournamentStore'
 import GoalClips from '../ui/GoalClips'
 import { HeadToHead, ShareResult } from '../ui/ShareResult'
@@ -55,6 +57,7 @@ function RecordNote() {
 }
 
 export default function MatchEndScreen() {
+  const [dismissedResult, setDismissedResult] = useState(null)
   const matchResult = useMatchStore((s) => s.matchResult)
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const gameMode = useMatchStore((s) => s.gameMode)
@@ -83,6 +86,10 @@ export default function MatchEndScreen() {
   let headline = isDraw ? 'It’s a draw' : `${winnerName} win`
   if (gameMode === 'ai' && !isDraw) headline = winner === useMatchStore.getState().aiTeam ? 'CPU wins' : 'You win!'
   if (online && !isDraw) headline = winner === useMatchStore.getState().onlineMyTeam ? 'You win!' : `${winnerName} win`
+
+  if (dismissedResult !== matchResult) return <MatchResultSplash
+    teams={teamConfig} score={score} winner={winner} penaltyScore={penaltyScore}
+    onContinue={() => { playConfirm(); setDismissedResult(matchResult) }} />
 
   return (
     <div className="screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
