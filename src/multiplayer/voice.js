@@ -6,7 +6,15 @@ export function requestMicrophone(constraints) {
   return navigator.mediaDevices.getUserMedia(constraints)
 }
 
-export function microphoneErrorMessage(error) {
+// Voice IDs correlate messages on an already authenticated channel. Use the widely
+// supported Web Crypto API rather than requiring the newer randomUUID method.
+export function voiceSessionId() {
+  const bytes = new Uint8Array(16)
+  globalThis.crypto.getRandomValues(bytes)
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+export function microphoneErrorMessage(error, stage = 'capture') {
   switch (error?.name) {
     case 'NotAllowedError': case 'PermissionDeniedError': case 'SecurityError':
       return 'Microphone access was denied. On iPhone, open Safari’s website settings and set Microphone to Allow, then join voice again. [MIC_PERMISSION]'
@@ -20,8 +28,12 @@ export function microphoneErrorMessage(error) {
       return 'Microphone access needs a secure connection. Open the game using its HTTPS address. [MIC_HTTPS]'
     case 'MediaUnsupported': case 'VoiceUnsupported':
       return 'This browser does not provide voice access. Open the game directly in Safari or Chrome and join the match there. [MIC_BROWSER]'
-    default:
-      return 'Voice could not start. Try joining again; if this continues, open the game directly in Safari or Chrome. [VOICE_START]'
+    default: {
+      // Report only a bounded browser error category, never device names, SDP or raw messages.
+      const category = ['TypeError', 'UnknownError', 'InvalidStateError', 'NotSupportedError', 'Error'].includes(error?.name) ? error.name : 'Other'
+      const step = stage === 'session' ? 'SESSION' : stage === 'tracks' ? 'TRACKS' : 'CAPTURE'
+      return `Voice could not start ${stage === 'capture' ? 'the microphone' : 'the voice session'}. Try joining again. If it fails, share this code: [VOICE_${step}_${category}]`
+    }
   }
 }
 
@@ -29,7 +41,7 @@ export function microphoneErrorMessage(error) {
 export function createVoiceChat({ send, isHost, iceServers = [], onState = () => {},
   getUserMedia = requestMicrophone,
   PeerConnection = globalThis.RTCPeerConnection, createAudio = () => new Audio(),
-  makeId = () => crypto.randomUUID(), gatherTimeout = 12000,
+  makeId = voiceSessionId, gatherTimeout = 12000,
 }) {
   let stream = null, pc = null, audio = null, localId = null, remoteId = null
   let generation = 0, disposed = false, pending = false, muted = false
@@ -135,6 +147,7 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
     pending = true
     const token = ++generation
     publish({ status: 'permission', error: '' })
+    let stage = 'capture'
     try {
       if (!PeerConnection) throw voiceError('VoiceUnsupported')
       let result
@@ -147,15 +160,17 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
         result = await getUserMedia({ audio: true, video: false })
       }
       if (disposed || generation !== token) { result.getTracks().forEach(track => track.stop()); return }
+      stage = 'tracks'
       if (!result.getAudioTracks().length) { result.getTracks().forEach(track => track.stop()); throw voiceError('NoMicrophone') }
       stream = result
+      stage = 'session'
       localId = makeId()
       for (const track of stream.getAudioTracks()) track.onended = () => { if (stream === result) leave('Microphone disconnected. Join voice again to reconnect it.') }
       publish({ enabled: true, muted: false, status: 'waiting', error: '' })
       transmit({ kind: 'ready', id: localId })
       await offer()
     } catch (error) {
-      if (generation === token) fail(microphoneErrorMessage(error))
+      if (generation === token) fail(microphoneErrorMessage(error, stage))
     } finally { if (generation === token) pending = false }
   }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { createVoiceChat, microphoneErrorMessage, requestMicrophone } from '../multiplayer/voice'
+import { createVoiceChat, microphoneErrorMessage, requestMicrophone, voiceSessionId } from '../multiplayer/voice'
 
 const active = []
 afterEach(() => { active.splice(0).forEach(v => v.dispose()); vi.useRealTimers(); vi.unstubAllGlobals() })
@@ -133,6 +133,28 @@ describe('phone microphone recovery', () => {
     const t = setup({ makeId: () => { throw new Error('setup failed') } })
     await t.voice.enable()
     expect(t.track.stop).toHaveBeenCalledOnce()
-    expect(t.state.error).toContain('[VOICE_START]')
+    expect(t.state.error).toContain('[VOICE_SESSION_Error]')
+  })
+})
+
+
+describe('voice startup compatibility', () => {
+  it('joins when Web Crypto is available without randomUUID', async () => {
+    let seed = 0
+    vi.stubGlobal('crypto', { getRandomValues: bytes => { bytes.fill(++seed); return bytes } })
+    const t = setup({ makeId: voiceSessionId })
+    await t.voice.enable()
+    expect(t.state.enabled).toBe(true)
+    const first = t.send.mock.calls[0][0].id
+    expect(first).toMatch(/^[a-f0-9]{32}$/)
+    t.voice.leave()
+    await t.voice.enable()
+    expect(t.send.mock.lastCall[0].id).not.toBe(first)
+  })
+  it('distinguishes capture exceptions from failures after permission', async () => {
+    const t = setup({ getUserMedia: async () => { throw new TypeError('private device details') } })
+    await t.voice.enable()
+    expect(t.state.error).toContain('[VOICE_CAPTURE_TypeError]')
+    expect(t.state.error).not.toContain('private device details')
   })
 })
