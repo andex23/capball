@@ -1314,7 +1314,7 @@ button { cursor: pointer; background: none; border: 0; }
   .shell-head > .mode-icon { display: none; }
   .t-next-team b { font-size: 19px; }
   .t-champion { grid-template-columns: auto minmax(0, 1fr); padding: 14px 16px; }
-  .t-champion > .btn { grid-column: 1 / -1; }
+  .t-champion-actions { grid-column: 1 / -1; }
   /* Rounds stack top to bottom: easier to read than a sideways scroll */
   .t-bracket { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; }
   .t-round-ties { justify-content: flex-start; }
@@ -2181,4 +2181,19 @@ button { cursor: pointer; background: none; border: 0; }
   .hud-top { left: 50%; right: auto; transform: translateX(-50%); width: calc(100% - 24px); max-width: 560px; }
   .hud-corner.tr { top: auto; bottom: calc(var(--safe-bottom) + 12px); }
   .hud-corner.br { right: calc(var(--safe-right) + 68px); }
+}
+
+
+/* Keep the winner identity together; actions never size the cap column. */
+.t-champion-text { min-width: 0; }
+.t-champion-eyebrow { flex-wrap: wrap; }
+.t-champion-eyebrow svg { flex: none; }
+.t-champion-actions { min-width: 0; }
+.t-champion-actions .btn { white-space: normal; overflow-wrap: anywhere; text-align: center; }
+@media (max-width: 700px) {
+  .t-champion { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; }
+  .t-champion-cap svg { width: 64px; height: 64px; }
+  .t-champion-actions { grid-column: 1 / -1; }
+  .tournament-hub-screen .shell-foot-inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tournament-hub-screen .shell-foot-inner .btn { min-width: 0; white-space: normal; padding: 10px 8px; font-size: 11px; text-align: center; }
 }
