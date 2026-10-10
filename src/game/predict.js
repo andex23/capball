@@ -95,6 +95,29 @@ function boxExit(x, y, ux, uy, minX, maxX, minY, maxY) {
   return t < 0 ? 0 : t
 }
 
+// The goalmouth is an opening for caps too, not an invisible end wall.
+function capExit(shot, x, y, ux, uy) {
+  const edge = PITCH.halfW - shot.r
+  const back = PITCH.halfW + PITCH.goalDepth - shot.r
+  const lane = PITCH.goalWidth / 2 - shot.r
+  const end = Math.abs(x) > edge + EPS ? Math.sign(x) : Math.sign(ux)
+  const allowed = shot.goalAccess === 0 || shot.goalAccess === end
+  if (Math.abs(x) > edge + EPS && allowed) {
+    // Leaving the net towards the pitch: stop at its side only if we touch
+    // it before reaching the open goalmouth.
+    const mouthT = ux * end < 0 ? (end * edge - x) / ux : Infinity
+    const netT = boxExit(x, y, ux, uy, -back, back, -lane, lane)
+    if (netT <= mouthT) return netT
+    const rest = capExit(shot, end * edge, y + uy * mouthT, ux, uy)
+    return mouthT + rest
+  }
+  const t = boxExit(x, y, ux, uy, shot.minX, shot.maxX, shot.minY, shot.maxY)
+  if (allowed && wallHit.nx !== 0 && Math.abs(x + ux * t) >= edge - EPS && Math.abs(y + uy * t) <= lane) {
+    return boxExit(x, y, ux, uy, -back, back, -lane, lane)
+  }
+  return t
+}
+
 /** Speed left after sliding `dist` from speed v with constant deceleration. */
 function slowed(v, decel, dist) {
   const v2 = v * v - 2 * decel * dist
@@ -145,6 +168,7 @@ export function createShot(maxBodies = 16) {
     maxSpeed: PHYSICS.maxFlickVelocity,                    // the cap's top speed (more for a better player)
     ballX: 0, ballY: 0,
     bodies, bodyCount: 0,                                  // other caps: { x, y, r, contact: 'foul' | 'teammate' }
+    goalAccess: 0, // own goal direction for keepers; both ends for outfield caps
     minX: 0, maxX: 0, minY: 0, maxY: 0,                    // where the cap's centre can go (capBounds)
   }
 }
@@ -156,6 +180,7 @@ export function createShot(maxBodies = 16) {
 export function capBounds(capId, team1Side, out) {
   const { halfW, halfH } = PITCH
   const r = isGoalkeeper(capId) ? GK_RADIUS : CAP_RADIUS
+  out.goalAccess = isGoalkeeper(capId) ? teamHomeDir(teamOf(capId), team1Side) : 0
   out.minX = -halfW + r
   out.maxX = halfW - r
   out.minY = -halfH + r
@@ -218,7 +243,7 @@ export function predictShot(shot, out = createPrediction()) {
         ox = b.x; oy = b.y; or = b.r
       }
     }
-    const tw = boxExit(x, y, ux, uy, shot.minX, shot.maxX, shot.minY, shot.maxY)
+    const tw = capExit(shot, x, y, ux, uy)
     if (tw < t) { t = tw; kind = 'wall'; nx = wallHit.nx; ny = wallHit.ny }
 
     x += ux * t

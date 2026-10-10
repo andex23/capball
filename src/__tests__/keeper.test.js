@@ -18,7 +18,8 @@ describe('goalkeeper', () => {
     const start = { x: -13.8, y: 0 }
     const end = run({ team1_gk: start, ball: { x: -6, y: 0, vx: -PHYSICS.maxFlickVelocity, vy: 0 } })
     const moved = Math.hypot(end.team1_gk.x - start.x, end.team1_gk.y - start.y)
-    expect(moved).toBeLessThan(0.6)
+    // The goal line no longer acts as an invisible backstop.
+    expect(moved).toBeLessThan(GK_RADIUS)
     // ...and the ball didn't go in
     expect(end.ball.x).toBeGreaterThan(-PITCH.halfW)
   })
@@ -90,5 +91,28 @@ describe('goals in off the wall', () => {
     const ctx = makeContext({ positions, team: 'team1', team1Side: 'left' })
     const out = simulateFlick(ctx, 'team1_atk1', { x: 1.2, y: 2.2 }, { maxFrames: 400 })
     if (out?.verdict) expect(out.verdict.outcome).not.toBe('goal')
+  })
+})
+
+describe('goal-line clearances', () => {
+  it.each([-1, 1])('lets the keeper stand behind an unscored ball at end %s and clear it', (end) => {
+    const id = end === -1 ? 'team1_gk' : 'team2_gk'
+    const world = createSimulationWorld({
+      [id]: { x: end * 16.3, y: 0, vx: -end * 1.5, vy: 0 },
+      ball: { x: end * 14.7, y: 0 },
+    })
+    // Whole ball has not crossed; the keeper can reach its goal-side surface.
+    for (let frame = 0; frame < 80; frame++) world.step(1000 / 60)
+    expect(world.bodies.ball.position.x * end).toBeLessThan(14)
+  })
+
+  it('lets the keeper enter his goalmouth without snapping back onto the ball', () => {
+    const world = createSimulationWorld({ team1_gk: { x: -13.8, y: 0, vx: -1.2, vy: 0 }, ball: { x: 0, y: 0 } })
+    let deepest = -13.8
+    for (let frame = 0; frame < 30; frame++) {
+      world.step(1000 / 60)
+      deepest = Math.min(deepest, world.bodies.team1_gk.position.x)
+    }
+    expect(deepest).toBeLessThan(-15)
   })
 })

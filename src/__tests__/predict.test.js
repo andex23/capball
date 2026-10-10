@@ -41,6 +41,15 @@ describe('predictShot', () => {
     }
   })
 
+  it('previews a keeper moving through his own goalmouth and clearing back out', () => {
+    const entry = shot({ capId: 'team1_gk', x: -13.8, y: 0, vx: -1.2, vy: 0, ballX: 0, ballY: 5 })
+    expect(Math.min(...Array.from({ length: entry.capPoints }, (_, i) => entry.capPath[i * 2]))).toBeLessThan(-15)
+    const clearance = shot({ capId: 'team1_gk', x: -16.3, y: 0, vx: 1.5, vy: 0, ballX: -14.7, ballY: 0 })
+    expect(clearance.contact).toBe('ball')
+    expect(clearance.ballPath[2]).toBeGreaterThan(clearance.ballPath[0])
+    expect(goalFor(clearance, 'team1_gk', 'left')).not.toBe('own')
+  })
+
   it('straight-on hit sends the ball along the flick direction', () => {
     const p = shot({ x: -3, y: 4, vx: 3, vy: 0, ballX: 0, ballY: 4 })
     expect(p.contact).toBe('ball')

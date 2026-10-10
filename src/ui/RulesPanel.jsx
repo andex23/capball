@@ -38,7 +38,7 @@ const SECTIONS = [
     items: [
       'Goalkeepers can score in open play. The direct goal-kick restriction still applies.',
       'The goal-kick restriction does not cancel an own goal; other scoring restrictions still apply.',
-      'Goalkeepers must stay inside their penalty area. You can only flick your goalkeeper when the ball is inside that area and within reach.',
+      'Goalkeepers stay within their penalty area, but can move through their own goalmouth to get behind a ball on the line. You can only flick your goalkeeper when the ball is nearby and within reach.',
     ],
   },
   {
