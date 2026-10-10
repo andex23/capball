@@ -1,3 +1,4 @@
+import { connectVoice, disconnectVoice, receiveVoice, leaveVoice } from './voiceStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { createLanPeer } from './lan'
 import { createLanRecovery } from './lanRecovery'
@@ -194,11 +195,13 @@ function canReconnect() {
 }
 
 function connectionLost(reason) {
+  leaveVoice()
   // A silent channel can recover on its own. Closing it makes that impossible.
   if (lan && reason === 'timeout' && lanRecovery) {
     lanRecovery.interrupt()
     return
   }
+  disconnectVoice()
   stopSync()
   stopWatchdog()
   const c = conn
@@ -260,6 +263,7 @@ function resumeAfterDrop() {
 
 /** Give up on the session; the ConnectionLost modal takes it from here. */
 function endSession(msg) {
+  disconnectVoice()
   lanRecovery?.stop(); lanRecovery = null
   stopSync()
   stopWatchdog()
@@ -309,6 +313,7 @@ function attachConnection(connection) {
     if (conn !== connection) return
     lastReceived = Date.now()
     if (lanRecovery?.receive(msg)) return
+    if (msg?.type === 'voice') { receiveVoice(msg.data); return }
     if (isHost) handleAsHost(msg)
     else handleAsGuest(msg)
   })
@@ -316,6 +321,7 @@ function attachConnection(connection) {
 }
 
 function onConnected(rejoin) {
+  connectVoice({ send: data => send('voice', data), isHost, iceServers: lan ? [] : ICE_SERVERS })
   const myTeam = isHost ? HOST_TEAM : GUEST_TEAM
   useMatchStore.setState({
     gameMode: 'online',
@@ -337,6 +343,7 @@ function startLanRecovery() {
     send,
     visible: () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
     onLost(deadline) {
+      leaveVoice()
       const store = useMatchStore.getState()
       if (isHost) {
         pausedByDrop = store.screen === SCREEN.PLAYING && !store.paused
@@ -576,6 +583,7 @@ export function isConnected() { return !!conn?.open }
 
 /** Leave on purpose: say goodbye (so the other side doesn't wait for us) and tear down. */
 export function disconnect() {
+  disconnectVoice()
   lanRecovery?.stop(); lanRecovery = null
   const c = conn
   const p = peer
