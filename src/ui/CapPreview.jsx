@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { darkenHex, lightenHex } from './color'
 import { capLabel } from '../data/TeamOptions'
 
@@ -132,7 +133,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   const { primary, edge, badge, pattern, finish } = config
   const skirtBase = config.skirtColor || primary
   const capText = capLabel(config, role)
-  const uid = `${primary}-${edge}-${pattern}-${finish}-${capText}-${config.textColor || ''}-${size}`.replace(/[^a-z0-9-]/gi, '')
+  const uid = useId().replace(/:/g, '')
 
   // A crown cap seen from a little above, like one sitting on the table:
   // the printed top tilted into an ellipse, the fluted skirt showing below
@@ -196,7 +197,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
         <clipPath id={`split-${uid}`}>
           <rect x={cx} y={0} width={cx + 2} height={size} />
         </clipPath>
-        <path id={`arc-${uid}`} d={`M ${cx - ringR * 0.62} ${tc} A ${ringR * 0.62} ${ringR * 0.62} 0 0 1 ${cx + ringR * 0.62} ${tc}`} />
+        <path id={`arc-${uid}`} d={`M ${cx - topR * 0.68} ${tc} A ${topR * 0.68} ${topR * 0.68} 0 0 1 ${cx + topR * 0.68} ${tc}`} />
       </defs>
 
       {/* Shadow on the table */}
@@ -221,7 +222,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
         </g>
         <circle cx={cx} cy={tc} r={ringR} fill="none" stroke={printColor} strokeOpacity="0.85" strokeWidth={size * 0.014} />
         {withText && (
-          <text fill={inkColor} fontSize={topR * 0.24} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
+          <text fill={inkColor} dominantBaseline="central" fontSize={topR * Math.min(0.17, 1.8 / capText.length)} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
             <textPath href={`#arc-${uid}`} startOffset="50%" textAnchor="middle">{capText.toUpperCase()}</textPath>
           </text>
         )}
@@ -229,7 +230,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
           <BadgeIcon
             badge={badge}
             cx={cx}
-            cy={number != null ? tc - topR * 0.08 + (withText ? topR * 0.08 : 0) : tc + (withText ? topR * 0.12 : 0)}
+            cy={number != null ? tc - topR * 0.12 : tc + (withText ? topR * 0.12 : 0)}
             size={topR * (number != null ? 0.34 : 0.5)}
             color={inkColor}
           />
@@ -237,14 +238,14 @@ export default function CapPreview({ config, size = 120, number = null, role = '
         {number != null && (
           <text
             x={cx}
-            y={hasBadge ? tc + topR * 0.4 : tc + topR * (withText ? 0.22 : 0.06)}
+            y={hasBadge ? tc + topR * 0.22 : tc + topR * (withText ? 0.08 : 0.06)}
             textAnchor="middle"
             dominantBaseline="central"
             fill={isLight(primary) ? '#111111' : '#ffffff'}
             stroke={isLight(primary) ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.55)'}
             strokeWidth={topR * 0.05}
             paintOrder="stroke"
-            fontSize={topR * (hasBadge ? 0.42 : withText ? 0.6 : 0.78)}
+            fontSize={topR * (hasBadge ? 0.38 : withText ? 0.6 : 0.78)}
             fontWeight="900"
             fontFamily="'Barlow Condensed', 'Impact', sans-serif"
           >
