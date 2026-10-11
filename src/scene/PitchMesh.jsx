@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import * as THREE from 'three'
 import { PITCH } from '../data/TeamData'
 import { useMatchStore } from '../state/MatchStore'
@@ -240,7 +240,7 @@ function paintSurface(ctx, sc, w, h) {
 function createPitchTexture(stadiumConfig) {
   const sc = stadiumConfig
   const canvas = document.createElement('canvas')
-  const size = 2048  // Higher res for crispness
+  const size = 1024  // Keep the mobile playing surface within a modest texture budget.
   canvas.width = size
   canvas.height = Math.round(size * (PITCH.height / PITCH.width))
   const ctx = canvas.getContext('2d')
@@ -336,6 +336,8 @@ function createPitchTexture(stadiumConfig) {
   ctx.beginPath(); ctx.arc(canvas.width - pad, canvas.height - pad, cornerR, Math.PI, 3 * Math.PI / 2); ctx.stroke()
 
   const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.generateMipmaps = false
   texture.minFilter = THREE.LinearFilter
   texture.anisotropy = 4
   return texture
@@ -347,6 +349,7 @@ export default function PitchMesh() {
   const venue = STADIUMS[stadiumId] || STADIUMS.arena
   const sc = useMemo(() => surfaceFor(venue, pitchStyle), [venue, pitchStyle])
   const texture = useMemo(() => createPitchTexture(sc), [sc])
+  useEffect(() => () => texture.dispose(), [texture])
 
   return (
     <group>

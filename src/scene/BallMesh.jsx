@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react'
+import { forwardRef, useMemo, useEffect } from 'react'
 import * as THREE from 'three'
 import { BALL_RADIUS } from '../data/TeamData'
 import { useMatchStore } from '../state/MatchStore'
@@ -70,6 +70,7 @@ const BallMesh = forwardRef(function BallMesh(props, ref) {
   const ballColor = useMatchStore((s) => s.ballColor)
   const geometry = useMemo(createCoinGeometry, [])
   const top = useMemo(() => createCoinTopTexture(ballColor), [ballColor])
+  useEffect(() => () => top.dispose(), [top])
 
   return (
     <group ref={ref} position={[0, COIN_H / 2, 0]}>
