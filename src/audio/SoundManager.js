@@ -1,4 +1,5 @@
 import { useMatchStore } from '../state/MatchStore'
+import { setPlaybackAudioSession } from './audioSession'
 
 // Web Audio API synthesized sounds — no external files needed
 let audioCtx = null
@@ -192,7 +193,7 @@ let unlocked = false
 export function initAudioUnlock() {
   if (unlocked || typeof window === 'undefined') return
   unlocked = true
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback' } catch { /* not supported */ }
+  setPlaybackAudioSession()
   const wake = () => {
     const ctx = getCtx()
     if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {})
