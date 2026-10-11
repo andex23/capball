@@ -18,7 +18,12 @@ describe('Counterball analytics', () => {
   it.each(['counterball.vercel.app', 'capball.vercel.app'])('preserves the existing game identity on %s', hostname => {
     const env = browser(), request = vi.fn().mockResolvedValue({ status: 204 })
     env.location.hostname = hostname
-    createTracker({ browser: env, request })('page_view', '/')
+    const track = createTracker({ browser: env, request })
+    track('page_view', '/')
+    track('match_start', '/play/computer', { playId: 'round' })
+    expect(request.mock.calls).toHaveLength(2)
+    expect(request.mock.calls.every(([url]) => url === 'https://dru-analytics-omega.vercel.app/api/track')).toBe(true)
+    expect(JSON.parse(request.mock.calls[0][1].body).siteKey).toBe(JSON.parse(request.mock.calls[1][1].body).siteKey)
     expect(JSON.parse(request.mock.calls[0][1].body).metadata).toMatchObject({ gameId: 'capball', gameTitle: 'COUNTERBALL' })
   })
   it('uses its own site key, persistent identity and referrer origin without query data', () => {
@@ -27,7 +32,7 @@ describe('Counterball analytics', () => {
     track('page_view', '/')
     track('match_start', '/play/computer', { mode: 'computer' })
     const payloads = request.mock.calls.map(([, options]) => JSON.parse(options.body))
-    expect(request.mock.calls[0][0]).toContain('/functions/v1/site-track')
+    expect(request.mock.calls[0][0]).toBe('https://dru-analytics-omega.vercel.app/api/track')
     expect(request.mock.calls[1][0]).toBe('https://dru-analytics-omega.vercel.app/api/track')
     expect(payloads[0].siteKey).toBe('9fd56acb-b44d-46ca-89df-7db36f4f9393')
     expect(payloads[0].visitorId).toBe(payloads[1].visitorId)
