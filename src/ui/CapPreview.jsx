@@ -147,7 +147,6 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   const TOOTH = size * 0.04
   const PLEATS = 21
   const topR = R * 0.97
-  const ringR = topR * 0.8
 
   const isChrome = finish === 'chrome'
   const isMatte = finish === 'matte'
@@ -220,7 +219,6 @@ export default function CapPreview({ config, size = 120, number = null, role = '
           {pattern === 'split' && <circle cx={cx} cy={tc} r={topR} fill={edge} clipPath={`url(#split-${uid})`} />}
           <PatternOverlay pattern={pattern} cx={cx} cy={tc} innerR={topR} edgeColor={edge} />
         </g>
-        <circle cx={cx} cy={tc} r={ringR} fill="none" stroke={printColor} strokeOpacity="0.85" strokeWidth={size * 0.014} />
         {withText && (
           <text fill={inkColor} dominantBaseline="central" fontSize={topR * Math.min(0.17, 1.8 / capText.length)} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
             <textPath href={`#arc-${uid}`} startOffset="50%" textAnchor="middle">{capText.toUpperCase()}</textPath>
