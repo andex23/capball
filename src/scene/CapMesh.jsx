@@ -103,17 +103,7 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   const ctx = c.getContext('2d')
   const body = createBodyTexture(color, edgeColor, pattern, size).image
   ctx.drawImage(body, 0, 0)
-  // Printed ring near the rim, like the lettering band on a real crown cap
-  // Same as the kit editor's preview: the pattern colour (white on a one-colour cap), slightly see-through
-  ctx.save()
-  ctx.globalAlpha = 0.85
-  ctx.strokeStyle = edgeColor === color ? '#ffffff' : edgeColor
-  ctx.lineWidth = size * 0.025
-  ctx.beginPath()
-  ctx.arc(size / 2, size / 2, size * 0.43, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.restore()
-  // The team's own text, arched over the top inside the printed ring
+  // Team lettering is independent of the selected cap pattern.
   const text = (capText || '').trim().toUpperCase()
   if (text) {
     const fontPx = size * Math.min(0.085, 0.9 / text.length)
@@ -122,7 +112,7 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
     ctx.fillStyle = ink
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    const R = size * 0.34 // Lettering sits between the inner pattern ring and the rim.
+    const R = size * 0.34 // Lettering sits near the rim, clear of the central badge.
     const widths = [...text].map((ch) => ctx.measureText(ch).width)
     const total = widths.reduce((a, w) => a + w, 0)
     const span = Math.min(Math.PI * 0.95, total / R)
