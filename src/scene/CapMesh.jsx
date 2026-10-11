@@ -116,13 +116,13 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   // The team's own text, arched over the top inside the printed ring
   const text = (capText || '').trim().toUpperCase()
   if (text) {
-    const fontPx = size * 0.09
+    const fontPx = size * Math.min(0.085, 0.9 / text.length)
     ctx.save()
     ctx.font = `italic 900 ${fontPx}px 'Barlow Condensed', 'Impact', 'Arial Narrow', sans-serif`
     ctx.fillStyle = ink
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    const R = size * 0.27 // well inside the printed ring (0.43), so the letters never touch it
+    const R = size * 0.34 // Lettering sits between the inner pattern ring and the rim.
     const widths = [...text].map((ch) => ctx.measureText(ch).width)
     const total = widths.reduce((a, w) => a + w, 0)
     const span = Math.min(Math.PI * 0.95, total / R)
@@ -147,7 +147,7 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   ctx.beginPath()
   ctx.arc(size / 2, size / 2, (size * k) / 2, 0, Math.PI * 2)
   ctx.clip()
-  ctx.drawImage(plate, (size * (1 - k)) / 2, (size * (1 - k)) / 2 + (text ? size * 0.08 : 0), size * k, size * k)
+  ctx.drawImage(plate, (size * (1 - k)) / 2, (size * (1 - k)) / 2 + (text ? size * 0.04 : 0), size * k, size * k)
   ctx.restore()
   // A soft sheen across the top
   const sheen = ctx.createRadialGradient(size * 0.36, size * 0.3, 0, size / 2, size / 2, size / 2)
