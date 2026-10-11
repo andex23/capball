@@ -193,7 +193,7 @@ export async function shareResultCard(match) {
   const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
   if (!blob) return 'failed'
   const file = new File([blob], 'counterball-result.png', { type: 'image/png' })
-  const text = `${match.teamConfig.team1.name} ${match.score.team1}–${match.score.team2} ${match.teamConfig.team2.name} on Counterball — play free at counterball.vercel.app`
+  const text = `${match.teamConfig.team1.name} ${match.score.team1}–${match.score.team2} ${match.teamConfig.team2.name} on Counterball — play free at www.counterball.fun`
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'Counterball result', text })

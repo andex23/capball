@@ -13,11 +13,11 @@ describe('link previews', () => {
   it('publishes Counterball branding and the new address in structured data and search discovery', () => {
     const data = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])
     expect(data.name).toBe('Counterball')
-    expect(data.url).toBe('https://counterball.vercel.app/')
-    expect(data.image).toBe('https://counterball.vercel.app/og/counterball-default.jpg')
+    expect(data.url).toBe('https://www.counterball.fun/')
+    expect(data.image).toBe('https://www.counterball.fun/og/counterball-default.jpg')
     for (const path of ['robots.txt', 'sitemap.xml']) {
       const content = readFileSync(new URL(`../../public/${path}`, import.meta.url), 'utf8')
-      expect(content).toContain('https://counterball.vercel.app/')
+      expect(content).toContain('https://www.counterball.fun/')
       expect(content).not.toContain('https://capball.vercel.app/')
     }
   })
@@ -32,10 +32,10 @@ describe('link previews', () => {
     expect(m.title).toContain('ABC123')
     expect(m.image).toBe('/og/counterball-invite.jpg')
     const out = injectMeta(html, m)
-    expect(out).toContain('og:image" content="https://counterball.vercel.app/og/counterball-invite.jpg"')
+    expect(out).toContain('og:image" content="https://www.counterball.fun/og/counterball-invite.jpg"')
     expect(out).toContain('noindex')
-    expect(out).toContain('<link rel="canonical" href="https://counterball.vercel.app/" />')
-    expect(out).not.toContain('og:image" content="https://counterball.vercel.app/og/counterball-default.jpg"')
+    expect(out).toContain('<link rel="canonical" href="https://www.counterball.fun/" />')
+    expect(out).not.toContain('og:image" content="https://www.counterball.fun/og/counterball-default.jpg"')
     expect(out).toContain('<div id="root">') // the rest of the page is untouched
   })
 

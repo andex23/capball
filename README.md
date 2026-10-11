@@ -2,7 +2,7 @@
 
 A browser game inspired by tabletop bottle-cap football. Players take turns flicking caps to move the ball and score, on a 3D pitch with a broadcast-style presentation.
 
-[Play Counterball](https://counterball.vercel.app/)
+[Play Counterball](https://www.counterball.fun/)
 
 The [previous address](https://capball.vercel.app/) still works. Browser-local saves stay with the address where they were created; signed-in progress uses the existing account sync.
 
