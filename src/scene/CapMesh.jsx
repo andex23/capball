@@ -1,4 +1,4 @@
-import { forwardRef, useRef, useMemo } from 'react'
+import { forwardRef, useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CAP_RADIUS, GK_RADIUS } from '../data/TeamData'
@@ -411,6 +411,8 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
     [color, edge, badge, number, pattern, capText, textColor]
   )
   const skirtTexture = useMemo(() => createSkirtTexture(skirtColor || color), [skirtColor, color])
+  useEffect(() => () => topTexture.dispose(), [topTexture])
+  useEffect(() => () => skirtTexture.dispose(), [skirtTexture])
   const skirt = useMemo(() => createSkirtGeometry(radius), [radius])
 
   useFrame((state) => {
