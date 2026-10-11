@@ -1,7 +1,6 @@
 import { useMatchStore, SCREEN } from './state/MatchStore'
 
-const TRACKER_URL = 'https://yerwptchfksahaiiezki.supabase.co/functions/v1/site-track'
-const ACTION_TRACKER_URL = 'https://dru-analytics-omega.vercel.app/api/track'
+const TRACKER_URL = 'https://dru-analytics-omega.vercel.app/api/track'
 // Public installation key for COUNTERBALL, separate from JADED's collection tracker.
 const SITE_KEY = '9fd56acb-b44d-46ca-89df-7db36f4f9393'
 const PATHS = {
@@ -35,7 +34,7 @@ export function createTracker({ browser = globalThis.window, request = globalThi
       }
       let referrer = ''
       try { referrer = new URL(browser.document.referrer).origin } catch { /* Direct visit. */ }
-      Promise.resolve(request(event === 'page_view' ? TRACKER_URL : ACTION_TRACKER_URL, {
+      Promise.resolve(request(TRACKER_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
         body: JSON.stringify({ siteKey: SITE_KEY, event, path, ...identity, referrer,
           metadata: { gameId: 'capball', gameTitle: 'COUNTERBALL', ...metadata } }),
