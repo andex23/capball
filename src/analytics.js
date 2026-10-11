@@ -1,6 +1,7 @@
 import { useMatchStore, SCREEN } from './state/MatchStore'
 
 const TRACKER_URL = 'https://yerwptchfksahaiiezki.supabase.co/functions/v1/site-track'
+const ACTION_TRACKER_URL = 'https://dru-analytics-omega.vercel.app/api/track'
 // Public installation key for COUNTERBALL, separate from JADED's collection tracker.
 const SITE_KEY = '9fd56acb-b44d-46ca-89df-7db36f4f9393'
 const PATHS = {
@@ -34,7 +35,7 @@ export function createTracker({ browser = globalThis.window, request = globalThi
       }
       let referrer = ''
       try { referrer = new URL(browser.document.referrer).origin } catch { /* Direct visit. */ }
-      Promise.resolve(request(TRACKER_URL, {
+      Promise.resolve(request(event === 'page_view' ? TRACKER_URL : ACTION_TRACKER_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
         body: JSON.stringify({ siteKey: SITE_KEY, event, path, ...identity, referrer,
           metadata: { gameId: 'capball', gameTitle: 'COUNTERBALL', ...metadata } }),
@@ -44,7 +45,7 @@ export function createTracker({ browser = globalThis.window, request = globalThi
 }
 
 export function watchMatchAnalytics(store, track) {
-  let previous = store.getState(), lastPath
+  let previous = store.getState(), lastPath, playId, startedAt, pausedAt, pausedMs = 0
   const observe = state => {
     const mode = modeName(state.gameMode)
     const path = state.screen === SCREEN.PLAYING ? `/play/${mode}` : PATHS[state.screen] ?? '/'
@@ -53,13 +54,18 @@ export function watchMatchAnalytics(store, track) {
       lastPath = path
     }
     if (state.screen === SCREEN.PLAYING && (previous.screen !== SCREEN.PLAYING || state.matchKey !== previous.matchKey)) {
-      track('match_start', path, { mode, difficulty: state.aiDifficulty, interaction: 'game_launch' })
+      playId = globalThis.crypto?.randomUUID?.() ?? `play-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      startedAt = Date.now(); pausedAt = state.paused ? Date.now() : null; pausedMs = 0
+      track('match_start', path, { mode, difficulty: state.aiDifficulty, interaction: 'game_launch', playId })
     }
     if (state.screen === SCREEN.MATCH_END && previous.screen !== SCREEN.MATCH_END) {
-      track('match_complete', path, { mode, score: { team1: state.score.team1, team2: state.score.team2 } })
+      const elapsed = startedAt ? Date.now() - startedAt - pausedMs - (pausedAt ? Date.now() - pausedAt : 0) : null
+      track('match_complete', path, { mode, score: { team1: state.score.team1, team2: state.score.team2 }, playId, ...(elapsed === null ? {} : { duration_seconds: Math.max(0, Math.round(elapsed / 1000)) }) })
     }
     if (state.screen === SCREEN.PLAYING && state.paused !== previous.paused) {
-      track(state.paused ? 'match_pause' : 'match_resume', path, { mode })
+      if (state.paused) pausedAt = Date.now()
+      else if (pausedAt) { pausedMs += Date.now() - pausedAt; pausedAt = null }
+      track(state.paused ? 'match_pause' : 'match_resume', path, { mode, playId })
     }
     previous = state
   }
