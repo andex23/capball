@@ -15,7 +15,7 @@ class MapStorage {
 }
 
 describe('Counterball analytics', () => {
-  it.each(['counterball.vercel.app', 'capball.vercel.app'])('preserves the existing game identity on %s', hostname => {
+  it.each(['counterball.fun', 'www.counterball.fun', 'counterball.vercel.app', 'capball.vercel.app'])('preserves the existing game identity on %s', hostname => {
     const env = browser(), request = vi.fn().mockResolvedValue({ status: 204 })
     env.location.hostname = hostname
     const track = createTracker({ browser: env, request })
