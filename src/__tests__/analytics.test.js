@@ -51,6 +51,20 @@ describe('Counterball analytics', () => {
     env.navigator.globalPrivacyControl = false; env.location.hostname = 'localhost'; track('page_view', '/')
     expect(request).not.toHaveBeenCalled()
   })
+  it('measures completed active duration without paused time', () => {
+    let now = 1000, state = { screen: SCREEN.MENU, gameMode: 'ai', matchKey: 0, paused: false, score: { team1: 0, team2: 0 } }, listener
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const track = vi.fn()
+    watchMatchAnalytics({ getState: () => state, subscribe: fn => { listener = fn; return () => {} } }, track)
+    const set = update => { state = { ...state, ...update }; listener(state) }
+    try {
+      set({ screen: SCREEN.PLAYING, matchKey: 1 })
+      now = 11000; set({ paused: true })
+      now = 21000; set({ paused: false })
+      now = 31000; set({ screen: SCREEN.MATCH_END })
+      expect(track.mock.calls.find(([event]) => event === 'match_complete')[2].duration_seconds).toBe(20)
+    } finally { clock.mockRestore() }
+  })
   it('tracks virtual screens, each new match, pause and results without duplicate menu views', () => {
     let state = { screen: SCREEN.SPLASH, gameMode: 'ai', aiDifficulty: 'hard', matchKey: 0, paused: false, score: { team1: 0, team2: 0 } }, listener
     const unsubscribe = vi.fn(), track = vi.fn()
