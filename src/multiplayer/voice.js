@@ -1,8 +1,11 @@
+import { acquireCaptureAudioSession } from '../audio/audioSession'
+
 function voiceError(code) { return Object.assign(new Error(code), { name: code }) }
 
 export function requestMicrophone(constraints) {
   if (globalThis.isSecureContext === false) throw voiceError('InsecureContext')
   if (!globalThis.navigator?.mediaDevices?.getUserMedia) throw voiceError('MediaUnsupported')
+  if (globalThis.document?.visibilityState === 'hidden' || globalThis.document?.prerendering) throw voiceError('PageInactive')
   return navigator.mediaDevices.getUserMedia(constraints)
 }
 
@@ -28,6 +31,10 @@ export function microphoneErrorMessage(error, stage = 'capture') {
       return 'Microphone access needs a secure connection. Open the game using its HTTPS address. [MIC_HTTPS]'
     case 'MediaUnsupported': case 'VoiceUnsupported':
       return 'This browser does not provide voice access. Open the game directly in Safari or Chrome and join the match there. [MIC_BROWSER]'
+    case 'PageInactive':
+      return 'Return to the game tab, then tap Join voice again. Voice does not start while the page is in the background. [MIC_INACTIVE]'
+    case 'CaptureEnded':
+      return 'The microphone stopped before voice could join. Return to the game tab and join voice again. [MIC_ENDED]'
     default: {
       // Report only a bounded browser error category, never device names, SDP or raw messages.
       const category = ['TypeError', 'UnknownError', 'InvalidStateError', 'NotSupportedError', 'Error'].includes(error?.name) ? error.name : 'Other'
@@ -46,6 +53,7 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
   let stream = null, pc = null, audio = null, localId = null, remoteId = null
   let generation = 0, disposed = false, pending = false, muted = false
   let cancelGather = null, connectTimer = null
+  let releaseStreamSession = null
   const publish = patch => { if (!disposed) onState(patch) }
   const transmit = data => {
     if (disposed) return
@@ -66,8 +74,10 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
     const id = localId
     localId = null
     closePeer()
-    stream?.getTracks().forEach(track => track.stop())
+    stream?.getTracks().forEach(track => { track.onended = null; track.stop() })
     stream = null
+    releaseStreamSession?.()
+    releaseStreamSession = null
     muted = false
     if (id) transmit({ kind: 'leave', id })
     publish({ enabled: false, muted: false, status: 'off', error, needsPlayback: false })
@@ -148,8 +158,10 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
     const token = ++generation
     publish({ status: 'permission', error: '' })
     let stage = 'capture'
+    let releaseCapture = null
     try {
       if (!PeerConnection) throw voiceError('VoiceUnsupported')
+      releaseCapture = acquireCaptureAudioSession()
       let result
       try {
         result = await getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
@@ -162,7 +174,10 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
       if (disposed || generation !== token) { result.getTracks().forEach(track => track.stop()); return }
       stage = 'tracks'
       if (!result.getAudioTracks().length) { result.getTracks().forEach(track => track.stop()); throw voiceError('NoMicrophone') }
+      if (result.getAudioTracks().some(track => track.readyState === 'ended')) { result.getTracks().forEach(track => track.stop()); throw voiceError('CaptureEnded') }
       stream = result
+      releaseStreamSession = releaseCapture
+      releaseCapture = null
       stage = 'session'
       localId = makeId()
       for (const track of stream.getAudioTracks()) track.onended = () => { if (stream === result) leave('Microphone disconnected. Join voice again to reconnect it.') }
@@ -171,7 +186,12 @@ export function createVoiceChat({ send, isHost, iceServers = [], onState = () =>
       await offer()
     } catch (error) {
       if (generation === token) fail(microphoneErrorMessage(error, stage))
-    } finally { if (generation === token) pending = false }
+    } finally {
+      // Cancellation cannot cancel a browser permission request. Keep its audio
+      // category lease until it settles, then stop late tracks before releasing.
+      releaseCapture?.()
+      if (generation === token) pending = false
+    }
   }
 
   const validId = id => typeof id === 'string' && id.length > 0 && id.length <= 80

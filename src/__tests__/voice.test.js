@@ -139,6 +139,79 @@ describe('phone microphone recovery', () => {
 
 
 describe('voice startup compatibility', () => {
+  it('restores the audio category after denial and allows a fresh explicit retry', async () => {
+    const audioSession = { type: 'playback' }
+    vi.stubGlobal('navigator', { audioSession })
+    const gum = vi.fn().mockRejectedValueOnce({ name: 'NotAllowedError' })
+    const t = setup({ getUserMedia: gum })
+    await t.voice.enable()
+    expect(audioSession.type).toBe('playback')
+    gum.mockResolvedValueOnce(t.stream)
+    await t.voice.enable()
+    expect(t.state.enabled).toBe(true)
+    expect(audioSession.type).toBe('play-and-record')
+    t.voice.dispose()
+    expect(audioSession.type).toBe('playback')
+  })
+  it('deduplicates clicks and keeps a newer capture compatible when a cancelled request settles late', async () => {
+    const audioSession = { type: 'playback' }
+    vi.stubGlobal('navigator', { audioSession })
+    let resolve
+    const gum = vi.fn(() => new Promise(r => { resolve = r }))
+    const first = setup({ getUserMedia: gum })
+    const old = first.voice.enable()
+    await first.voice.enable()
+    expect(gum).toHaveBeenCalledTimes(1)
+    first.voice.dispose()
+    const second = setup()
+    await second.voice.enable()
+    resolve(first.stream)
+    await old
+    expect(first.track.stop).toHaveBeenCalledOnce()
+    expect(first.send).not.toHaveBeenCalled()
+    expect(audioSession.type).toBe('play-and-record')
+    expect(second.state.enabled).toBe(true)
+    second.voice.leave()
+    expect(audioSession.type).toBe('playback')
+  })
+  it('rejects already-ended tracks and cleans up a track ending after join', async () => {
+    const stale = setup()
+    stale.track.readyState = 'ended'
+    await stale.voice.enable()
+    expect(stale.state.enabled).toBe(false)
+    expect(stale.state.error).toContain('[MIC_ENDED]')
+    expect(stale.track.stop).toHaveBeenCalledOnce()
+    const live = setup()
+    await live.voice.enable()
+    live.track.onended()
+    expect(live.state.enabled).toBe(false)
+    expect(live.track.onended).toBeNull()
+    expect(live.track.stop).toHaveBeenCalledOnce()
+  })
+  it('does not request capture from a hidden or prerendered document', () => {
+    const gum = vi.fn()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: gum } })
+    vi.stubGlobal('document', { visibilityState: 'hidden' })
+    expect(() => requestMicrophone({ audio: true })).toThrow('PageInactive')
+    vi.stubGlobal('document', { visibilityState: 'visible', prerendering: true })
+    expect(() => requestMicrophone({ audio: true })).toThrow('PageInactive')
+    expect(gum).not.toHaveBeenCalled()
+  })
+  it('satisfies WebKit capture-category checks before the first user-gesture request', async () => {
+    const audioSession = { type: 'playback' }
+    vi.stubGlobal('navigator', { audioSession })
+    const gum = vi.fn(async () => {
+      if (audioSession.type !== 'play-and-record') throw new DOMException('AudioSession category is not compatible with audio capture.', 'InvalidStateError')
+      return t.stream
+    })
+    const t = setup({ getUserMedia: gum })
+    await t.voice.enable()
+    expect(t.state.enabled).toBe(true)
+    expect(gum).toHaveBeenCalledTimes(1)
+    expect(audioSession.type).toBe('play-and-record')
+    t.voice.leave()
+    expect(audioSession.type).toBe('playback')
+  })
   it('joins when Web Crypto is available without randomUUID', async () => {
     let seed = 0
     vi.stubGlobal('crypto', { getRandomValues: bytes => { bytes.fill(++seed); return bytes } })
