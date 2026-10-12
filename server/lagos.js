@@ -111,6 +111,43 @@ export function makeSaveDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url = 
   }
 }
 
+/** Result reports for staked matches (supabase/lagos.sql): each player's say, once. */
+export function makeReportDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url = process.env.SUPABASE_URL || DATABASE_URL, fetchImpl = fetch } = {}) {
+  if (!key) return null
+  return async (mode, matchId, player, winner) => {
+    const res = await fetchImpl(`${url}/rest/v1/rpc/cb_lagos_report_service`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_mode: mode, p_match: matchId, p_player: player, p_winner: winner }),
+      signal: AbortSignal.timeout?.(10000),
+    })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      if (body?.code === 'PGRST202' || body?.code === '42P01') fail('migration-needed')
+      throw new Error('upstream')
+    }
+    return Array.isArray(body) ? body : []
+  }
+}
+
+/**
+ * What to post for a staked match, from the players' reports
+ * ([{ player, winner }], at most one each). Money moves only on agreement:
+ * - a player saying they lost is believed straight away (no one lies to lose);
+ * - otherwise both must say the same; if they differ, it's a draw and
+ *   Lagos Life gives both stakes back.
+ * Returns the winner to post, 'draw', or null to wait for the other phone.
+ */
+export function stakedOutcome(reports, players) {
+  for (const r of reports) {
+    const other = players.find((p) => p !== r.player)
+    if (other && r.winner === other) return other
+  }
+  if (reports.length < 2) return null
+  const [a, b] = reports
+  return a.winner === b.winner ? a.winner : 'draw'
+}
+
 /** A save is the game's own storage entries: { v: 1, items: { key: string } }. */
 export function cleanSave(data) {
   if (!data || data.v !== 1 || !data.items || typeof data.items !== 'object' || Array.isArray(data.items)) return null
@@ -159,7 +196,7 @@ async function claim({ session, purchaseId }, api, db) {
   return { ok: true, productId: buy.productId, owned }
 }
 
-export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), saves = makeSaveDb()) {
+export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), saves = makeSaveDb(), reports = makeReportDb()) {
   if (!api) fail('not-configured')
   // The player's save: always the verified player's own, never anyone else's
   if (input?.action === 'loadSave' || input?.action === 'putSave') {
@@ -197,11 +234,17 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
   if (match.status === 'done') return { ok: true, settled: true }
   if (match.status !== 'playing' || !match.nonce) fail('not-playing')
   if (winner !== 'draw' && !players.includes(winner)) fail('bad-winner')
-  // Friend matches only: Counterball never posts a staked result
-  if (Number(match.stake) !== 0) fail('not-playing')
+  // A bet: post only what both players back (see stakedOutcome)
+  let post = winner
+  if (Number(match.stake) > 0) {
+    if (!reports) fail('shop-not-configured')
+    const said = await reports(match.mode === 'live' ? 'live' : who.data.mode === 'live' ? 'live' : 'test', match.id || matchId, playerId, winner)
+    post = stakedOutcome(said, players)
+    if (!post) return { ok: true, waiting: true }
+  }
 
-  const r = await api.postResult({ id: match.id || matchId, nonce: match.nonce }, winner)
-  if (r.status === 200 || r.status === 201) return { ok: true }
+  const r = await api.postResult({ id: match.id || matchId, nonce: match.nonce }, post)
+  if (r.status === 200 || r.status === 201) return { ok: true, posted: post }
   if (r.status === 409 && r.data?.error === 'already_settled') return { ok: true, settled: true }
   if (r.status === 409) fail('not-playing')
   throw new Error('upstream')

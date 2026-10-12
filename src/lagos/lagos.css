@@ -1,2 +1,14 @@
 /* Lagos Life keeps its own top bar above the game; nothing here needs to sit under it. */
 .lagos-avatar { object-fit: cover; }
+
+/* Betting with a friend */
+.lagos-bet { display: flex; flex-direction: column; gap: 8px; }
+.lagos-bet-label { font-weight: 700; color: var(--text); }
+.lagos-bet-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lagos-bet-chips .chip { min-height: 40px; padding: 0 14px; cursor: pointer; }
+.lagos-bet-chips .chip.is-on { background: var(--accent); border-color: #fff; color: var(--ink); }
+.lagos-pot { margin: 0; text-align: center; font-family: var(--font-pixel); font-size: 18px; color: var(--accent); }
+.bet-toast.is-won { border-color: var(--good, #34d27b); }
+.bet-toast.is-won .unlock-toast-title { color: var(--good, #34d27b); }
+.bet-toast.is-lost { border-color: #ff6b6b; }
+.bet-toast.is-lost .unlock-toast-title { color: #ff6b6b; }

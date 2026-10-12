@@ -11,7 +11,8 @@ import { useAccountStore, collectSave, applySave } from '../state/accountStore'
 import { holdAudio } from '../audio/SoundManager'
 import { startMenuMusic, stopMenuMusic } from '../audio/MusicManager'
 import { holdIosAudio } from './iosAudio'
-import { isProduct, productIdFor } from '../data/shop'
+import { isProduct, productIdFor, naira } from '../data/shop'
+import { platformHooks } from '../platformHooks'
 import { switchSaveTo, ownKit } from './ownership'
 import { currentProgress } from '../state/unlocks'
 
@@ -40,6 +41,11 @@ let sdk = null
 let scoreTimer = null
 let lastScoreAt = 0
 let resultSent = new Set()
+
+/** Stakes a player can pick for a bet with a friend (in-game naira; 0 is a free match). */
+export const STAKES = [0, 100, 500, 1000, 5000]
+/** Lagos Life keeps 5% of the pot; the winner gets the rest. */
+export const potFor = (stake) => Math.floor(stake * 2 * 0.95)
 
 /** Our server (api/lagos.js), with a fresh Lagos Life session. */
 async function server(body) {
@@ -88,6 +94,7 @@ export const useLagosStore = create((set, get) => ({
   owned: [],         // product ids of caps bought (from our server)
   buying: null,      // product id being bought right now
   shopNote: null,    // { tone: 'good' | 'bad', text }
+  betNote: null,     // { stake, outcome: 'won' | 'lost' | 'refund' } after a bet settles
   justBought: null,  // { productId, state: 'done' | 'pending' | 'failed', text } shows the purchase note
 
   /** Is this cap design bought? */
@@ -110,7 +117,14 @@ export const useLagosStore = create((set, get) => ({
       set({ status: 'ready', player, mode: launch.mode, wins: readWins(player.id) })
       sdk.onPause?.(() => get().pause())
       sdk.onResume?.(() => get().resume())
-      sdk.match?.onUpdate?.((m) => set({ match: m || null }))
+      sdk.match?.onUpdate?.((m) => {
+        const before = get().match
+        set({ match: m || null })
+        // A bet settled: say what it came to
+        if (m && Number(m.stake) > 0 && ['done', 'void', 'cancelled'].includes(m.status) && before?.id === m.id && before.status !== m.status && before.status === 'playing') {
+          set({ betNote: { stake: Number(m.stake), outcome: m.status !== 'done' || !m.winner || m.winner === 'draw' ? 'refund' : m.winner === player.id ? 'won' : 'lost', at: Date.now() } })
+        }
+      })
       sdk.match?.current?.().then((m) => { if (m) set({ match: m }) }).catch(() => {})
       get().loadBoard()
       // Progress follows the player, not the phone
@@ -296,10 +310,11 @@ export const useLagosStore = create((set, get) => ({
 
   /* ── Friend matches ── */
 
-  async findMatch(kind, code) {
+  async findMatch(kind, code, stake = 0) {
     if (!sdk?.match) throw Object.assign(new Error('off'), { code: 'not_multiplayer' })
-    const m = kind === 'quick' ? await sdk.match.quick({ stake: 0 })
-      : kind === 'create' ? await sdk.match.create({ stake: 0, seats: 2 })
+    const bet = STAKES.includes(stake) ? stake : 0
+    const m = kind === 'quick' ? await sdk.match.quick({ stake: bet })
+      : kind === 'create' ? await sdk.match.create({ stake: bet, seats: 2 })
         : await sdk.match.join(code)
     set({ match: m || null })
     return m
@@ -319,19 +334,31 @@ export const useLagosStore = create((set, get) => ({
     const winner = !team ? 'draw' : team === myTeam ? player.id : other?.id
     if (!winner) return
     resultSent.add(match.id)
-    try {
-      const { session } = await sdk.session()
-      await fetch('/api/lagos', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'result', session, matchId: match.id, winner }),
-      })
-    } catch { /* the other phone reports too; an unreported friendly simply expires */ }
+    // A bet is worth retrying; an unreported friendly simply expires
+    for (let i = 0; i < (Number(match.stake) > 0 ? 4 : 1); i++) {
+      try { await server({ action: 'result', matchId: match.id, winner }); return } catch { await new Promise((r) => setTimeout(r, 5000)) }
+    }
+  },
+
+  /** Leaving a bet before the end: you lose it (reported now, so your friend is paid). */
+  concede() {
+    const { match, player } = get()
+    if (!match?.id || !player || match.status !== 'playing' || !(Number(match.stake) > 0) || resultSent.has(match.id)) return
+    const other = match.players?.find((p) => p.id !== player.id)
+    if (!other) return
+    resultSent.add(match.id)
+    server({ action: 'result', matchId: match.id, winner: other.id }).catch(() => {})
   },
 }))
 
 /** Count wins and report friend-match results as matches end. */
 export function watchMatches() {
+  // Leaving a bet mid-match loses it, and the pause menu says so first
+  platformHooks.onOnlineQuit = () => useLagosStore.getState().concede()
+  platformHooks.leaveWarning = () => {
+    const m = useLagosStore.getState().match
+    return m?.status === 'playing' && Number(m.stake) > 0 ? `Leaving now loses your ${naira(Number(m.stake))} bet.` : null
+  }
   const counted = new Set()
   let pendingDraw = null
   return useMatchStore.subscribe((m, prev) => {

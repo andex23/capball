@@ -3,7 +3,7 @@ import { createHash, createHmac } from 'node:crypto'
 import { roomCodeFor, isHostFor, opponentOf } from '../lagos/friendMatch'
 import { myTeamFor, nextWinTotal, useLagosStore, watchMatches, _resetLagos, _setSdk } from '../lagos/lagosStore'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { handleLagos, signResult, makeApi } from '../../server/lagos.js'
+import { handleLagos, signResult, makeApi, stakedOutcome } from '../../server/lagos.js'
 
 describe('friend match room', () => {
   it('gives both phones the same room code for a match, and different codes for different matches', () => {
@@ -95,14 +95,52 @@ describe('result server', () => {
   })
   it('posts a verified player’s result', async () => {
     const api = fakeApi()
-    await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 't_b' }, api)).resolves.toEqual({ ok: true })
+    await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 't_b' }, api)).resolves.toEqual({ ok: true, posted: 't_b' })
     expect(api.postResult).toHaveBeenCalledWith({ id: 'm_1', nonce: 'n1' }, 't_b')
   })
-  it('refuses players outside the match, unknown winners and staked matches', async () => {
+  it('refuses players outside the match and unknown winners', async () => {
     await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 't_x' }, fakeApi())).rejects.toThrow('bad-winner')
     await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 'draw' }, fakeApi({ verifySession: async () => ({ status: 200, data: { playerId: 't_z' } }) }))).rejects.toThrow('not-in-match')
-    await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 'draw' }, fakeApi({ getMatch: async () => ({ status: 200, data: { ...match, stake: 500 } }) }))).rejects.toThrow('not-playing')
     await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 'draw' }, fakeApi({ verifySession: async () => ({ status: 401, data: {} }) }))).rejects.toThrow('bad-session')
+  })
+  describe('bets (staked matches)', () => {
+    const staked = { ...match, stake: 500 }
+    const as = (id) => fakeApi({ verifySession: async () => ({ status: 200, data: { playerId: id } }), getMatch: async () => ({ status: 200, data: staked }) })
+    const memory = () => { const rows = []; return async (mode, m, player, winner) => { if (!rows.some((r) => r.player === player)) rows.push({ player, winner }); return [...rows] } }
+    const send = (api, winner, reports) => handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner }, api, null, null, reports)
+
+    it('believes a player who says they lost, straight away', async () => {
+      const api = as('t_a')
+      await expect(send(api, 't_b', memory())).resolves.toEqual({ ok: true, posted: 't_b' })
+    })
+    it('waits for both phones when a player says they won, then pays if they agree', async () => {
+      const reports = memory()
+      const a = as('t_a'); const b = as('t_b')
+      await expect(send(a, 't_a', reports)).resolves.toEqual({ ok: true, waiting: true })
+      expect(a.postResult).not.toHaveBeenCalled()
+      await expect(send(b, 't_a', reports)).resolves.toEqual({ ok: true, posted: 't_a' })
+    })
+    it('gives both stakes back when the phones disagree', async () => {
+      const reports = memory()
+      await send(as('t_a'), 'draw', reports)
+      await expect(send(as('t_b'), 't_b', reports)).resolves.toEqual({ ok: true, posted: 'draw' })
+    })
+    it('a player can’t change their report', async () => {
+      const reports = memory()
+      await send(as('t_a'), 't_a', reports)
+      await expect(send(as('t_a'), 'draw', reports)).resolves.toEqual({ ok: true, waiting: true })
+    })
+    it('needs the result store', async () => {
+      await expect(send(as('t_a'), 't_a', null)).rejects.toThrow('shop-not-configured')
+    })
+    it('works out the outcome from reports', () => {
+      expect(stakedOutcome([], ['a', 'b'])).toBe(null)
+      expect(stakedOutcome([{ player: 'a', winner: 'a' }], ['a', 'b'])).toBe(null)
+      expect(stakedOutcome([{ player: 'a', winner: 'draw' }], ['a', 'b'])).toBe(null)
+      expect(stakedOutcome([{ player: 'a', winner: 'a' }, { player: 'b', winner: 'a' }], ['a', 'b'])).toBe('a')
+      expect(stakedOutcome([{ player: 'a', winner: 'a' }, { player: 'b', winner: 'b' }], ['a', 'b'])).toBe('draw')
+      expect(stakedOutcome([{ player: 'a', winner: 'a' }, { player: 'b', winner: 'draw' }], ['a', 'b'])).toBe('draw')
+    })
   })
   it('treats a match the other phone already settled as done', async () => {
     const api = fakeApi({ postResult: async () => ({ status: 409, data: { error: 'already_settled' } }) })

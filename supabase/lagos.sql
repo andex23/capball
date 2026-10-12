@@ -87,3 +87,41 @@ $$;
 
 revoke all on function public.cb_lagos_save_service(text, text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.cb_lagos_save_service(text, text, text, jsonb) to service_role;
+
+-- Staked (betting) friend matches: what each player's phone says happened.
+-- One report per player per match, never changed. The server pays out only
+-- when the reports agree, or when a player reports their own loss.
+create table if not exists public.cb_lagos_reports (
+  mode text not null check (mode in ('test', 'live')),
+  match_id text not null,
+  player_id text not null,
+  winner text not null,
+  created_at timestamptz not null default now(),
+  primary key (mode, match_id, player_id)
+);
+alter table public.cb_lagos_reports enable row level security;
+revoke all on public.cb_lagos_reports from anon, authenticated;
+
+create or replace function public.cb_lagos_report_service(p_mode text, p_match text, p_player text, p_winner text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_mode not in ('test', 'live') or coalesce(p_match, '') = '' or coalesce(p_player, '') = '' or coalesce(p_winner, '') = '' then
+    raise exception 'bad-request';
+  end if;
+  insert into cb_lagos_reports (mode, match_id, player_id, winner)
+  values (p_mode, p_match, p_player, p_winner)
+  on conflict (mode, match_id, player_id) do nothing;
+  return coalesce(
+    (select jsonb_agg(jsonb_build_object('player', player_id, 'winner', winner) order by created_at)
+       from cb_lagos_reports where mode = p_mode and match_id = p_match),
+    '[]'::jsonb
+  );
+end;
+$$;
+
+revoke all on function public.cb_lagos_report_service(text, text, text, text) from public, anon, authenticated;
+grant execute on function public.cb_lagos_report_service(text, text, text, text) to service_role;

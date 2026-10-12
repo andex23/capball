@@ -1,4 +1,5 @@
 import VoiceChat from './VoiceChat'
+import { platformHooks } from '../platformHooks'
 import { leaveVoice } from '../multiplayer/voiceStore'
 import ShareGame from './ShareGame'
 import GoalSplash from './GoalSplash'
@@ -182,7 +183,7 @@ function PauseMenu({ onClose }) {
     stopAllBodies()
     // A tournament fixture abandoned mid-match: back to the hub, nothing recorded
     if (useTournamentStore.getState().playing) { useTournamentStore.getState().backToHub(); return }
-    if (gameMode === 'online') disconnect()
+    if (gameMode === 'online') { platformHooks.onOnlineQuit?.(); disconnect() }
     useMatchStore.getState().quitMatch(SCREEN.MENU)
   }
 
@@ -219,6 +220,7 @@ function PauseMenu({ onClose }) {
           </p>
         </>
       )}
+      {gameMode === 'online' && platformHooks.leaveWarning?.() && <p className="t-warn t-note">{platformHooks.leaveWarning()}</p>}
       <button className="btn btn-danger btn-block" onClick={quit}><Icon name="exit" size={18} /> {gameMode === 'online' ? 'Leave match' : 'Quit to menu'}</button>
     </Modal>
   )

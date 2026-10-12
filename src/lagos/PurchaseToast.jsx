@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { useLagosStore } from './lagosStore'
-import { SHOP_ITEMS, BAND_ITEMS } from '../data/shop'
+import { useLagosStore, potFor } from './lagosStore'
+import { SHOP_ITEMS, BAND_ITEMS, naira } from '../data/shop'
 import { playConfirm } from '../audio/SoundManager'
 import CapPreview from '../ui/CapPreview'
 import Icon from '../ui/Icon'
@@ -36,6 +36,28 @@ export default function PurchaseToast() {
       {cap ? <CapPreview config={cap.design} size={48} /> : band ? <span className="band-dot" style={{ '--band': band.band.color }} aria-hidden="true" /> : null}
       <div>
         <div className="unlock-toast-title">{words.icon && <Icon name={words.icon} size={13} />} {words.title}</div>
+        <div className="unlock-toast-name">{line}</div>
+      </div>
+    </div>
+  )
+}
+
+/** After a bet settles: what it came to. */
+export function BetToast() {
+  const note = useLagosStore((s) => s.betNote)
+  useEffect(() => {
+    if (!note) return
+    if (note.outcome === 'won') playConfirm()
+    const t = setTimeout(() => useLagosStore.setState({ betNote: null }), 6000)
+    return () => clearTimeout(t)
+  }, [note])
+  if (!note) return null
+  const title = note.outcome === 'won' ? `You won ${naira(potFor(note.stake))}` : note.outcome === 'lost' ? `You lost your ${naira(note.stake)} bet` : 'Bet returned'
+  const line = note.outcome === 'won' ? 'It’s in your Lagos Life balance.' : note.outcome === 'lost' ? 'Good game.' : `Your ${naira(note.stake)} is back in your balance.`
+  return (
+    <div className={`unlock-toast purchase-toast bet-toast is-${note.outcome}`} role="status" onClick={() => useLagosStore.setState({ betNote: null })}>
+      <div>
+        <div className="unlock-toast-title">{title}</div>
         <div className="unlock-toast-name">{line}</div>
       </div>
     </div>
