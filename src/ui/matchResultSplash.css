@@ -10,3 +10,12 @@
 .result-splash-pens { overflow-wrap: anywhere; margin: 0 0 20px; }
 @media (prefers-reduced-motion: reduce) { .result-splash-card { animation: none; } }
 @media (max-height: 500px) and (orientation: landscape) { .result-splash-card { padding: 12px 20px; } .result-splash-card > svg { display: none; } .result-splash h1 { margin: 8px 0 12px; } .result-splash-team { gap: 6px; padding: 8px; } .result-splash-team > svg { width: 44px; height: 44px; } .result-splash-teams { margin-bottom: 12px; } }
+/* A loss reads as a loss: cool red, no trophy glow */
+.result-splash h1 { text-transform: uppercase; }
+.result-splash-line { margin: -14px 0 22px; font: 600 16px/1.35 Inter, sans-serif; color: #dfe6ff; }
+.result-splash[data-tone="loss"] { background: radial-gradient(ellipse at 50% 20%, #5a1a2c, #12060c 75%); }
+.result-splash[data-tone="loss"] .result-splash-card { border-color: #ff5468; box-shadow: 0 0 50px #ff546818, inset 0 0 40px #0003; }
+.result-splash[data-tone="loss"] h1, .result-splash[data-tone="loss"] .result-splash-card > svg { color: #ff8a98; }
+.result-splash[data-tone="draw"] h1 { color: #e8ecff; }
+.result-splash-team[data-mine="true"] .eyebrow { color: #ffd54a; }
+.result-splash[data-tone="loss"] .result-splash-team[data-mine="true"] { border-color: #ff5468; }

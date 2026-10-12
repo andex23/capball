@@ -33,6 +33,7 @@ export default function AnytimeHUD({ children }) {
     {s.complete && !watching && dismissedResult !== match.code && <MatchResultSplash
       teams={match.config.teams} score={s.score} winner={s.winner}
       penaltyScore={s.shootout ? s.penaltyScores : null}
+      myTeam={match.myTeam || null}
       onContinue={() => setDismissedResult(match.code)} />}
     <AnytimeScoreboard match={match} busy={busy} pending={pending} watching={watching} onMenu={() => showMenu(true)} />
     <AimWarning />
