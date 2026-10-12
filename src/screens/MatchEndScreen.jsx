@@ -84,11 +84,12 @@ export default function MatchEndScreen() {
   }
 
   let headline = isDraw ? 'It’s a draw' : `${winnerName} win`
-  if (gameMode === 'ai' && !isDraw) headline = winner === useMatchStore.getState().aiTeam ? 'CPU wins' : 'You win!'
-  if (online && !isDraw) headline = winner === useMatchStore.getState().onlineMyTeam ? 'You win!' : `${winnerName} win`
+  if (gameMode === 'ai' && !isDraw) headline = winner === useMatchStore.getState().aiTeam ? 'You lost' : 'You win!'
+  if (online && !isDraw) headline = winner === useMatchStore.getState().onlineMyTeam ? 'You win!' : 'You lost'
 
   if (dismissedResult !== matchResult) return <MatchResultSplash
     teams={teamConfig} score={score} winner={winner} penaltyScore={penaltyScore}
+    myTeam={gameMode === 'ai' ? (useMatchStore.getState().aiTeam === 'team1' ? 'team2' : 'team1') : online ? useMatchStore.getState().onlineMyTeam : null}
     onContinue={() => { playConfirm(); setDismissedResult(matchResult) }} />
 
   return (
@@ -97,7 +98,7 @@ export default function MatchEndScreen() {
         <div className="card-pad" style={{ textAlign: 'center', paddingBottom: 8 }}>
           <div className="eyebrow">{penaltyScore ? 'After penalties' : 'Full time'}</div>
           <h1 className="display" style={{ fontSize: 'clamp(40px, 8vw, 60px)', color: isDraw ? 'var(--text)' : 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-            {!isDraw && <Icon name="trophy" size={36} />}{headline}
+            {!isDraw && headline !== 'You lost' && <Icon name="trophy" size={36} />}{headline}
           </h1>
         </div>
 
