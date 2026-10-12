@@ -45,6 +45,9 @@ export default function RatingsGuide({ onClose }) {
         <h3>The club budget</h3>
         <p>Your club’s money is in naira. A win pays {money(60)}, a draw {money(25)} and a loss {money(10)}, plus {money(5)} a goal, and every division up pays half as much again. Fees rise steeply with OVR, like real values: a 60 costs about {money(priceOf({ rating: 60, age: 26 }))}, a 70 about {money(priceOf({ rating: 70, age: 26 }))} and an 80 about {money(priceOf({ rating: 80, age: 26 }))}. Young players with potential cost more, and players over 30 less. Transfer windows open before the season and after league match {WINDOW_AFTER[1]}.</p>
 
+        <h3>Running the club</h3>
+        <p>Players are paid every match: about a twentieth of their value, so stars cost more to keep. Home matches sell tickets. Cheap tickets fill more seats and premium ones earn more from each fan. Fans grow as you win and when you go up. Each summer you choose a sponsor: steady money, a bonus for each win, or a lump sum up front. Higher divisions pay TV money. Spend on a bigger stadium, a training ground that makes players improve faster, or an academy that produces a graduate every summer. If the balance goes below zero, the board freezes transfers and building until you are back in profit.</p>
+
         <h3>The season</h3>
         <p>Ten league matches, home and away. The {CUP_NAME} runs alongside: the quarter-final opens after league match {CUP_AFTER[0]}, the semi after {CUP_AFTER[1]} and the final after {CUP_AFTER[2]}. Meet the board’s target for a bonus of up to {money(Math.max(...Object.values(TARGET_BONUS)))}.</p>
       </div>

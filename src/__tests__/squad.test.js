@@ -94,7 +94,8 @@ describe('career transfers', () => {
       c = recordCareerResult(c, f.id, f.home === ME ? { home: 2, away: 0 } : { home: 0, away: 2 })
     }
     play()
-    expect(c.coins).toBe(start + 70)
+    expect(c.biz.ledger.prize).toBe(70)            // the win's prize money
+    expect(c.coins).toBe(start + c.lastEarned)      // plus tickets/sponsor, less wages
     expect(transferWindow(c)).toBeNull()
     play(); play(); play(); play()
     expect(playedThisSeason(c.league)).toBe(5)

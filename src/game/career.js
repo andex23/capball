@@ -8,7 +8,8 @@
  * Pure functions over plain JSON, built on the league engine in tournament.js.
  */
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
-import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, coinsForResult, seasonBonus, developSeason, openWindow, marketFor, signPlayer, squadRatings, clubRatings, averageRating } from './squad'
+import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, ACADEMY, TICKETS } from './club'
+import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, makeYouth, sanitizePlayer, priceOf, sellValue, coinsForResult, seasonBonus, developSeason, openWindow, marketFor, signPlayer, squadRatings, clubRatings, averageRating } from './squad'
 
 export const CAREER_VERSION = 1
 // Each season: everyone plays everyone home and away
@@ -150,8 +151,8 @@ export function recordCupResult(career, fixtureId, result) {
   const home = mine?.home === ME
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
-  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga, career.level) : 0
-  return { ...career, cup: { ...career.cup, tournament: after }, coins: (career.coins ?? 0) + earned, lastEarned: earned }
+  const next = { ...career, cup: { ...career.cup, tournament: after } }
+  return mine ? payMatchDay(next, { home, gf, ga }) : next
 }
 
 /* ── The board's target ── */
@@ -202,6 +203,8 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     titles: 0,         // top-division wins
     squad: sq,
     bench: startingBench(now, 0),
+    biz: newClub(0, `${club.name}:${now}`),
+    youthOffer: null,
     coins: START_COINS,
     signed: { key: '', ids: [] }, // players already bought in the current window
     lastEarned: 0,
@@ -228,10 +231,14 @@ export function buyPlayer(career, playerId, role) {
   const w = transferWindow(career)
   const player = w?.market.find((p) => p.id === playerId)
   if (!player) return null
+  if (spendingFrozen(career)) return null
   const deal = signPlayer(career.squad, career.coins, player, role, career.bench)
   if (!deal) return null
+  const b = /^bench:(\d)$/.exec(role || '')
+  const out = b ? career.bench?.[Number(b[1])] : career.squad?.[role]
+  const biz = book(career.biz || newClub(career.level), { transfers: priceOf(player), sales: out ? sellValue(out) : 0 })
   const ids = career.signed?.key === w.key ? career.signed.ids : []
-  return { ...career, ...deal, signed: { key: w.key, ids: [...ids, playerId] } }
+  return { ...career, ...deal, bench: deal.bench || career.bench, biz, signed: { key: w.key, ids: [...ids, playerId] } }
 }
 
 /** Swap a bench player into the starting six (before a match). Returns the new career, or null. */
@@ -243,6 +250,59 @@ export function swapLineup(career, benchIndex, role) {
 /** Has every fixture of the season been played? */
 export function seasonOver(league) {
   return allFixtures(league).every((f) => f.result)
+}
+
+/** Recent form for the crowd: your last three results, −0.2..0.2. */
+function recentForm(league) {
+  const mine = allFixtures(league).filter((f) => f.result && (f.home === ME || f.away === ME)).slice(-3)
+  if (!mine.length) return 0
+  const pts = mine.map((f) => { const h = f.home === ME; const gf = h ? f.result.home : f.result.away; const ga = h ? f.result.away : f.result.home; return gf > ga ? 1 : gf === ga ? 0 : -1 })
+  return (pts.reduce((a, b) => a + b, 0) / mine.length) * 0.2
+}
+
+/** The money side of one of your matches (tickets if at home, sponsor, prize money, wages). */
+function payMatchDay(career, { home, gf, ga }) {
+  if (!Number.isFinite(gf) || !Number.isFinite(ga)) return { ...career, lastEarned: 0 }
+  const biz = career.biz || newClub(career.level)
+  const outcome = gf > ga ? 'win' : gf === ga ? 'draw' : 'loss'
+  const r = matchDay(biz, { home, outcome, prize: coinsForResult(gf, ga, career.level), level: career.level, wages: wageBill(career.squad, career.bench), form: recentForm(career.league) })
+  return { ...career, biz: r.club, coins: (career.coins ?? 0) + r.net, lastEarned: r.net }
+}
+
+/** In the red: the board freezes transfers and upgrades until the books are back above zero. */
+export const spendingFrozen = (career) => (career.coins ?? 0) < 0
+
+/** Choose this season's sponsor (one of three offers). */
+export function signSponsor(career, index) {
+  const r = chooseSponsor(career.biz, index)
+  return r ? { ...career, biz: r.club, coins: (career.coins ?? 0) + r.paid } : null
+}
+
+/** Build the next level of a facility (stadium, training, academy). */
+export function buildFacility(career, kind) {
+  if (spendingFrozen(career)) return null
+  const r = upgradeClub(career.biz, kind, career.coins ?? 0)
+  return r ? { ...career, biz: r.club, coins: career.coins - r.cost } : null
+}
+
+/** Set ticket prices: cheap, standard or premium. */
+export function setTickets(career, ticket) {
+  if (!Object.hasOwn(TICKETS, ticket)) return null
+  return { ...career, biz: { ...career.biz, ticket } }
+}
+
+/**
+ * Take on this summer's academy graduate in a bench slot (the player there
+ * is released for his value), or let him go (slot null).
+ */
+export function takeYouth(career, slot) {
+  const y = career.youthOffer
+  if (!y) return career
+  if (slot == null) return { ...career, youthOffer: null }
+  const out = career.bench?.[slot]
+  if (!out || (out.pos === 'GK') !== (y.pos === 'GK')) return null
+  const back = sellValue(out)
+  return { ...career, bench: career.bench.map((p, i) => (i === slot ? y : p)), youthOffer: null, coins: (career.coins ?? 0) + back, biz: book(career.biz, { sales: back }) }
 }
 
 /** Your club's next match, or null when your season is done. */
@@ -285,8 +345,7 @@ export function recordCareerResult(career, fixtureId, result) {
   const home = mine?.home === ME
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
-  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga, career.level) : 0
-  return { ...career, league, coins: (career.coins ?? 0) + earned, lastEarned: earned }
+  return mine ? payMatchDay({ ...career, league }, { home, gf, ga }) : { ...career, league }
 }
 
 /** Close the finished season and start the next one, in the new division. */
@@ -318,7 +377,18 @@ export function finishSeason(career, now = Date.now()) {
     cup,
     cupWinner: cupT?.championId ? teamById(cupT, cupT.championId)?.name || null : null,
     record: me ? { w: me.w, d: me.d, l: me.l, gf: me.gf, ga: me.ga, pts: me.pts } : null,
+    // The season's books (season bonus and prizes included)
+    finance: (() => { const l = { ...emptyLedger(), ...(career.biz?.ledger || {}) }; l.prize += bonus; return { ...ledgerTotals(l), ledger: l } })(),
   }
+  // The business side of the summer: fans move with the season, TV money for the new division,
+  // new sponsor offers, a fresh set of books, and an academy graduate if there's an academy
+  const biz0 = career.biz || newClub(career.level)
+  const fans = fansAfterSeason(biz0.fans, outcome, cup, level)
+  const tv = TV_MONEY[level] ?? 0
+  const bizNext = book({ ...biz0, fans, sponsor: null, offers: sponsorOffers(level, fans, `${career.league.id}:${career.season + 1}`), ledger: emptyLedger(), lastMatch: null }, { tv })
+  const academy = ACADEMY[biz0.academy || 0]
+  const youthRng = seededRng(`academy:${career.league.id}:${career.season}`)
+  const youthOffer = academy.pot == null ? null : makeYouth(youthRng, level, ['ATK', 'MID', 'DEF', 'GK'][Math.floor(youthRng() * 4)], academy.pot)
   const summer = developSeason(career.squad || startingSquad(career.season), `${career.league.id}:${career.season}`, level)
   // The bench develops too (and players who never got a game slide a little)
   const benchSummer = developSeason(Object.fromEntries((career.bench || []).map((p, i) => [String(i), p])), `${career.league.id}:${career.season}:bench`, level)
@@ -334,7 +404,9 @@ export function finishSeason(career, now = Date.now()) {
     promotions: career.promotions + (outcome === 'promoted' ? 1 : 0),
     titles: career.titles + (outcome === 'champions' ? 1 : 0),
     cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
-    coins: (career.coins ?? 0) + bonus,
+    coins: (career.coins ?? 0) + bonus + tv,
+    biz: bizNext,
+    youthOffer,
     squad: summer.squad,
     bench,
     lastSummer: { season: career.season + 1, retired: [...summer.retired, ...benchSummer.retired], changes: [...summer.changes, ...benchSummer.changes] },
@@ -363,11 +435,13 @@ export function sanitizeCareer(input) {
     // Careers from before the squad existed get a starting squad and purse
     squad: sanitizeSquad(input.squad, league.id),
     bench: sanitizeBench(input.bench, league.id, level),
-    coins: Number.isInteger(input.coins) && input.coins >= 0 ? input.coins : START_COINS,
+    coins: Number.isInteger(input.coins) ? input.coins : START_COINS,
     signed: isObj(input.signed) && typeof input.signed.key === 'string' && Array.isArray(input.signed.ids)
       ? { key: input.signed.key.slice(0, 20), ids: input.signed.ids.filter((x) => typeof x === 'string').slice(0, 20) }
       : { key: '', ids: [] },
-    lastEarned: n(input.lastEarned),
+    lastEarned: Number.isInteger(input.lastEarned) ? input.lastEarned : 0,
+    biz: sanitizeClub(input.biz, level, league.id),
+    youthOffer: isObj(input.youthOffer) ? sanitizePlayer(input.youthOffer, { GK: 'gk', DEF: 'def1', MID: 'mid', ATK: 'atk1' }[input.youthOffer.pos] || 'mid') : null,
     lastReport: sanitizeReport(input.lastReport),
     cup: sanitizeCup(input.cup),
     target: Object.hasOwn(TARGETS, input.target) ? input.target : null,

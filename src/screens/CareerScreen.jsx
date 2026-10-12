@@ -20,6 +20,7 @@ import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames, squadRatings, clubRatings, averageRating, matchupOf, money } from '../game/squad'
 import RatingsGuide from '../ui/RatingsGuide'
+import ClubPanel from '../ui/ClubPanel'
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -326,6 +327,7 @@ export default function CareerScreen() {
 
           {played > 0 && <PlayerRatings career={career} />}
           <SquadPanel career={career} />
+          <ClubPanel career={career} />
           </div>
 
           <div className="career-col">
