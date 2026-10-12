@@ -9,6 +9,7 @@
 
 import { BADGES, PATTERNS, FINISHES, CAP_ROLES, TEAM_NAME_MAX, sanitizeCapText, CAP_NAME_MODES, sanitizePlayerName } from '../data/TeamOptions'
 import { BAND_KEYS } from '../data/bands'
+import { hasArt } from '../game/capArt'
 import { FORMATIONS } from '../data/TeamData'
 import { teamOf } from '../game/rules'
 
@@ -71,6 +72,7 @@ export function sanitizeTeamConfig(input) {
     }
     if (Object.keys(numbers).length) out.numbers = numbers
   }
+  if (input.art === '' || hasArt(input.art)) out.art = input.art
   // Rubber bands, one per player (missing = no band)
   if (isObj(input.bands)) {
     const bands = {}

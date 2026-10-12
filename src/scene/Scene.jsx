@@ -274,6 +274,7 @@ function GameWorld() {
             skirtColor={team1.skirtColor}
             finish={team1.finish}
             band={bandColor(team1.bands?.[id.slice(6)])}
+            art={team1.art}
           />
         )
       })}
@@ -296,6 +297,7 @@ function GameWorld() {
             skirtColor={team2.skirtColor}
             finish={team2.finish}
             band={bandColor(team2.bands?.[id.slice(6)])}
+            art={team2.art}
           />
         )
       })}

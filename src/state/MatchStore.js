@@ -177,9 +177,11 @@ export const useMatchStore = create((set, get) => ({
 
   // --- Team customization ---
   teamConfig: DEFAULT_TEAM_CONFIG,
-  setTeamConfig: (team, config) => set((s) => ({
-    teamConfig: { ...s.teamConfig, [team]: { ...s.teamConfig[team], ...config } },
-  })),
+  setTeamConfig: (team, config) => set((s) => {
+    // Editing colours, print or text by hand turns a printed design back into your own kit
+    const handEdit = !!s.teamConfig[team]?.art && !('art' in config) && ['primary', 'edge', 'pattern', 'badge', 'capText', 'textColor'].some((k) => k in config)
+    return { teamConfig: { ...s.teamConfig, [team]: { ...s.teamConfig[team], ...config, ...(handEdit ? { art: '' } : {}) } } }
+  }),
 
   ballColor: '#EFE6D2', // a white carrom coin
   setBallColor: (color) => set({ ballColor: color }),

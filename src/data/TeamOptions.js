@@ -1,3 +1,4 @@
+import { hasArt } from '../game/capArt'
 // Cap customisation options shared by the team builder and online validation.
 
 export const BADGES = [
@@ -73,12 +74,14 @@ const DESIGN_FIELDS = ['primary', 'edge', 'pattern', 'badge', 'finish', 'capText
 
 /** The fields a design sets (without its key and name). */
 export function designPatch(design) {
-  return { ...Object.fromEntries(DESIGN_FIELDS.map((k) => [k, design[k]])), textColor: '', skirtColor: '' }
+  // Designs with printed artwork carry it; anything else clears it
+  return { ...Object.fromEntries(DESIGN_FIELDS.map((k) => [k, design[k]])), textColor: '', skirtColor: '', art: hasArt(design.key) ? design.key : '' }
 }
 
 /** Is this kit exactly the given design? */
 export function isDesign(config, design) {
-  return !config.textColor && !config.skirtColor &&
+  if (hasArt(design.key)) return config.art === design.key
+  return !config.art && !config.textColor && !config.skirtColor &&
     DESIGN_FIELDS.every((k) => (config[k] || (k === 'capText' ? '' : 'none')) === design[k])
 }
 

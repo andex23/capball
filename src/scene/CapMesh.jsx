@@ -1,4 +1,5 @@
 import { forwardRef, useRef, useMemo, useEffect } from 'react'
+import { drawCapArt, drawNumberSticker, stickerSpot } from '../game/capArt'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CAP_RADIUS, GK_RADIUS } from '../data/TeamData'
@@ -94,13 +95,22 @@ function createSkirtTexture(color) {
 }
 
 /** The printed top: paint and pattern, a thin printed ring near the edge, then badge and number. */
-function createTopTexture(color, edgeColor, badge, number, pattern, capText = '', textColor = '') {
+function createTopTexture(color, edgeColor, badge, number, pattern, capText = '', textColor = '', art = '') {
   const ink = textColor || (edgeColor === color ? '#ffffff' : edgeColor)
   const size = 512
   const c = document.createElement('canvas')
   c.width = size
   c.height = size
   const ctx = c.getContext('2d')
+  // Printed artwork: the whole top, plus the number on a sticker
+  if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2)) {
+    const s = stickerSpot(size / 2)
+    drawNumberSticker(ctx, number, size / 2 + s.x, size / 2 + s.y, s.r)
+    const t = new THREE.CanvasTexture(c)
+    t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = 4
+    return t
+  }
   const body = createBodyTexture(color, edgeColor, pattern, size).image
   ctx.drawImage(body, 0, 0)
   // Team lettering is independent of the selected cap pattern.
@@ -159,7 +169,7 @@ const FINISH_MAP = {
   // Matte: no shine at all. Satin: a soft sheen. Gloss: a sharp, bright highlight.
   matte:  { metalness: 0.02, roughness: 0.85, envMapIntensity: 0.35, shine: 0, shineMetal: 0 },
   satin:  { metalness: 0.08, roughness: 0.45, envMapIntensity: 0.7, shine: 0.1, shineMetal: 0 },
-  gloss:  { metalness: 0.12, roughness: 0.12, envMapIntensity: 1, shine: 0.26, shineMetal: 0 },
+  gloss:  { metalness: 0.1, roughness: 0.25, envMapIntensity: 0.8, shine: 0.14, shineMetal: 0 },
   chrome: { metalness: 0.92, roughness: 0.12, envMapIntensity: 1.3, shine: 0.45, shineMetal: 0.6 },
 }
 // Skirt and shoulder: a base of their true colour plus some light for shape
@@ -390,7 +400,7 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   return texture
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, isSelected, badge, number, pattern, finish, capText, band }, ref) {
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, isSelected, badge, number, pattern, finish, capText, band, art }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -398,8 +408,8 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
   const edge = edgeColor || color
 
   const topTexture = useMemo(
-    () => createTopTexture(color, edge, badge, number, pattern, capText, textColor),
-    [color, edge, badge, number, pattern, capText, textColor]
+    () => createTopTexture(color, edge, badge, number, pattern, capText, textColor, art),
+    [color, edge, badge, number, pattern, capText, textColor, art]
   )
   const skirtTexture = useMemo(() => createSkirtTexture(skirtColor || color), [skirtColor, color])
   useEffect(() => () => topTexture.dispose(), [topTexture])

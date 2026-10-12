@@ -10,6 +10,7 @@ import '@fontsource/inter/latin-700.css'
 import '@fontsource/silkscreen/latin-400.css'
 import '@fontsource/silkscreen/latin-700.css'
 import './styles/theme.css'
+import { loadArtFonts } from './game/capArt'
 import App from './App'
 import { initPersistence } from './state/persistence'
 import { initTournamentWatch } from './state/tournamentStore'
@@ -38,5 +39,8 @@ if (location.hash === '#dbcheck') {
     createRoot(document.getElementById('root')).render(<DbCheckPage />)
   })
 } else {
-  createRoot(document.getElementById('root')).render(<App />)
+  // Cap artwork is drawn with the game's fonts: have them ready first (they're local, so this is quick)
+  Promise.race([loadArtFonts(), new Promise((r) => setTimeout(r, 1500))]).finally(() => {
+    createRoot(document.getElementById('root')).render(<App />)
+  })
 }

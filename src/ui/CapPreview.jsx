@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { bandColor } from '../data/bands'
+import { capArtUrl, hasArt } from '../game/capArt'
 import { darkenHex, lightenHex } from './color'
 import { capLabel } from '../data/TeamOptions'
 
@@ -133,8 +134,8 @@ function isLight(hex) {
 const FINISH_LOOK = {
   matte: { lift: 0, rim: 0.18, skirt: 0, sheen: 0, glare: 0, glint: 0 },
   satin: { lift: 0.08, rim: 0.45, skirt: 0.14, sheen: 0.22, glare: 0, glint: 0 },
-  gloss: { lift: 0.16, rim: 0.7, skirt: 0.3, sheen: 0.12, glare: 0.42, glint: 0.85 },
-  chrome: { lift: 0.32, rim: 0.9, skirt: 0.4, sheen: 0.2, glare: 0.5, glint: 0.95 },
+  gloss: { lift: 0.12, rim: 0.6, skirt: 0.24, sheen: 0.16, glare: 0, glint: 0 },
+  chrome: { lift: 0.32, rim: 0.9, skirt: 0.4, sheen: 0.22, glare: 0.3, glint: 0 },
 }
 
 export default function CapPreview({ config, size = 120, number = null, role = 'atk1' }) {
@@ -163,6 +164,9 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   const inkColor = config.textColor || printColor
   const withText = capText.length > 0
   const hasBadge = badge && badge !== 'none'
+  // Printed artwork (with the number on a sticker) replaces the plain print
+  // (a design from the lists is drawn with its own artwork too)
+  const artUrl = capArtUrl(config.art ?? (hasArt(config.key) ? config.key : ''), number)
   // This player's rubber band, if any, stretched round the middle of the skirt
   const band = bandColor(config.bands?.[role])
   const bandY = tc + H * 0.5
@@ -240,6 +244,10 @@ export default function CapPreview({ config, size = 120, number = null, role = '
       {/* Printed top, drawn flat then tilted */}
       <g transform={`matrix(1 0 0 ${K} 0 ${(tc * (1 - K)).toFixed(3)})`}>
         <circle cx={cx} cy={tc} r={topR} fill={`url(#top-${uid})`} />
+        {artUrl ? (
+          <image href={artUrl} x={cx - topR} y={tc - topR} width={topR * 2} height={topR * 2} clipPath={`url(#topClip-${uid})`} preserveAspectRatio="none" />
+        ) : (
+          <>
         <g clipPath={`url(#topClip-${uid})`}>
           {pattern === 'split' && <circle cx={cx} cy={tc} r={topR} fill={edge} clipPath={`url(#split-${uid})`} />}
           <PatternOverlay pattern={pattern} cx={cx} cy={tc} innerR={topR} edgeColor={edge} />
@@ -274,6 +282,8 @@ export default function CapPreview({ config, size = 120, number = null, role = '
           >
             {number}
           </text>
+        )}
+          </>
         )}
       </g>
 
