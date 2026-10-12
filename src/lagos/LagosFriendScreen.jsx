@@ -25,7 +25,8 @@ export default function LagosFriendScreen() {
   const status = useMatchStore((s) => s.onlineStatus)
   const lagos = useLagosStore()
   const me = lagos.player?.id
-  const match = lagos.match && !used.has(lagos.match.id) ? lagos.match : null
+  // Only a match that's waiting or in play counts; a cancelled or finished one is gone
+  const match = lagos.match && !used.has(lagos.match.id) && ['open', 'playing'].includes(lagos.match.status) ? lagos.match : null
   const [view, setView] = useState('menu') // 'menu' | 'join'
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -79,7 +80,8 @@ export default function LagosFriendScreen() {
     setBusy(true)
     setError(null)
     try {
-      if (lagos.match && used.has(lagos.match.id)) await useLagosStore.getState().leaveMatch()
+      const old = useLagosStore.getState().match
+      if (old && (used.has(old.id) || !['open', 'playing'].includes(old.status))) await useLagosStore.getState().leaveMatch()
       await useLagosStore.getState().findMatch(kind, code, kind === 'join' ? 0 : stake)
       setMadeCode(kind === 'create')
     } catch (e) {
