@@ -6,12 +6,14 @@
  */
 import { create } from 'zustand'
 import { loadSdk, sdkMessage } from './sdk'
-import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { useAccountStore } from '../state/accountStore'
 import { holdAudio } from '../audio/SoundManager'
 import { startMenuMusic, stopMenuMusic } from '../audio/MusicManager'
 import { holdIosAudio } from './iosAudio'
 import { isProduct, productIdFor } from '../data/shop'
+import { switchSaveTo, ownKit } from './ownership'
+import { currentProgress } from '../state/unlocks'
 
 const SCORE_GAP_MS = 21_000 // the SDK takes one score every 20 s
 const winsKey = (playerId) => `counterball:lagos:wins:${playerId}`
@@ -62,6 +64,7 @@ export const useLagosStore = create((set, get) => ({
   owned: [],         // product ids of caps bought (from our server)
   buying: null,      // product id being bought right now
   shopNote: null,    // { tone: 'good' | 'bad', text }
+  justBought: null,  // { productId } shows the 'Purchase complete' note
 
   /** Is this cap design bought? */
   owns: (designKey) => get().owned.includes(productIdFor(designKey)),
@@ -74,6 +77,8 @@ export const useLagosStore = create((set, get) => ({
       const launch = await sdk.init()
       const player = launch?.player
       if (!player?.id) throw Object.assign(new Error('no player'), { code: 'error' })
+      // Each Lagos Life player has their own save on a shared phone
+      if (switchSaveTo(player.id) && typeof location !== 'undefined') { location.reload(); return false }
       // The Lagos Life player counts as signed in for career, the daily
       // challenge and rewards. There's no Counterball account, so nothing is
       // copied to the Counterball server; progress stays on this phone.
@@ -156,8 +161,21 @@ export const useLagosStore = create((set, get) => ({
   async loadOwned() {
     try {
       const { owned } = await server({ action: 'owned' })
-      if (Array.isArray(owned)) set({ owned: owned.filter(isProduct) })
-    } catch { /* shop not set up yet: nothing owned shows */ }
+      if (Array.isArray(owned)) {
+        set({ owned: owned.filter(isProduct) })
+        get().enforceOwnership()
+      }
+    } catch { /* shop not set up yet: nothing owned shows (kits are left alone) */ }
+  },
+
+  /** Take off any cap or band this player hasn't bought or earned. */
+  enforceOwnership() {
+    const who = { owned: get().owned, progress: currentProgress() }
+    const m = useMatchStore.getState()
+    for (const team of ['team1', 'team2']) {
+      const fixed = ownKit(m.teamConfig[team], DEFAULT_TEAM_CONFIG[team], who)
+      if (fixed) m.setTeamConfig(team, { ...fixed, art: fixed.art })
+    }
   },
 
   /** Unlock a paid cap (our server checks it with Lagos Life first). */
@@ -166,7 +184,7 @@ export const useLagosStore = create((set, get) => ({
     claiming.add(purchaseId)
     try {
       const { productId, owned } = await server({ action: 'claim', purchaseId })
-      set({ owned: Array.isArray(owned) ? owned.filter(isProduct) : [...new Set([...get().owned, productId])] })
+      set({ owned: Array.isArray(owned) ? owned.filter(isProduct) : [...new Set([...get().owned, productId])], justBought: { productId, at: Date.now() } })
       return productId
     } catch (e) {
       set({ shopNote: { tone: 'bad', text: `${e.message} Your payment is safe; reopen the game to try again.` } })
