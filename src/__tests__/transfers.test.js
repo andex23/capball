@@ -163,9 +163,8 @@ describe('the transfer market', () => {
 
   it('free agents sign any time; club players only in a window', () => {
     let c = rich(newCareer(club, { now: 6 }))
-    const f = nextMatch(c.league)
-    c = recordCareerResult(c, f.id, { home: 1, away: 1 })
-    expect(transferWindow(c)).toBeNull()
+    for (let i = 0; i < 3; i++) { const f = nextMatch(c.league); c = recordCareerResult(c, f.id, { home: 1, away: 1 }) }
+    expect(transferWindow(c)).toBeNull() // the pre-season window shut at matchday 3
     const t = cheapAt(c)
     expect(makeBid(c, t.player.id, t.asking).result.verdict).toBe('shut')
     const fa = searchMarket(c.world, { level: 'free', sort: 'price' }, 0).find((r) => !r.willing.reluctant)

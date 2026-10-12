@@ -128,7 +128,8 @@ function SeasonEnd({ career }) {
   const cup = cupRun(career.cup?.tournament)
   const waitingCup = cupPending(career)
   const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[career.target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
-  const doomed = career.target && !met
+  const doomed = career.target && !met && career.warning
+  const warned = career.target && !met && !career.warning
   return (
     <section className="card card-pad career-end" data-tone={doomed ? 'bad' : o.tone}>
       <div className="eyebrow">Season {career.season} · {DIVISIONS[career.level].name}</div>
@@ -137,8 +138,9 @@ function SeasonEnd({ career }) {
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
       {career.target && <p className="career-target-line" data-met={met ? 'true' : undefined}>Board target: {TARGETS[career.target]} · <b>{met ? 'Met' : 'Missed'}</b></p>}
       {cup && <p className="career-target-line">{CUP_NAME}: <b>{cup === 'won' ? 'Winners!' : cup === 'final' ? 'Runners-up' : cup === 'semi' ? 'Semi-finals' : 'Quarter-finals'}</b></p>}
+      {warned && <p className="t-note career-warning"><b>Final warning.</b> The board isn’t happy. Miss next season’s target too and you’re sacked.</p>}
       {doomed
-        ? <p className="t-note">You missed the board’s target. They want to see you.</p>
+        ? <p className="t-note">You missed the board’s target again, on a final warning. They want to see you.</p>
         : <p className="muted">Season bonus: <b>{money(bonus)}</b>. Over the summer young players improve, older ones slow down, and veterans may retire. The transfer window opens before the new season.</p>}
       {waitingCup ? (
         <p className="t-note" role="status">Play your {CUP_NAME} tie first; the season ends once you’re out or it’s won.</p>
@@ -330,7 +332,9 @@ export default function CareerScreen() {
             <section className="card card-pad career-board" aria-label="The board’s target">
               <div className="eyebrow">Season {career.season} · the board</div>
               <h2 className="saved-h">{TARGETS[career.target]}</h2>
-              <p className="t-note">Miss it and the board sacks you: your career ends and you start again. Meet it for a <b>{money(TARGET_BONUS[career.target])}</b> bonus.</p>
+              {career.warning
+                ? <p className="t-note career-warning"><b>Final warning.</b> You missed last season’s target. Miss this one and the board sacks you: your career ends and you start again.</p>
+                : <p className="t-note">Miss it and you get a final warning; miss again and you’re sacked. Meet it for a <b>{money(TARGET_BONUS[career.target])}</b> bonus.</p>}
               <p className="muted t-note">Your squad’s OVR of <b>{myOvr}</b> ranks <b>{ordinal(squadRank)}</b> of {count} in the {division.name}.{squadRank > PROMOTED && career.target === 'promotion' ? ' Strengthen it in the transfer market before matchday 1.' : ''}</p>
             </section>
           )}
@@ -383,7 +387,7 @@ export default function CareerScreen() {
 
           {career.target && !done && played > 0 && (
             <p className="career-strip" data-met={targetMet(career.target, pos, count) ? 'true' : undefined}>
-              Board target: <b>{TARGETS[career.target]}</b> · now {ordinal(pos)}
+              Board target: <b>{TARGETS[career.target]}</b> · now {ordinal(pos)}{career.warning ? ' · final warning' : ''}
             </p>
           )}
 

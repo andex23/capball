@@ -33,7 +33,10 @@ describe('squad', () => {
   it('windows open pre-season and after matchday 5', () => {
     expect(openWindow(0)).toBe(0)
     expect(openWindow(5)).toBe(1)
-    expect(openWindow(1)).toBe(-1)
+    expect(openWindow(2)).toBe(0) // still open: the pre-season window runs to matchday 3
+    expect(openWindow(3)).toBe(-1)
+    expect(openWindow(6)).toBe(1)
+    expect(openWindow(7)).toBe(-1)
   })
 
   it('computer clubs get stronger up the divisions', () => {
@@ -69,7 +72,7 @@ describe('career transfers', () => {
     expect(locate(next.world, target.player.id)).toBeNull()
   })
 
-  it('results earn coins; the window shuts after matchday 1 and reopens after matchday 5', () => {
+  it('results earn coins; the window shuts at matchday 3 and reopens after matchday 5', () => {
     let c = newCareer(club, { now: 1 })
     const start = c.coins
     const play = () => {
@@ -79,8 +82,10 @@ describe('career transfers', () => {
     play()
     expect(c.biz.ledger.prize).toBe(70)            // the win's prize money
     expect(c.coins).toBe(start + c.lastEarned)      // plus tickets/sponsor, less wages
+    expect(transferWindow(c).index).toBe(0)        // still open after matchday 1
+    play(); play()
     expect(transferWindow(c)).toBeNull()
-    play(); play(); play(); play()
+    play(); play()
     expect(playedThisSeason(c.league)).toBe(5)
     expect(transferWindow(c).index).toBe(1)
     while (!seasonOver(c.league)) play()

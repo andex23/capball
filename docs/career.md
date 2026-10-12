@@ -67,7 +67,8 @@ Every computer club has a real squad, kept in `career.world` ({ clubs, free, nex
 - Loan out (`loanOut`, window only): to the best club no higher than your division where he'd be within 5 of their weakest starter. No wages, no squad place; back in the summer, developed as a 7.0-average season.
 
 ## Season, Cap Cup, board target
-Board target (shown as a card before matchday 1): promotion (top 2) in every division below the top, then the top half (top 3) in the Premier Cap League. Missing it sacks you (`career.sacked`): the season is recorded, the career ends with a summary, and you start a new one. Starting squad ~51 OVR (mid-table Sunday League) with ₦4m.
+Board target (shown as a card before matchday 1): promotion (top 2) in every division below the top, then the title in the Premier Cap League. A miss gives a final warning (`career.warning`); a second miss while warned sacks you (`career.sacked`): the season is recorded, the career ends with a summary, and you start a new one. Meeting a target clears the warning. Starting squad ~54 OVR (upper half of the Sunday League) with ₦8m.
+Transfer windows (`WINDOWS`): pre-season open until matchday 3 is played (0–2 played), mid-season after matchday 5 until matchday 7 (5–6 played). Bids, offers and loans hold for the whole window.
 Ten league matches (home and away). Cap Cup: 8 clubs (3 from your division, 4 from the ones next door); QF after league match 2, SF after 5, final after 8 (all open once the league ends). Prizes 250 / 100 / 50.
 Board target from your OVR vs the division (win the league / top 2 / top half / stay up), worth 200 / 150 / 80 / 60.
 

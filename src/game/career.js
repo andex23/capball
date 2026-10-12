@@ -150,11 +150,11 @@ export const TARGET_BONUS = { title: 200, promotion: 150, topHalf: 80, survive: 
 
 /**
  * What the board expects: promotion every season until you reach the top
- * division, then a top-half finish there. Miss it and you're sacked: the
- * career is over and you start again.
+ * division, then the title. Miss it once and you get a final warning; miss
+ * it again before you meet one and you're sacked: the career is over.
  */
 export function targetFor(level) {
-  return level >= TOP ? 'topHalf' : 'promotion'
+  return level >= TOP ? 'title' : 'promotion'
 }
 
 /** Where your squad ranks on OVR among the division's clubs (1 = strongest). */
@@ -204,6 +204,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     deals: [],         // your recent transfers
     lastEarned: 0,
     lastReport: null,
+    warning: false,    // missed a target: the next miss is the sack
     sacked: null,      // set when the board sacks you: the career is over
   }
 }
@@ -323,15 +324,15 @@ export function finishSeason(career, now = Date.now()) {
     position: pos,
     outcome,
     bonus,
-    target, targetMet: met,
+    target, targetMet: met, warned: !!target && !met && !career.warning,
     cup,
     cupWinner: cupT?.championId ? teamById(cupT, cupT.championId)?.name || null : null,
     record: me ? { w: me.w, d: me.d, l: me.l, gf: me.gf, ga: me.ga, pts: me.pts } : null,
     // The season's books (season bonus and prizes included)
     finance: (() => { const l = { ...emptyLedger(), ...(career.biz?.ledger || {}) }; l.prize += bonus; return { ...ledgerTotals(l), ledger: l } })(),
   }
-  // Missed the board's target: sacked. The season goes in the record books and the career ends here.
-  if (target && !met) {
+  // Missed the board's target on a final warning: sacked. The season goes in the record books and the career ends here.
+  if (target && !met && career.warning) {
     return {
       ...career,
       cup: career.cup ? { ...career.cup, tournament: cupT } : career.cup,
@@ -390,6 +391,8 @@ export function finishSeason(career, now = Date.now()) {
       world: ws.news.slice(0, 8),
     },
     lastEarned: 0,
+    // Missing the target earns a final warning; meeting one clears it
+    warning: !!target && !met,
   }
 }
 
@@ -424,6 +427,7 @@ export function sanitizeCareer(input) {
     lastEarned: Number.isInteger(input.lastEarned) ? input.lastEarned : 0,
     biz: sanitizeClub(input.biz, level, league.id),
     lastReport: sanitizeReport(input.lastReport),
+    warning: input.warning === true,
     sacked: isObj(input.sacked) ? {
       season: n(input.sacked.season), division: String(input.sacked.division || '').slice(0, 30),
       position: n(input.sacked.position), target: Object.hasOwn(TARGETS, input.sacked.target) ? input.sacked.target : 'promotion',

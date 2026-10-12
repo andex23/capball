@@ -110,24 +110,38 @@ describe('bigger seasons', () => {
     expect(next.past[0].cupWinner).toBeTruthy()
   })
 
-  it('the board wants promotion until the top, and sacks you if you miss it', () => {
+  it('the board wants promotion until the top; a miss is a final warning, a second miss the sack', () => {
     const c = newCareer(club, { now: 4 })
     expect(c.target).toBe('promotion')
-    expect(targetFor(3)).toBe('topHalf')
+    expect(targetFor(3)).toBe('title')
     expect(targetMet('promotion', 2)).toBe(true)
     expect(targetMet('promotion', 3)).toBe(false)
     expect(targetMet('topHalf', 4)).toBe(false)
-    // Lose every match: finished bottom, sacked, and there's no next season
+    // Lose every match: finished bottom
     let lost = c
     while (!seasonOver(lost.league)) {
       const f = nextMatch(lost.league)
       if (!f) break
       lost = recordCareerResult(lost, f.id, f.home === ME ? { home: 0, away: 3 } : { home: 3, away: 0 })
     }
-    const after = finishSeason({ ...lost, cup: null })
-    expect(after.sacked).toMatchObject({ season: 1, target: 'promotion' })
-    expect(after.season).toBe(1)
+    // First miss: a final warning, and on to season 2
+    const warned = finishSeason({ ...lost, cup: null })
+    expect(warned.sacked).toBeNull()
+    expect(warned.warning).toBe(true)
+    expect(warned.past[0].warned).toBe(true)
+    // Second miss while warned: sacked, and there's no next season
+    let lost2 = warned
+    while (!seasonOver(lost2.league)) {
+      const f = nextMatch(lost2.league)
+      if (!f) break
+      lost2 = recordCareerResult(lost2, f.id, f.home === ME ? { home: 0, away: 3 } : { home: 3, away: 0 })
+    }
+    const after = finishSeason({ ...lost2, cup: null })
+    expect(after.sacked).toMatchObject({ season: 2, target: 'promotion' })
+    expect(after.season).toBe(2)
     expect(after.past[0].sacked).toBe(true)
+    // Meeting a target clears a warning
+    expect(finishSeason({ ...playLeague({ ...warned }, 99), cup: null }).warning).toBe(false)
     expect(sanitizeCareer(JSON.parse(JSON.stringify(after))).sacked).toEqual(after.sacked)
     // Win them all: promoted, not sacked
     const won = finishSeason({ ...playLeague(c, 99), cup: null })
