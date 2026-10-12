@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 import { loadSdk, sdkMessage } from './sdk'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
-import { useAccountStore } from '../state/accountStore'
+import { useAccountStore, collectSave, applySave } from '../state/accountStore'
 import { holdAudio } from '../audio/SoundManager'
 import { startMenuMusic, stopMenuMusic } from '../audio/MusicManager'
 import { holdIosAudio } from './iosAudio'
@@ -50,6 +50,19 @@ async function server(body) {
   return data
 }
 const claiming = new Set()
+let cloudReady = false
+let cloudSaving = null
+let lastCloud = ''
+let autosaveOn = false
+
+/** Save to the server after every match, every minute if something changed, and when the game is put away. */
+function startCloudAutosave(save) {
+  if (autosaveOn || typeof window === 'undefined') return
+  autosaveOn = true
+  setInterval(save, 60_000)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save() })
+  useMatchStore.subscribe((m, prev) => { if (m.screen === SCREEN.MATCH_END && prev.screen !== SCREEN.MATCH_END) setTimeout(save, 3000) })
+}
 
 export const useLagosStore = create((set, get) => ({
   status: 'loading', // 'loading' | 'ready' | 'error'
@@ -89,6 +102,8 @@ export const useLagosStore = create((set, get) => ({
       sdk.match?.onUpdate?.((m) => set({ match: m || null }))
       sdk.match?.current?.().then((m) => { if (m) set({ match: m }) }).catch(() => {})
       get().loadBoard()
+      // Progress follows the player, not the phone
+      if (await get().loadCloudSave()) return false
       // Caps bought before: from our server, and any paid but not yet unlocked
       get().loadOwned()
       sdk.onPurchase?.((p) => get().claim(p?.purchaseId))
@@ -154,6 +169,39 @@ export const useLagosStore = create((set, get) => ({
       // More wins came in while this one was being sent
       if (get().wins > n) get().sendScore()
     }, wait)
+  },
+
+  /* ── Cloud save: earned progress follows the player ── */
+
+  /**
+   * Bring this player's save from our server. Returns true when the page is
+   * reloading to start from it. Uploads only start once we know what the
+   * server has, so a fresh phone never overwrites a real save.
+   */
+  async loadCloudSave() {
+    try {
+      const { data } = await server({ action: 'loadSave' })
+      const hasCloud = data && Object.keys(data.items || {}).some((k) => k !== 'capball.device')
+      if (hasCloud && applySave(data) && typeof location !== 'undefined') { location.reload(); return true }
+      lastCloud = hasCloud ? JSON.stringify(collectSave()) : ''
+      cloudReady = true
+      if (!hasCloud) get().saveCloud()
+      startCloudAutosave(() => get().saveCloud())
+    } catch { /* server not set up yet: progress stays on this phone for now */ }
+    return false
+  },
+
+  async saveCloud() {
+    if (!cloudReady) return
+    // One upload at a time; a save asked for meanwhile runs right after
+    if (cloudSaving) { await cloudSaving; return get().saveCloud() }
+    const data = collectSave()
+    const json = JSON.stringify(data)
+    if (json === lastCloud) return
+    cloudSaving = (async () => {
+      try { await server({ action: 'putSave', data }); lastCloud = json } catch { /* try again next time */ }
+    })()
+    try { await cloudSaving } finally { cloudSaving = null }
   },
 
   /* ── Cap shop ── */

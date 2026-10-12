@@ -76,6 +76,12 @@ the webhook signing secret (`vtr_whsec_…`) to Vercel as `VATAR_WEBHOOK_SECRET`
 When a purchase is paid, the server checks it and unlocks it straight away,
 even if the player closed the game right after paying.
 
+**Progress follows the player**: each Lagos Life player's save (kits, career,
+records, earned caps and bands) is kept on the server under their Lagos Life
+ID, in `cb_lagos_saves`. It loads when they open the game on any phone and
+saves after every match, every minute if something changed, and when the game
+is put away.
+
 Run `supabase/lagos.sql` once in the Supabase SQL editor. The server uses the
 same `SUPABASE_SERVICE_ROLE_KEY` as play-anytime matches.
 

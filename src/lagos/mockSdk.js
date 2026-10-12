@@ -11,7 +11,7 @@ const code = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Ma
 const err = (c) => Object.assign(new Error(c), { code: c })
 
 export function createMockSdk() {
-  let id = sessionStorage.getItem('mockVatar:id')
+  let id = new URLSearchParams(location.search).get('pid') || sessionStorage.getItem('mockVatar:id')
   if (!id) { id = `t_${Math.random().toString(36).slice(2, 10)}`; sessionStorage.setItem('mockVatar:id', id) }
   const name = new URLSearchParams(location.search).get('name') || `Player ${id.slice(2, 5).toUpperCase()}`
   const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('mockVatar') : null
@@ -32,6 +32,8 @@ export function createMockSdk() {
     const owned = JSON.parse(localStorage.getItem(ownedKey) || '[]')
     const ok = (data) => new Response(JSON.stringify({ ok: true, ...data }), { status: 200 })
     if (body.action === 'owned') return ok({ owned })
+    if (body.action === 'loadSave') return ok({ data: JSON.parse(localStorage.getItem(`mockVatar:save:${id}`) || 'null') })
+    if (body.action === 'putSave') { localStorage.setItem(`mockVatar:save:${id}`, JSON.stringify(body.data)); return ok({}) }
     if (body.action === 'claim') {
       const productId = purchasesMade.get(body.purchaseId)
       if (!productId) return new Response(JSON.stringify({ error: 'bad-purchase', message: 'That purchase couldn’t be found for you.' }), { status: 400 })

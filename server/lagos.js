@@ -91,6 +91,35 @@ export function makeOwnedDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url =
   }
 }
 
+/** Each player's game save (supabase/lagos.sql), through its service-only function. */
+export function makeSaveDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url = process.env.SUPABASE_URL || DATABASE_URL, fetchImpl = fetch } = {}) {
+  if (!key) return null
+  return async (action, mode, player, data = null) => {
+    const res = await fetchImpl(`${url}/rest/v1/rpc/cb_lagos_save_service`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_action: action, p_mode: mode, p_player: player, p_data: data }),
+      signal: AbortSignal.timeout?.(10000),
+    })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      if (body?.code === 'PGRST202' || body?.code === '42P01') fail('migration-needed')
+      throw new Error('upstream')
+    }
+    return body
+  }
+}
+
+/** A save is the game's own storage entries: { v: 1, items: { key: string } }. */
+export function cleanSave(data) {
+  if (!data || data.v !== 1 || !data.items || typeof data.items !== 'object' || Array.isArray(data.items)) return null
+  const items = {}
+  for (const [k, v] of Object.entries(data.items)) {
+    if (typeof k === 'string' && k.length <= 64 && /^(capball|counterball)[:.]/.test(k) && typeof v === 'string') items[k] = v
+  }
+  return { v: 1, items }
+}
+
 const ID = /^[A-Za-z0-9_-]{1,80}$/
 
 async function whoIs(api, session) {
@@ -119,8 +148,21 @@ async function claim({ session, purchaseId }, api, db) {
   return { ok: true, productId: buy.productId, owned }
 }
 
-export async function handleLagos(input, api = makeApi(), db = makeOwnedDb()) {
+export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), saves = makeSaveDb()) {
   if (!api) fail('not-configured')
+  // The player's save: always the verified player's own, never anyone else's
+  if (input?.action === 'loadSave' || input?.action === 'putSave') {
+    if (!saves) fail('not-configured')
+    const { playerId, mode } = await whoIs(api, input.session)
+    if (input.action === 'loadSave') {
+      const r = await saves('get', mode, playerId)
+      return { ok: true, data: cleanSave(r?.data) }
+    }
+    const data = cleanSave(input.data)
+    if (!data) fail('bad-request')
+    await saves('put', mode, playerId, data)
+    return { ok: true }
+  }
   if (input?.action === 'claim') return claim(input, api, db)
   if (input?.action === 'owned') {
     if (!db) fail('not-configured')
