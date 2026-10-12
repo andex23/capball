@@ -65,6 +65,12 @@ describe('bigger seasons', () => {
     expect(next.cup.tournament.championId).toBeNull() // a fresh cup for the new season
   })
 
+  it('a cup tie never blocks the season: once the league is done, it opens', () => {
+    let c = newCareer(club, { now: 6 })
+    c = playLeague(c)                       // the whole league, no cup played
+    expect(cupTie(c)).toBeTruthy()
+  })
+
   it('knocked out: the rest of the cup plays itself at season end', () => {
     let c = playLeague(newCareer(club, { now: 3 }), CUP_AFTER[0])
     const tie = cupTie(c)
