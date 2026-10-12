@@ -25,9 +25,10 @@ export default function SettingsPanel() {
   const muted = useMatchStore((s) => s.muted)
   const vibration = useMatchStore((s) => s.vibration)
   const turnView = useMatchStore((s) => s.turnView)
+  const followBall = useMatchStore((s) => s.followBall)
   const swipeAim = useMatchStore((s) => s.swipeAim)
   const musicTrack = useMatchStore((s) => s.musicTrack)
-  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView, toggleSwipeAim } = useMatchStore.getState()
+  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView, toggleFollowBall, toggleSwipeAim } = useMatchStore.getState()
 
   useEffect(() => { updateMenuMusicVolume() }, [masterVolume, musicVolume, muted])
 
@@ -62,6 +63,9 @@ export default function SettingsPanel() {
         <Icon name="camera" size={18} /> {turnView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
       </button>
       <p className="muted" style={{ fontSize: 12, marginTop: -8 }}>Local matches on one device: the pitch swings round so whoever’s turn it is plays from their own end.</p>
+      <button className="btn btn-secondary" aria-pressed={followBall} onClick={() => { toggleFollowBall(); playButtonSelect() }}>
+        <Icon name="camera" size={18} /> {followBall ? 'Camera follows the ball: on' : 'Camera follows the ball: off'}
+      </button>
       <div>
         <div className="eyebrow" style={{ marginBottom: 8 }}>Aiming</div>
         <div className="segmented stretch" role="group" aria-label="How to aim a flick">

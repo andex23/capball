@@ -6,6 +6,7 @@ import { STADIUMS } from '../data/StadiumData'
 
 import { setCameraRefs, fitCurrentPreset, resetCameraPreset } from './camera'
 import { useTurnFacing } from './useTurnFacing'
+import { useBallFollow } from './useBallFollow'
 import PitchMesh from './PitchMesh'
 import Venue, { VenueSky } from './Venues'
 import BallTrail from './BallTrail'
@@ -234,6 +235,7 @@ function GameWorld() {
   useFlickController(meshRefs, trajectoryRef)
   useAIController()
   useTurnFacing()
+  useBallFollow(meshRefs)
   useCrowdReaction(meshRefs)
 
   const teamConfig = useMatchStore((s) => s.teamConfig)

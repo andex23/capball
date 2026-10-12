@@ -10,6 +10,7 @@ import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { useAccountStore } from '../state/accountStore'
 import { holdAudio } from '../audio/SoundManager'
 import { startMenuMusic, stopMenuMusic } from '../audio/MusicManager'
+import { holdIosAudio } from './iosAudio'
 
 const SCORE_GAP_MS = 21_000 // the SDK takes one score every 20 s
 const winsKey = (playerId) => `counterball:lagos:wins:${playerId}`
@@ -78,11 +79,13 @@ export const useLagosStore = create((set, get) => ({
     const m = useMatchStore.getState()
     if (m.screen === SCREEN.PLAYING && !m.paused && m.gameMode !== 'online') m.setPaused(true)
     holdAudio(true)
+    holdIosAudio(true)
     stopMenuMusic()
   },
 
   resume() {
     holdAudio(false)
+    holdIosAudio(false)
     if (useMatchStore.getState().screen !== SCREEN.PLAYING) startMenuMusic()
     // A paused match stays paused until the player taps Resume
   },

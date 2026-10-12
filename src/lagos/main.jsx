@@ -21,12 +21,15 @@ import { initAudioUnlock } from '../audio/SoundManager'
 import { initSavedMatches } from '../state/savedMatch'
 import { initClips } from '../game/clips'
 import { useLagosStore, watchMatches } from './lagosStore'
+import { initIosAudio } from './iosAudio'
 
 initPersistence()
 initTournamentWatch()
 // Tournaments are played on this phone only (no LAN inside Lagos Life)
 useTournamentStore.getState().setLocalTransport('device')
 initAudioUnlock()
+// Sound on iPhones with the silent switch on (see iosAudio.js)
+initIosAudio()
 initSavedMatches()
 initClips()
 watchMatches()

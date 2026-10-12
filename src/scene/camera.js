@@ -23,6 +23,9 @@ let _controlsRef = null
 let _cameraRef = null
 let _canvasRef = null
 let _presetIndex = 0
+// Set by the follow-the-ball camera: puts the view back where it was before following
+let _releaseFollow = null
+export const setFollowRelease = (fn) => { _releaseFollow = fn }
 
 export function setCameraRefs({ camera, controls, canvas }) {
   if (camera !== undefined) _cameraRef = camera
@@ -98,6 +101,8 @@ export function setFacing(homeDir, { animate = true } = {}) {
   if (want === _flipped) return
   _flipped = want
   cancelTurn()
+  // Turn from the unshifted view, so the follow camera's lean doesn't stick
+  _releaseFollow?.()
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
   const from = { position: _cameraRef.position.toArray(), target: _controlsRef.target.toArray() }
   if (!animate || reduced || typeof requestAnimationFrame !== 'function') {
@@ -188,6 +193,7 @@ function currentInsets() {
 
 function applyPreset(preset) {
   if (!preset || !_controlsRef || !_cameraRef) return
+  _releaseFollow?.()
   const { w, h, top, bottom } = currentInsets()
   const freeHeight = h > 0 ? (h - top - bottom) / h : 1
   const aspect = _cameraRef.aspect || 1

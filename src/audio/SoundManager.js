@@ -205,7 +205,9 @@ export function initAudioUnlock() {
   if (unlocked || typeof window === 'undefined') return
   unlocked = true
   setPlaybackAudioSession()
-  const wake = () => {
+  const wake = (e) => {
+    // A tap or key in the game means it's in front again: never stay silenced
+    if (held && e && document.visibilityState === 'visible') held = false
     const ctx = getCtx()
     if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {})
   }

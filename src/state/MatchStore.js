@@ -696,6 +696,9 @@ export const useMatchStore = create((set, get) => ({
   // whose turn it is sees the pitch from their own end
   turnView: true,
   toggleTurnView: () => set((s) => ({ turnView: !s.turnView })),
+  // The camera glides along with the ball while it rolls, then settles back
+  followBall: true,
+  toggleFollowBall: () => set((s) => ({ followBall: !s.followBall })),
   // How a flick is aimed: false = drag back like a slingshot,
   // true = swipe the way you want the cap to go
   swipeAim: false,
