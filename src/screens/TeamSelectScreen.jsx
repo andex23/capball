@@ -106,8 +106,8 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
           <div className="card-pad kit-options">
             {tab === 'designs' && (
               <>
-                <p className="muted kit-note">Pick a drink-cap design, then change anything you like. Or build your own in the other tabs.</p>
-                <CapDesigns config={config} onPick={(patch) => { setDraftText(null); onUpdate(patch) }} />
+                <p className="muted kit-note">Start from a plain cap or pick a drink-cap design, then change anything you like in the other tabs.</p>
+                <CapDesigns config={config} defaultKit={DEFAULT_TEAM_CONFIG[teamKey]} onPick={(patch) => { setDraftText(null); onUpdate(patch) }} />
               </>
             )}
             {tab === 'colors' && (

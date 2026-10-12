@@ -9,8 +9,17 @@ import { isLagos } from '../platform'
 import { useLagosStore } from '../lagos/lagosStore'
 import { SHOP_DESIGNS, itemFor, naira } from '../data/shop'
 
-/** Ready-made drink-cap designs, then the rare ones you earn. Tap one to put it on your caps. */
-export default function CapDesigns({ config, onPick, disabled = false }) {
+// A plain cap in the team's own colours: the starting point for designing your own
+const PLAIN = { key: 'plain', name: 'Plain', pattern: 'none', badge: 'none', finish: 'matte', capText: '' }
+const DEFAULT_KIT = { primary: '#D32F2F', edge: '#FFD700' }
+
+/**
+ * A plain cap to start from, the ready-made drink-cap designs, then the rare
+ * ones you earn. Tap one to put it on your caps. `defaultKit` gives the plain
+ * cap its colours (the team's defaults).
+ */
+export default function CapDesigns({ config, onPick, disabled = false, defaultKit = DEFAULT_KIT }) {
+  const plain = { ...PLAIN, primary: defaultKit.primary, edge: defaultKit.edge }
   const progress = useProgress()
   const signedIn = !!useAccountStore((s) => s.username)
   const [hint, setHint] = useState(null)
@@ -25,6 +34,10 @@ export default function CapDesigns({ config, onPick, disabled = false }) {
   return (
     <div className="cap-designs-wrap">
       <div className="cap-designs" role="group" aria-label="Ready-made designs">
+        <button className="cap-design" aria-pressed={isDesign(config, plain)} disabled={disabled} onClick={() => pick(plain)}>
+          <CapPreview config={plain} size={58} />
+          <span>Plain</span>
+        </button>
         {CAP_DESIGNS.map((d) => (
           <button key={d.key} className="cap-design" aria-pressed={isDesign(config, d)} disabled={disabled} onClick={() => pick(d)}>
             <CapPreview config={d} size={58} />
