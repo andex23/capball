@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { newCareer, swapLineup, sanitizeCareer, finishSeason, nextMatch, recordCareerResult, ME } from '../game/career'
-import { startingBench, swapIn, signPlayer, applyMatchByPlayer, developSeason, BENCH_POS, MAX_SUBS } from '../game/squad'
+import { startingBench, signPlayer, applyMatchByPlayer, developSeason, BENCH_POS, MAX_SUBS } from '../game/squad'
 import { performanceByPlayer } from '../state/tournamentStore'
 
 const club = { name: 'Bench FC', primary: '#123456', edge: '#FFFFFF' }
