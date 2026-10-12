@@ -1,11 +1,11 @@
 /** Shared pieces of the 16-bit look: the night-stadium backdrop and the logo. */
 export function RetroBackdrop() {
   return (
-    <>
-      <div className="iss-sky" aria-hidden="true" />
-      <div className="iss-pitch" aria-hidden="true" />
-      <div className="iss-scan" aria-hidden="true" />
-    </>
+    <div className="iss-backdrop" aria-hidden="true">
+      <div className="iss-sky" />
+      <div className="iss-pitch" />
+      <div className="iss-scan" />
+    </div>
   )
 }
 

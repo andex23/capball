@@ -106,31 +106,29 @@ export default function MenuScreen() {
     goToScreen(SCREEN.TOURNAMENT_HOME)
   }
   const level = aiDifficulty[0].toUpperCase() + aiDifficulty.slice(1)
+  const openT = localT && !localT.championId ? localT : null
   const back = { key: 'back', title: '◄ Back', small: true, action: () => go('main') }
 
   // Each item: key, title, optional sub (a line under it), right (a tag or picker), action
   const PAGES = {
     main: [
-      ...(saved ? [{ key: 'continue', title: 'Continue', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
-      ...(localT && !localT.championId ? [{
-        key: 'continueT', title: `Continue ${localT.format === 'league' ? 'league' : 'cup'}`,
-        sub: `${localT.teams.length} teams · ${localDone}/${localTotal} played — saved`, tag: 'SAVE',
-        action: () => { playConfirm(); useTournamentStore.getState().openHub('local') },
-      }] : []),
-      { key: 'play', title: 'Quick Match', sub: lagos ? 'Computer, one phone or a friend' : 'Computer, local, LAN or online', tag: '►', action: () => go('play') },
+      // Something saved shows on its own button; the choice to carry on or start again is one tap in
+      { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? 'Computer, one phone or a friend' : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
-      { key: 'tournament', title: 'Tournament', sub: lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: '►', action: () => go('tournament') },
+      { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       ...(lagos ? [{ key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => openDialog('shop') }] : []),
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
     play: lagos ? [
+      ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
       { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
-      { key: 'online', title: 'Play a Friend', sub: 'Another Lagos Life player · free', tag: 'NET', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
+      { key: 'online', title: 'Play a Friend', sub: 'Another Lagos Life player · free or a bet', tag: 'NET', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
       back,
     ] : [
+      ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
       { key: 'lan', title: 'LAN Match', sub: 'Same Wi-Fi or hotspot · no internet', tag: 'LAN', action: () => { playConfirm(); goToScreen(SCREEN.LAN) } },
       { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
@@ -138,8 +136,13 @@ export default function MenuScreen() {
       back,
     ],
     tournament: [
-      { key: 'league', title: 'League', sub: 'Everyone plays everyone; most points wins', action: () => tournament('league') },
-      { key: 'cup', title: 'Cup', sub: 'Knockout ties; lose and you’re out', action: () => tournament('knockout') },
+      ...(openT ? [{
+        key: 'continueT', title: `Continue ${openT.format === 'league' ? 'league' : 'cup'}`,
+        sub: `${openT.teams.length} teams · ${localDone}/${localTotal} played`, tag: 'SAVE',
+        action: () => { playConfirm(); useTournamentStore.getState().openHub('local') },
+      }] : []),
+      { key: 'league', title: openT ? 'New league' : 'League', sub: 'Everyone plays everyone; most points wins', action: () => tournament('league') },
+      { key: 'cup', title: openT ? 'New cup' : 'Cup', sub: 'Knockout ties; lose and you’re out', action: () => tournament('knockout') },
       back,
     ],
     options: [
@@ -178,7 +181,7 @@ export default function MenuScreen() {
   })
 
   return (
-    <div className={`screen iss iss-menu${started ? ' is-started' : ''}`} onClick={!started ? start : undefined}>
+    <div className={`screen iss iss-menu${started ? ' is-started' : ''}${lagos ? ' is-lagos' : ''}`} onClick={!started ? start : undefined}>
       <RetroBackdrop />
 
       <div className="iss-layout">
@@ -197,7 +200,7 @@ export default function MenuScreen() {
                   {cursor === i && <CapCursor />}
                   <button role="menuitem" className="iss-item" onClick={m.action} onFocus={() => setCursor(i)}>
                     {m.title}
-                    {m.sub && <small className="iss-sub">{m.sub}</small>}
+                    {m.sub && (cursor === i || m.tag === 'SAVE') && <small className="iss-sub">{m.sub}</small>}
                   </button>
                   {m.picker === 'level' ? (
                     <span className="iss-level" role="group" aria-label="Computer level">
@@ -214,10 +217,12 @@ export default function MenuScreen() {
           </main>
         )}
 
-        <footer className="iss-foot">
-          <span>© 2026 Counterball</span>
-          <span className="iss-keys">▲▼ Select &nbsp; Enter OK &nbsp; Esc Back</span>
-        </footer>
+        {!lagos && (
+          <footer className="iss-foot">
+            <span>© 2026 Counterball</span>
+            <span className="iss-keys">▲▼ Select &nbsp; Enter OK &nbsp; Esc Back</span>
+          </footer>
+        )}
       </div>
 
       {started && !lagos && <button className="icon-btn iss-share" aria-label="Share game" title="Share game" onClick={() => openDialog('share')}>

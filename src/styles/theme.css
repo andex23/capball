@@ -2300,3 +2300,9 @@ button { cursor: pointer; background: none; border: 0; }
 .purchase-toast.is-failed { border-color: #ff6b6b; }
 .purchase-toast.is-failed .unlock-toast-title { color: #ff6b6b; }
 .purchase-toast .unlock-toast-name { max-width: 240px; white-space: normal; }
+
+/* Short screens: no keyboard hints under the menu */
+@media (max-height: 720px) { .iss-keys { display: none; } }
+.iss-menu.is-lagos .iss-layout { padding-bottom: calc(var(--safe-bottom) + 14px); gap: 16px; }
+/* The backdrop never makes the page scroll */
+.iss-backdrop { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
