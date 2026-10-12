@@ -60,14 +60,14 @@ Every computer club has a real squad, kept in `career.world` ({ clubs, free, nex
 - Youth team (`youthTeam`, max 8) is outside the 15 and unpaid: academy intake each summer (ages 15–16, ~13 below the division, potential +14..27 + academy bonus), grows by age (+1 with training ≥ Training centre), must leave at 19 (becomes a free agent). Promote to the reserves when there's room.
 - Market (`searchMarket`): every club player and free agent; filter position, division/free, OVR, age, price, name or club, listed; sort OVR / potential / price / age.
 - Asking price (`askingPrice`) = value × star 1.6 / first team 1.3 / prospect 1.25 / squad 1 / listed 0.75; free agent = 15% signing-on fee.
-- Willingness: won't drop two divisions; a first-teamer won't drop one. Free agents always talk.
+- Dropping down costs money (`willingness`): a player from a higher division wants a premium of ×1.6 / ×2.6 / ×4 for dropping 1 / 2 / 3 divisions (×1.4 more for a club's star, ×1.2 for a first-teamer). He takes a signing bonus of value × (premium − 1) × 0.5 on top of the fee, and his wages with you are × premium for as long as he stays (`wageX`). Free agents and players from your division or below come at the normal rate.
 - Bids (`makeBid`): each club's bottom line is 85–100% of asking (seeded per window); ≥70% gets a counter at asking; three tries a window then talks end. Club players only in a window; free agents any time. Blocked when full, in the red, or short of money. Signings join the reserves.
 - Selling (`offersFor` / `sellTo`, window only): up to three clubs where he'd be within 2 of their weakest starter and who can afford ~70% of his value; fee 75–115% of value. Leaving the ten pulls in the best reserve who can play there (keeper for keeper); with no cover the move is refused.
 - Release (`releasePlayer`, any time): pay five matches' wages; he becomes a free agent.
 - Loan out (`loanOut`, window only): to the best club no higher than your division where he'd be within 5 of their weakest starter. No wages, no squad place; back in the summer, developed as a 7.0-average season.
 
 ## Season, Cap Cup, board target
-Board target from your rank by OVR among the six clubs: strongest → promotion (title at the top); 2nd → promotion (top half at the top); 3rd–4th → top half; else stay up (don't finish bottom in the Sunday League).
+Board target, shown as a card before matchday 1 with the bonus and your OVR rank, comes from your rank by OVR among the six clubs: strongest → promotion (title at the top); 2nd → promotion (top half at the top); 3rd–4th → top half; else stay up (don't finish bottom in the Sunday League).
 Ten league matches (home and away). Cap Cup: 8 clubs (3 from your division, 4 from the ones next door); QF after league match 2, SF after 5, final after 8 (all open once the league ends). Prizes 250 / 100 / 50.
 Board target from your OVR vs the division (win the league / top 2 / top half / stay up), worth 200 / 150 / 80 / 60.
 

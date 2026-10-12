@@ -26,7 +26,7 @@ export default function TransferMarket({ career, onClose }) {
   const [maxAge, setMaxAge] = useState('0')
   const [name, setName] = useState('')
   const [affordable, setAffordable] = useState(false)
-  const [willingOnly, setWillingOnly] = useState(true)
+  const [happyOnly, setHappyOnly] = useState(false)
   const [listed, setListed] = useState(false)
   const [shown, setShown] = useState(PAGE)
   const [open, setOpen] = useState(null) // player id
@@ -35,9 +35,9 @@ export default function TransferMarket({ career, onClose }) {
     const lv = level === 'all' ? undefined : level === 'free' ? 'free' : Number(level)
     return searchMarket(career.world, {
       pos, level: lv, sort, maxAge: Number(maxAge) || undefined, name, listed,
-      maxPrice: affordable ? Math.max(0, career.coins) : undefined,
-    }, career.level).filter((r) => !willingOnly || r.willing.ok)
-  }, [career.world, career.level, career.coins, pos, level, sort, maxAge, name, affordable, willingOnly, listed])
+      maxPrice: affordable ? Math.max(0, career.coins) : undefined, happy: happyOnly,
+    }, career.level)
+  }, [career.world, career.level, career.coins, pos, level, sort, maxAge, name, affordable, happyOnly, listed])
 
   const win = transferWindow(career)
   const reset = () => setShown(PAGE)
@@ -54,6 +54,7 @@ export default function TransferMarket({ career, onClose }) {
       {squadFull(career) && <p className="club-alert" role="status">Your squad is full. Sell, release or loan out a player before you can sign anyone.</p>}
       {!win && <p className="muted t-note"><Icon name="lock" size={13} /> Players at clubs can only be signed in a transfer window. Free agents can sign any time.</p>}
 
+      <p className="muted t-note">Players from a higher division don’t want to drop down to the {DIVISIONS[career.level].name}. They’ll come for money: a signing bonus and higher wages (marked ×). The further they drop, the more they want.</p>
       <div className="market-filters">
         <input className="field" type="search" placeholder="Search a player or club" value={name} onChange={(e) => { setName(e.target.value); reset() }} aria-label="Search a player or club" />
         <div className="segmented stretch" role="group" aria-label="Position">
@@ -80,7 +81,7 @@ export default function TransferMarket({ career, onClose }) {
         </div>
         <div className="market-checks">
           <label><input type="checkbox" checked={affordable} onChange={(e) => { setAffordable(e.target.checked); reset() }} /> In my budget</label>
-          <label><input type="checkbox" checked={willingOnly} onChange={(e) => { setWillingOnly(e.target.checked); reset() }} /> Would join</label>
+          <label><input type="checkbox" checked={happyOnly} onChange={(e) => { setHappyOnly(e.target.checked); reset() }} /> No drop-down premium</label>
           <label><input type="checkbox" checked={listed} onChange={(e) => { setListed(e.target.checked); reset() }} /> Listed and free agents</label>
         </div>
       </div>
@@ -90,16 +91,16 @@ export default function TransferMarket({ career, onClose }) {
         ? <p className="muted t-note">Nobody matches. Try another division, or turn off a filter.</p>
         : (
           <ul className="squad-list market-rows">
-            {rows.slice(0, shown).map(({ player: p, club, asking, standing, willing }) => (
+            {rows.slice(0, shown).map(({ player: p, club, total, standing, willing }) => (
               <li key={p.id}>
-                <button className="market-row" onClick={() => { playButtonSelect(); setOpen(p.id) }} data-unwilling={willing.ok ? undefined : 'true'}>
+                <button className="market-row" onClick={() => { playButtonSelect(); setOpen(p.id) }} data-reluctant={willing.reluctant ? 'true' : undefined}>
                   <span className="squad-role">{p.pos}</span>
                   <span className="squad-name">
                     <span className="squad-name-main">{p.name}</span>
                     <small className="squad-stats">{club ? `${club.name} · ${DIV_SHORT[club.level]}` : 'Free agent'} · {p.age} · POT {potentialRange(p)}{standing === 'listed' ? ' · listed' : ''}</small>
                   </span>
                   <Rating value={p.rating} />
-                  <span className="market-price">{money(asking)}</span>
+                  <span className="market-price">{money(total)}{willing.reluctant && <small>×{willing.premium} wages</small>}</span>
                 </button>
               </li>
             ))}
@@ -135,8 +136,7 @@ function PlayerDetail({ career, id, onBack, onClose }) {
   const willing = willingness(p0, club, career.level)
   const win = transferWindow(career)
   const ended = talks?.ended || (talks?.tries ?? 0) >= MAX_BIDS
-  const blocked = !willing.ok ? willing.why
-    : squadFull(career) ? `Your squad is full (${MAX_SQUAD}). Sell, release or loan out a player first.`
+  const blocked = squadFull(career) ? `Your squad is full (${MAX_SQUAD}). Sell, release or loan out a player first.`
       : club && !win ? 'The transfer window is shut. Come back when it opens.'
         : spendingFrozen(career) ? 'The board has frozen spending while the club is in the red.'
           : ended ? `${club?.name || 'His agent'} won’t talk again until the next window.` : null
@@ -168,6 +168,15 @@ function PlayerDetail({ career, id, onBack, onClose }) {
         <span>{club ? 'Asking price' : 'Signing-on fee'}</span>
         <b>{money(asking)}</b>
       </div>
+      {willing.reluctant && (
+        <div className="market-reluctant" role="note">
+          <p>{willing.why}</p>
+          <ul className="club-lines">
+            <li><span>Signing bonus (on top of the fee)</span><b>{money(willing.bonus)}</b></li>
+            <li><span>His wages with you</span><b>{money(Math.round(wageOf(hp) * willing.premium))} a match</b></li>
+          </ul>
+        </div>
+      )}
 
       {blocked ? <p className="club-alert" role="status">{blocked}</p> : (
         <div className="market-bid">
@@ -186,10 +195,10 @@ function PlayerDetail({ career, id, onBack, onClose }) {
               })}
             </div>
           )}
-          <button className="btn btn-gold btn-lg btn-block" disabled={career.coins < bid} onClick={send}>
-            {club ? `Bid ${money(bid)}` : `Sign for ${money(asking)}`}
+          <button className="btn btn-gold btn-lg btn-block" disabled={career.coins < bid + willing.bonus} onClick={send}>
+            {club ? `Bid ${money(bid)}` : `Sign for ${money(asking)}`}{willing.bonus ? ` + ${money(willing.bonus)} bonus` : ''}
           </button>
-          {career.coins < bid && <p className="muted t-note">That’s more than your budget of {money(career.coins)}.</p>}
+          {career.coins < bid + willing.bonus && <p className="muted t-note">That’s more than your budget of {money(career.coins)}.</p>}
           {club && <p className="muted t-note">Bids left this window: {MAX_BIDS - (talks?.tries ?? 0)}. Clubs accept fair bids, counter low ones and walk away after {MAX_BIDS}.</p>}
         </div>
       )}

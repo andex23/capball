@@ -61,7 +61,7 @@ describe('career transfers', () => {
     const { makeBid } = await import('../game/transfers')
     const { searchMarket, locate } = await import('../game/world')
     const c = newCareer(club, { now: 1 })
-    const target = searchMarket(c.world, { sort: 'price' }, 0).find((r) => r.club && r.willing.ok && r.asking <= c.coins)
+    const target = searchMarket(c.world, { sort: 'price' }, 0).find((r) => r.club && !r.willing.reluctant && r.asking <= c.coins)
     const { career: next, result } = makeBid(c, target.player.id, target.asking)
     expect(result.verdict).toBe('accept')
     expect(next.reserves.at(-1).id).toBe(target.player.id)

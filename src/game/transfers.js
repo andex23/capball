@@ -20,7 +20,7 @@
  */
 import { allFixtures, seededRng } from './tournament'
 import { newClub, book, wageOf, ACADEMY, TRAINING } from './club'
-import { openWindow, sanitizePlayer, developSeason, makeYouth, priceOf, ageGrowth, shiftOvr, DIVISION_RATING, POS_OF } from './squad'
+import { money, openWindow, sanitizePlayer, developSeason, makeYouth, priceOf, ageGrowth, shiftOvr, DIVISION_RATING, POS_OF } from './squad'
 import {
   locate, takePlayer, putPlayer, settleClub, hydrate, compact, askingPrice, willingness, bidVerdict, buyersFor,
   loanClubFor, MAX_BIDS, clubById,
@@ -127,7 +127,7 @@ const logDeal = (career, deal) => [deal, ...(career.deals || [])].slice(0, 12)
 /**
  * Bid `amount` (units) for a player. Returns { career, result } where result
  * is { verdict: 'accept' | 'counter' | 'reject' | 'full' | 'shut' | 'frozen' |
- * 'funds' | 'unwilling' | 'ended', fee?, why? }. A successful signing joins
+ * 'funds' | 'ended', fee?, bonus?, why? }. A successful signing joins
  * the reserves.
  */
 export function makeBid(career, playerId, amount) {
@@ -139,10 +139,10 @@ export function makeBid(career, playerId, amount) {
   if (squadFull(career)) return { career, result: { verdict: 'full', why: `Your squad is full (${MAX_SQUAD}). Sell, release or loan out a player first.` } }
   if (club && !win) return { career, result: { verdict: 'shut', why: 'The transfer window is shut. Free agents can sign any time.' } }
   if (spendingFrozen(career)) return { career, result: { verdict: 'frozen', why: 'The board has frozen spending while the club is in the red.' } }
+  // A player dropping down wants a signing bonus on top (and higher wages)
   const will = willingness(player, club, career.level)
-  if (!will.ok) return { career, result: { verdict: 'unwilling', why: will.why } }
   const bid = Math.max(0, Math.round(amount))
-  if ((career.coins ?? 0) < bid) return { career, result: { verdict: 'funds', why: 'You don’t have that much in the club budget.' } }
+  if ((career.coins ?? 0) < bid + will.bonus) return { career, result: { verdict: 'funds', why: will.bonus ? `With his ${money(will.bonus)} signing bonus that’s more than your budget.` : 'You don’t have that much in the club budget.' } }
   const talks = talksFor(career, key)
   const t = talks.bids[playerId] || { tries: 0 }
   if (t.ended || t.tries >= MAX_BIDS) return { career, result: { verdict: 'ended', why: `${club?.name || 'His agent'} won’t talk again until the next window.` } }
@@ -152,19 +152,20 @@ export function makeBid(career, playerId, amount) {
   // Done deal
   let world = takePlayer(career.world, playerId).world
   if (club) world = settleClub(world, club.id, seededRng(`settle:${key}:${playerId}`))
-  const signed = sanitizePlayer({ ...hydrate(player), id: player.id }, ROLE_FOR_POS[player.pos] || 'mid')
-  const biz = book(career.biz || newClub(career.level), { transfers: bid })
+  const signed = sanitizePlayer({ ...hydrate(player), id: player.id, ...(will.premium > 1 ? { wageX: will.premium } : {}) }, ROLE_FOR_POS[player.pos] || 'mid')
+  const cost = bid + will.bonus
+  const biz = book(career.biz || newClub(career.level), { transfers: cost })
   return {
     career: {
       ...career,
       world,
       talks: nextTalks,
       reserves: [...(career.reserves || []), signed],
-      coins: (career.coins ?? 0) - bid,
+      coins: (career.coins ?? 0) - cost,
       biz,
-      deals: logDeal(career, { type: 'in', name: player.name, club: club?.name || null, fee: bid, season: career.season }),
+      deals: logDeal(career, { type: 'in', name: player.name, club: club?.name || null, fee: cost, season: career.season }),
     },
-    result: { verdict: 'accept', fee: bid },
+    result: { verdict: 'accept', fee: bid, bonus: will.bonus },
   }
 }
 

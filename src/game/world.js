@@ -183,17 +183,31 @@ export function askingPrice(p, club) {
   return round5(value * f)
 }
 
+// What a player wants to drop down: by how many divisions (0–3)...
+export const DROP_PREMIUM = [1, 1.6, 2.6, 4]
+// ...and more again if he's a regular where he is
+const STANDING_PREMIUM = { star: 1.4, key: 1.2 }
+
 /**
- * Will he come? A player won't drop two divisions, and a first-teamer at a
- * higher-division club won't drop one. Free agents will always talk.
+ * Will he come, and at what price? Players at bigger clubs don't want to drop
+ * down: it takes money. A player from a higher division asks for a signing
+ * bonus on top of the fee and higher wages (`premium`×): about ×1.6 to drop
+ * one division, ×2.6 two, ×4 three, and more for a star or a first-teamer.
+ * Free agents and players from your division or below come at the normal rate.
+ * Returns { premium, bonus (units, paid to him on signing), reluctant, why }.
  */
 export function willingness(p, club, myLevel) {
-  if (!club) return { ok: true }
-  const gap = club.level - myLevel
-  const name = DIVISIONS[myLevel]?.name || 'your division'
-  if (gap >= 2) return { ok: false, why: `Won’t drop down to the ${name}.` }
-  if (gap === 1 && ['star', 'key'].includes(standingOf(p, club))) return { ok: false, why: `A first-teamer in the ${DIVISIONS[club.level].name}; he won’t drop down.` }
-  return { ok: true }
+  if (!club) return { premium: 1, bonus: 0, reluctant: false }
+  const gap = Math.max(0, Math.min(3, club.level - myLevel))
+  if (!gap) return { premium: 1, bonus: 0, reluctant: false }
+  const premium = Math.round(DROP_PREMIUM[gap] * (STANDING_PREMIUM[standingOf(p, club)] ?? 1) * 10) / 10
+  const bonus = round5(priceOf(hydrate(p)) * (premium - 1) * 0.5)
+  const from = DIVISIONS[club.level].name
+  const to = DIVISIONS[myLevel]?.name || 'your division'
+  return {
+    premium, bonus, reluctant: true,
+    why: `He plays in the ${from} and doesn’t want to drop ${gap === 1 ? 'a division' : `${gap} divisions`} to the ${to}. He’ll only come for a signing bonus and ${premium}× the usual wages.`,
+  }
 }
 
 export const MAX_BIDS = 3
@@ -308,8 +322,9 @@ export function loanClubFor(world, p, myLevel) {
 /**
  * Search everyone in the world (and the free agents). `filters`: { pos,
  * minOvr, maxOvr, maxAge, level ('free' for free agents only), listed (only
- * listed and free), name, maxPrice, sort ('ovr'|'price'|'age'|'pot') }.
- * Returns [{ player (filled out), club, asking, standing, willing }].
+ * listed and free), happy (no drop-down premium), name, maxPrice (fee plus
+ * bonus), sort ('ovr'|'price'|'age'|'pot') }.
+ * Returns [{ player (filled out), club, asking, total, standing, willing }].
  */
 export function searchMarket(world, filters = {}, myLevel = 0) {
   const all = [
@@ -329,12 +344,16 @@ export function searchMarket(world, filters = {}, myLevel = 0) {
     if (filters.listed && club && !p.listed) continue
     if (q && !player.name.toLowerCase().includes(q) && !(club?.name || '').toLowerCase().includes(q)) continue
     const asking = askingPrice(p, club)
-    if (filters.maxPrice && asking > filters.maxPrice) continue
-    rows.push({ player, club, asking, standing: standingOf(p, club), willing: willingness(p, club, myLevel) })
+    const willing = willingness(p, club, myLevel)
+    if (filters.happy && willing.reluctant) continue
+    // What he really costs you: the fee plus any bonus he wants for dropping down
+    const total = asking + willing.bonus
+    if (filters.maxPrice && total > filters.maxPrice) continue
+    rows.push({ player, club, asking, total, standing: standingOf(p, club), willing })
   }
   const by = {
     ovr: (a, b) => b.player.rating - a.player.rating,
-    price: (a, b) => a.asking - b.asking,
+    price: (a, b) => a.total - b.total,
     age: (a, b) => a.player.age - b.player.age,
     pot: (a, b) => b.player.pot - a.player.pot,
   }[filters.sort || 'ovr']
