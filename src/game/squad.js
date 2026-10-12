@@ -522,6 +522,7 @@ export function sanitizePlayer(raw, role) {
       apps: Math.floor(n(p.apps)), goals: Math.floor(n(p.goals)), ratingSum: n(p.ratingSum),
       form: Array.isArray(p.form) ? p.form.filter((x) => Number.isFinite(x) && x >= 0 && x <= 10).slice(-5) : [],
       xp: Number.isFinite(p.xp) ? Math.max(-3, Math.min(5, p.xp)) : 0,
+      ...(Number.isFinite(p.wageX) && p.wageX > 1 ? { wageX: Math.min(10, Math.round(p.wageX * 10) / 10) } : {}),
     }
 }
 

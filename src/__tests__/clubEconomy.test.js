@@ -22,7 +22,7 @@ function play(c, rng, weak = false) {
       const [role, cur] = Object.entries(c.squad).sort((a, b) => ovrAt(a[1], a[0]) - ovrAt(b[1], b[0]))[0]
       const keeper = role === 'gk'
       const pick = searchMarket(c.world, { sort: 'ovr', maxPrice: Math.max(0, c.coins - 200) }, c.level)
-        .find((r) => r.willing.ok && (r.player.pos === 'GK') === keeper && ovrAt(r.player, role) > ovrAt(cur, role) + 3)
+          .find((r) => !r.willing.reluctant && (r.player.pos === 'GK') === keeper && ovrAt(r.player, role) > ovrAt(cur, role) + 3)
       if (pick) {
         if (squadFull(c)) { const r = releasePlayer(c, 'reserve:0'); if (!r.error) c = r }
         const b = makeBid(c, pick.player.id, pick.asking)

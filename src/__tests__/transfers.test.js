@@ -10,7 +10,7 @@ import {
 } from '../game/world'
 import { makeYouth, makePlayer } from '../game/squad'
 import { simulateResult, createTournament, seededRng } from '../game/tournament'
-import { wageBill } from '../game/club'
+import { wageBill, wageOf } from '../game/club'
 
 const club = { name: 'Test FC', primary: '#123456', edge: '#ffffff' }
 const rich = (c) => ({ ...c, coins: 1_000_000 })
@@ -24,7 +24,7 @@ const playSeason = (c) => {
   return c
 }
 /** The cheapest willing player at a club in division `level`. */
-const cheapAt = (c, level = 0) => searchMarket(c.world, { level, sort: 'price' }, c.level).find((r) => r.willing.ok)
+const cheapAt = (c, level = 0) => searchMarket(c.world, { level, sort: 'price' }, c.level).find((r) => !r.willing.reluctant)
 
 describe('the world', () => {
   it('every division has favourites and strugglers, with stars at the big clubs', () => {
@@ -99,14 +99,20 @@ describe('the transfer market', () => {
     expect(searchMarket(w, { level: 'free' }, 0).every((r) => !r.club)).toBe(true)
   })
 
-  it('stars cost more than squad players; players won’t drop two divisions', () => {
+  it('stars cost more than squad players; players from higher divisions want money to drop down', () => {
     const w = createWorld('p')
     const rc = w.clubs.find((c) => c.name === 'Royal Crowns')
     const rows = searchMarket(w, { name: 'Royal Crowns', sort: 'ovr' }, 3)
     expect(rows[0].standing).toBe('star')
     expect(rows[0].asking).toBeGreaterThan(askingPrice(rows.at(-1).player, rc))
-    expect(willingness(rows[0].player, rc, 0).ok).toBe(false)
-    expect(willingness(rows[0].player, rc, 3).ok).toBe(true)
+    const star = willingness(rows[0].player, rc, 0)
+    expect(star.reluctant).toBe(true)
+    expect(star.premium).toBeGreaterThanOrEqual(5) // a Premier star dropping three divisions
+    expect(star.bonus).toBeGreaterThan(rows[0].asking)
+    expect(willingness(rows[0].player, rc, 3).reluctant).toBe(false)
+    const oneDown = willingness(rows.at(-1).player, rc, 2)
+    expect(oneDown.premium).toBeLessThan(star.premium)
+    expect(oneDown.premium).toBeGreaterThan(1)
   })
 
   it('a club accepts a fair bid, counters a low one, and stops talking after three tries', () => {
@@ -141,6 +147,20 @@ describe('the transfer market', () => {
     expect(makeBid(released, t.player.id, t.asking).result.verdict).toBe('accept')
   })
 
+  it('a player who drops down costs a bonus and keeps higher wages', () => {
+    const c = rich(newCareer(club, { now: 13 }))
+    const r = searchMarket(c.world, { level: 2, sort: 'price' }, 0)[0]
+    const { career: next, result } = makeBid(c, r.player.id, r.asking)
+    expect(result.verdict).toBe('accept')
+    expect(next.coins).toBe(c.coins - r.asking - r.willing.bonus)
+    const p = next.reserves.at(-1)
+    expect(p.wageX).toBe(r.willing.premium)
+    expect(wageOf(p)).toBeGreaterThan(wageOf({ ...p, wageX: 1 }) * 2)
+    expect(sanitizeCareer(JSON.parse(JSON.stringify(next))).reserves.at(-1).wageX).toBe(p.wageX)
+    // Not enough for fee plus bonus: no deal
+    expect(makeBid({ ...c, coins: r.asking }, r.player.id, r.asking).result.verdict).toBe('funds')
+  })
+
   it('free agents sign any time; club players only in a window', () => {
     let c = rich(newCareer(club, { now: 6 }))
     const f = nextMatch(c.league)
@@ -148,7 +168,7 @@ describe('the transfer market', () => {
     expect(transferWindow(c)).toBeNull()
     const t = cheapAt(c)
     expect(makeBid(c, t.player.id, t.asking).result.verdict).toBe('shut')
-    const fa = searchMarket(c.world, { level: 'free', sort: 'price' }, 0).find((r) => r.willing.ok)
+    const fa = searchMarket(c.world, { level: 'free', sort: 'price' }, 0).find((r) => !r.willing.reluctant)
     expect(makeBid(c, fa.player.id, fa.asking).result.verdict).toBe('accept')
   })
 })

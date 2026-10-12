@@ -239,6 +239,8 @@ export default function CareerScreen() {
   const cupOppOvr = cupOpp ? ovrOf(cupOpp, career.cup.levels?.[cupOpp.id] ?? career.level) : 0
   const cupRoundName = (t) => roundName(t.round, cupT.rounds.length)
   const pos = myPosition(league)
+  // Where your squad ranks on OVR among the division's clubs (what the board judges you on)
+  const squadRank = 1 + league.teams.filter((t) => t.cpu && ovrOf(t) > myOvr).length
 
   return (
     <div className="screen">
@@ -266,6 +268,13 @@ export default function CareerScreen() {
             </div>
             {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit team</button>}
           </section>
+          {career.target && !done && played === 0 && (
+            <section className="card card-pad career-board" aria-label="The board’s target">
+              <div className="eyebrow">Season {career.season} · the board</div>
+              <h2 className="saved-h">{TARGETS[career.target]}</h2>
+              <p className="t-note">Your squad’s OVR of <b>{myOvr}</b> ranks <b>{ordinal(squadRank)}</b> of {count} in the {division.name}, so that’s what the board expects. Meet it for a <b>{money(TARGET_BONUS[career.target])}</b> bonus at the end of the season.</p>
+            </section>
+          )}
           {done ? <SeasonEnd career={career} /> : next && (
             <section className="card card-pad career-next">
               <div className="eyebrow">Matchday {played + 1} of {fixtures.length} · {next.home === ME ? 'Home' : 'Away'}</div>
@@ -310,7 +319,7 @@ export default function CareerScreen() {
             </p>
           )}
 
-          {career.target && !done && (
+          {career.target && !done && played > 0 && (
             <p className="career-strip" data-met={targetMet(career.target, pos, count) ? 'true' : undefined}>
               Board target: <b>{TARGETS[career.target]}</b> · now {ordinal(pos)}
             </p>
