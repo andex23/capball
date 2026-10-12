@@ -66,7 +66,13 @@ export function createMockSdk() {
     async session() { return { session: `mock.${id}`, exp: Date.now() + 15 * 60_000 } },
     onPause(fn) { pauses.add(fn); return () => pauses.delete(fn) },
     onResume(fn) { resumes.add(fn); return () => resumes.delete(fn) },
-    async purchases() { return [] },
+    // ?leftover=<productId>: a purchase from an earlier visit still waiting to be delivered
+    async purchases() {
+      const left = new URLSearchParams(location.search).get('leftover')
+      if (!left) return []
+      purchasesMade.set('pu_left', left)
+      return [{ purchaseId: 'pu_left', productId: left }]
+    },
     onPurchase() { return () => {} },
     async purchase(productId) {
       // ?fail=1 in the address: the player cancels
