@@ -38,6 +38,12 @@ export const ERRORS = {
 }
 
 const fail = (code) => { throw new Error(code) }
+/** Something upstream said no: log what (status and error code only, never keys), then fail. */
+function upstream(where, status, body) {
+  const why = body && typeof body === 'object' ? (body.code || body.error || '') + ' ' + String(body.message || body.hint || '').slice(0, 160) : ''
+  console.error(`[lagos] ${where} failed: ${status} ${why}`.trim())
+  throw new Error('upstream')
+}
 const sha256 = (text) => createHash('sha256').update(text).digest('hex')
 
 /** The signature Lagos Life expects on a result (see their docs: method, path, timestamp, nonce, body hash). */
@@ -85,8 +91,8 @@ export function makeOwnedDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url =
     })
     const body = await res.json().catch(() => null)
     if (!res.ok) {
-      if (body?.code === 'PGRST202' || body?.code === '42P01') fail('migration-needed')
-      throw new Error('upstream')
+      if (body?.code === 'PGRST202' || body?.code === '42P01') { console.error('[lagos] database function missing: run supabase/lagos.sql'); fail('migration-needed') }
+      upstream('database', res.status, body)
     }
     return Array.isArray(body) ? body.filter(isProduct) : []
   }
@@ -104,8 +110,8 @@ export function makeSaveDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url = 
     })
     const body = await res.json().catch(() => null)
     if (!res.ok) {
-      if (body?.code === 'PGRST202' || body?.code === '42P01') fail('migration-needed')
-      throw new Error('upstream')
+      if (body?.code === 'PGRST202' || body?.code === '42P01') { console.error('[lagos] database function missing: run supabase/lagos.sql'); fail('migration-needed') }
+      upstream('database', res.status, body)
     }
     return body
   }
@@ -123,8 +129,8 @@ export function makeReportDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url 
     })
     const body = await res.json().catch(() => null)
     if (!res.ok) {
-      if (body?.code === 'PGRST202' || body?.code === '42P01') fail('migration-needed')
-      throw new Error('upstream')
+      if (body?.code === 'PGRST202' || body?.code === '42P01') { console.error('[lagos] database function missing: run supabase/lagos.sql'); fail('migration-needed') }
+      upstream('database', res.status, body)
     }
     return Array.isArray(body) ? body : []
   }
@@ -158,6 +164,12 @@ export function cleanSave(data) {
   return { v: 1, items }
 }
 
+/** Can the server reach its database functions? 'ok', 'missing-key', 'migration-needed' or 'error'. */
+export async function databaseCheck(db = makeOwnedDb()) {
+  if (!db) return 'missing-key'
+  try { await db('list', 'test', '__health_check__'); return 'ok' } catch (e) { return e.message === 'migration-needed' ? 'migration-needed' : 'error' }
+}
+
 /** Which settings the server has (true/false only). */
 export function lagosConfigured(env = process.env) {
   return {
@@ -184,7 +196,7 @@ async function claim({ session, purchaseId }, api, db) {
   const { playerId, mode } = await whoIs(api, session)
   const p = await api.getPurchase(purchaseId)
   if (p.status === 404) fail('bad-purchase')
-  if (p.status !== 200) throw new Error('upstream')
+  if (p.status !== 200) upstream('get purchase', p.status, p.data)
   const buy = p.data || {}
   if (buy.playerId !== playerId || !isProduct(buy.productId)) fail('bad-purchase')
   if (buy.status === 'refunded') fail('refunded')
@@ -192,7 +204,7 @@ async function claim({ session, purchaseId }, api, db) {
   // Record first: if delivery fails, Lagos Life offers it again and we record nothing twice
   const owned = await db('grant', buy.mode === 'live' ? 'live' : mode, playerId, buy.productId, buy.id || purchaseId)
   const d = await api.deliver(buy.id || purchaseId)
-  if (d.status !== 200 && d.status !== 201 && d.status !== 204) throw new Error('upstream')
+  if (d.status !== 200 && d.status !== 201 && d.status !== 204) upstream('deliver purchase', d.status, d.data)
   return { ok: true, productId: buy.productId, owned }
 }
 
@@ -226,7 +238,7 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
 
   const m = await api.getMatch(matchId)
   if (m.status === 404) fail('not-in-match')
-  if (m.status !== 200) throw new Error('upstream')
+  if (m.status !== 200) upstream('get match', m.status, m.data)
   const match = m.data
   const players = (match.players || []).map((p) => p.playerId ?? p.id)
   if (!players.includes(playerId)) fail('not-in-match')
@@ -247,7 +259,7 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
   if (r.status === 200 || r.status === 201) return { ok: true, posted: post }
   if (r.status === 409 && r.data?.error === 'already_settled') return { ok: true, settled: true }
   if (r.status === 409) fail('not-playing')
-  throw new Error('upstream')
+  upstream('post result', r.status, r.data)
 }
 
 /* ── Webhook: Lagos Life tells us a purchase was paid ── */
@@ -273,12 +285,12 @@ export async function handleWebhook(event, api = makeApi(), db = makeOwnedDb()) 
   if (!ID.test(id || '')) fail('bad-request')
   const p = await api.getPurchase(id)
   if (p.status === 404) return { ok: true, ignored: true }
-  if (p.status !== 200) throw new Error('upstream')
+  if (p.status !== 200) upstream('get purchase', p.status, p.data)
   const buy = p.data || {}
   if (!buy.playerId || !isProduct(buy.productId) || buy.status === 'refunded') return { ok: true, ignored: true }
   if (buy.status !== 'paid' && buy.status !== 'delivered') return { ok: true, ignored: true }
   await db('grant', buy.mode === 'live' ? 'live' : 'test', buy.playerId, buy.productId, buy.id || id)
   const d = await api.deliver(buy.id || id)
-  if (d.status !== 200 && d.status !== 201 && d.status !== 204) throw new Error('upstream')
+  if (d.status !== 200 && d.status !== 201 && d.status !== 204) upstream('deliver purchase', d.status, d.data)
   return { ok: true }
 }

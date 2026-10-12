@@ -28,6 +28,7 @@ export default async function handler(req, res) {
   try {
     return res.status(200).json(await handleWebhook(event))
   } catch (e) {
+    console.error('[lagos] webhook could not finish:', e?.message)
     // A non-2xx makes Lagos Life retry later (1 min, 10 min, 1 h, 6 h)
     return res.status(e.message === 'bad-request' ? 400 : 503).json({ error: e.message === 'bad-request' ? 'bad-request' : 'try-again' })
   }
