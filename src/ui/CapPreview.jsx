@@ -129,6 +129,13 @@ function isLight(hex) {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.55
 }
 
+const FINISH_LOOK = {
+  matte: { lift: 0, rim: 0.18, skirt: 0, sheen: 0, glare: 0, glint: 0 },
+  satin: { lift: 0.08, rim: 0.45, skirt: 0.14, sheen: 0.22, glare: 0, glint: 0 },
+  gloss: { lift: 0.16, rim: 0.7, skirt: 0.3, sheen: 0.12, glare: 0.42, glint: 0.85 },
+  chrome: { lift: 0.32, rim: 0.9, skirt: 0.4, sheen: 0.2, glare: 0.5, glint: 0.95 },
+}
+
 export default function CapPreview({ config, size = 120, number = null, role = 'atk1' }) {
   const { primary, edge, badge, pattern, finish } = config
   const skirtBase = config.skirtColor || primary
@@ -148,9 +155,9 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   const PLEATS = 21
   const topR = R * 0.97
 
-  const isChrome = finish === 'chrome'
-  const isMatte = finish === 'matte'
-  const specAlpha = isChrome ? 0.55 : finish === 'gloss' ? 0.4 : finish === 'satin' ? 0.22 : 0.1
+  // How each finish catches the light. Matte has no shine at all, satin a
+  // soft wide sheen, gloss a sharp highlight and a glint, chrome bright metal.
+  const look = FINISH_LOOK[finish] || FINISH_LOOK.matte
   const printColor = edge === primary ? '#ffffff' : edge
   const inkColor = config.textColor || printColor
   const withText = capText.length > 0
@@ -182,14 +189,18 @@ export default function CapPreview({ config, size = 120, number = null, role = '
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
       <defs>
         <radialGradient id={`top-${uid}`} cx="42%" cy="34%" r="70%">
-          <stop offset="0%" stopColor={lightenHex(primary, isChrome ? 0.32 : isMatte ? 0.04 : 0.16)} />
+          <stop offset="0%" stopColor={lightenHex(primary, look.lift)} />
           <stop offset="65%" stopColor={primary} />
           <stop offset="100%" stopColor={darkenHex(primary, 0.22)} />
         </radialGradient>
         <linearGradient id={`skirtShine-${uid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity={isMatte ? 0.08 : 0.28} />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity={look.skirt} />
           <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
+        <radialGradient id={`sheen-${uid}`}>
+          <stop offset="0%" stopColor="#ffffff" stopOpacity={look.sheen} />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
         <clipPath id={`topClip-${uid}`}>
           <circle cx={cx} cy={tc} r={topR} />
         </clipPath>
@@ -210,7 +221,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
 
       {/* Rolled edge round the top */}
       <ellipse cx={cx} cy={tc} rx={R} ry={R * K} fill={darkenHex(primary, 0.3)} />
-      <ellipse cx={cx} cy={tc} rx={R} ry={R * K} fill="none" stroke={lightenHex(primary, 0.35)} strokeOpacity={isMatte ? 0.3 : 0.7} strokeWidth={size * 0.012} />
+      <ellipse cx={cx} cy={tc} rx={R} ry={R * K} fill="none" stroke={lightenHex(primary, 0.35)} strokeOpacity={look.rim} strokeWidth={size * 0.012} />
 
       {/* Printed top, drawn flat then tilted */}
       <g transform={`matrix(1 0 0 ${K} 0 ${(tc * (1 - K)).toFixed(3)})`}>
@@ -252,8 +263,10 @@ export default function CapPreview({ config, size = 120, number = null, role = '
         )}
       </g>
 
-      {/* Light on the tin */}
-      <ellipse cx={cx - R * 0.32} cy={tc - R * K * 0.42} rx={R * 0.42} ry={R * K * 0.16} fill={`rgba(255,255,255,${specAlpha * 0.55})`} transform={`rotate(-12 ${cx - R * 0.32} ${tc - R * K * 0.42})`} />
+      {/* Light on the tin: a soft sheen (satin), a sharp highlight and glint (gloss, chrome), nothing for matte */}
+      {look.sheen > 0 && <ellipse cx={cx - R * 0.18} cy={tc - R * K * 0.3} rx={R * 0.7} ry={R * K * 0.45} fill={`url(#sheen-${uid})`} />}
+      {look.glare > 0 && <ellipse cx={cx - R * 0.32} cy={tc - R * K * 0.42} rx={R * 0.4} ry={R * K * 0.14} fill={`rgba(255,255,255,${look.glare})`} transform={`rotate(-12 ${cx - R * 0.32} ${tc - R * K * 0.42})`} />}
+      {look.glint > 0 && <circle cx={cx + R * 0.52} cy={tc - R * K * 0.36} r={size * 0.018} fill={`rgba(255,255,255,${look.glint})`} />}
     </svg>
   )
 }

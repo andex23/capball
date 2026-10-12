@@ -156,9 +156,10 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
 // Finish presets. The printed top always shows the exact colours picked; the
 // finish only changes the shine laid over it (shine/shineMetal) and the skirt.
 const FINISH_MAP = {
-  matte:  { metalness: 0.04, roughness: 0.6, envMapIntensity: 0.5, shine: 0.08, shineMetal: 0 },
-  satin:  { metalness: 0.08, roughness: 0.4, envMapIntensity: 0.7, shine: 0.12, shineMetal: 0 },
-  gloss:  { metalness: 0.12, roughness: 0.2, envMapIntensity: 0.9, shine: 0.2, shineMetal: 0 },
+  // Matte: no shine at all. Satin: a soft sheen. Gloss: a sharp, bright highlight.
+  matte:  { metalness: 0.02, roughness: 0.85, envMapIntensity: 0.35, shine: 0, shineMetal: 0 },
+  satin:  { metalness: 0.08, roughness: 0.45, envMapIntensity: 0.7, shine: 0.1, shineMetal: 0 },
+  gloss:  { metalness: 0.12, roughness: 0.12, envMapIntensity: 1, shine: 0.26, shineMetal: 0 },
   chrome: { metalness: 0.92, roughness: 0.12, envMapIntensity: 1.3, shine: 0.45, shineMetal: 0.6 },
 }
 // Skirt and shoulder: a base of their true colour plus some light for shape
@@ -415,7 +416,7 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
   const halfH = CAP_H / 2
   // Paint on tin: only the chrome finish looks like bare metal
   const metal = fp.metalness
-  const rough = Math.min(0.5, fp.roughness)
+  const rough = fp.roughness
   const shoulderLit = useMemo(() => new THREE.Color(color).multiplyScalar(SKIRT_LIT_K), [color])
 
   return (
@@ -454,8 +455,8 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
         <circleGeometry args={[topR * 0.985, 64]} />
         <meshBasicMaterial map={topTexture} toneMapped={false} fog={false} />
       </mesh>
-      {/* The finish: only the shine of the light on it, added over the print */}
-      <mesh position={[0, halfH - 0.03 + topR * 0.08 + 0.004, 0]} rotation-x={-Math.PI / 2}>
+      {/* The finish: only the shine of the light on it, added over the print (none for matte) */}
+      {fp.shine > 0 && <mesh position={[0, halfH - 0.03 + topR * 0.08 + 0.004, 0]} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[topR * 0.985, 64]} />
         <meshStandardMaterial
           color="#000000"
@@ -469,7 +470,7 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
           toneMapped={false}
           fog={false}
         />
-      </mesh>
+      </mesh>}
 
       {/* Dark inside of the cap, seen only at the very bottom edge */}
       <mesh position={[0, -halfH + 0.006, 0]} rotation-x={-Math.PI / 2}>
