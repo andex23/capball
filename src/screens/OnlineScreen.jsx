@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
-import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerManager'
+import { createRoom, joinRoom, disconnect, getIsHost } from '../multiplayer/MultiplayerManager'
+import { useTournamentStore } from '../state/tournamentStore'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
 import { useOnline } from '../pwa/useOnline'
@@ -15,6 +16,9 @@ function Spinner() {
 export default function OnlineScreen() {
   const goToScreen = useMatchStore((s) => s.goToScreen)
   const status = useMatchStore((s) => s.onlineStatus)
+  // A career (or cup/league) fixture this device is hosting for a friend online
+  const fixture = useTournamentStore((s) => s.playing)
+  const hostingFixture = !!fixture?.lan && fixture.kind !== 'lanGuest' && fixture.transport === 'internet'
   const [view, setView] = useState('menu') // 'menu' | 'host' | 'join'
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState(() => {
@@ -26,10 +30,15 @@ export default function OnlineScreen() {
   const [copied, setCopied] = useState(false)
   const online = useOnline()
 
-  // Connected → both players move on to team select together
+  // Connected → both players move on to team select together. A hosted fixture
+  // skips it (the teams are set) and the guest follows the host's screens.
   useEffect(() => {
     if (status.status !== 'connected') return
-    const t = setTimeout(() => goToScreen(SCREEN.TEAM_SELECT), 900)
+    const t = setTimeout(() => {
+      const p = useTournamentStore.getState().playing
+      if (!getIsHost() && p?.kind === 'lanGuest') return
+      goToScreen(getIsHost() && p?.lan && p.kind === 'career' ? SCREEN.FORMATION : SCREEN.TEAM_SELECT)
+    }, 900)
     return () => clearTimeout(t)
   }, [status.status, goToScreen])
 
@@ -66,6 +75,7 @@ export default function OnlineScreen() {
   const back = () => {
     playButtonSelect()
     disconnect()
+    if (hostingFixture && view !== 'join') { setView('menu'); setRoomCode(''); setBusy(false); useTournamentStore.getState().backToHub(); return }
     if (view === 'menu') goToScreen(SCREEN.MENU)
     else { setView('menu'); setRoomCode(''); setBusy(false) }
   }
@@ -99,14 +109,21 @@ export default function OnlineScreen() {
           <div>
             <div className="eyebrow">Online match</div>
             <h1 className="display" style={{ fontSize: 40 }}>
-              {view === 'host' ? 'Host a room' : view === 'join' ? 'Join a room' : 'Play a friend'}
+              {view === 'host' ? 'Host a room' : view === 'join' ? 'Join a room' : hostingFixture ? 'Career match online' : 'Play a friend'}
             </h1>
           </div>
           <span className="mode-icon"><Icon name="globe" size={24} /></span>
         </div>
 
         <div className="sheet-body">
-          {view === 'menu' && (
+          {view === 'menu' && hostingFixture && (
+            <>
+              <p>{useMatchStore.getState().teamConfig.team1.name} vs {useMatchStore.getState().teamConfig.team2.name}. You play your club; your friend plays the opposition from their own phone, anywhere.</p>
+              <p className="muted">Host a room and send your friend the code. The result goes into your career on this device.</p>
+              <button className="btn btn-purple btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick} disabled={!online}>Host this match</button>
+            </>
+          )}
+          {view === 'menu' && !hostingFixture && (
             <>
               <button className="btn btn-secondary btn-lg btn-block" onClick={() => goToScreen(SCREEN.LAN)}>LAN · Same Wi-Fi</button>
               <button className="btn btn-gold btn-lg btn-block" onClick={() => goToScreen(SCREEN.ANYTIME)}>Play anytime · saved turns</button>

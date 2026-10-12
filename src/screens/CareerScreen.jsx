@@ -128,23 +128,79 @@ function SeasonEnd({ career }) {
   const cup = cupRun(career.cup?.tournament)
   const waitingCup = cupPending(career)
   const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[career.target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
+  const doomed = career.target && !met
   return (
-    <section className="card card-pad career-end" data-tone={o.tone}>
+    <section className="card card-pad career-end" data-tone={doomed ? 'bad' : o.tone}>
       <div className="eyebrow">Season {career.season} · {DIVISIONS[career.level].name}</div>
       <h2 className="display career-end-title">{o.title}</h2>
       <p className="career-end-pos">Finished <b>{ordinal(pos)}</b> of {count}{row ? ` · ${row.w}W ${row.d}D ${row.l}L · ${row.pts} pts` : ''}</p>
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
       {career.target && <p className="career-target-line" data-met={met ? 'true' : undefined}>Board target: {TARGETS[career.target]} · <b>{met ? 'Met' : 'Missed'}</b></p>}
       {cup && <p className="career-target-line">{CUP_NAME}: <b>{cup === 'won' ? 'Winners!' : cup === 'final' ? 'Runners-up' : cup === 'semi' ? 'Semi-finals' : 'Quarter-finals'}</b></p>}
-      <p className="muted">Season bonus: <b>{money(bonus)}</b>. Over the summer young players improve, older ones slow down, and veterans may retire. The transfer window opens before the new season.</p>
+      {doomed
+        ? <p className="t-note">You missed the board’s target. They want to see you.</p>
+        : <p className="muted">Season bonus: <b>{money(bonus)}</b>. Over the summer young players improve, older ones slow down, and veterans may retire. The transfer window opens before the new season.</p>}
       {waitingCup ? (
         <p className="t-note" role="status">Play your {CUP_NAME} tie first; the season ends once you’re out or it’s won.</p>
+      ) : doomed ? (
+        <button className="btn btn-danger btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().nextSeason() }}>Meet the board</button>
       ) : (
         <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().nextSeason() }}>
           <Icon name="next" size={20} /> Start season {career.season + 1}
         </button>
       )}
     </section>
+  )
+}
+
+/** The board has sacked you: the career's record, and a fresh start. */
+function Sacked({ career, onBack }) {
+  const s = career.sacked
+  const best = Math.max(...career.past.map((p) => p.level ?? 0), career.level)
+  return (
+    <div className="screen">
+      <div className="shell">
+        <header className="shell-head">
+          <div>
+            <div className="eyebrow shell-eyebrow">Career over · {career.club.name}</div>
+            <h1 className="display shell-title">Sacked</h1>
+          </div>
+        </header>
+        <main className="shell-body career-start">
+          <section className="card card-pad career-end" data-tone="bad">
+            <div className="eyebrow">Season {s.season} · {s.division}</div>
+            <h2 className="display career-end-title">The board has sacked you</h2>
+            <p className="t-note">You finished <b>{ordinal(s.position)}</b>. The board wanted: <b>{TARGETS[s.target]}</b>.</p>
+            <ul className="club-lines">
+              <li><span>Seasons in charge</span><b>{career.past.length}</b></li>
+              <li><span>Promotions</span><b>{career.promotions}</b></li>
+              <li><span>Titles</span><b>{career.titles}</b></li>
+              <li><span>{CUP_NAME}s</span><b>{career.cups || 0}</b></li>
+              <li><span>Highest division</span><b>{DIVISIONS[best].name}</b></li>
+            </ul>
+            <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().retire() }}>Start a new career</button>
+          </section>
+          {career.past.length > 0 && (
+            <section className="card card-pad">
+              <h2 className="saved-h">Your seasons</h2>
+              <ul className="saved-history">
+                {career.past.slice(0, 10).map((p) => (
+                  <li key={p.season}>
+                    <span />
+                    <span className="saved-score">Season {p.season} · {p.division} · <b>{ordinal(p.position)}</b></span>
+                    <span />
+                    <small className="muted saved-when">{p.sacked ? 'Sacked' : OUTCOME[p.outcome]?.title || ''}{p.record ? ` · ${p.record.w}W ${p.record.d}D ${p.record.l}L` : ''}</small>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </main>
+        <footer className="shell-foot"><div className="shell-foot-inner">
+          <button className="btn btn-secondary" onClick={onBack}><Icon name="back" size={18} /> Menu</button>
+        </div></footer>
+      </div>
+    </div>
   )
 }
 
@@ -207,6 +263,8 @@ export default function CareerScreen() {
       </div>
     )
   }
+
+  if (career.sacked) return <Sacked career={career} onBack={back} />
 
   const league = career.league
   const division = DIVISIONS[career.level]
@@ -272,7 +330,8 @@ export default function CareerScreen() {
             <section className="card card-pad career-board" aria-label="The board’s target">
               <div className="eyebrow">Season {career.season} · the board</div>
               <h2 className="saved-h">{TARGETS[career.target]}</h2>
-              <p className="t-note">Your squad’s OVR of <b>{myOvr}</b> ranks <b>{ordinal(squadRank)}</b> of {count} in the {division.name}, so that’s what the board expects. Meet it for a <b>{money(TARGET_BONUS[career.target])}</b> bonus at the end of the season.</p>
+              <p className="t-note">Miss it and the board sacks you: your career ends and you start again. Meet it for a <b>{money(TARGET_BONUS[career.target])}</b> bonus.</p>
+              <p className="muted t-note">Your squad’s OVR of <b>{myOvr}</b> ranks <b>{ordinal(squadRank)}</b> of {count} in the {division.name}.{squadRank > PROMOTED && career.target === 'promotion' ? ' Strengthen it in the transfer market before matchday 1.' : ''}</p>
             </section>
           )}
           {done ? <SeasonEnd career={career} /> : next && (
@@ -281,7 +340,7 @@ export default function CareerScreen() {
               <div className="career-vs">
                 <TeamTag team={teamById(league, ME)} size={34} strong />
                 <span className="vs-badge">VS</span>
-                <TeamTag team={opponent} size={34} strong />
+                <TeamTag team={opponent} size={34} strong mirror />
               </div>
               <div className="career-ovr" data-matchup={matchupOf(myOvr, theirOvr)}>
                 <span><b>{myOvr}</b><small>OVR</small></span>
@@ -289,8 +348,11 @@ export default function CareerScreen() {
                 <span><b>{theirOvr}</b><small>OVR</small></span>
               </div>
               <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Play match</button>
-              <button className="btn btn-blue btn-block" onClick={() => { playConfirm(); useTournamentStore.getState().playLanFixture('career', next) }}><Icon name="wifi" size={18} /> Play this match over LAN</button>
-              <p className="muted t-note">LAN: you control your club; your friend plays the opposition. Your career result saves on this device.</p>
+              <div className="career-friend">
+                <button className="btn btn-blue" onClick={() => { playConfirm(); useTournamentStore.getState().playLanFixture('career', next, ME, 'internet') }}><Icon name="globe" size={18} /> Online</button>
+                <button className="btn btn-blue" onClick={() => { playConfirm(); useTournamentStore.getState().playLanFixture('career', next) }}><Icon name="wifi" size={18} /> LAN</button>
+              </div>
+              <p className="muted t-note">Play it against a friend: online from anywhere, or over LAN on the same Wi-Fi. You control your club, they play the opposition, and the result saves to your career on this device.</p>
               <p className="muted t-note">Computer level: {division.difficulty}. Other clubs’ games play out by themselves.</p>
             </section>
           )}
@@ -301,7 +363,7 @@ export default function CareerScreen() {
               <div className="career-vs">
                 <TeamTag team={teamById(cupT, ME)} size={30} strong />
                 <span className="vs-badge">VS</span>
-                <TeamTag team={cupOpp} size={30} strong />
+                <TeamTag team={cupOpp} size={30} strong mirror />
               </div>
               <div className="career-ovr" data-matchup={matchupOf(myOvr, cupOppOvr)}>
                 <span><b>{myOvr}</b><small>OVR</small></span>

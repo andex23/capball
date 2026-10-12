@@ -2,17 +2,18 @@ import CapPreview from './CapPreview'
 import { displayColor } from './color'
 
 /** A team's cap and name on one line (dimmed when knocked out). */
-export function TeamTag({ team, size = 26, strong, out, placeholder = 'TBD' }) {
+/** A team's cap and name; `mirror` puts the name first (the right-hand side of a VS row). */
+export function TeamTag({ team, size = 26, strong, out, placeholder = 'TBD', mirror }) {
   if (!team) {
     return (
-      <span className="t-team t-team-empty">
+      <span className="t-team t-team-empty" data-mirror={mirror ? 'true' : undefined}>
         <span className="t-cap-ghost" style={{ width: size, height: size }} aria-hidden />
         <span className="t-team-name">{placeholder}</span>
       </span>
     )
   }
   return (
-    <span className="t-team" data-strong={strong ? 'true' : undefined} data-out={out ? 'true' : undefined} style={{ '--team': displayColor(team.primary) }}>
+    <span className="t-team" data-strong={strong ? 'true' : undefined} data-out={out ? 'true' : undefined} data-mirror={mirror ? 'true' : undefined} style={{ '--team': displayColor(team.primary) }}>
       <CapPreview config={team} size={size} />
       <span className="t-team-name">{team.name}</span>
     </span>

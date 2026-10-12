@@ -360,7 +360,7 @@ function LiveWait({ t, playing, onCancel }) {
       <div className="t-live">
         <TeamTag team={home} size={36} strong />
         <span className="vs-badge">VS</span>
-        <TeamTag team={away} size={36} strong />
+        <TeamTag team={away} size={36} strong mirror />
       </div>
       {failed && status.msg && <p className="t-warn" role="alert" style={{ marginTop: 0 }}>{status.msg}</p>}
       <p className="muted" role="status">

@@ -141,25 +141,27 @@ export function recordCupResult(career, fixtureId, result) {
 
 export const TARGETS = {
   title: 'Win the league',
-  promotion: `Finish in the top ${2}`,
-  topHalf: 'Finish in the top half',
+  promotion: `Get promoted: finish in the top ${PROMOTED}`,
+  topHalf: 'Finish in the top half (top 3)',
   survive: 'Stay up',
   notLast: 'Don’t finish bottom',
 }
 export const TARGET_BONUS = { title: 200, promotion: 150, topHalf: 80, survive: 60, notLast: 40 }
 
 /**
- * What the board expects, from where your squad ranks in the division (like
- * a real board: the favourites are told to win it, the smallest club to stay up).
+ * What the board expects: promotion every season until you reach the top
+ * division, then a top-half finish there. Miss it and you're sacked: the
+ * career is over and you start again.
  */
-export function targetFor(level, squad, world = null) {
+export function targetFor(level) {
+  return level >= TOP ? 'topHalf' : 'promotion'
+}
+
+/** Where your squad ranks on OVR among the division's clubs (1 = strongest). */
+export function squadRank(level, squad, world = null) {
   const mine = averageRating(squadRatings(squad))
   const theirs = DIVISIONS[level].clubs.map((c) => averageRating(squadRatings(sixFor(world, c.name) || clubPlayers(level, c.name))))
-  const rank = 1 + theirs.filter((o) => o > mine).length // 1 = strongest
-  if (rank === 1) return level === TOP ? 'title' : 'promotion'
-  if (rank <= 2) return level === TOP ? 'topHalf' : 'promotion'
-  if (rank <= 4) return 'topHalf'
-  return level === 0 ? 'notLast' : 'survive'
+  return 1 + theirs.filter((o) => o > mine).length
 }
 
 /** Did finishing `pos` of `count` meet the target? */
@@ -185,7 +187,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     world,             // every computer club's squad, and the free agents
     league: createSeason(club, 0, matchDuration, now, world),
     cup: createCup(club, 0, matchDuration, 1, now, world),
-    target: targetFor(0, sq, world),
+    target: targetFor(0),
     cups: 0,
     lastSummer: null,
     past: [],          // finished seasons, newest first
@@ -202,6 +204,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     deals: [],         // your recent transfers
     lastEarned: 0,
     lastReport: null,
+    sacked: null,      // set when the board sacks you: the career is over
   }
 }
 
@@ -327,6 +330,16 @@ export function finishSeason(career, now = Date.now()) {
     // The season's books (season bonus and prizes included)
     finance: (() => { const l = { ...emptyLedger(), ...(career.biz?.ledger || {}) }; l.prize += bonus; return { ...ledgerTotals(l), ledger: l } })(),
   }
+  // Missed the board's target: sacked. The season goes in the record books and the career ends here.
+  if (target && !met) {
+    return {
+      ...career,
+      cup: career.cup ? { ...career.cup, tournament: cupT } : career.cup,
+      past: [{ ...entry, sacked: true }, ...career.past].slice(0, 50),
+      cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
+      sacked: { season: career.season, division: DIVISIONS[career.level].name, position: pos, target },
+    }
+  }
   // The business side of the summer: fans move with the season, TV money for the new division,
   // new sponsor offers and a fresh set of books
   const biz0 = career.biz || newClub(career.level)
@@ -354,7 +367,7 @@ export function finishSeason(career, now = Date.now()) {
     world,
     league: createSeason(career.club, level, career.matchDuration, now, world),
     cup: createCup(career.club, level, career.matchDuration, career.season + 1, now, world),
-    target: targetFor(level, summer.squad, world),
+    target: targetFor(level),
     past: [entry, ...career.past].slice(0, 50),
     promotions: career.promotions + (outcome === 'promoted' ? 1 : 0),
     titles: career.titles + (outcome === 'champions' ? 1 : 0),
@@ -411,6 +424,10 @@ export function sanitizeCareer(input) {
     lastEarned: Number.isInteger(input.lastEarned) ? input.lastEarned : 0,
     biz: sanitizeClub(input.biz, level, league.id),
     lastReport: sanitizeReport(input.lastReport),
+    sacked: isObj(input.sacked) ? {
+      season: n(input.sacked.season), division: String(input.sacked.division || '').slice(0, 30),
+      position: n(input.sacked.position), target: Object.hasOwn(TARGETS, input.sacked.target) ? input.sacked.target : 'promotion',
+    } : null,
     cup: sanitizeCup(input.cup),
     target: Object.hasOwn(TARGETS, input.target) ? input.target : null,
     cups: n(input.cups),

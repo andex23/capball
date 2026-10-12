@@ -113,6 +113,9 @@ function opponentName() {
   return useMatchStore.getState().teamConfig?.[team]?.name || (isHost ? 'your opponent' : 'the host')
 }
 
+/** A cup, league or career fixture played with a friend (over LAN or the internet): the host sends its context. */
+const sharesFixture = () => lan || !!useTournamentStore.getState().playing?.lan
+
 /* ── Host → guest state stream ── */
 
 function syncTick() {
@@ -120,7 +123,7 @@ function syncTick() {
   const state = useMatchStore.getState()
   const now = Date.now()
 
-  const stateJson = JSON.stringify({ ...pickSynced(state), ...(lan ? { lanCompetition: useTournamentStore.getState().lanSnapshot() } : {}) })
+  const stateJson = JSON.stringify({ ...pickSynced(state), ...(sharesFixture() ? { lanCompetition: useTournamentStore.getState().lanSnapshot() } : {}) })
   const bodiesJson = state.screen === SCREEN.PLAYING ? JSON.stringify(snapshotBodies()) : ''
   const stateChanged = stateJson !== lastSentState
   const bodiesChanged = bodiesJson !== lastSentBodies
@@ -183,7 +186,7 @@ function handleAsGuest(msg) {
   if (msg.type === 'sync' && msg.data) {
     // Do not animate queued state or advance either displayed clock behind recovery.
     if (lan && store.onlineReconnect) return
-    if (lan && msg.data.state?.lanCompetition) useTournamentStore.getState().receiveLanSnapshot(msg.data.state.lanCompetition)
+    if (msg.data.state?.lanCompetition) useTournamentStore.getState().receiveLanSnapshot(msg.data.state.lanCompetition)
     const update = filterSynced(msg.data.state)
     // A new screen means a new ready round
     if (update.screen && update.screen !== store.screen) update.onlineReady = { team1: false, team2: false }
@@ -635,7 +638,7 @@ export function sendPause(paused) { send('pause', { paused }) }
 /** Either side: my ready state. On the full-time screen, `choice` is 'rematch' or 'penalties'. */
 export function sendReady(ready, choice) { send('ready', ready && choice ? { ready, choice } : { ready }) }
 
-export function flushLanState() { if (lan && isHost) { lastSentState = ''; lastHeartbeat = 0; syncTick() } }
+export function flushLanState() { if (sharesFixture() && isHost) { lastSentState = ''; lastHeartbeat = 0; syncTick() } }
 
 export function getIsHost() { return isHost }
 export function isConnected() { return !!conn?.open }
