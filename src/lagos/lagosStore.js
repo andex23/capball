@@ -41,6 +41,15 @@ let sdk = null
 let scoreTimer = null
 let lastScoreAt = 0
 let resultSent = new Set()
+let matchPoll = null
+
+/** A match from Lagos Life, whatever wrapper it arrives in, with players as { id, name }. */
+export function normaliseMatch(raw) {
+  const m = raw?.match ?? raw
+  if (!m || typeof m !== 'object' || !m.id) return null
+  const players = Array.isArray(m.players) ? m.players.map((p) => ({ ...p, id: p.id ?? p.playerId, name: p.name ?? p.displayName ?? 'Player' })) : []
+  return { ...m, players }
+}
 
 /** Stakes a player can pick for a bet with a friend (in-game naira; 0 is a free match). */
 export const STAKES = [0, 100, 500, 1000, 5000]
@@ -118,7 +127,8 @@ export const useLagosStore = create((set, get) => ({
       set({ status: 'ready', player, mode: launch.mode, wins: readWins(player.id) })
       sdk.onPause?.(() => get().pause())
       sdk.onResume?.(() => get().resume())
-      sdk.match?.onUpdate?.((m) => {
+      sdk.match?.onUpdate?.((raw) => {
+        const m = normaliseMatch(raw)
         const before = get().match
         set({ match: m || null })
         // A bet settled: say what it came to
@@ -126,7 +136,7 @@ export const useLagosStore = create((set, get) => ({
           set({ betNote: { stake: Number(m.stake), outcome: m.status !== 'done' || !m.winner || m.winner === 'draw' ? 'refund' : m.winner === player.id ? 'won' : 'lost', at: Date.now() } })
         }
       })
-      sdk.match?.current?.().then((m) => { if (m) set({ match: m }) }).catch(() => {})
+      sdk.match?.current?.().then((m) => { const x = normaliseMatch(m); if (x) set({ match: x }) }).catch(() => {})
       get().loadBoard()
       // Progress follows the player, not the phone
       if (await get().loadCloudSave()) return false
@@ -322,8 +332,23 @@ export const useLagosStore = create((set, get) => ({
     const m = kind === 'quick' ? await sdk.match.quick({ stake: bet })
       : kind === 'create' ? await sdk.match.create({ stake: bet, seats: 2 })
         : await sdk.match.join(code)
-    set({ match: m || null })
-    return m
+    const x = normaliseMatch(m)
+    set({ match: x })
+    get().watchMatch()
+    return x
+  },
+
+  /** While a match waits for its second player, ask Lagos Life every few seconds too (in case an update is missed). */
+  watchMatch() {
+    clearInterval(matchPoll)
+    matchPoll = setInterval(async () => {
+      const cur = get().match
+      if (!cur || cur.status !== 'open' || !sdk?.match?.current) { clearInterval(matchPoll); matchPoll = null; return }
+      try {
+        const m = normaliseMatch(await sdk.match.current())
+        if (m && m.id === cur.id && (m.status !== cur.status || (m.players?.length || 0) !== (cur.players?.length || 0))) set({ match: m })
+      } catch { /* try again next tick */ }
+    }, 3000)
   },
 
   async leaveMatch() {

@@ -38,7 +38,7 @@ export default function LagosFriendScreen() {
   // Both players in: open the room on the host's phone, connect from the other
   // Sandbox: the test bot takes the other seat; it can't connect phone to phone
   const opponentNow = match ? opponentOf(match, me) : null
-  const testBot = lagos.mode === 'test' && !!opponentNow && /bot/i.test(`${opponentNow.id} ${opponentNow.name}`)
+  const testBot = lagos.mode === 'test' && !!opponentNow && /bot|test/i.test(`${opponentNow.id} ${opponentNow.name}`)
 
   useEffect(() => {
     if (!match || match.status !== 'playing' || !me || testBot || linking.current === match.id) return
@@ -194,9 +194,9 @@ export default function LagosFriendScreen() {
 
           {playing && bet > 0 && <p className="lagos-pot" role="status">Winner takes {naira(potFor(bet))}</p>}
 
-          {playing && lagos.mode === 'test' && (testBot || error) && (
+          {playing && lagos.mode === 'test' && (
             <>
-              <p className="muted t-note">{testBot ? 'This is the sandbox’s test opponent. Play its seat against the computer here; the result is reported to Lagos Life as a real match.' : 'Testing in the sandbox? Play the other seat against the computer here instead.'}</p>
+              <p className="muted t-note">{testBot ? 'This is the sandbox’s test opponent. Play its seat against the computer here; the result is reported to Lagos Life as a real match.' : 'Sandbox: if the other seat is Lagos Life’s test bot, play it against the computer here instead.'}</p>
               <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useLagosStore.getState().playTestOpponent() }}>Play the test opponent here</button>
             </>
           )}
