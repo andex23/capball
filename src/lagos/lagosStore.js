@@ -50,6 +50,17 @@ async function server(body) {
   return data
 }
 const claiming = new Set()
+const unclaimed = new Map() // purchaseId -> productId, paid but not unlocked yet
+const FINAL_CLAIM_ERRORS = new Set(['bad-purchase', 'refunded'])
+let retryTimer = null
+/** Try paid-but-locked purchases again every 15 seconds until they unlock. */
+function retryClaims(get) {
+  if (retryTimer) return
+  retryTimer = setTimeout(async () => {
+    retryTimer = null
+    for (const [purchaseId, productId] of [...unclaimed]) await get().claim(purchaseId, productId)
+  }, 15_000)
+}
 let cloudReady = false
 let cloudSaving = null
 let lastCloud = ''
@@ -77,7 +88,7 @@ export const useLagosStore = create((set, get) => ({
   owned: [],         // product ids of caps bought (from our server)
   buying: null,      // product id being bought right now
   shopNote: null,    // { tone: 'good' | 'bad', text }
-  justBought: null,  // { productId } shows the 'Purchase complete' note
+  justBought: null,  // { productId, state: 'done' | 'pending' | 'failed', text } shows the purchase note
 
   /** Is this cap design bought? */
   owns: (designKey) => get().owned.includes(productIdFor(designKey)),
@@ -106,8 +117,8 @@ export const useLagosStore = create((set, get) => ({
       if (await get().loadCloudSave()) return false
       // Caps bought before: from our server, and any paid but not yet unlocked
       get().loadOwned()
-      sdk.onPurchase?.((p) => get().claim(p?.purchaseId))
-      sdk.purchases?.().then((list) => { for (const p of list || []) get().claim(p?.purchaseId) }).catch(() => {})
+      sdk.onPurchase?.((p) => get().claim(p?.purchaseId, p?.productId))
+      sdk.purchases?.().then((list) => { for (const p of list || []) get().claim(p?.purchaseId, p?.productId) }).catch(() => {})
       return true
     } catch (e) {
       set({ status: 'error', error: sdkMessage(e) })
@@ -226,16 +237,32 @@ export const useLagosStore = create((set, get) => ({
     }
   },
 
-  /** Unlock a paid cap (our server checks it with Lagos Life first). */
-  async claim(purchaseId) {
+  /**
+   * Unlock a paid cap (our server checks it with Lagos Life first). The
+   * purchase note shows how it went: complete, paid and still unlocking
+   * (retried by itself until it works), or failed.
+   */
+  async claim(purchaseId, productId = null) {
     if (!purchaseId || claiming.has(purchaseId)) return false
     claiming.add(purchaseId)
     try {
-      const { productId, owned } = await server({ action: 'claim', purchaseId })
-      set({ owned: Array.isArray(owned) ? owned.filter(isProduct) : [...new Set([...get().owned, productId])], justBought: { productId, at: Date.now() } })
-      return productId
+      const r = await server({ action: 'claim', purchaseId })
+      unclaimed.delete(purchaseId)
+      set({ owned: Array.isArray(r.owned) ? r.owned.filter(isProduct) : [...new Set([...get().owned, r.productId])], justBought: { productId: r.productId, state: 'done', at: Date.now() } })
+      get().enforceOwnership()
+      return r.productId
     } catch (e) {
-      set({ shopNote: { tone: 'bad', text: `${e.message} Your payment is safe; reopen the game to try again.` } })
+      const id = productId || unclaimed.get(purchaseId) || null
+      if (FINAL_CLAIM_ERRORS.has(e?.code)) {
+        unclaimed.delete(purchaseId)
+        set({ justBought: { productId: id, state: 'failed', text: e.message, at: Date.now() }, shopNote: { tone: 'bad', text: e.message } })
+      } else {
+        // Paid, but our server couldn't unlock it yet: keep trying by itself
+        const first = !unclaimed.has(purchaseId)
+        unclaimed.set(purchaseId, id)
+        retryClaims(get)
+        if (first) set({ justBought: { productId: id, state: 'pending', at: Date.now() }, shopNote: { tone: 'good', text: 'Payment received. It unlocks in a moment; no need to pay again.' } })
+      }
       return false
     } finally {
       claiming.delete(purchaseId)
@@ -248,11 +275,18 @@ export const useLagosStore = create((set, get) => ({
     set({ buying: productId, shopNote: null })
     try {
       const p = await sdk.purchase(productId)
-      const got = await get().claim(p?.purchaseId)
+      if (!p?.purchaseId) {
+        set({ justBought: { productId, state: 'pending', at: Date.now() } })
+        return
+      }
+      const got = await get().claim(p.purchaseId, productId)
       if (got) set({ shopNote: { tone: 'good', text: `${name} is yours. Tap it to put it on your caps.` } })
     } catch (e) {
       if (e?.code === 'owned') get().loadOwned()
-      else if (e?.code !== 'cancelled') set({ shopNote: { tone: 'bad', text: e?.code === 'not_for_sale' ? 'That cap isn’t on sale yet.' : e?.code === 'payment_failed' ? 'The payment didn’t go through. You weren’t charged.' : sdkMessage(e) } })
+      else if (e?.code !== 'cancelled') {
+        const text = e?.code === 'not_for_sale' ? 'That item isn’t on sale yet.' : e?.code === 'payment_failed' ? 'The payment didn’t go through. You weren’t charged.' : sdkMessage(e)
+        set({ shopNote: { tone: 'bad', text }, justBought: { productId, state: 'failed', text, at: Date.now() } })
+      }
     } finally {
       set({ buying: null })
     }

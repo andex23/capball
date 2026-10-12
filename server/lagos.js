@@ -25,7 +25,8 @@ export const API_BASE = 'https://lagoslife.app/api/games/v1'
 const API_PATH = new URL(API_BASE).pathname
 
 export const ERRORS = {
-  'not-configured': 'Friend matches aren’t set up on the server yet.',
+  'not-configured': 'The game server isn’t set up for Lagos Life yet.',
+  'shop-not-configured': 'The shop server isn’t set up yet.',
   'bad-request': 'That request wasn’t understood.',
   'bad-session': 'Your Lagos Life session has expired. Open the game again.',
   'not-in-match': 'You’re not in that match.',
@@ -120,6 +121,16 @@ export function cleanSave(data) {
   return { v: 1, items }
 }
 
+/** Which settings the server has (true/false only). */
+export function lagosConfigured(env = process.env) {
+  return {
+    lagosLifeKey: Boolean(env.VATAR_SECRET),
+    resultsSecret: Boolean(env.VATAR_RESULTS_SECRET),
+    webhookSecret: Boolean(env.VATAR_WEBHOOK_SECRET),
+    shopDatabaseKey: Boolean(env.SUPABASE_SERVICE_ROLE_KEY),
+  }
+}
+
 const ID = /^[A-Za-z0-9_-]{1,80}$/
 
 async function whoIs(api, session) {
@@ -131,7 +142,7 @@ async function whoIs(api, session) {
 
 /** A cap bought: check it with Lagos Life, record it, mark it delivered. */
 async function claim({ session, purchaseId }, api, db) {
-  if (!db) fail('not-configured')
+  if (!db) fail('shop-not-configured')
   if (!ID.test(purchaseId || '')) fail('bad-request')
   const { playerId, mode } = await whoIs(api, session)
   const p = await api.getPurchase(purchaseId)
@@ -152,7 +163,7 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
   if (!api) fail('not-configured')
   // The player's save: always the verified player's own, never anyone else's
   if (input?.action === 'loadSave' || input?.action === 'putSave') {
-    if (!saves) fail('not-configured')
+    if (!saves) fail('shop-not-configured')
     const { playerId, mode } = await whoIs(api, input.session)
     if (input.action === 'loadSave') {
       const r = await saves('get', mode, playerId)
@@ -165,7 +176,7 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
   }
   if (input?.action === 'claim') return claim(input, api, db)
   if (input?.action === 'owned') {
-    if (!db) fail('not-configured')
+    if (!db) fail('shop-not-configured')
     const { playerId, mode } = await whoIs(api, input.session)
     return { ok: true, owned: await db('list', mode, playerId) }
   }
