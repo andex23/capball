@@ -119,11 +119,15 @@ pair for a friend match.
 
 ## Betting with friends
 
-Friend matches can carry a bet: Free, ₦100, ₦500, ₦1,000 or ₦5,000 of the
-player's Lagos Life in-game money (never real money, never cashed out).
-Lagos Life holds both bets and pays the winner the pot less its 5% house cut;
-a draw, a match that never fills (15 min) or no result within 2 hours gives
-both bets back.
+Once two players are matched and connected (team, venue and formation
+screens), a **₦ Bet** button appears. A player picks an amount of their Lagos
+Life money (₦10,000 to ₦100,000, Lagos Life's limit per match; ₦500,000 a day
+per player); the other phone gets an Accept / No thanks popup. Lagos Life fixes
+a match's stake when it is made, so the bet opens a new staked match (Lagos
+Life's sheet confirms the money) and the friend joins it on accept; the phones
+stay connected throughout. Lagos Life holds both bets and pays the winner the
+pot less its 5%; a draw, a match that never fills (15 min) or no result within
+2 hours gives both bets back.
 
 - **Turning it on:** Lagos Life must approve matches, then stakes, for the
   reviewed version. Until stakes are approved, a bet answers `friendly_only`
