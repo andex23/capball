@@ -30,6 +30,35 @@ const OUTCOME = {
   stayed: { title: 'Season over', tone: '', line: (next) => `Another season in the ${next}.` },
 }
 
+/** How a career is played: solo against the computer, or a friend plays the opposition. */
+const MODE_INFO = {
+  solo: { label: 'Solo', icon: 'play', line: 'Your own manager career. Every match is you against the computer.' },
+  online: { label: 'Online', icon: 'globe', line: 'A friend plays every opponent from their own phone, anywhere. You host each match and send them the code.' },
+  lan: { label: 'LAN', icon: 'wifi', line: 'A friend on the same Wi-Fi plays every opponent. You host each match; they join over LAN.' },
+}
+
+function ModePicker({ mode, onPick }) {
+  return (
+    <>
+      <div className="segmented stretch" role="group" aria-label="Career type">
+        {Object.entries(MODE_INFO).map(([k, m]) => (
+          <button key={k} aria-pressed={mode === k} onClick={() => { playButtonSelect(); onPick(k) }}><Icon name={m.icon} size={14} /> {m.label}</button>
+        ))}
+      </div>
+      <p className="muted t-note">{MODE_INFO[mode].line}</p>
+    </>
+  )
+}
+
+/** Play a career fixture the way this career is played: solo, or hosting a friend online or over LAN. */
+function playCareerFixture(career, kind, fixture) {
+  playConfirm()
+  const ts = useTournamentStore.getState()
+  if (career.mode === 'online') ts.playLanFixture(kind, fixture, ME, 'internet')
+  else if (career.mode === 'lan') ts.playLanFixture(kind, fixture, ME, 'lan')
+  else ts.playFixture(kind, fixture)
+}
+
 /** The club's starting kit: the player's own team 1 kit, under their club name. */
 function startingKit(teamConfig) {
   const own = teamConfig.team1
@@ -46,12 +75,17 @@ function StartCareer() {
   const [squad] = useState(() => startingSquad(Date.now()))
   const [duration, setDuration] = useState(120)
   const [kitOpen, setKitOpen] = useState(false)
+  const [mode, setMode] = useState('solo')
   const start = () => {
     playConfirm()
-    useCareerStore.getState().start({ ...club, name: club.name.trim() || 'My Club' }, duration, squad)
+    useCareerStore.getState().start({ ...club, name: club.name.trim() || 'My Club' }, duration, squad, mode)
   }
   return (
     <div className="career-start">
+      <section className="card card-pad">
+        <h2 className="saved-h">How you’ll play</h2>
+        <ModePicker mode={mode} onPick={setMode} />
+      </section>
       <section className="card card-pad">
         <h2 className="saved-h">Your club</h2>
         <p className="muted t-note">Start in the {DIVISIONS[0].name} against five computer clubs. Finish in the top {PROMOTED} to go up a division. Finish bottom and you go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
@@ -284,7 +318,7 @@ export default function CareerScreen() {
   // The kit is fixed once a season is under way; change it before matchday 1
   const kitOpen = played === 0
   const opponent = next ? teamById(league, next.home === ME ? next.away : next.home) : null
-  const play = () => { playConfirm(); useTournamentStore.getState().playFixture('career', next) }
+  const play = () => playCareerFixture(career, 'career', next)
   // Overall ratings: yours against this opponent's
   const myOvr = averageRating(squadRatings(career.squad))
   const ovrOf = (team, level = career.level) => (team ? opponentOvr(career, team.name, level) : 0)
@@ -328,6 +362,10 @@ export default function CareerScreen() {
             </div>
             {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit team</button>}
           </section>
+          <section className="card card-pad">
+            <h2 className="saved-h">How you play</h2>
+            <ModePicker mode={career.mode || 'solo'} onPick={(m) => useCareerStore.getState().setMode(m)} />
+          </section>
           {career.target && !done && played === 0 && (
             <section className="card card-pad career-board" aria-label="The board’s target">
               <div className="eyebrow">Season {career.season} · the board</div>
@@ -351,13 +389,12 @@ export default function CareerScreen() {
                 <span className="career-ovr-word">{MATCHUP[matchupOf(myOvr, theirOvr)]}</span>
                 <span><b>{theirOvr}</b><small>OVR</small></span>
               </div>
-              <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Play match</button>
-              <div className="career-friend">
-                <button className="btn btn-blue" onClick={() => { playConfirm(); useTournamentStore.getState().playLanFixture('career', next, ME, 'internet') }}><Icon name="globe" size={18} /> Online</button>
-                <button className="btn btn-blue" onClick={() => { playConfirm(); useTournamentStore.getState().playLanFixture('career', next) }}><Icon name="wifi" size={18} /> LAN</button>
-              </div>
-              <p className="muted t-note">Play it against a friend: online from anywhere, or over LAN on the same Wi-Fi. You control your club, they play the opposition, and the result saves to your career on this device.</p>
-              <p className="muted t-note">Computer level: {division.difficulty}. Other clubs’ games play out by themselves.</p>
+              <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}>
+                <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
+              </button>
+              <p className="muted t-note">{career.mode === 'online' || career.mode === 'lan'
+                ? 'Your friend plays the opposition and joins from their phone. The result saves to your career on this device.'
+                : `Computer level: ${division.difficulty}.`} Other clubs’ games play out by themselves.</p>
             </section>
           )}
 
@@ -374,7 +411,7 @@ export default function CareerScreen() {
                 <span className="career-ovr-word">{MATCHUP[matchupOf(myOvr, cupOppOvr)]}{(career.cup.levels?.[cupOpp?.id] ?? career.level) !== career.level ? ` · ${DIVISIONS[career.cup.levels[cupOpp.id]].name}` : ''}</span>
                 <span><b>{cupOppOvr}</b><small>OVR</small></span>
               </div>
-              <button className="btn btn-purple btn-lg btn-block" onClick={() => { playConfirm(); useTournamentStore.getState().playFixture('careerCup', tie) }}><Icon name="trophy" size={20} /> Play cup tie</button>
+              <button className="btn btn-purple btn-lg btn-block" onClick={() => playCareerFixture(career, 'careerCup', tie)}><Icon name="trophy" size={20} /> {career.mode === 'solo' || !career.mode ? 'Play cup tie' : 'Play your friend in the cup'}</button>
               <p className="muted t-note">Knockout: a draw goes to penalties.</p>
             </section>
           )}

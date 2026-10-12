@@ -19,7 +19,7 @@ import {
 } from '../game/tournament'
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
-import { nextMatch, opponentSix } from '../game/career'
+import { nextMatch, cupTie, opponentSix } from '../game/career'
 import { useCareerStore } from './careerStore'
 import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
 import { applyCapMasses } from '../physics/PhysicsWorld'
@@ -387,14 +387,15 @@ export const useTournamentStore = create((set, get) => ({
 
   /** A saved local cup/league or career fixture, played on two LAN devices. */
   playLanFixture(kind, fixture, hostTeamId = fixture?.home, transport = 'lan') {
-    if (!['local', 'career'].includes(kind)) return false
-    const t = kind === 'career' ? useCareerStore.getState().career?.league : get().local
+    if (!['local', 'career', 'careerCup'].includes(kind)) return false
+    const cc = useCareerStore.getState().career
+    const t = kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().local
     if (!t) return false
-    const eligible = kind === 'career' ? nextMatch(t) : readyFixtures(t).find(f => f.id === fixture?.id)
+    const eligible = kind === 'career' ? nextMatch(t) : kind === 'careerCup' ? cupTie(cc) : readyFixtures(t).find(f => f.id === fixture?.id)
     if (!eligible || eligible.id !== fixture?.id) return false
     // Use the saved fixture, never home/away identifiers supplied by a caller.
     fixture = eligible
-    if (kind === 'career') hostTeamId = 'T1'
+    if (kind === 'career' || kind === 'careerCup') hostTeamId = 'T1'
     if (![fixture.home, fixture.away].includes(hostTeamId)) return false
     get().playFixture(kind, fixture)
     if (!get().playing) return false
@@ -416,12 +417,12 @@ export const useTournamentStore = create((set, get) => ({
     if (!p?.lan || p.kind === 'lanGuest') return null
     return {
       kind: p.kind, fixture: p.fixture, reversed: !!p.reversed,
-      tournament: p.kind === 'career' ? useCareerStore.getState().career?.league : get().local,
+      tournament: p.kind === 'career' ? useCareerStore.getState().career?.league : p.kind === 'careerCup' ? useCareerStore.getState().career?.cup?.tournament : get().local,
     }
   },
 
   receiveLanSnapshot(snapshot) {
-    if (!snapshot || !['local', 'career'].includes(snapshot.kind)) return
+    if (!snapshot || !['local', 'career', 'careerCup'].includes(snapshot.kind)) return
     const t = sanitizeTournament(snapshot.tournament)
     if (!t || !snapshot.fixture) return
     const fixture = allFixtures(t).find(f => f.id === snapshot.fixture.id && f.home === snapshot.fixture.home && f.away === snapshot.fixture.away)
