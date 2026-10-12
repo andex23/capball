@@ -94,6 +94,7 @@ export const useLagosStore = create((set, get) => ({
   owned: [],         // product ids of caps bought (from our server)
   buying: null,      // product id being bought right now
   shopNote: null,    // { tone: 'good' | 'bad', text }
+  botMatch: null,    // the sandbox test match being played against the computer on this phone
   betNote: null,     // { stake, outcome: 'won' | 'lost' | 'refund' } after a bet settles
   justBought: null,  // { productId, state: 'done' | 'pending' | 'failed', text } shows the purchase note
 
@@ -334,7 +335,7 @@ export const useLagosStore = create((set, get) => ({
   async sendResult(team) {
     const { match, player } = get()
     if (!match?.id || !player || resultSent.has(match.id) || match.status !== 'playing') return
-    const myTeam = useMatchStore.getState().onlineMyTeam
+    const myTeam = myTeamFor(useMatchStore.getState())
     const other = match.players?.find((p) => p.id !== player.id)
     const winner = !team ? 'draw' : team === myTeam ? player.id : other?.id
     if (!winner) return
@@ -343,6 +344,16 @@ export const useLagosStore = create((set, get) => ({
     for (let i = 0; i < (Number(match.stake) > 0 ? 4 : 1); i++) {
       try { await server({ action: 'result', matchId: match.id, winner }); return } catch { await new Promise((r) => setTimeout(r, 5000)) }
     }
+  },
+
+  /** Sandbox only: play the test opponent's seat against the computer on this phone. */
+  playTestOpponent() {
+    const { match, mode } = get()
+    if (mode !== 'test' || !match || match.status !== 'playing') return
+    set({ botMatch: match.id })
+    const m = useMatchStore.getState()
+    m.setGameMode('ai')
+    m.goToScreen(SCREEN.TEAM_SELECT)
   },
 
   /** Leaving a bet before the end: you lose it (reported now, so your friend is paid). */
@@ -378,7 +389,9 @@ export function watchMatches() {
     const winner = m.matchResult.winner
     const key = `${m.matchKey}:${winner}`
     if (team && winner === team && !counted.has(key)) { counted.add(key); lagos.addWin() }
-    if (m.gameMode === 'online' && lagos.match) {
+    // A friend match, or the sandbox's test match played against the computer here
+    const reportable = lagos.match && (m.gameMode === 'online' || (m.gameMode === 'ai' && lagos.botMatch === lagos.match.id))
+    if (reportable) {
       if (winner) { pendingDraw = null; lagos.sendResult(winner) }
       else pendingDraw = true
     }
