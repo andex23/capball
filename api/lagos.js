@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(200).json(await handleLagos(input))
   } catch (error) {
     const known = Object.hasOwn(ERRORS, error.message)
-    const status = error.message === 'not-configured' ? 503 : error.message === 'bad-session' ? 401 : known ? 400 : 502
+    const status = ['not-configured', 'migration-needed'].includes(error.message) ? 503 : error.message === 'bad-session' ? 401 : known ? 400 : 502
     return res.status(status).json({ error: known ? error.message : 'server-unavailable', message: known ? ERRORS[error.message] : 'Couldn’t reach Lagos Life. Try again.' })
   }
 }

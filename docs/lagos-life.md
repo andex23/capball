@@ -25,6 +25,40 @@ fitted to the frame.
   computer pauses and all sound stops. Sound comes back on return; the player
   taps Resume.
 
+## Cap shop (Lagos Life only)
+
+Players can buy caps with Lagos Life's checkout. Caps are looks only; no cap
+plays differently.
+
+- The 7 rare caps can still be earned for free, or bought.
+- 5 Lagos Life exclusives can only be bought.
+
+After payment, `/api/lagos` checks the purchase with Lagos Life, records it in
+the `cb_lagos_owned` table (so the cap follows the player to any phone), then
+marks it delivered. If anything fails, the payment stays "paid but not
+delivered", and the game claims it again next time it opens.
+
+Create these products in the Lagos Life dashboard (Products tab). The IDs must
+match exactly:
+
+| Product ID | Cap | Price |
+|---|---|---|
+| `cap_silver` | Silver Star | ₦100 |
+| `cap_wall` | Iron Wall | ₦100 |
+| `cap_lucky` | Lucky Seven | ₦200 |
+| `cap_boot` | Golden Boot | ₦200 |
+| `cap_cup` | Cup Winner | ₦300 |
+| `cap_gold` | Golden Crown | ₦300 |
+| `cap_royal` | Royal Purple | ₦500 |
+| `cap_danfo` | Danfo (exclusive) | ₦300 |
+| `cap_jollof` | Jollof (exclusive) | ₦300 |
+| `cap_ankara` | Ankara (exclusive) | ₦400 |
+| `cap_eko` | Eko Nights (exclusive) | ₦400 |
+| `cap_naija` | Naija Green (exclusive) | ₦500 |
+
+Run `supabase/lagos.sql` once in the Supabase SQL editor. The server uses the
+same `SUPABASE_SERVICE_ROLE_KEY` as play-anytime matches.
+
 ## Setting it up
 
 1. Get test keys at <https://lagoslife.app/developers/keys>. For the game

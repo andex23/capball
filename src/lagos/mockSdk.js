@@ -22,6 +22,25 @@ export function createMockSdk() {
   let lastScore = 0
   const scores = JSON.parse(localStorage.getItem('mockVatar:scores') || '{}')
 
+  // Stand-in for our /api/lagos shop endpoints, kept in localStorage
+  const ownedKey = `mockVatar:owned:${id}`
+  const purchasesMade = new Map()
+  const realFetch = window.fetch.bind(window)
+  window.fetch = async (url, init) => {
+    if (String(url) !== '/api/lagos') return realFetch(url, init)
+    const body = JSON.parse(init?.body || '{}')
+    const owned = JSON.parse(localStorage.getItem(ownedKey) || '[]')
+    const ok = (data) => new Response(JSON.stringify({ ok: true, ...data }), { status: 200 })
+    if (body.action === 'owned') return ok({ owned })
+    if (body.action === 'claim') {
+      const productId = purchasesMade.get(body.purchaseId)
+      if (!productId) return new Response(JSON.stringify({ error: 'bad-purchase', message: 'That purchase couldn’t be found for you.' }), { status: 400 })
+      const next = [...new Set([...owned, productId])]
+      localStorage.setItem(ownedKey, JSON.stringify(next))
+      return ok({ productId, owned: next })
+    }
+    return ok({})
+  }
   const view = (m) => m && ({ ...m, me: id })
   const emit = (m) => { for (const fn of listeners) fn(view(m)) }
   channel?.addEventListener('message', (e) => { const m = e.data; if (m?.players?.some((p) => p.id === id)) emit(m) })
@@ -44,6 +63,14 @@ export function createMockSdk() {
     onPause(fn) { pauses.add(fn); return () => pauses.delete(fn) },
     onResume(fn) { resumes.add(fn); return () => resumes.delete(fn) },
     async purchases() { return [] },
+    onPurchase() { return () => {} },
+    async purchase(productId) {
+      // ?fail=1 in the address: the player cancels
+      if (new URLSearchParams(location.search).has('fail')) throw err('cancelled')
+      const purchaseId = `pu_${Math.random().toString(36).slice(2, 10)}`
+      purchasesMade.set(purchaseId, productId)
+      return { purchaseId, productId }
+    },
     async submitScore(n) {
       if (Date.now() - lastScore < 20_000) throw err('too_soon')
       lastScore = Date.now()

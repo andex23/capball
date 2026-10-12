@@ -123,3 +123,35 @@ describe('result server', () => {
     expect(init.headers['x-vatar-signature']).toBe(signResult({ secret: 'rs', path: '/api/games/v1/matches/m_1/result', ts: 100, nonce: 'n1', body: init.body }))
   })
 })
+
+describe('cap shop server', () => {
+  const purchase = { id: 'pu_1', productId: 'cap_danfo', playerId: 't_a', amount: 300, status: 'paid', mode: 'test' }
+  const api = (over = {}) => ({
+    verifySession: vi.fn(async () => ({ status: 200, data: { playerId: 't_a', mode: 'test' } })),
+    getPurchase: vi.fn(async () => ({ status: 200, data: purchase })),
+    deliver: vi.fn(async () => ({ status: 200, data: {} })),
+    ...over,
+  })
+  const db = () => vi.fn(async (action, mode, player, product) => (action === 'grant' ? [product] : ['cap_silver']))
+
+  it('records a paid cap, then marks it delivered', async () => {
+    const a = api(); const d = db()
+    await expect(handleLagos({ action: 'claim', session: 's', purchaseId: 'pu_1' }, a, d)).resolves.toEqual({ ok: true, productId: 'cap_danfo', owned: ['cap_danfo'] })
+    expect(d).toHaveBeenCalledWith('grant', 'test', 't_a', 'cap_danfo', 'pu_1')
+    expect(a.deliver).toHaveBeenCalledWith('pu_1')
+    expect(d.mock.invocationCallOrder[0]).toBeLessThan(a.deliver.mock.invocationCallOrder[0])
+  })
+  it('refuses someone else’s purchase, unknown products and refunds', async () => {
+    await expect(handleLagos({ action: 'claim', session: 's', purchaseId: 'pu_1' }, api({ getPurchase: async () => ({ status: 200, data: { ...purchase, playerId: 't_b' } }) }), db())).rejects.toThrow('bad-purchase')
+    await expect(handleLagos({ action: 'claim', session: 's', purchaseId: 'pu_1' }, api({ getPurchase: async () => ({ status: 200, data: { ...purchase, productId: 'free_money' } }) }), db())).rejects.toThrow('bad-purchase')
+    await expect(handleLagos({ action: 'claim', session: 's', purchaseId: 'pu_1' }, api({ getPurchase: async () => ({ status: 200, data: { ...purchase, status: 'refunded' } }) }), db())).rejects.toThrow('refunded')
+  })
+  it('never delivers when it couldn’t record the cap', async () => {
+    const a = api()
+    await expect(handleLagos({ action: 'claim', session: 's', purchaseId: 'pu_1' }, a, null)).rejects.toThrow('not-configured')
+    expect(a.deliver).not.toHaveBeenCalled()
+  })
+  it('lists what the player owns', async () => {
+    await expect(handleLagos({ action: 'owned', session: 's' }, api(), db())).resolves.toEqual({ ok: true, owned: ['cap_silver'] })
+  })
+})

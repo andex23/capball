@@ -11,6 +11,7 @@ import { useAccountStore } from '../state/accountStore'
 import { holdAudio } from '../audio/SoundManager'
 import { startMenuMusic, stopMenuMusic } from '../audio/MusicManager'
 import { holdIosAudio } from './iosAudio'
+import { isProduct, productIdFor } from '../data/shop'
 
 const SCORE_GAP_MS = 21_000 // the SDK takes one score every 20 s
 const winsKey = (playerId) => `counterball:lagos:wins:${playerId}`
@@ -38,6 +39,16 @@ let scoreTimer = null
 let lastScoreAt = 0
 let resultSent = new Set()
 
+/** Our server (api/lagos.js), with a fresh Lagos Life session. */
+async function server(body) {
+  const { session } = await sdk.session()
+  const res = await fetch('/api/lagos', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, session }) })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw Object.assign(new Error(data?.message || 'Couldn’t reach the game server. Try again.'), { code: data?.error || 'server' })
+  return data
+}
+const claiming = new Set()
+
 export const useLagosStore = create((set, get) => ({
   status: 'loading', // 'loading' | 'ready' | 'error'
   error: null,
@@ -48,6 +59,12 @@ export const useLagosStore = create((set, get) => ({
   board: null,       // { top, me }
   boardError: null,
   match: null,       // the Lagos Life friend match, if any
+  owned: [],         // product ids of caps bought (from our server)
+  buying: null,      // product id being bought right now
+  shopNote: null,    // { tone: 'good' | 'bad', text }
+
+  /** Is this cap design bought? */
+  owns: (designKey) => get().owned.includes(productIdFor(designKey)),
 
   /** Load the SDK and find out who's playing. */
   async boot() {
@@ -67,6 +84,10 @@ export const useLagosStore = create((set, get) => ({
       sdk.match?.onUpdate?.((m) => set({ match: m || null }))
       sdk.match?.current?.().then((m) => { if (m) set({ match: m }) }).catch(() => {})
       get().loadBoard()
+      // Caps bought before: from our server, and any paid but not yet unlocked
+      get().loadOwned()
+      sdk.onPurchase?.((p) => get().claim(p?.purchaseId))
+      sdk.purchases?.().then((list) => { for (const p of list || []) get().claim(p?.purchaseId) }).catch(() => {})
       return true
     } catch (e) {
       set({ status: 'error', error: sdkMessage(e) })
@@ -129,6 +150,49 @@ export const useLagosStore = create((set, get) => ({
       if (get().wins > n) get().sendScore()
     }, wait)
   },
+
+  /* ── Cap shop ── */
+
+  async loadOwned() {
+    try {
+      const { owned } = await server({ action: 'owned' })
+      if (Array.isArray(owned)) set({ owned: owned.filter(isProduct) })
+    } catch { /* shop not set up yet: nothing owned shows */ }
+  },
+
+  /** Unlock a paid cap (our server checks it with Lagos Life first). */
+  async claim(purchaseId) {
+    if (!purchaseId || claiming.has(purchaseId)) return false
+    claiming.add(purchaseId)
+    try {
+      const { productId, owned } = await server({ action: 'claim', purchaseId })
+      set({ owned: Array.isArray(owned) ? owned.filter(isProduct) : [...new Set([...get().owned, productId])] })
+      return productId
+    } catch (e) {
+      set({ shopNote: { tone: 'bad', text: `${e.message} Your payment is safe; reopen the game to try again.` } })
+      return false
+    } finally {
+      claiming.delete(purchaseId)
+    }
+  },
+
+  /** Open Lagos Life's pay sheet for a cap. */
+  async buy(productId, name) {
+    if (!sdk?.purchase || get().buying || !isProduct(productId)) return
+    set({ buying: productId, shopNote: null })
+    try {
+      const p = await sdk.purchase(productId)
+      const got = await get().claim(p?.purchaseId)
+      if (got) set({ shopNote: { tone: 'good', text: `${name} is yours. Tap it to put it on your caps.` } })
+    } catch (e) {
+      if (e?.code === 'owned') get().loadOwned()
+      else if (e?.code !== 'cancelled') set({ shopNote: { tone: 'bad', text: e?.code === 'not_for_sale' ? 'That cap isn’t on sale yet.' : e?.code === 'payment_failed' ? 'The payment didn’t go through. You weren’t charged.' : sdkMessage(e) } })
+    } finally {
+      set({ buying: null })
+    }
+  },
+
+  clearShopNote: () => set({ shopNote: null }),
 
   /* ── Friend matches ── */
 

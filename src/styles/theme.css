@@ -2249,3 +2249,10 @@ button { cursor: pointer; background: none; border: 0; }
 .pass-phone-title { margin: 0; overflow-wrap: anywhere; font: italic 800 clamp(28px, 7.5vw, 38px)/1.02 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #0b0830; }
 .pass-phone-note { margin: 0 0 6px; font: 600 15px/1.4 var(--font-ui); color: rgba(255, 255, 255, 0.88); }
 @media (prefers-reduced-motion: reduce) { .pass-phone-card { animation: none; } }
+
+/* Lagos Life cap shop: the buy panel under the designs */
+.cap-buy { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.cap-buy .cap-design-hint { margin: 0; }
+.cap-buy .t-note { margin: 0; text-align: center; }
+/* Caps for sale show their real colours (just dimmed), so you see what you're buying */
+.cap-design[data-locked='true'][data-shop='true'] .cap-design-art svg { filter: brightness(0.8); }

@@ -6,11 +6,19 @@
  * checks the session with Lagos Life, checks the player is in that match and
  * that the winner is one of its two players (or a draw), then posts it.
  *
+ * It also unlocks caps players buy: it checks the purchase with Lagos Life,
+ * records it (so the cap follows the player to any phone), then marks it
+ * delivered. Nothing is unlocked from what a phone says alone.
+ *
  * Environment (set in Vercel, never in the code):
- *   VATAR_SECRET          vtr_test_… or vtr_live_…
- *   VATAR_RESULTS_SECRET  the results signing secret
+ *   VATAR_SECRET               vtr_test_… or vtr_live_…
+ *   VATAR_RESULTS_SECRET       the results signing secret
+ *   SUPABASE_SERVICE_ROLE_KEY  for the bought-caps table (supabase/lagos.sql)
  */
 import { createHash, createHmac } from 'node:crypto'
+import { isProduct } from '../src/data/shop.js'
+
+const DATABASE_URL = 'https://tmbittgluvbpuoygrrqb.supabase.co'
 
 export const API_BASE = 'https://lagoslife.app/api/games/v1'
 const API_PATH = new URL(API_BASE).pathname
@@ -22,6 +30,9 @@ export const ERRORS = {
   'not-in-match': 'You’re not in that match.',
   'not-playing': 'That match isn’t in play.',
   'bad-winner': 'That winner isn’t in the match.',
+  'bad-purchase': 'That purchase couldn’t be found for you.',
+  'refunded': 'That purchase was refunded.',
+  'migration-needed': 'The shop isn’t set up on the server yet.',
 }
 
 const fail = (code) => { throw new Error(code) }
@@ -33,7 +44,7 @@ export function signResult({ secret, path, ts, nonce, body }) {
 }
 
 export function makeApi({ secret = process.env.VATAR_SECRET, resultsSecret = process.env.VATAR_RESULTS_SECRET, fetchImpl = fetch, now = Date.now } = {}) {
-  if (!secret || !resultsSecret) return null
+  if (!secret) return null
   const call = async (method, path, { body, headers = {} } = {}) => {
     const res = await fetchImpl(API_BASE + path, {
       method,
@@ -47,7 +58,10 @@ export function makeApi({ secret = process.env.VATAR_SECRET, resultsSecret = pro
   return {
     verifySession: (session) => call('POST', '/session/verify', { body: JSON.stringify({ session }) }),
     getMatch: (id) => call('GET', `/matches/${encodeURIComponent(id)}`),
+    getPurchase: (id) => call('GET', `/purchases/${encodeURIComponent(id)}`),
+    deliver: (id) => call('POST', `/purchases/${encodeURIComponent(id)}/deliver`, { body: '{}' }),
     postResult: (match, winner) => {
+      if (!resultsSecret) fail('not-configured')
       const path = `/matches/${encodeURIComponent(match.id)}/result`
       const body = JSON.stringify({ winner })
       const ts = Math.floor(now() / 1000)
@@ -57,10 +71,61 @@ export function makeApi({ secret = process.env.VATAR_SECRET, resultsSecret = pro
   }
 }
 
+/** The bought-caps table (supabase/lagos.sql), through its service-only function. */
+export function makeOwnedDb({ key = process.env.SUPABASE_SERVICE_ROLE_KEY, url = process.env.SUPABASE_URL || DATABASE_URL, fetchImpl = fetch } = {}) {
+  if (!key) return null
+  return async (action, mode, player, product = null, purchase = null) => {
+    const res = await fetchImpl(`${url}/rest/v1/rpc/cb_lagos_service`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_action: action, p_mode: mode, p_player: player, p_product: product, p_purchase: purchase }),
+      signal: AbortSignal.timeout?.(10000),
+    })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      if (body?.code === 'PGRST202' || body?.code === '42P01') fail('migration-needed')
+      throw new Error('upstream')
+    }
+    return Array.isArray(body) ? body.filter(isProduct) : []
+  }
+}
+
 const ID = /^[A-Za-z0-9_-]{1,80}$/
 
-export async function handleLagos(input, api = makeApi()) {
+async function whoIs(api, session) {
+  if (typeof session !== 'string' || !session || session.length > 4096) fail('bad-request')
+  const who = await api.verifySession(session)
+  if (who.status !== 200 || !who.data?.playerId) fail('bad-session')
+  return { playerId: who.data.playerId, mode: who.data.mode === 'live' ? 'live' : 'test' }
+}
+
+/** A cap bought: check it with Lagos Life, record it, mark it delivered. */
+async function claim({ session, purchaseId }, api, db) {
+  if (!db) fail('not-configured')
+  if (!ID.test(purchaseId || '')) fail('bad-request')
+  const { playerId, mode } = await whoIs(api, session)
+  const p = await api.getPurchase(purchaseId)
+  if (p.status === 404) fail('bad-purchase')
+  if (p.status !== 200) throw new Error('upstream')
+  const buy = p.data || {}
+  if (buy.playerId !== playerId || !isProduct(buy.productId)) fail('bad-purchase')
+  if (buy.status === 'refunded') fail('refunded')
+  if (buy.status !== 'paid' && buy.status !== 'delivered') fail('bad-purchase')
+  // Record first: if delivery fails, Lagos Life offers it again and we record nothing twice
+  const owned = await db('grant', buy.mode === 'live' ? 'live' : mode, playerId, buy.productId, buy.id || purchaseId)
+  const d = await api.deliver(buy.id || purchaseId)
+  if (d.status !== 200 && d.status !== 201 && d.status !== 204) throw new Error('upstream')
+  return { ok: true, productId: buy.productId, owned }
+}
+
+export async function handleLagos(input, api = makeApi(), db = makeOwnedDb()) {
   if (!api) fail('not-configured')
+  if (input?.action === 'claim') return claim(input, api, db)
+  if (input?.action === 'owned') {
+    if (!db) fail('not-configured')
+    const { playerId, mode } = await whoIs(api, input.session)
+    return { ok: true, owned: await db('list', mode, playerId) }
+  }
   const { action, session, matchId, winner } = input || {}
   if (action !== 'result' || typeof session !== 'string' || !session || session.length > 4096 || !ID.test(matchId || '') || typeof winner !== 'string' || !(winner === 'draw' || ID.test(winner))) fail('bad-request')
 
