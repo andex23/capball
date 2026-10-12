@@ -4,7 +4,7 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { newCareer, recordCareerResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer } from '../game/career'
+import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending } from '../game/career'
 import { allFixtures } from '../game/tournament'
 import { applyMatchToSquad } from '../game/squad'
 import { useAccountStore } from './accountStore'
@@ -53,14 +53,29 @@ export const useCareerStore = create((set, get) => ({
     useAccountStore.getState().save({ force: true })
   },
 
+  /** Your result for a Cap Cup tie (penalties included when it went that far). */
+  recordCup(fixtureId, result, perf = null) {
+    const { career } = get()
+    if (!career?.cup) return
+    let next = recordCupResult(career, fixtureId, result)
+    if (perf?.ratings) {
+      const r = applyMatchToSquad(next.squad, { ...perf, seed: `${career.cup.tournament.id}:${fixtureId}` })
+      next = { ...next, squad: r.squad, lastReport: { fixtureId, ratings: r.ratings, motm: r.motm, changes: r.changes, goals: perf.goalsByRole || {} } }
+    }
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+  },
+
   /** The season's over: see it into the record books and start the next. */
   nextSeason() {
     const { career } = get()
-    if (!career || !seasonOver(career.league)) return
+    if (!career || !seasonOver(career.league) || cupPending(career)) return
     const next = finishSeason(career)
     const outcome = next.past[0]?.outcome
     if (outcome === 'promoted') useAchievementStore.getState().award(['promoted'])
     if (outcome === 'champions') useAchievementStore.getState().award(['premier'])
+    if (next.past[0]?.cup === 'won') useAchievementStore.getState().award(['capcup'])
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })

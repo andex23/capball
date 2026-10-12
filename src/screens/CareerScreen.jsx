@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
-import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, nextMatch, seasonOver, myPosition, outcomeFor } from '../game/career'
-import { teamById, allFixtures, standings } from '../game/tournament'
+import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, nextMatch, seasonOver, myPosition, outcomeFor, cupTie, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
+import { teamById, allFixtures, standings, roundName } from '../game/tournament'
 import { formatClock } from '../game/rules'
 import { TEAM_NAME_MAX } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
@@ -18,7 +18,8 @@ import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
-import { seasonBonus, startingSquad, squadSurnames } from '../game/squad'
+import { seasonBonus, startingSquad, squadSurnames, squadRatings, clubRatings, averageRating, matchupOf } from '../game/squad'
+import RatingsGuide from '../ui/RatingsGuide'
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -96,7 +97,7 @@ function SaveBar() {
   )
 }
 
-function Ladder({ level, promotions, titles }) {
+function Ladder({ level, promotions, titles, cups = 0 }) {
   return (
     <section className="card card-pad career-ladder" aria-label="Divisions">
       <h2 className="saved-h">The pyramid</h2>
@@ -109,7 +110,7 @@ function Ladder({ level, promotions, titles }) {
           </li>
         ))}
       </ol>
-      <p className="muted t-note">{promotions} promotion{promotions === 1 ? '' : 's'} · {titles} title{titles === 1 ? '' : 's'}</p>
+      <p className="muted t-note">{promotions} promotion{promotions === 1 ? '' : 's'} · {titles} title{titles === 1 ? '' : 's'} · {cups} {CUP_NAME}{cups === 1 ? '' : 's'}</p>
     </section>
   )
 }
@@ -121,16 +122,26 @@ function SeasonEnd({ career }) {
   const nextLevel = outcome === 'promoted' ? career.level + 1 : outcome === 'relegated' ? career.level - 1 : career.level
   const o = OUTCOME[outcome]
   const row = standings(career.league).find((r) => r.id === ME)
+  const met = career.target ? targetMet(career.target, pos, count) : false
+  const cup = cupRun(career.cup?.tournament)
+  const waitingCup = cupPending(career)
+  const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[career.target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
   return (
     <section className="card card-pad career-end" data-tone={o.tone}>
       <div className="eyebrow">Season {career.season} · {DIVISIONS[career.level].name}</div>
       <h2 className="display career-end-title">{o.title}</h2>
       <p className="career-end-pos">Finished <b>{ordinal(pos)}</b> of {count}{row ? ` · ${row.w}W ${row.d}D ${row.l}L · ${row.pts} pts` : ''}</p>
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
-      <p className="muted">Season bonus: <b>{seasonBonus(outcome)} coins</b>. Your players will improve a little over the summer, and the transfer window opens before the new season.</p>
-      <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().nextSeason() }}>
-        <Icon name="next" size={20} /> Start season {career.season + 1}
-      </button>
+      {career.target && <p className="career-target-line" data-met={met ? 'true' : undefined}>Board target: {TARGETS[career.target]} · <b>{met ? 'Met' : 'Missed'}</b></p>}
+      {cup && <p className="career-target-line">{CUP_NAME}: <b>{cup === 'won' ? 'Winners!' : cup === 'final' ? 'Runners-up' : cup === 'semi' ? 'Semi-finals' : 'Quarter-finals'}</b></p>}
+      <p className="muted">Season bonus: <b>{bonus} coins</b>. Over the summer young players improve, older ones slow down, and veterans may retire. The transfer window opens before the new season.</p>
+      {waitingCup ? (
+        <p className="t-note" role="status">Play your {CUP_NAME} tie first; the season ends once you’re out or it’s won.</p>
+      ) : (
+        <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().nextSeason() }}>
+          <Icon name="next" size={20} /> Start season {career.season + 1}
+        </button>
+      )}
     </section>
   )
 }
@@ -146,6 +157,7 @@ export default function CareerScreen() {
   const goToScreen = useMatchStore((s) => s.goToScreen)
   const [editing, setEditing] = useState(false)
   const [confirmRetire, setConfirmRetire] = useState(false)
+  const [guide, setGuide] = useState(false)
 
   const username = useAccountStore((s) => s.username)
   const back = () => { playButtonSelect(); goToScreen(SCREEN.MENU) }
@@ -211,6 +223,20 @@ export default function CareerScreen() {
   const kitOpen = played === 0
   const opponent = next ? teamById(league, next.home === ME ? next.away : next.home) : null
   const play = () => { playConfirm(); useTournamentStore.getState().playFixture('career', next) }
+  // Overall ratings: yours against this opponent's
+  const myOvr = averageRating(squadRatings(career.squad))
+  const ovrOf = (team, level = career.level) => (team ? averageRating(clubRatings(level, team.name)) : 0)
+  const theirOvr = ovrOf(opponent)
+  const MATCHUP = { favourite: 'Favourites', even: 'Evenly matched', underdog: 'Underdogs' }
+  // The Cap Cup
+  const tie = cupTie(career)
+  const cupT = career.cup?.tournament
+  const cupUpcoming = cupNext(career)
+  const cupOut = cupRun(cupT)
+  const cupOpp = tie ? teamById(cupT, tie.home === ME ? tie.away : tie.home) : null
+  const cupOppOvr = cupOpp ? ovrOf(cupOpp, career.cup.levels?.[cupOpp.id] ?? career.level) : 0
+  const cupRoundName = (t) => roundName(t.round, cupT.rounds.length)
+  const pos = myPosition(league)
 
   return (
     <div className="screen">
@@ -246,10 +272,55 @@ export default function CareerScreen() {
                 <span className="vs-badge">VS</span>
                 <TeamTag team={opponent} size={34} strong />
               </div>
+              <div className="career-ovr" data-matchup={matchupOf(myOvr, theirOvr)}>
+                <span><b>{myOvr}</b><small>OVR</small></span>
+                <span className="career-ovr-word">{MATCHUP[matchupOf(myOvr, theirOvr)]}</span>
+                <span><b>{theirOvr}</b><small>OVR</small></span>
+              </div>
               <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Play match</button>
               <button className="btn btn-blue btn-block" onClick={() => { playConfirm(); useTournamentStore.getState().playLanFixture('career', next) }}><Icon name="wifi" size={18} /> Play this match over LAN</button>
               <p className="muted t-note">LAN: you control your club; your friend plays the opposition. Your career result saves on this device.</p>
               <p className="muted t-note">Computer level: {division.difficulty}. Other clubs’ games play out by themselves.</p>
+            </section>
+          )}
+
+          {tie && (
+            <section className="card card-pad career-next career-cup" aria-label={CUP_NAME}>
+              <div className="eyebrow">{CUP_NAME} · {cupRoundName(tie)}</div>
+              <div className="career-vs">
+                <TeamTag team={teamById(cupT, ME)} size={30} strong />
+                <span className="vs-badge">VS</span>
+                <TeamTag team={cupOpp} size={30} strong />
+              </div>
+              <div className="career-ovr" data-matchup={matchupOf(myOvr, cupOppOvr)}>
+                <span><b>{myOvr}</b><small>OVR</small></span>
+                <span className="career-ovr-word">{MATCHUP[matchupOf(myOvr, cupOppOvr)]}{(career.cup.levels?.[cupOpp?.id] ?? career.level) !== career.level ? ` · ${DIVISIONS[career.cup.levels[cupOpp.id]].name}` : ''}</span>
+                <span><b>{cupOppOvr}</b><small>OVR</small></span>
+              </div>
+              <button className="btn btn-purple btn-lg btn-block" onClick={() => { playConfirm(); useTournamentStore.getState().playFixture('careerCup', tie) }}><Icon name="trophy" size={20} /> Play cup tie</button>
+              <p className="muted t-note">Knockout: a draw goes to penalties.</p>
+            </section>
+          )}
+
+          {!tie && cupT && (
+            <p className="career-strip" role="status">
+              <Icon name="trophy" size={14} /> {CUP_NAME}: {cupT.championId === ME ? 'Winners this season!' : cupOut ? `Out in the ${cupOut === 'final' ? 'final' : cupOut === 'semi' ? 'semi-finals' : 'quarter-finals'}` : cupUpcoming ? `${cupRoundName(cupUpcoming.tie)} after league match ${cupUpcoming.opensAfter}` : 'waiting for the draw'}
+            </p>
+          )}
+
+          {career.target && !done && (
+            <p className="career-strip" data-met={targetMet(career.target, pos, count) ? 'true' : undefined}>
+              Board target: <b>{TARGETS[career.target]}</b> · now {ordinal(pos)}
+            </p>
+          )}
+
+          {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0) && (
+            <section className="card card-pad" aria-label="Summer news">
+              <h2 className="saved-h">Over the summer</h2>
+              <ul className="career-summer">
+                {career.lastSummer.retired.map((r) => <li key={`r${r.role}`}><b>{r.name}</b> retired at {r.age}. A youth player comes in.</li>)}
+                {career.lastSummer.changes.map((c) => <li key={`c${c.role}`} data-up={c.to > c.from ? 'true' : undefined}>{c.name}: {c.from} → <b>{c.to}</b></li>)}
+              </ul>
             </section>
           )}
 
@@ -267,7 +338,7 @@ export default function CareerScreen() {
             </p>
           </section>
 
-          <Ladder level={career.level} promotions={career.promotions} titles={career.titles} />
+          <Ladder level={career.level} promotions={career.promotions} titles={career.titles} cups={career.cups} />
 
           {career.past.length > 0 && (
             <section className="card card-pad">
@@ -285,6 +356,7 @@ export default function CareerScreen() {
             </section>
           )}
 
+          <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setGuide(true) }}><Icon name="help" size={16} /> How ratings work</button>
           <button className="btn btn-ghost" onClick={() => { playButtonSelect(); setConfirmRetire(true) }}>Retire and start again</button>
           </div>
         </main>
@@ -303,9 +375,10 @@ export default function CareerScreen() {
           onClose={() => setEditing(false)}
         />
       )}
+      {guide && <RatingsGuide onClose={() => setGuide(false)} />}
       {confirmRetire && (
         <Modal title="Retire?" onClose={() => setConfirmRetire(false)}>
-          <p>This ends {career.club.name}’s career for good: season {career.season}, {career.promotions} promotions and {career.titles} titles.</p>
+          <p>This ends {career.club.name}’s career for good: season {career.season}, {career.promotions} promotions, {career.titles} titles and {career.cups || 0} {CUP_NAME}s.</p>
           <button className="btn btn-danger btn-block" onClick={() => { playButtonSelect(); useCareerStore.getState().retire(); setConfirmRetire(false) }}>Retire</button>
           <button className="btn btn-secondary btn-block" onClick={() => setConfirmRetire(false)}>Keep playing</button>
         </Modal>

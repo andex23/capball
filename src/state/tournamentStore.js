@@ -281,7 +281,8 @@ export const useTournamentStore = create((set, get) => ({
 
   /** Set the match up for a fixture played on this device (vs CPU or pass-and-play). */
   playFixture(kind, fixture) {
-    const t = kind === 'local' ? get().local : kind === 'career' ? useCareerStore.getState().career?.league : get().online?.tournament
+    const cc = useCareerStore.getState().career
+    const t = kind === 'local' ? get().local : kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().online?.tournament
     if (!t || (kind !== 'career' && !readyFixtures(t).some((f) => f.id === fixture.id))) return
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
@@ -292,8 +293,10 @@ export const useTournamentStore = create((set, get) => ({
     const cpuTeam = home.cpu ? home : away.cpu ? away : null
     set({ stash, playing: { kind, code: kind === 'online' ? get().online?.code : undefined, fixture: { id: fixture.id, home: fixture.home, away: fixture.away }, knockout: t.format === 'knockout', recorded: false } })
     // Career: your squad's ratings and the computer clubs' set how hard each cap flicks
-    const career = kind === 'career' ? useCareerStore.getState().career : null
-    const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : clubRatings(career.level, team.name))
+    const career = kind === 'career' || kind === 'careerCup' ? cc : null
+    // Cup clubs come from several divisions: each plays at its own division's ratings
+    const levelOf = (team) => (kind === 'careerCup' ? career?.cup?.levels?.[team.id] ?? career?.level : career?.level)
+    const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : clubRatings(levelOf(team), team.name))
     // Career: your players' own names go on your caps
     const playersOf = (team) => (career && team.id === 'T1' ? squadSurnames(career.squad) : null)
     useMatchStore.setState({
@@ -442,14 +445,15 @@ export const useTournamentStore = create((set, get) => ({
     const result = resultFromMatch(matchResult, p.knockout, p.reversed)
     if (!result) return
     set({ playing: { ...p, recorded: true } })
-    if (p.kind === 'career') {
+    if (p.kind === 'career' || p.kind === 'careerCup') {
       // LAN hosts always control team1; solo career sides follow home/away.
       const ms = useMatchStore.getState()
       const side = p.lan || p.fixture.home === 'T1' ? 'team1' : 'team2'
       const ratings = matchRatings({ side, goalLog: ms.goalLog, matchEvents: ms.matchEvents, score: matchResult.score })
       const goalsByRole = {}
       for (const g of ms.goalLog || []) if (!g.own && !g.shootout && g.cap?.startsWith(`${side}_`)) goalsByRole[g.cap.slice(6)] = (goalsByRole[g.cap.slice(6)] || 0) + 1
-      useCareerStore.getState().record(p.fixture.id, result, { ratings, goalsByRole })
+      if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, { ratings, goalsByRole })
+      else useCareerStore.getState().record(p.fixture.id, result, { ratings, goalsByRole })
       return
     }
     if (p.kind === 'local') {
@@ -497,7 +501,7 @@ export const useTournamentStore = create((set, get) => ({
     const p = get().playing
     if (p?.lan && p.kind !== 'lanGuest') flushLanState()
     if (useMatchStore.getState().gameMode === 'online' || isConnected()) disconnect()
-    useMatchStore.getState().quitMatch(p?.kind === 'career' ? SCREEN.CAREER : SCREEN.TOURNAMENT_HUB)
+    useMatchStore.getState().quitMatch(p?.kind === 'career' || p?.kind === 'careerCup' ? SCREEN.CAREER : SCREEN.TOURNAMENT_HUB)
     get().restore()
     if (p?.kind === 'online' && p.code) get().openOnline(p.code, { quiet: true }).catch(() => {})
   },

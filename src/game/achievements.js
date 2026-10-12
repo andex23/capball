@@ -22,6 +22,7 @@ export const ACHIEVEMENTS = [
   { id: 'league', name: 'League Winners', desc: 'Win a league', icon: 'trophy' },
   { id: 'promoted', name: 'Going Up', desc: 'Win promotion in career mode', icon: 'next' },
   { id: 'premier', name: 'Top of the Pyramid', desc: 'Win the Premier Cap League', icon: 'trophy' },
+  { id: 'capcup', name: 'Cup Run', desc: 'Win the Cap Cup in career mode', icon: 'trophy' },
   { id: 'daily7', name: 'Seven Days', desc: 'Beat the daily challenge seven days running', icon: 'check' },
 ]
 export const ACHIEVEMENT_IDS = ACHIEVEMENTS.map((a) => a.id)
