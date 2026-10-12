@@ -18,10 +18,13 @@
 import { seededRng } from './tournament'
 import { CAP_ROLES } from '../data/TeamOptions'
 
-export const START_COINS = 400
+export const START_COINS = 800
 export const SELL_SHARE = 0.6
-// After how many of your matches each window opens: before the season and part-way through
-export const WINDOW_AFTER = [0, 5]
+// Transfer windows, like football's summer and January windows: each is open from
+// the first to the last of these counts of your league matches played, then shuts
+export const WINDOWS = [[0, 2], [5, 6]]
+// When each window opens (matches played)
+export const WINDOW_AFTER = WINDOWS.map((w) => w[0])
 
 // A typical player's OVR in each division, bottom to top (FIFA-like: a lower-league side in the
 // 50s, a top-flight side in the high 70s; stars in the 80s and 90s)
@@ -189,7 +192,7 @@ export function sellValue(p) {
 export function startingSquad(seed = 'start') {
   const rng = seededRng(`squad:${seed}`)
   return Object.fromEntries(CAP_ROLES.map((role) => {
-    const p = role === 'mid' ? makeYouth(rng, 0, 'MID') : makePlayer(rng, DIVISION_RATING[0] - 1, POS_OF[role], 2, [20, 30])
+    const p = role === 'mid' ? makeYouth(rng, 0, 'MID') : makePlayer(rng, DIVISION_RATING[0] + 2, POS_OF[role], 2, [20, 30])
     return [role, p]
   }))
 }
@@ -286,8 +289,11 @@ export function seasonBonus(outcome) {
 
 /** Which transfer window is open: 0 (pre-season), 1 (mid-season) or -1 (shut). */
 export function openWindow(played) {
-  return WINDOW_AFTER.indexOf(played)
+  return WINDOWS.findIndex(([from, to]) => played >= from && played <= to)
 }
+
+/** The league matchday a window shuts at (it's open until you play this one). */
+export const windowDeadline = (index) => (WINDOWS[index]?.[1] ?? 0) + 1
 
 /* ── Growth ── */
 

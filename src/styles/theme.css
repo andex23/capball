@@ -2344,6 +2344,7 @@ button { cursor: pointer; background: none; border: 0; }
 .career-strip { margin: 0; padding: 10px 14px; border: 2px solid var(--line-strong); background: rgba(5, 10, 46, 0.45); font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .career-strip[data-met='true'] { border-color: var(--good, #34d27b); }
 .career-friend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.career-warning { color: #ff9f6b; }
 .career-board { border-color: var(--iss-yellow, #ffd23f); }
 .career-board .saved-h { margin: 4px 0 6px; color: var(--iss-yellow, #ffd23f); }
 .career-board .t-note { margin: 0; }

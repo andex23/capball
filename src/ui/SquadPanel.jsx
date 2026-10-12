@@ -5,7 +5,7 @@ import {
   transferWindow, playedThisSeason, squadSize, MAX_SQUAD, YOUTH_MAX, inSlot, offersFor, loanClub, releaseCost, valueOf,
 } from '../game/transfers'
 import { wageOf } from '../game/club'
-import { formOf, ROLE_LABEL, squadRatings, averageRating, WINDOW_AFTER, potentialRange, ovrAt, migratePlayer, money } from '../game/squad'
+import { formOf, ROLE_LABEL, squadRatings, averageRating, WINDOW_AFTER, windowDeadline, potentialRange, ovrAt, migratePlayer, money } from '../game/squad'
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
@@ -119,7 +119,7 @@ export default function SquadPanel({ career }) {
       <p className="muted t-note">Youth players don’t count towards the {MAX_SQUAD} and aren’t paid. They grow fast; promote them when they’re ready. At 19 they must move up or leave.</p>
 
       {win
-        ? <p className="t-note squad-window">The {win.index === 0 ? 'pre-season' : 'mid-season'} transfer window is open.</p>
+        ? <p className="t-note squad-window">The {win.index === 0 ? 'pre-season' : 'mid-season'} transfer window is open. It shuts when you play matchday {windowDeadline(win.index)} ({windowDeadline(win.index) - played} match{windowDeadline(win.index) - played === 1 ? '' : 'es'} left).</p>
         : <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>}
       <button className="btn btn-gold btn-block" onClick={() => { playButtonSelect(); setMarketOpen(true) }}>
         <Icon name="next" size={18} /> Transfer market

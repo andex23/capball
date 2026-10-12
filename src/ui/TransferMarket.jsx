@@ -4,7 +4,7 @@ import { DIVISIONS } from '../game/career'
 import { transferWindow, squadSize, squadFull, MAX_SQUAD, talksWith, spendingFrozen } from '../game/transfers'
 import { searchMarket, locate, hydrate, askingPrice, willingness, standingOf, STANDING_LABEL, clubOvr, TIER_LABEL, MAX_BIDS } from '../game/world'
 import { wageOf } from '../game/club'
-import { potentialRange, priceOf, money } from '../game/squad'
+import { potentialRange, priceOf, money, windowDeadline } from '../game/squad'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
 import Icon from './Icon'
@@ -49,7 +49,7 @@ export default function TransferMarket({ career, onClose }) {
       <div className="market-status">
         <span>Budget <Coins n={career.coins} /></span>
         <span data-full={squadFull(career) ? 'true' : undefined}>Squad <b>{squadSize(career)}/{MAX_SQUAD}</b></span>
-        <span data-open={win ? 'true' : undefined}>{win ? 'Window open' : 'Window shut'}</span>
+        <span data-open={win ? 'true' : undefined}>{win ? `Window open · shuts at matchday ${windowDeadline(win.index)}` : 'Window shut'}</span>
       </div>
       {squadFull(career) && <p className="club-alert" role="status">Your squad is full. Sell, release or loan out a player before you can sign anyone.</p>}
       {!win && <p className="muted t-note"><Icon name="lock" size={13} /> Players at clubs can only be signed in a transfer window. Free agents can sign any time.</p>}
