@@ -20,7 +20,7 @@ import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
 import { nextMatch } from '../game/career'
 import { useCareerStore } from './careerStore'
-import { squadRatings, clubRatings, squadSurnames, matchRatings } from '../game/squad'
+import { squadRatings, clubRatings, squadSurnames, matchRatings, squadAttrs, clubAttrs } from '../game/squad'
 import { playerOf } from '../game/commentary'
 import { useAchievementStore } from './achievementStore'
 
@@ -69,10 +69,11 @@ function save(state) {
 }
 
 /** Match kit for a tournament team. */
-function kitFor(team, side, ratings = null, players = null) {
+function kitFor(team, side, ratings = null, players = null, attrs = null) {
   const base = DEFAULT_TEAM_CONFIG[side]
   return {
     ratings,
+    attrs,
     name: team.name,
     primary: team.primary,
     edge: team.edge,
@@ -297,10 +298,12 @@ export const useTournamentStore = create((set, get) => ({
     // Cup clubs come from several divisions: each plays at its own division's ratings
     const levelOf = (team) => (kind === 'careerCup' ? career?.cup?.levels?.[team.id] ?? career?.level : career?.level)
     const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : clubRatings(levelOf(team), team.name))
+    // ...and each player's attributes: PWR, SHT, PAS and PHY play out on the pitch
+    const attrsOf = (team) => (!career ? null : team.id === 'T1' ? squadAttrs(career.squad) : clubAttrs(levelOf(team), team.name))
     // Career: your players' own names go on your caps
     const playersOf = (team) => (career && team.id === 'T1' ? squadSurnames(career.squad) : null)
     useMatchStore.setState({
-      teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home), playersOf(home)), team2: kitFor(away, 'team2', ratingsOf(away), playersOf(away)) },
+      teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home), playersOf(home), attrsOf(home)), team2: kitFor(away, 'team2', ratingsOf(away), playersOf(away), attrsOf(away)) },
       gameMode: cpuSide ? 'ai' : 'local',
       aiTeam: cpuSide || ms.aiTeam,
       aiDifficulty: cpuTeam?.difficulty || ms.aiDifficulty,

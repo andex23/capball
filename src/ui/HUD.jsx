@@ -241,7 +241,7 @@ function CapCard() {
   return (
     <div className="cap-card" role="status">
       <span className="cap-card-role">{label}</span>{name ? <span className="cap-card-name">{name}</span> : null}
-      <b className="cap-card-rating" data-tier={rating >= 75 ? 'gold' : rating >= 60 ? 'silver' : rating >= 45 ? 'bronze' : 'plain'}>{rating}</b>
+      <b className="cap-card-rating" data-tier={rating >= 75 ? 'gold' : rating >= 65 ? 'silver' : 'bronze'}>{rating}</b>
     </div>
   )
 }

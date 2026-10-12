@@ -1,15 +1,25 @@
 import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
 import { transferWindow, playedThisSeason, DIVISIONS } from '../game/career'
-import { formOf, ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER } from '../game/squad'
+import { formOf, ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER, ATTRS, ATTR_LABEL, potentialRange, ovrAt, migratePlayer } from '../game/squad'
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
 import Icon from './Icon'
 
 function Rating({ value }) {
-  const tier = value >= 75 ? 'gold' : value >= 60 ? 'silver' : value >= 45 ? 'bronze' : 'plain'
+  const tier = value >= 75 ? 'gold' : value >= 65 ? 'silver' : 'bronze' // EA FC card colours
   return <span className="squad-rating" data-tier={tier} aria-label={`Rating ${value}`}>{value}</span>
+}
+
+/** PWR · SHT · PAS · PHY, small. */
+function Attrs({ attrs }) {
+  if (!attrs) return null
+  return (
+    <span className="squad-attrs">
+      {ATTRS.map((k) => <span key={k}><small>{ATTR_LABEL[k]}</small>{attrs[k]}</span>)}
+    </span>
+  )
 }
 
 function Coins({ n }) {
@@ -35,19 +45,21 @@ export default function SquadPanel({ career }) {
         <h2 className="saved-h">Squad</h2>
         <Coins n={career.coins} />
       </div>
-      <p className="muted t-note">Better players flick harder and aim steadier. Your team’s OVR is <b>{mine}</b>; clubs in the {DIVISIONS[career.level].name} average <b>{leagueAvg}</b>.</p>
+      <p className="muted t-note">PWR: how hard he flicks · SHT: how straight a hard flick goes · PAS: how straight a soft one goes · PHY: how hard he is to knock aside. Your OVR is <b>{mine}</b>; the {DIVISIONS[career.level].name} averages <b>{leagueAvg}</b>.</p>
       <ul className="squad-list">
         {CAP_ROLES.map((role) => {
-          const p = career.squad[role]
+          const p = migratePlayer(career.squad[role], role)
+          const here = ovrAt(p, role)
           return (
             <li key={role}>
               <span className="squad-role">{ROLE_LABEL[role]}</span>
               <span className="squad-shirt">{career.club.numbers?.[role] ?? ''}</span>
               <span className="squad-name">
                 <span className="squad-name-main">{p.name}</span>
-                <small className="squad-stats">Age {p.age}{p.age >= 33 ? ' · veteran' : p.age <= 20 ? ' · youngster' : ''}{p.apps > 0 ? ` · ${p.goals || 0} goal${p.goals === 1 ? '' : 's'} · form ${formOf(p)}` : ''}</small>
+                <small className="squad-stats">{p.pos !== ROLE_LABEL[role] ? `${p.pos} playing ${ROLE_LABEL[role]} · ` : ''}Age {p.age} · POT {potentialRange(p)}{p.apps > 0 ? ` · ${p.goals || 0} goal${p.goals === 1 ? '' : 's'} · form ${formOf(p)}` : ''}</small>
+                <Attrs attrs={p.attrs} />
               </span>
-              <Rating value={p.rating} />
+              <Rating value={here} />
             </li>
           )
         })}
@@ -62,7 +74,7 @@ export default function SquadPanel({ career }) {
       ) : (
         <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>
       )}
-      {career.lastEarned > 0 && <p className="muted t-note">Last match earned <Coins n={career.lastEarned} />. Wins pay 60, draws 25, losses 10, plus 5 a goal.</p>}
+      {career.lastEarned > 0 && <p className="muted t-note">Last match earned <Coins n={career.lastEarned} />. Wins pay 60, draws 25, losses 10, plus 5 a goal; each division up pays half as much again.</p>}
       {marketOpen && win && <TransferMarket career={career} market={win.market} onClose={() => setMarketOpen(false)} />}
     </section>
   )
@@ -76,13 +88,14 @@ function TransferMarket({ career, market, onClose }) {
       {market.length === 0 && <p className="muted">You’ve signed everyone on offer this window.</p>}
       <ul className="squad-list squad-market">
         {market.map((p) => {
-          const fee = priceOf(p.rating, p.youth)
+          const fee = priceOf(p)
           return (
             <li key={p.id}>
-              <span className="squad-role">{p.keeper ? 'GK' : 'FIELD'}</span>
+              <span className="squad-role">{p.pos}</span>
               <span className="squad-name">
                 <span className="squad-name-main">{p.name}</span>
-                <small className="squad-stats">Age {p.age}{p.youth ? ' · youth prospect, half price' : ''}</small>
+                <small className="squad-stats">Age {p.age} · POT {potentialRange(p)}{p.youth ? ' · youth prospect' : ''}</small>
+                <Attrs attrs={p.attrs} />
               </span>
               <Rating value={p.rating} />
               <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setBuying(p) }}><Coins n={fee} /></button>
@@ -90,7 +103,7 @@ function TransferMarket({ career, market, onClose }) {
           )
         })}
       </ul>
-      <p className="muted t-note">Signing a player lets the one in that spot go for {Math.round(0.6 * 100)}% of his value. Keepers only replace your keeper.</p>
+      <p className="muted t-note">Fees rise steeply with OVR; young players with room to grow cost more, players over 30 less. Signing a player lets the one in that spot go for 60% of his value. Keepers only replace your keeper; outfield players can play anywhere outfield, at their OVR for that position.</p>
       {buying && <SignFor career={career} player={buying} onDone={() => setBuying(null)} />}
     </Modal>
   )
@@ -98,8 +111,8 @@ function TransferMarket({ career, market, onClose }) {
 
 /** Pick who makes way for the new signing. */
 function SignFor({ career, player, onDone }) {
-  const fee = priceOf(player.rating, player.youth)
-  const roles = CAP_ROLES.filter((r) => (r === 'gk') === !!player.keeper)
+  const fee = priceOf(player)
+  const roles = CAP_ROLES.filter((r) => (r === 'gk') === (player.pos === 'GK'))
   const [error, setError] = useState(null)
   const sign = (role) => {
     if (useCareerStore.getState().buy(player.id, role)) { playConfirm(); onDone() }
@@ -107,16 +120,16 @@ function SignFor({ career, player, onDone }) {
   }
   return (
     <div className="squad-sign" role="group" aria-label={`Sign ${player.name}`}>
-      <p><b>{player.name}</b> ({player.rating}) costs <Coins n={fee} />. Who makes way?</p>
+      <p><b>{player.name}</b> ({player.pos} · {player.rating}) costs <Coins n={fee} />. Who makes way?</p>
       <ul className="squad-list">
         {roles.map((role) => {
-          const out = career.squad[role]
-          const cost = fee - sellValue(out.rating)
+          const out = migratePlayer(career.squad[role], role)
+          const cost = fee - sellValue(out)
           const afford = career.coins >= cost
           return (
             <li key={role}>
               <span className="squad-role">{ROLE_LABEL[role]}</span>
-              <span className="squad-name">{out.name} <Rating value={out.rating} /></span>
+              <span className="squad-name">{out.name} <Rating value={ovrAt(out, role)} /> → <b>{ovrAt(player, role)}</b> here</span>
               <button className="btn btn-gold squad-buy" disabled={!afford} onClick={() => sign(role)}>
                 {cost <= 0 ? `+${-cost}` : `−${cost}`}
               </button>
@@ -157,7 +170,7 @@ export function PlayerRatings({ career, title = 'Last match', fixtureId = null }
           )
         })}
       </ul>
-      {rep.changes?.some((c) => c.to > c.from) && <p className="muted t-note">Big games make players better — a rating of 7.5 or more can earn a point.</p>}
+      {rep.changes?.some((c) => c.to > c.from) && <p className="muted t-note">Good games build experience; a player under his potential steps up a point when he has enough (young players need less).</p>}
     </section>
   )
 }

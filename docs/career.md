@@ -1,36 +1,41 @@
 # Career mode
 
-## The ladder
-Four divisions of six clubs: Sunday League → District League → National League → Premier Cap League.
-Each season is ten league matches (home and away). Top two go up, bottom one goes down, winning the
-Premier Cap League makes you champions.
+Modelled on EA Sports FC (FIFA) career mode and Football Manager.
 
-## Player rating (1–99)
-Six players, one per cap. A better player flicks harder and aims steadier (`src/game/squad.js`):
-- Power: 0.84× at 1, 1.0× at 50, 1.16× at 99 (`flickScale`)
-- Aim: a flick can stray up to ~2.6° at 40, ~1.4° at 60, ~0.4° at 80, 0° at 99 (`aimWobble`), never on a penalty.
-Computer clubs use the same rules; a typical player is 40 / 52 / 64 / 76 by division. OVR = average of the six.
-In a match, picking up a cap shows the player's name and rating.
+## Attributes (1–99), each doing something on the pitch
+- **PWR** — flick power: 0.88× at 45, 1.0× at 70, 1.12× at 95 (`powerScale`)
+- **SHT** — how straight a hard flick goes: up to 4.5° off at 45, 1.7° at 70, 0 from 95 (`accuracyWobble`)
+- **PAS** — the same for a soft flick; in between, the two blend by flick power (`flickWobble`)
+- **PHY** — cap weight 0.9×–1.1× (`massScale`): harder to knock aside. Ball is ~6× lighter, so shot speed barely changes.
+Never applied to penalties. Ordinary (non-career) matches are untouched.
+
+## OVR — attributes weighted by position (like FIFA's position formulas)
+| Pos | Weights |
+|---|---|
+| ATK | SHT 40 · PWR 35 · PAS 15 · PHY 10 |
+| MID | PAS 40 · SHT 20 · PWR 20 · PHY 20 |
+| DEF | PHY 40 · PAS 25 · PWR 20 · SHT 15 |
+| GK  | PHY 45 · PAS 25 · PWR 20 · SHT 10 |
+A player out of position rates at that position's weights. Typical division OVR: 52 / 60 / 68 / 78.
+Card colours: gold 75+, silver 65–74, bronze below.
+
+## Potential (hidden, shown as a scout's range)
+Room to grow by age: ≤19 +8–21, ≤22 +4–13, ≤25 +1–6, ≤28 +0–2, older 0. Youth prospects +12–23.
+Dynamic: an average match rating ≥7.5 in a season raises a ≤26-year-old's potential by 1–2; under 6.0 lowers it.
+
+## Growth
+- In season: experience += (match rating − 6.3). At 2 (≤21), 3 (≤25) or 4.5 (older) a player under his potential and ≤30 gains 1 OVR; at −3 he loses 1.
+- Summer: age (≤20 +4, ≤23 +3, ≤26 +2, ≤28 +1, ≤30 0, ≤32 −2, older −3) + form (avg ≥7.5 +2, ≥7 +1, ≥6.3 0, else −1) ± 1, capped at potential. Growth goes into the position's key attributes; decline takes PHY and PWR first.
+- Retirement from 33 (20% at 33, 40% at 34, …), certain at 37. A youth prospect replaces him.
+
+## Money
+Results: win 60, draw 25, loss 10, +5/goal; ×1.5 per division up. Season bonus: champions 600, promoted 250, stayed 80, relegated 40.
+Fee = 30 × 1.115^(OVR−50) × age factor (≤21 1.25, ≤25 1.1, ≤29 1, ≤31 0.75, older 0.5) × (1 + 2.5% per point of potential room). Sell for 60%.
+Windows: pre-season and after league match 5; each has a youth prospect.
+
+## Season, Cap Cup, board target
+Ten league matches (home and away). Cap Cup: 8 clubs (3 from your division, 4 from the ones next door); QF after league match 2, SF after 5, final after 8 (all open once the league ends). Prizes 250 / 100 / 50.
+Board target from your OVR vs the division (win the league / top 2 / top half / stay up), worth 200 / 150 / 80 / 60.
 
 ## Match rating (out of 10)
-Start at 6; win +0.5, draw +0.1, loss −0.4; goal +1.3, own goal −1.2; shot on target +0.3;
-keeper save +0.7, block +0.5; keeper and defenders +1 for a clean sheet (and −0.25 per goal after the first).
-Kept between 3 and 10. Best player is Man of the Match.
-
-## Growth, age and retirement
-- After a match: 8.5+ → 75% chance of +1; 7.5+ → 45%; 4.8 or less → 35% chance of −1.
-- Over the summer: season form (−1 to +2) + age (≤20 +3, ≤23 +2, ≤27 +1, ≤30 0, ≤32 −1, older −2) ± 1.
-- From 34 a player may retire (30% at 34, more each year); a youth player (17–18) takes his place.
-
-## Money and transfers
-Wins 60, draws 25, losses 10, plus 5 per goal. Windows open pre-season and after league match 5.
-Fees grow with rating²; you get 60% back for the player replaced. Every window has a youth prospect at half price.
-
-## Cap Cup
-Eight-club knockout each season: you, three from your division, four from the divisions either side.
-Quarter-final opens after league match 2, semi after 5, final after 8 (all open once the league ends).
-Draws go to penalties. Prizes: 250 (win), 100 (final), 50 (semi).
-
-## Board target
-Set each season from your OVR against the division: Win the league / Finish top 2 / Top half / Stay up.
-Meeting it pays 200 / 150 / 80 / 60 coins.
+Start 6; win +0.5, draw +0.1, loss −0.4; goal +1.3, own goal −1.2; shot on target +0.3; save +0.7; block +0.5; keeper/defenders +1 clean sheet (−0.25 per goal after the first). Range 3–10.

@@ -19,7 +19,8 @@ import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
 import { applyPendingBodies } from '../state/savedMatch'
-import { createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick } from '../physics/PhysicsWorld'
+import { createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick, applyCapMasses } from '../physics/PhysicsWorld'
+import { massScale } from '../game/squad'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 
@@ -217,6 +218,7 @@ function GameWorld() {
   useLayoutEffect(() => {
     createPhysicsWorld()
     const s = useMatchStore.getState()
+    applyCapMasses(s.teamConfig, massScale) // career: a player's PHY sets his cap's weight
     if (!isAuthority(s)) return
     if (s.penaltyShootout) setupPenalty(s.activeTeam)
     else resetToKickoff(s.activeTeam)

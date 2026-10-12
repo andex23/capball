@@ -1,9 +1,17 @@
 /**
- * Career squad: six players (one per cap), each with a rating from 1 to 99
- * and an age. A better-rated player flicks harder and aims steadier. Results
- * earn coins, and coins buy better players in the transfer windows — one
- * before each season and one half-way through it. Young players improve
- * fastest; older ones fade and in the end retire.
+ * Career squad, modelled on EA Sports FC / FIFA career mode and Football
+ * Manager:
+ *
+ * - Each player has four attributes (1–99), and each does something real on
+ *   the pitch: PWR (how hard he flicks), SHT (how straight a hard flick goes),
+ *   PAS (how straight a soft one goes) and PHY (how heavy his cap is).
+ * - His OVR is those attributes weighted by position, the way FIFA weights
+ *   Finishing for a striker and Tackling for a centre-back.
+ * - He has a hidden Potential: the ceiling he grows towards. Young players
+ *   grow fastest; players peak in their late twenties, decline in their
+ *   thirties and retire.
+ * - Form moves it all: good match ratings speed growth (and can raise
+ *   potential), poor ones slow it.
  *
  * Pure functions over plain JSON.
  */
@@ -16,85 +24,182 @@ export const SELL_SHARE = 0.6
 export const WINDOW_AFTER = [0, 5]
 export const MARKET_SIZE = 6
 
-// The typical player in each division, bottom to top
-export const DIVISION_RATING = [40, 52, 64, 76]
-
-const FIRST = ['Sam', 'Alex', 'Jo', 'Kit', 'Ray', 'Max', 'Lou', 'Ben', 'Dev', 'Tom', 'Remi', 'Ade', 'Nico', 'Theo', 'Kofi', 'Luca', 'Ezra', 'Finn', 'Omar', 'Ravi', 'Tariq', 'Milo', 'Jude', 'Ike']
-const LAST = ['Fizzwell', 'Corker', 'Crimp', 'Tinley', 'Pops', 'Bottley', 'Spinner', 'Rimmer', 'Flickson', 'Capper', 'Sodaby', 'Twister', 'Glassby', 'Ringer', 'Clinks', 'Bubbles', 'Hopsworth', 'Seltzer', 'Fizzard', 'Crowne', 'Shaker', 'Pressley', 'Tapps', 'Brewer']
+// A typical player's OVR in each division, bottom to top (FIFA-like: a lower-league side in the
+// 50s, a top-flight side in the high 70s; stars in the 80s and 90s)
+export const DIVISION_RATING = [52, 60, 68, 78]
 
 export const ROLE_LABEL = { gk: 'GK', def1: 'DEF', def2: 'DEF', mid: 'MID', atk1: 'ATK', atk2: 'ATK' }
+export const POS_OF = { gk: 'GK', def1: 'DEF', def2: 'DEF', mid: 'MID', atk1: 'ATK', atk2: 'ATK' }
+export const ATTRS = ['pwr', 'sht', 'pas', 'phy']
+export const ATTR_LABEL = { pwr: 'PWR', sht: 'SHT', pas: 'PAS', phy: 'PHY' }
 
-const clampRating = (r) => Math.max(1, Math.min(99, Math.round(r)))
-const pick = (rng, list) => list[Math.floor(rng() * list.length) % list.length]
-
-/** How much harder (or softer) a player flicks than an average one: 0.84 at 1, 1.0 at 50, 1.16 at 99. */
-export function flickScale(rating) {
-  if (!Number.isFinite(rating)) return 1
-  return 0.84 + ((clampRating(rating) - 1) / 98) * 0.32
-}
-
-/**
- * How far a player's flick can stray from where it was aimed, in degrees:
- * about 2.6° for a Sunday-league 40, 0.6° for a Premier 76, none at 99.
- * No ratings (ordinary matches): 0.
- */
-export function aimWobble(rating) {
-  if (!Number.isFinite(rating)) return 0
-  return Math.round(6 * Math.pow(1 - clampRating(rating) / 99, 1.6) * 100) / 100
+/** How much each attribute counts towards OVR in each position (sums to 1). */
+export const WEIGHTS = {
+  ATK: { sht: 0.40, pwr: 0.35, pas: 0.15, phy: 0.10 },
+  MID: { pas: 0.40, sht: 0.20, pwr: 0.20, phy: 0.20 },
+  DEF: { phy: 0.40, pas: 0.25, pwr: 0.20, sht: 0.15 },
+  GK: { phy: 0.45, pas: 0.25, pwr: 0.20, sht: 0.10 },
 }
 
 export const MIN_AGE = 17
-export const RETIRE_FROM = 34
+export const RETIRE_FROM = 33
 
-/** How a player's age moves his rating over a summer: young players grow, old ones fade. */
-export function ageGrowth(age) {
-  if (age <= 20) return 3
-  if (age <= 23) return 2
-  if (age <= 27) return 1
-  if (age <= 30) return 0
-  if (age <= 32) return -1
-  return -2
+const clamp99 = (r) => Math.max(1, Math.min(99, Math.round(r)))
+const pick = (rng, list) => list[Math.floor(rng() * list.length) % list.length]
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+
+const FIRST = ['Sam', 'Alex', 'Jo', 'Kit', 'Ray', 'Max', 'Lou', 'Ben', 'Dev', 'Tom', 'Remi', 'Ade', 'Nico', 'Theo', 'Kofi', 'Luca', 'Ezra', 'Finn', 'Omar', 'Ravi', 'Tariq', 'Milo', 'Jude', 'Ike', 'Tunde', 'Emeka', 'Seun', 'Bayo']
+const LAST = ['Fizzwell', 'Corker', 'Crimp', 'Tinley', 'Pops', 'Bottley', 'Spinner', 'Rimmer', 'Flickson', 'Capper', 'Sodaby', 'Twister', 'Glassby', 'Ringer', 'Clinks', 'Bubbles', 'Hopsworth', 'Seltzer', 'Fizzard', 'Crowne', 'Shaker', 'Pressley', 'Tapps', 'Brewer']
+
+/* ── OVR ── */
+
+/** OVR for these attributes in a position. */
+export function ovrOf(attrs, pos) {
+  const w = WEIGHTS[pos] || WEIGHTS.MID
+  if (!isObj(attrs)) return 50
+  return clamp99(ATTRS.reduce((a, k) => a + (attrs[k] ?? 50) * w[k], 0))
 }
 
-/** Transfer fee for a player of this rating (youth players come at half price). */
-export function priceOf(rating, youth = false) {
-  const fee = Math.max(20, Math.round((clampRating(rating) ** 2) / 10))
-  return youth ? Math.max(20, Math.round(fee / 2)) : fee
+/** A player's OVR in a squad role (an attacker played at the back rates lower). */
+export const ovrAt = (p, role) => ovrOf(p?.attrs, POS_OF[role])
+
+/** The player with his OVR (in his own position) brought up to date. */
+const withOvr = (p) => ({ ...p, rating: ovrOf(p.attrs, p.pos) })
+
+/** Attributes for a player of `pos` around `ovr`: strong where his position needs it. */
+function shapeAttrs(rng, ovr, pos, spread = 4) {
+  const w = WEIGHTS[pos]
+  // The attributes a position leans on sit above the OVR, the others below
+  const raw = Object.fromEntries(ATTRS.map((k) => [k, ovr + (w[k] - 0.25) * 30 + (rng() * 2 - 1) * spread]))
+  // Nudge so the weighted total lands on the OVR asked for
+  const off = ovr - ATTRS.reduce((a, k) => a + raw[k] * w[k], 0)
+  return Object.fromEntries(ATTRS.map((k) => [k, clamp99(raw[k] + off)]))
 }
 
-/** What you get back when you let a player go. */
-export function sellValue(rating) {
-  return Math.round(priceOf(rating) * SELL_SHARE)
+/** How much higher a player of this age might go (FIFA-style: the young have the most room). */
+function potentialGap(rng, age) {
+  if (age <= 19) return 8 + Math.floor(rng() * 14)
+  if (age <= 22) return 4 + Math.floor(rng() * 10)
+  if (age <= 25) return 1 + Math.floor(rng() * 6)
+  if (age <= 28) return Math.floor(rng() * 3)
+  return 0
 }
 
-/** A made-up player around `base` rating, aged between `ages[0]` and `ages[1]`. */
-export function makePlayer(rng, base, keeper = false, spread = 6, ages = [19, 31]) {
+/** A made-up player of position `pos` around OVR `base`, aged between ages[0] and ages[1]. */
+export function makePlayer(rng, base, pos = 'MID', spread = 3, ages = [19, 31]) {
+  const age = ages[0] + Math.floor(rng() * (ages[1] - ages[0] + 1))
+  const ovr = clamp99(base + (rng() * 2 - 1) * spread)
+  const attrs = shapeAttrs(rng, ovr, pos)
+  const rating = ovrOf(attrs, pos)
   return {
     id: Math.floor(rng() * 1e9).toString(36),
     name: `${pick(rng, FIRST)} ${pick(rng, LAST)}`,
-    keeper,
-    rating: clampRating(base + (rng() * 2 - 1) * spread),
-    age: ages[0] + Math.floor(rng() * (ages[1] - ages[0] + 1)),
+    pos,
+    keeper: pos === 'GK',
+    age,
+    attrs,
+    rating,
+    pot: Math.min(99, rating + potentialGap(rng, age)),
     youth: false,
-    apps: 0, goals: 0, ratingSum: 0, form: [],
+    apps: 0, goals: 0, ratingSum: 0, form: [], xp: 0,
   }
 }
 
-/** A youth player: young, cheap, a little below the division, and quick to improve. */
-export function makeYouth(rng, level, keeper = false) {
-  return { ...makePlayer(rng, (DIVISION_RATING[level] ?? 40) - 8, keeper, 3, [17, 18]), youth: true }
+/** A youth prospect: 17–18, a few points below the division, with plenty of potential. */
+export function makeYouth(rng, level, pos = 'MID') {
+  const p = makePlayer(rng, (DIVISION_RATING[level] ?? 52) - 7, pos, 3, [17, 18])
+  return { ...p, youth: true, pot: Math.min(99, p.rating + 12 + Math.floor(rng() * 12)) }
 }
 
-/** Your first squad: a bit below the bottom division's average. */
+/** What the scouts say about his potential: a range, not the exact figure (like Football Manager's stars). */
+export function potentialRange(p) {
+  if (!p) return null
+  const lo = Math.max(p.rating, p.pot - 3)
+  const hi = Math.min(99, p.pot + 2)
+  return lo >= hi ? `${hi}` : `${lo}–${hi}`
+}
+
+/* ── On the pitch ── */
+
+/** How hard a player flicks for his PWR: 0.88× at 45, 1.0× at 70, 1.12× at 95. */
+export function powerScale(pwr) {
+  if (!Number.isFinite(pwr)) return 1
+  return 0.88 + ((Math.max(30, Math.min(99, pwr)) - 45) / 50) * 0.24
+}
+
+/** How far (degrees) a flick can stray for this accuracy: 4.5° at 45, 1.7° at 70, none from 95. */
+export function accuracyWobble(acc) {
+  if (!Number.isFinite(acc)) return 0
+  const x = Math.max(0, (95 - Math.max(30, Math.min(99, acc))) / 50)
+  return Math.round(4.5 * Math.pow(x, 1.4) * 100) / 100
+}
+
+/** How heavy his cap is for his PHY: 0.9× at 45, 1.0× at 70, 1.1× at 95 (harder to knock off the ball). */
+export function massScale(phy) {
+  if (!Number.isFinite(phy)) return 1
+  return 0.9 + ((Math.max(30, Math.min(99, phy)) - 45) / 50) * 0.2
+}
+
+/** A flick's possible stray: PAS for a soft pass, SHT for a hard shot, in between for in between. */
+export function flickWobble(attrs, power = 1) {
+  if (!isObj(attrs)) return 0
+  const t = Math.max(0, Math.min(1, power))
+  return accuracyWobble(attrs.pas) * (1 - t) + accuracyWobble(attrs.sht) * t
+}
+
+/** Older one-number ratings (no attributes): power from the overall. */
+export function flickScale(rating) {
+  if (!Number.isFinite(rating)) return 1
+  return powerScale(rating)
+}
+
+/** Older one-number ratings: aim from the overall. */
+export function aimWobble(rating) {
+  return accuracyWobble(rating)
+}
+
+/* ── Value ── */
+
+/**
+ * Transfer fee, rising steeply with OVR like real market values; young
+ * players with room to grow cost more, veterans less.
+ */
+export function priceOf(p) {
+  const player = typeof p === 'number' ? { rating: p, age: 26, pot: p } : p
+  const ovr = player?.rating ?? 50
+  const age = player?.age ?? 26
+  const room = Math.max(0, (player?.pot ?? ovr) - ovr)
+  const ageF = age <= 21 ? 1.25 : age <= 25 ? 1.1 : age <= 29 ? 1 : age <= 31 ? 0.75 : 0.5
+  const fee = 30 * Math.pow(1.115, ovr - 50) * ageF * (1 + room * 0.025)
+  return Math.max(20, Math.round(fee / 5) * 5)
+}
+
+/** What you get back when you let a player go. */
+export function sellValue(p) {
+  return Math.round(priceOf(p) * SELL_SHARE)
+}
+
+/* ── Squads ── */
+
+/** Your first squad: a little below the bottom division, one young prospect among them. */
 export function startingSquad(seed = 'start') {
   const rng = seededRng(`squad:${seed}`)
-  return Object.fromEntries(CAP_ROLES.map((role) => [role, makePlayer(rng, DIVISION_RATING[0] - 2, role === 'gk', 4)]))
+  return Object.fromEntries(CAP_ROLES.map((role) => {
+    const p = role === 'mid' ? makeYouth(rng, 0, 'MID') : makePlayer(rng, DIVISION_RATING[0] - 3, POS_OF[role], 2, [20, 30])
+    return [role, p]
+  }))
 }
 
-/** Ratings by cap role, as a match uses them. */
+/** OVR by cap role, as shown and as a match uses them. */
 export function squadRatings(squad) {
   if (!squad) return null
-  return Object.fromEntries(CAP_ROLES.map((role) => [role, squad[role]?.rating ?? 50]))
+  return Object.fromEntries(CAP_ROLES.map((role) => [role, squad[role] ? ovrAt(migratePlayer(squad[role], role), role) : 50]))
+}
+
+/** Attributes by cap role, for the match. */
+export function squadAttrs(squad) {
+  if (!squad) return null
+  return Object.fromEntries(CAP_ROLES.map((role) => [role, migratePlayer(squad[role], role)?.attrs || null]))
 }
 
 /** Surnames by cap role, for printing on the caps. */
@@ -103,14 +208,24 @@ export function squadSurnames(squad) {
   return Object.fromEntries(CAP_ROLES.map((role) => [role, String(squad[role]?.name || '').trim().split(/\s+/).pop().slice(0, 12)]))
 }
 
-/** A computer club's ratings, the same every time for that club in that division. */
-export function clubRatings(level, clubName) {
+/** A computer club's players (attributes and OVR), the same every time for that club in that division. */
+export function clubPlayers(level, clubName) {
   const rng = seededRng(`club:${level}:${clubName}`)
-  const base = DIVISION_RATING[level] ?? 50
-  return Object.fromEntries(CAP_ROLES.map((role) => [role, clampRating(base + (rng() * 2 - 1) * 6)]))
+  const base = DIVISION_RATING[level] ?? 60
+  return Object.fromEntries(CAP_ROLES.map((role) => [role, makePlayer(rng, base, POS_OF[role], 4)]))
 }
 
-/** A matchup in a word, from the two sides' overall ratings. */
+/** A computer club's OVR by role. */
+export function clubRatings(level, clubName) {
+  return squadRatings(clubPlayers(level, clubName))
+}
+
+/** A computer club's attributes by role. */
+export function clubAttrs(level, clubName) {
+  return squadAttrs(clubPlayers(level, clubName))
+}
+
+/** A matchup in a word, from the two sides' OVR. */
 export function matchupOf(mine, theirs) {
   const d = mine - theirs
   return d >= 3 ? 'favourite' : d <= -3 ? 'underdog' : 'even'
@@ -122,21 +237,20 @@ export function averageRating(ratings) {
   return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0
 }
 
-/** Coins for one of your results. */
-export function coinsForResult(gf, ga) {
+/* ── Money ── */
+
+/** Coins for one of your results; bigger divisions pay more. */
+export function coinsForResult(gf, ga, level = 0) {
   const base = gf > ga ? 60 : gf === ga ? 25 : 10
-  return base + 5 * Math.max(0, gf)
+  return Math.round((base + 5 * Math.max(0, gf)) * (1 + 0.5 * (level || 0)))
 }
 
 /** Coins at the end of a season. */
 export function seasonBonus(outcome) {
-  return { champions: 300, promoted: 150, stayed: 50, relegated: 20 }[outcome] ?? 0
+  return { champions: 600, promoted: 250, stayed: 80, relegated: 40 }[outcome] ?? 0
 }
 
-/**
- * Which transfer window is open, given how many of your matches you've played
- * this season: 0 (pre-season), 1 (mid-season) or -1 (shut).
- */
+/** Which transfer window is open: 0 (pre-season), 1 (mid-season) or -1 (shut). */
 export function openWindow(played) {
   return WINDOW_AFTER.indexOf(played)
 }
@@ -144,22 +258,52 @@ export function openWindow(played) {
 /** The players on offer in this window: the same list for a reload, minus the ones you've signed. */
 export function marketFor({ season, level, windowIndex, taken = [], seed = '' }) {
   const rng = seededRng(`market:${seed}:${season}:${windowIndex}`)
-  const base = DIVISION_RATING[level] ?? 50
-  const players = []
-  for (let i = 0; i < MARKET_SIZE; i++) {
-    // Upgrades at a range of prices: a couple of stars, some solid buys, a keeper, and a youth prospect
-    if (i === MARKET_SIZE - 1) { players.push(makeYouth(rng, level, rng() < 0.2)); continue }
-    const lift = [13, 9, 6, 4, 5][i]
-    players.push(makePlayer(rng, base + lift, i === 4, 3, i === 0 ? [24, 31] : [20, 30]))
-  }
+  const base = DIVISION_RATING[level] ?? 60
+  const slots = [
+    ['ATK', 10, [24, 30]], // a star striker
+    ['MID', 7, [22, 29]],
+    ['DEF', 6, [23, 31]],
+    ['ATK', 4, [20, 27]],
+    ['GK', 5, [24, 32]],
+  ]
+  const players = slots.map(([pos, lift, ages]) => makePlayer(rng, base + lift, pos, 2, ages))
+  players.push(makeYouth(rng, level, pick(rng, ['ATK', 'MID', 'DEF'])))
   return players.filter((p) => !taken.includes(p.id))
 }
 
+/* ── Growth ── */
+
+/** Move a player's OVR by `steps` (±), putting the change into the attributes his position needs most. */
+export function shiftOvr(p, steps, rng = Math.random, declining = false) {
+  if (!steps) return p
+  const w = WEIGHTS[p.pos] || WEIGHTS.MID
+  // Growth goes where the position needs it; old age takes physique and power first
+  const order = declining ? ['phy', 'pwr', 'sht', 'pas'] : [...ATTRS].sort((a, b) => w[b] - w[a])
+  const attrs = { ...p.attrs }
+  const target = clamp99(ovrOf(attrs, p.pos) + steps)
+  for (let i = 0; i < 60 && ovrOf(attrs, p.pos) !== target; i++) {
+    const k = rng() < 0.7 ? order[i % 2] : order[2 + (i % 2)]
+    attrs[k] = clamp99(attrs[k] + Math.sign(steps))
+  }
+  return withOvr({ ...p, attrs })
+}
+
+/** How a player's age moves his OVR over a summer (FIFA-like: quick growth young, peak 27–30, decline after). */
+export function ageGrowth(age) {
+  if (age <= 20) return 4
+  if (age <= 23) return 3
+  if (age <= 26) return 2
+  if (age <= 28) return 1
+  if (age <= 30) return 0
+  if (age <= 32) return -2
+  return -3
+}
+
 /**
- * A season's development. Each player moves by his season (average match
- * rating) plus his age: young players grow, older ones fade. Everyone gets a
- * year older; players past RETIRE_FROM may retire, and a youth player takes
- * their place. Season stats reset.
+ * A season's development. Each player grows (towards his potential, never
+ * past it) or declines, by age and by his season's average match rating.
+ * A great season can raise his potential, a poor one lower it. Everyone gets
+ * a year older; veterans may retire, and a youth prospect takes their place.
  * Returns { squad, retired: [{ role, name, age, rating }], changes: [{ role, name, from, to }] }.
  */
 export function developSeason(squad, seed, level = 0) {
@@ -167,24 +311,31 @@ export function developSeason(squad, seed, level = 0) {
   const retired = []
   const changes = []
   const next = {}
-  for (const [role, p] of Object.entries(squad)) {
-    const age = Number.isInteger(p.age) ? p.age : 25
-    if (age >= RETIRE_FROM && rng() < 0.3 + (age - RETIRE_FROM) * 0.25) {
+  for (const [role, p0] of Object.entries(squad)) {
+    const p = migratePlayer(p0, role)
+    const age = p.age
+    if (age >= RETIRE_FROM && (age >= 37 || rng() < (age - RETIRE_FROM + 1) * 0.2)) {
       retired.push({ role, name: p.name, age, rating: p.rating })
-      next[role] = makeYouth(rng, level, role === 'gk')
+      next[role] = makeYouth(rng, level, POS_OF[role])
       continue
     }
     const avg = p.apps ? p.ratingSum / p.apps : null
-    const form = avg == null ? 0 : avg >= 7.5 ? 2 : avg >= 6.8 ? 1 : avg >= 6 ? 0 : -1
-    const change = form + ageGrowth(age) + Math.floor(rng() * 3) - 1
-    const rating = clampRating(p.rating + change)
-    if (rating !== p.rating) changes.push({ role, name: p.name, from: p.rating, to: rating })
-    next[role] = { ...p, rating, age: age + 1, youth: age + 1 <= 19 && !!p.youth, apps: 0, goals: 0, ratingSum: 0, form: [] }
+    const form = avg == null ? 0 : avg >= 7.5 ? 2 : avg >= 7 ? 1 : avg >= 6.3 ? 0 : -1
+    let pot = p.pot
+    // Dynamic potential: a great season lifts the ceiling of a young player; a poor one lowers it
+    if (avg != null && avg >= 7.5 && age <= 26) pot = Math.min(99, pot + 1 + Math.floor(rng() * 2))
+    if (avg != null && avg < 6 && age <= 28) pot = Math.max(p.rating, pot - 1 - Math.floor(rng() * 2))
+    let change = ageGrowth(age) + form + Math.floor(rng() * 3) - 1
+    // Growth stops at the ceiling; decline doesn't care
+    if (change > 0) change = Math.max(0, Math.min(change, pot - p.rating))
+    const grown = shiftOvr({ ...p, pot }, change, rng, change < 0)
+    if (grown.rating !== p.rating) changes.push({ role, name: p.name, from: p.rating, to: grown.rating })
+    next[role] = { ...grown, age: age + 1, youth: age + 1 <= 19 && !!p.youth, apps: 0, goals: 0, ratingSum: 0, form: [], xp: 0 }
   }
   return { squad: next, retired, changes }
 }
 
-/** The squad part of developSeason (kept for older callers). */
+/** The squad part of developSeason. */
 export function developSquad(squad, seed, level = 0) {
   return developSeason(squad, seed, level).squad
 }
@@ -194,7 +345,9 @@ export function developSquad(squad, seed, level = 0) {
 const round1 = (n) => Math.round(n * 10) / 10
 
 /**
- * Out-of-10 ratings for one side's six players after a match.
+ * Out-of-10 ratings for one side's six players after a match, the way FIFA
+ * and Football Manager do it: everyone starts on 6, goals count most, then
+ * shots, saves, blocks and clean sheets, and the result.
  * side: 'team1' | 'team2' — the caps are `${side}_${role}`.
  */
 export function matchRatings({ side, goalLog = [], matchEvents = [], score }) {
@@ -227,26 +380,28 @@ export function manOfTheMatch(ratings, goalsByRole = {}) {
 }
 
 /**
- * One match for the career squad: appearances, goals, form, and a chance to
- * grow (a great game) or slip (a poor one). Returns { squad, changes, motm, ratings }.
+ * One match for the career squad: appearances, goals and form, plus match
+ * experience. Like FIFA's in-season growth, good games build experience and a
+ * player under his potential steps up a point when he has enough (young
+ * players need less); a run of poor games can cost a point.
+ * Returns { squad, changes, motm, ratings }.
  */
 export function applyMatchToSquad(squad, { ratings, goalsByRole = {}, seed }) {
   const rng = seededRng(`grow:${seed}`)
   const changes = []
   const next = {}
   for (const role of CAP_ROLES) {
-    const p = squad[role]
+    let p = migratePlayer(squad[role], role)
     const r = ratings[role] ?? 6
-    let rating = p.rating
-    const roll = rng()
-    if (r >= 8.5 && roll < 0.75) rating += 1
-    else if (r >= 7.5 && roll < 0.45) rating += 1
-    else if (r <= 4.8 && roll < 0.35) rating -= 1
-    rating = clampRating(rating)
-    if (rating !== p.rating) changes.push({ role, name: p.name, from: p.rating, to: rating })
+    const before = p.rating
+    let xp = (p.xp || 0) + (r - 6.3)
+    const need = p.age <= 21 ? 2 : p.age <= 25 ? 3 : 4.5
+    if (xp >= need && p.rating < p.pot && p.age <= 30) { p = shiftOvr(p, 1, rng); xp = 0 }
+    else if (xp <= -3) { p = shiftOvr(p, -1, rng); xp = 0 }
+    if (p.rating !== before) changes.push({ role, name: p.name, from: before, to: p.rating })
     next[role] = {
       ...p,
-      rating,
+      xp: round1(Math.max(-3, Math.min(need, xp))),
       apps: (p.apps || 0) + 1,
       goals: (p.goals || 0) + (goalsByRole[role] || 0),
       ratingSum: round1((p.ratingSum || 0) + r),
@@ -260,34 +415,63 @@ export function applyMatchToSquad(squad, { ratings, goalsByRole = {}, seed }) {
 export const formOf = (p) => (p?.form?.length ? round1(p.form.reduce((a, b) => a + b, 0) / p.form.length) : null)
 
 /**
- * Sign `player` into `role`, letting the current player there go.
- * Returns { squad, coins } or null when it isn't allowed.
+ * Sign `player` into `role`, letting the current player there go. Keepers
+ * only replace keepers; outfield players can play anywhere outfield (at
+ * their OVR for that position). Returns { squad, coins } or null.
  */
 export function signPlayer(squad, coins, player, role) {
   if (!squad?.[role] || !player) return null
-  if ((role === 'gk') !== !!player.keeper) return null
-  const fee = priceOf(player.rating, player.youth)
-  const back = sellValue(squad[role].rating)
+  if ((role === 'gk') !== (player.pos === 'GK' || !!player.keeper)) return null
+  const fee = priceOf(player)
+  const back = sellValue(migratePlayer(squad[role], role))
   if (coins + back < fee) return null
   return { squad: { ...squad, [role]: { ...player } }, coins: coins + back - fee }
 }
 
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+/* ── Saves ── */
+
+/**
+ * Bring a player from an older save up to date: a one-number rating becomes
+ * attributes and potential on the new scale (a Sunday-league 40 ≈ 52 now).
+ */
+export function migratePlayer(p, role) {
+  if (!isObj(p)) return p
+  if (isObj(p.attrs) && p.pos) return p
+  const rng = seededRng(`migrate:${p.id || role}`)
+  const pos = POS_OF[role] || 'MID'
+  const old = Number.isFinite(p.rating) ? p.rating : 40
+  const ovr = clamp99(52 + (old - 40) * 0.72)
+  const age = Number.isInteger(p.age) ? p.age : 20 + Math.floor(rng() * 10)
+  const attrs = shapeAttrs(rng, ovr, pos, 2)
+  const rating = ovrOf(attrs, pos)
+  return { ...p, pos, keeper: pos === 'GK', age, attrs, rating, pot: Math.min(99, rating + potentialGap(rng, age)), xp: 0 }
+}
 
 /** Clean up a saved squad; fills any gap with a fresh player. */
 export function sanitizeSquad(input, seed = 'fix') {
   const fresh = startingSquad(seed)
   if (!isObj(input)) return fresh
   return Object.fromEntries(CAP_ROLES.map((role) => {
-    const p = input[role]
-    if (!isObj(p) || !Number.isFinite(p.rating) || typeof p.name !== 'string') return [role, fresh[role]]
+    const raw = input[role]
+    if (!isObj(raw) || typeof raw.name !== 'string' || (!Number.isFinite(raw.rating) && !isObj(raw.attrs))) return [role, fresh[role]]
+    const p = migratePlayer(raw, role)
     const n = (v) => (Number.isFinite(v) && v >= 0 ? v : 0)
-    // Players from before ages existed get one, the same on every load
-    const age = Number.isInteger(p.age) && p.age >= MIN_AGE && p.age <= 45 ? p.age : 20 + (Math.abs([...String(p.id || role)].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) % 10)
+    const attrs = Object.fromEntries(ATTRS.map((k) => [k, clamp99(Number.isFinite(p.attrs?.[k]) ? p.attrs[k] : 50)]))
+    const pos = ['GK', 'DEF', 'MID', 'ATK'].includes(p.pos) ? p.pos : POS_OF[role]
+    const rating = ovrOf(attrs, pos)
     return [role, {
-      id: String(p.id || role).slice(0, 16), name: p.name.slice(0, 24), keeper: role === 'gk', rating: clampRating(p.rating), age, youth: p.youth === true,
+      id: String(p.id || role).slice(0, 16),
+      name: p.name.slice(0, 24),
+      pos,
+      keeper: pos === 'GK',
+      age: Number.isInteger(p.age) && p.age >= MIN_AGE && p.age <= 45 ? p.age : 25,
+      attrs,
+      rating,
+      pot: Math.max(rating, Math.min(99, Number.isFinite(p.pot) ? Math.round(p.pot) : rating)),
+      youth: p.youth === true,
       apps: Math.floor(n(p.apps)), goals: Math.floor(n(p.goals)), ratingSum: n(p.ratingSum),
       form: Array.isArray(p.form) ? p.form.filter((x) => Number.isFinite(x) && x >= 0 && x <= 10).slice(-5) : [],
+      xp: Number.isFinite(p.xp) ? Math.max(-3, Math.min(5, p.xp)) : 0,
     }]
   }))
 }

@@ -253,6 +253,21 @@ function createBallBody() {
 
 export function getEngine() { return engine }
 export function getBodies() { return bodies }
+
+/**
+ * Career: each cap's weight follows its player's PHY (0.9× to 1.1×), so a
+ * strong defender is harder to knock aside. Ordinary matches are untouched.
+ */
+export function applyCapMasses(teamConfig, scaleFor) {
+  for (const [id, body] of Object.entries(bodies)) {
+    if (id === 'ball') continue
+    const i = id.indexOf('_')
+    const attrs = teamConfig?.[id.slice(0, i)]?.attrs?.[id.slice(i + 1)]
+    if (!attrs) continue
+    const base = id.endsWith('_gk') ? PHYSICS.gkMass : PHYSICS.playerMass
+    Matter.Body.setMass(body, base * scaleFor(attrs.phy))
+  }
+}
 export function getBody(id) { return bodies[id] }
 
 /** Apply shot impulse to a cap */
