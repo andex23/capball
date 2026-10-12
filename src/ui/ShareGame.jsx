@@ -1,11 +1,15 @@
 import { useState } from 'react'
+import { isLagos } from '../platform'
 import Icon from './Icon'
 import { SITE } from '../seo/meta'
 
 // Share the public landing page, never a private room, account or LAN link.
 const GAME_URL = SITE + '/'
 
-export default function ShareGame() {
+// Sharing and links out aren't allowed inside Lagos Life
+export default function ShareGame() { return isLagos() ? null : <ShareGameButton /> }
+
+function ShareGameButton() {
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
   const [manual, setManual] = useState(false)

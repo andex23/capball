@@ -519,13 +519,17 @@ export async function finishLanPairing(answer) {
   if (peer === endpoint && !conn?.open) setStatus('connecting', 'Connecting over your local network…')
 }
 
-export function createRoom(attempt = 0, transport = 'internet') {
+/**
+ * Host a room. `fixedCode` is used when both players already know the room
+ * (a Lagos Life friend match: the code comes from the match both joined).
+ */
+export function createRoom(attempt = 0, transport = 'internet', fixedCode = null) {
   disconnect()
   lan = transport === 'lan'
   automaticLan = lan
   useMatchStore.setState({ onlineTransport: transport })
   return new Promise((resolve, reject) => {
-    const code = generateCode(lan ? 12 : 6)
+    const code = fixedCode || generateCode(lan ? 12 : 6)
     const p = new Peer(ROOM_PREFIX + code, peerOptions())
     peer = p
     isHost = true
@@ -555,7 +559,7 @@ export function createRoom(attempt = 0, transport = 'internet') {
       if (peer !== p) return
       if (!opened) {
         clearTimeout(timer)
-        if (err.type === 'unavailable-id' && attempt < 3) {
+        if (err.type === 'unavailable-id' && attempt < 3 && !fixedCode) {
           createRoom(attempt + 1, transport).then(resolve, reject)
           return
         }

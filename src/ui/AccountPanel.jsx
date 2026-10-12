@@ -3,6 +3,8 @@ import { useAccountStore } from '../state/accountStore'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Icon from './Icon'
 import SavedGames from './SavedGames'
+import { isLagos } from '../platform'
+import { LagosAccount } from '../lagos/LagosPanels'
 
 function timeAgo(iso) {
   if (!iso) return null
@@ -15,7 +17,12 @@ function timeAgo(iso) {
 
 /** Sign up / sign in with just a username and password, or see who's signed in. */
 /** `formOnly`: just the sign-in / create-account form (no saved games list) when signed out. */
-export default function AccountPanel({ formOnly = false }) {
+export default function AccountPanel(props) {
+  // In Lagos Life the player is already signed in there; there's no Counterball account
+  return isLagos() ? <LagosAccount {...props} /> : <CounterballAccount {...props} />
+}
+
+function CounterballAccount({ formOnly = false }) {
   const { username, busy, error, savedAt, saving } = useAccountStore()
   const { signIn, signUp, signOut, save } = useAccountStore.getState()
   const [mode, setMode] = useState('signin') // 'signin' | 'signup'

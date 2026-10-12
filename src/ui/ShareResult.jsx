@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isLagos } from '../platform'
 import { useMatchStore } from '../state/MatchStore'
 import { useSavedStore } from '../state/savedMatch'
 import { shareResultCard } from '../game/shareCard'
@@ -6,7 +7,10 @@ import { playButtonSelect } from '../audio/SoundManager'
 import Icon from './Icon'
 
 /** "Share result": a picture of the full-time score for WhatsApp Status, Instagram… */
-export function ShareResult() {
+// Sharing isn't allowed inside Lagos Life
+export function ShareResult() { return isLagos() ? null : <ShareResultCard /> }
+
+function ShareResultCard() {
   const [note, setNote] = useState(null)
   const [busy, setBusy] = useState(false)
   const share = async () => {

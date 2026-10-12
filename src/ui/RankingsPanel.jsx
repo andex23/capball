@@ -5,6 +5,8 @@ import { weekKey } from '../state/savedMatch'
 import { playButtonSelect } from '../audio/SoundManager'
 import RecordsPanel from './RecordsPanel'
 import AccountPanel from './AccountPanel'
+import { isLagos } from '../platform'
+import { LagosBoard } from '../lagos/LagosPanels'
 
 const TABS = [
   { key: 'week', label: 'This week' },
@@ -14,6 +16,10 @@ const TABS = [
 
 /** Leaderboards (signed-in players, vs computer and online wins) and your own records. */
 export default function RankingsPanel() {
+  return isLagos() ? <LagosBoard /> : <CounterballRankings />
+}
+
+function CounterballRankings() {
   const [tab, setTab] = useState('week')
   const { rows, loading, error, load } = useBoardStore()
   const username = useAccountStore((s) => s.username)

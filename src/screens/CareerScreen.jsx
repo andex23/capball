@@ -16,6 +16,7 @@ import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
+import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames } from '../game/squad'
 
@@ -157,12 +158,12 @@ export default function CareerScreen() {
           <header className="shell-head">
             <div>
               <div className="eyebrow shell-eyebrow">Career mode</div>
-              <h1 className="display shell-title">Create your account</h1>
+              <h1 className="display shell-title">{isLagos() ? 'Lagos Life sign-in' : 'Create your account'}</h1>
             </div>
           </header>
           <main className="shell-body career-start">
             <section className="card card-pad">
-              <p className="t-note">Your career is saved to your account as you play — every season, result and trophy — so you can pick it up on any phone. It only takes a username and a password.</p>
+              {!isLagos() && <p className="t-note">Your career is saved to your account as you play — every season, result and trophy — so you can pick it up on any phone. It only takes a username and a password.</p>}
               <AccountPanel formOnly />
             </section>
           </main>

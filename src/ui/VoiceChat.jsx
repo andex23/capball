@@ -1,7 +1,11 @@
 import { useVoiceStore, joinVoice, leaveVoice, muteVoice, playVoice } from '../multiplayer/voiceStore'
+import { isLagos } from '../platform'
 import Icon from './Icon'
 
-export default function VoiceChat({ compact = false }) {
+// Lagos Life's frame has no microphone access
+export default function VoiceChat(props) { return isLagos() ? null : <VoiceChatPanel {...props} /> }
+
+function VoiceChatPanel({ compact = false }) {
   const voice = useVoiceStore()
   if (!voice.available) return null
   if (compact) return voice.enabled ? <button className="icon-btn" onClick={muteVoice}
