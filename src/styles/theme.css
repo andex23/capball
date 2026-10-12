@@ -2295,3 +2295,8 @@ button { cursor: pointer; background: none; border: 0; }
 .purchase-toast { border-color: var(--good, #34d27b); z-index: 300; }
 .purchase-toast .unlock-toast-title { color: var(--good, #34d27b); display: flex; align-items: center; gap: 6px; }
 .purchase-toast .band-dot { flex: none; }
+.purchase-toast.is-pending { border-color: #f5c84b; }
+.purchase-toast.is-pending .unlock-toast-title { color: #f5c84b; }
+.purchase-toast.is-failed { border-color: #ff6b6b; }
+.purchase-toast.is-failed .unlock-toast-title { color: #ff6b6b; }
+.purchase-toast .unlock-toast-name { max-width: 240px; white-space: normal; }
