@@ -51,8 +51,15 @@ export function normaliseMatch(raw) {
   return { ...m, players }
 }
 
-/** Stakes a player can pick for a bet with a friend (in-game naira; 0 is a free match). */
-export const STAKES = [0, 100, 500, 1000, 5000]
+/** Bets with a friend, in Lagos Life money (0 is a free match). */
+export const BET_MIN = 100
+export const BET_MAX = 100_000 // Lagos Life's limit per match
+export const BET_PICKS = [100, 500, 1000, 5000]
+/** A bet amount the platform accepts: whole naira, in steps of 50, within the limits. */
+export function cleanStake(n, clamp = true) {
+  const v = Math.round((Number(n) || 0) / 50) * 50
+  return clamp ? Math.min(BET_MAX, Math.max(BET_MIN, v)) : Math.min(BET_MAX, Math.max(0, v))
+}
 /** Lagos Life keeps 5% of the pot; the winner gets the rest. */
 export const potFor = (stake) => Math.floor(stake * 2 * 0.95)
 
@@ -328,7 +335,7 @@ export const useLagosStore = create((set, get) => ({
 
   async findMatch(kind, code, stake = 0) {
     if (!sdk?.match) throw Object.assign(new Error('off'), { code: 'not_multiplayer' })
-    const bet = STAKES.includes(stake) ? stake : 0
+    const bet = stake > 0 ? cleanStake(stake) : 0
     const m = kind === 'quick' ? await sdk.match.quick({ stake: bet })
       : kind === 'create' ? await sdk.match.create({ stake: bet, seats: 2 })
         : await sdk.match.join(code)

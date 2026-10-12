@@ -12,3 +12,11 @@
 .bet-toast.is-won .unlock-toast-title { color: var(--good, #34d27b); }
 .bet-toast.is-lost { border-color: #ff6b6b; }
 .bet-toast.is-lost .unlock-toast-title { color: #ff6b6b; }
+.bet-sheet { display: flex; flex-direction: column; gap: 12px; }
+.bet-amount { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; align-items: stretch; }
+.bet-step { font-size: 28px; min-height: 64px; padding: 0; }
+.bet-input { font-size: 34px; text-align: center; min-height: 64px; width: 100%; }
+.bet-picks { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.bet-picks .chip { min-height: 40px; padding: 0 14px; cursor: pointer; }
+.bet-picks .chip.is-on { background: var(--accent); border-color: #fff; color: var(--ink); }
+.bet-pot { margin: 4px 0 0; text-align: center; font-family: var(--font-pixel, inherit); font-size: 20px; color: var(--accent); }
