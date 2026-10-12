@@ -255,9 +255,45 @@ export const STADIUMS = {
     crowdColors: [],
     postColor: '#ffffff',
   },
+  // Career only: the top venue a club can build (not in the venue picker)
+  capArena: {
+    id: 'capArena',
+    careerOnly: true,
+    top: { surface: 'laminate', c1: '#eef1f7', c2: '#f6f8fc', line: 'rgba(11,29,107,0.85)', note: 'Pro table, navy lines' },
+    name: 'Cap Arena',
+    tableColor: '#f4f6fb',
+    label: 'Pro table, packed stands',
+    surface: 'grass',
+    floodIntensity: 0.7,
+    grass1: '#2a8f34',
+    grass2: '#33a63e',
+    stripeAlpha: 0.045,
+    lineColor: 'rgba(255,255,255,0.95)',
+    lineWidth: 3,
+    woodColor: '#0b1d6b',
+    trimColor: '#ffd23f',
+    trimGlow: 0.4,
+    baseColor: '#0b1d6b',
+    baseTrimColor: '#ffd23f',
+    bgColor: '#070a1c',
+    fogColor: '#070a1c',
+    fogDensity: 0.003,
+    groundGlow: '#1a2350',
+    ambientColor: '#f4f6ff',
+    ambientIntensity: 0.55,
+    keyLightColor: '#ffffff',
+    keyLightIntensity: 2,
+    fillLightColor: '#d6e2ff',
+    fillLightIntensity: 0.55,
+    floodColor: '#eef3ff',
+    rimColor: '#ffd23f',
+    showCrowd: true,
+    crowdColors: ['#1e5bff', '#ffd23f', '#ffffff'],
+    postColor: '#ffffff',
+  },
 }
 
-export const STADIUM_KEYS = Object.keys(STADIUMS)
+export const STADIUM_KEYS = Object.keys(STADIUMS).filter((k) => !STADIUMS[k].careerOnly)
 export const DEFAULT_STADIUM = 'arena'
 
 /** The venue as painted: its own table top (default) or a green pitch. */

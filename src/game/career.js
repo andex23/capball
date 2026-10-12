@@ -203,6 +203,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     titles: 0,         // top-division wins
     squad: sq,
     bench: startingBench(now, 0),
+    reserves: [],      // up to five more players who train but aren't in the matchday ten
     biz: newClub(0, `${club.name}:${now}`),
     youthOffer: null,
     coins: START_COINS,
@@ -232,19 +233,81 @@ export function buyPlayer(career, playerId, role) {
   const player = w?.market.find((p) => p.id === playerId)
   if (!player) return null
   if (spendingFrozen(career)) return null
+  const ids = career.signed?.key === w.key ? career.signed.ids : []
+  const signed = { key: w.key, ids: [...ids, playerId] }
+  // Into the reserves: a free place (no one leaves) or in place of a reserve
+  const r = /^reserve(?::(\d))?$/.exec(role || '')
+  if (r) {
+    const reserves = career.reserves || []
+    const i = r[1] == null ? null : Number(r[1])
+    const out = i == null ? null : reserves[i]
+    if (i == null ? reserves.length >= MAX_RESERVES : !out) return null
+    const fee = priceOf(player)
+    const back = out ? sellValue(out) : 0
+    if ((career.coins ?? 0) + back < fee) return null
+    const next = i == null ? [...reserves, { ...player }] : reserves.map((x, j) => (j === i ? { ...player } : x))
+    const biz = book(career.biz || newClub(career.level), { transfers: fee, sales: back })
+    return { ...career, reserves: next, coins: career.coins + back - fee, biz, signed }
+  }
   const deal = signPlayer(career.squad, career.coins, player, role, career.bench)
   if (!deal) return null
   const b = /^bench:(\d)$/.exec(role || '')
   const out = b ? career.bench?.[Number(b[1])] : career.squad?.[role]
   const biz = book(career.biz || newClub(career.level), { transfers: priceOf(player), sales: out ? sellValue(out) : 0 })
-  const ids = career.signed?.key === w.key ? career.signed.ids : []
-  return { ...career, ...deal, bench: deal.bench || career.bench, biz, signed: { key: w.key, ids: [...ids, playerId] } }
+  return { ...career, ...deal, bench: deal.bench || career.bench, biz, signed }
 }
 
 /** Swap a bench player into the starting six (before a match). Returns the new career, or null. */
 export function swapLineup(career, benchIndex, role) {
   const r = swapIn(career.squad, career.bench, benchIndex, role)
   return r ? { ...career, ...r } : null
+}
+
+/* ── The whole squad: up to fifteen ── */
+
+export const MATCHDAY = 10   // six start, four on the bench
+export const MAX_RESERVES = 5
+export const MAX_SQUAD = MATCHDAY + MAX_RESERVES
+
+/** Everyone at the club. */
+export const squadSize = (career) => Object.keys(career.squad || {}).length + (career.bench || []).length + (career.reserves || []).length
+
+/** Who is in a slot: 'atk1' (starting six), 'bench:2' or 'reserve:0'. */
+function inSlot(career, slot) {
+  const b = /^bench:(\d)$/.exec(slot)
+  if (b) return career.bench?.[Number(b[1])] || null
+  const r = /^reserve:(\d)$/.exec(slot)
+  if (r) return career.reserves?.[Number(r[1])] || null
+  return career.squad?.[slot] || null
+}
+
+function putInSlot(career, slot, p) {
+  const b = /^bench:(\d)$/.exec(slot)
+  if (b) return { ...career, bench: career.bench.map((x, i) => (i === Number(b[1]) ? p : x)) }
+  const r = /^reserve:(\d)$/.exec(slot)
+  if (r) return { ...career, reserves: career.reserves.map((x, i) => (i === Number(r[1]) ? p : x)) }
+  return { ...career, squad: { ...career.squad, [slot]: p } }
+}
+
+/**
+ * Bring a reserve into the matchday ten, swapping with a starter or bench
+ * player (who drops to the reserves). Keepers swap with keepers.
+ */
+export function promoteReserve(career, reserveIndex, slot) {
+  const from = `reserve:${reserveIndex}`
+  const a = inSlot(career, from)
+  const b = inSlot(career, slot)
+  if (!a || !b || slot.startsWith('reserve:')) return null
+  if ((a.pos === 'GK') !== (b.pos === 'GK')) return null
+  return putInSlot(putInSlot(career, from, b), slot, a)
+}
+
+/** Sell a reserve for his value (any time: it frees up his wages). */
+export function sellReserve(career, index) {
+  const p = career.reserves?.[index]
+  if (!p) return null
+  const back = sellValue(p)
+  return { ...career, reserves: career.reserves.filter((_, i) => i !== index), coins: (career.coins ?? 0) + back, biz: book(career.biz || newClub(career.level), { sales: back }) }
 }
 
 /** Has every fixture of the season been played? */
@@ -265,7 +328,7 @@ function payMatchDay(career, { home, gf, ga }) {
   if (!Number.isFinite(gf) || !Number.isFinite(ga)) return { ...career, lastEarned: 0 }
   const biz = career.biz || newClub(career.level)
   const outcome = gf > ga ? 'win' : gf === ga ? 'draw' : 'loss'
-  const r = matchDay(biz, { home, outcome, prize: coinsForResult(gf, ga, career.level), level: career.level, wages: wageBill(career.squad, career.bench), form: recentForm(career.league) })
+  const r = matchDay(biz, { home, outcome, prize: coinsForResult(gf, ga, career.level), level: career.level, wages: wageBill(career.squad, career.bench, career.reserves), form: recentForm(career.league) })
   return { ...career, biz: r.club, coins: (career.coins ?? 0) + r.net, lastEarned: r.net }
 }
 
@@ -292,13 +355,25 @@ export function setTickets(career, ticket) {
 }
 
 /**
- * Take on this summer's academy graduate in a bench slot (the player there
- * is released for his value), or let him go (slot null).
+ * Take on this summer's academy graduate: into a free place in the reserves
+ * (slot 'reserve'), in place of a reserve ('reserve:i') or bench player (a
+ * bench index) who is sold for his value, or let him go (slot null).
  */
 export function takeYouth(career, slot) {
   const y = career.youthOffer
   if (!y) return career
   if (slot == null) return { ...career, youthOffer: null }
+  if (slot === 'reserve') {
+    if ((career.reserves || []).length >= MAX_RESERVES) return null
+    return { ...career, reserves: [...(career.reserves || []), y], youthOffer: null }
+  }
+  const r = /^reserve:(\d)$/.exec(String(slot))
+  if (r) {
+    const out = career.reserves?.[Number(r[1])]
+    if (!out) return null
+    const back = sellValue(out)
+    return { ...career, reserves: career.reserves.map((p, i) => (i === Number(r[1]) ? y : p)), youthOffer: null, coins: (career.coins ?? 0) + back, biz: book(career.biz, { sales: back }) }
+  }
   const out = career.bench?.[slot]
   if (!out || (out.pos === 'GK') !== (y.pos === 'GK')) return null
   const back = sellValue(out)
@@ -393,6 +468,10 @@ export function finishSeason(career, now = Date.now()) {
   // The bench develops too (and players who never got a game slide a little)
   const benchSummer = developSeason(Object.fromEntries((career.bench || []).map((p, i) => [String(i), p])), `${career.league.id}:${career.season}:bench`, level)
   const bench = (career.bench || []).map((_, i) => benchSummer.squad[String(i)])
+  // Reserves develop too; any who retire simply leave (a place opens up)
+  const resSummer = developSeason(Object.fromEntries((career.reserves || []).map((p, i) => [String(i), p])), `${career.league.id}:${career.season}:res`, level)
+  const gone = new Set(resSummer.retired.map((r) => r.role))
+  const reserves = (career.reserves || []).map((_, i) => (gone.has(String(i)) ? null : resSummer.squad[String(i)])).filter(Boolean)
   return {
     ...career,
     level,
@@ -409,7 +488,12 @@ export function finishSeason(career, now = Date.now()) {
     youthOffer,
     squad: summer.squad,
     bench,
-    lastSummer: { season: career.season + 1, retired: [...summer.retired, ...benchSummer.retired], changes: [...summer.changes, ...benchSummer.changes] },
+    reserves,
+    lastSummer: {
+      season: career.season + 1,
+      retired: [...summer.retired, ...benchSummer.retired, ...resSummer.retired.map((r) => ({ ...r, role: `res${r.role}`, left: true }))],
+      changes: [...summer.changes, ...benchSummer.changes, ...resSummer.changes.map((c) => ({ ...c, role: `res${c.role}` }))],
+    },
     signed: { key: '', ids: [] },
     lastEarned: 0,
   }
@@ -435,6 +519,7 @@ export function sanitizeCareer(input) {
     // Careers from before the squad existed get a starting squad and purse
     squad: sanitizeSquad(input.squad, league.id),
     bench: sanitizeBench(input.bench, league.id, level),
+    reserves: Array.isArray(input.reserves) ? input.reserves.map((p) => sanitizePlayer(p, { GK: 'gk', DEF: 'def1', MID: 'mid', ATK: 'atk1' }[p?.pos] || 'mid')).filter(Boolean).slice(0, MAX_RESERVES) : [],
     coins: Number.isInteger(input.coins) ? input.coins : START_COINS,
     signed: isObj(input.signed) && typeof input.signed.key === 'string' && Array.isArray(input.signed.ids)
       ? { key: input.signed.key.slice(0, 20), ids: input.signed.ids.filter((x) => typeof x === 'string').slice(0, 20) }
@@ -448,8 +533,8 @@ export function sanitizeCareer(input) {
     cups: n(input.cups),
     lastSummer: isObj(input.lastSummer) ? {
       season: n(input.lastSummer.season),
-      retired: Array.isArray(input.lastSummer.retired) ? input.lastSummer.retired.filter(isObj).slice(0, 6) : [],
-      changes: Array.isArray(input.lastSummer.changes) ? input.lastSummer.changes.filter(isObj).slice(0, 6) : [],
+      retired: Array.isArray(input.lastSummer.retired) ? input.lastSummer.retired.filter(isObj).slice(0, MAX_SQUAD) : [],
+      changes: Array.isArray(input.lastSummer.changes) ? input.lastSummer.changes.filter(isObj).slice(0, MAX_SQUAD) : [],
     } : null,
   }
 }

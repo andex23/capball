@@ -1400,6 +1400,126 @@ function BeachTowel() {
   )
 }
 
+
+/* ── Cap Arena: the career top tier ───────────────── */
+
+// Tiered stands all round a pro table, full of fans
+const STAND = { x0: 2.4, z0: 2.0, tiers: 7, depth: 0.6, rise: 0.26, seat: 0.36 }
+
+function arenaCrowd() {
+  const rnd = rand(77)
+  const shirts = ['#1e5bff', '#ffd23f', '#ffffff', '#e53935', '#1e5bff', '#ffd23f', '#43a047', '#111827']
+  const skins = ['#3b2417', '#5a3825', '#7a4a2e', '#8d5a3a', '#a86b45', '#c68b5e']
+  const bodies = []
+  const heads = []
+  for (let t = 0; t < STAND.tiers; t++) {
+    const hx = STAND.x0 + t * STAND.depth + STAND.depth * 0.55
+    const hz = STAND.z0 + t * STAND.depth + STAND.depth * 0.55
+    const y = (t + 1) * STAND.rise
+    const add = (x, z, ry) => {
+      if (rnd() < 0.08) return // the odd empty seat
+      const lean = (rnd() - 0.5) * 0.08
+      const tall = 0.9 + rnd() * 0.2
+      bodies.push({ x, y: y + 0.2 * tall, z, sy: tall, ry: ry + lean, color: shirts[Math.floor(rnd() * shirts.length)] })
+      heads.push({ x, y: y + 0.45 * tall, z, color: skins[Math.floor(rnd() * skins.length)] })
+    }
+    for (let x = -hx + 0.3; x <= hx - 0.3; x += STAND.seat) { add(x, -hz, 0); add(x, hz, Math.PI) }
+    for (let z = -hz + 0.3; z <= hz - 0.3; z += STAND.seat) { add(-hx, z, Math.PI / 2); add(hx, z, -Math.PI / 2) }
+  }
+  return { bodies, heads }
+}
+
+function adBoardTexture() {
+  return canvasTexture(1024, 64, (ctx, w, h) => {
+    const words = ['COUNTERBALL', 'CAP CUP', 'FLICK IT', 'NAIJA FIZZ', 'EKO MOBILE', 'JOLLOF KINGS']
+    const seg = w / words.length
+    words.forEach((word, i) => {
+      ctx.fillStyle = i % 2 ? '#0b1d6b' : '#ffd23f'
+      ctx.fillRect(i * seg, 0, seg, h)
+      ctx.fillStyle = i % 2 ? '#ffd23f' : '#0b1d6b'
+      ctx.font = `italic 900 ${Math.round(h * 0.6)}px "Barlow Condensed", "Arial Narrow", sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(word, i * seg + seg / 2, h / 2, seg - 12)
+    })
+  }, { repeat: [2, 1] })
+}
+
+function CapArenaRoom() {
+  const crowd = useMemo(arenaCrowd, [])
+  const ads = useMemo(adBoardTexture, [])
+  const screen = useMemo(() => neonTexture('CAP ARENA', '#ffd23f'), [])
+  const W = 2 * (STAND.x0 + STAND.tiers * STAND.depth) + 1
+  const D = 2 * (STAND.z0 + STAND.tiers * STAND.depth) + 1
+  const H = (STAND.tiers + 3) * STAND.rise + 2.5
+  return (
+    <InMetres>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[W, D]} />
+        <meshStandardMaterial color="#10183a" roughness={0.85} />
+      </mesh>
+      {/* Gold ring on the floor round the table */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]}>
+        <ringGeometry args={[1.45, 1.52, 64]} />
+        <meshBasicMaterial color="#ffd23f" toneMapped={false} />
+      </mesh>
+      {/* Stepped stands */}
+      {Array.from({ length: STAND.tiers }, (_, t) => {
+        const x = STAND.x0 + t * STAND.depth
+        const z = STAND.z0 + t * STAND.depth
+        const y = (t + 1) * STAND.rise
+        const c = t % 2 ? '#1a2350' : '#202b60'
+        return (
+          <group key={t}>
+            <mesh position={[0, y / 2, -(z + STAND.depth / 2)]}><boxGeometry args={[2 * (x + STAND.depth), y, STAND.depth]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
+            <mesh position={[0, y / 2, z + STAND.depth / 2]}><boxGeometry args={[2 * (x + STAND.depth), y, STAND.depth]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
+            <mesh position={[-(x + STAND.depth / 2), y / 2, 0]}><boxGeometry args={[STAND.depth, y, 2 * z]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
+            <mesh position={[x + STAND.depth / 2, y / 2, 0]}><boxGeometry args={[STAND.depth, y, 2 * z]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
+          </group>
+        )
+      })}
+      {/* Fans */}
+      <Instances items={crowd.bodies}><boxGeometry args={[0.26, 0.34, 0.2]} /><meshStandardMaterial roughness={0.8} /></Instances>
+      <Instances items={crowd.heads}><sphereGeometry args={[0.085, 10, 8]} /><meshStandardMaterial roughness={0.7} /></Instances>
+      {/* LED ad boards in front of the first row */}
+      {[[0, -STAND.z0 + 0.05, 2 * STAND.x0, 0], [0, STAND.z0 - 0.05, 2 * STAND.x0, Math.PI]].map(([x, z, l, ry], i) => (
+        <mesh key={`a${i}`} position={[x, 0.22, z]} rotation-y={ry}><planeGeometry args={[l, 0.36]} /><meshBasicMaterial map={ads} toneMapped={false} /></mesh>
+      ))}
+      {[[-STAND.x0 + 0.05, Math.PI / 2], [STAND.x0 - 0.05, -Math.PI / 2]].map(([x, ry], i) => (
+        <mesh key={`s${i}`} position={[x, 0.22, 0]} rotation-y={ry}><planeGeometry args={[2 * STAND.z0, 0.36]} /><meshBasicMaterial map={ads} toneMapped={false} /></mesh>
+      ))}
+      {/* Big screen over the far stand */}
+      <mesh position={[0, H - 1.4, -D / 2 + 0.2]}><boxGeometry args={[4.2, 1.5, 0.15]} /><meshStandardMaterial color="#05060d" /></mesh>
+      <mesh position={[0, H - 1.4, -D / 2 + 0.29]}><planeGeometry args={[3.9, 1.1]} /><meshBasicMaterial map={screen} transparent toneMapped={false} /></mesh>
+      {/* Floodlight rigs in the corners */}
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
+        <Glow key={`${sx}${sz}`} position={[sx * (W / 2 - 1), H - 0.6, sz * (D / 2 - 1)]} size={0.18} halo={0.9} opacity={0.22} color="#eef3ff" />
+      ))}
+      {/* Roof */}
+      <mesh position={[0, H, 0]} rotation-x={Math.PI / 2}><planeGeometry args={[W, D]} /><meshStandardMaterial color="#070a1c" side={THREE.DoubleSide} /></mesh>
+      <Walls w={W} d={D} h={H} color="#0a0f2a" />
+    </InMetres>
+  )
+}
+
+function CapArenaTable() {
+  return (
+    <group>
+      <TableTop color="#f4f6fb" roughness={0.12} metalness={0.15} thick={1.6} />
+      {/* Gold trim round the lip */}
+      {[[0, TOP_D / 2 + 0.05, TOP_W, 0], [0, -TOP_D / 2 - 0.05, TOP_W, 0]].map(([x, z, l], i) => (
+        <mesh key={i} position={[x, TABLE_TOP - 1.4, z]}><boxGeometry args={[l, 0.3, 0.12]} /><meshBasicMaterial color="#ffd23f" toneMapped={false} /></mesh>
+      ))}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (TOP_W / 2 + 0.05), TABLE_TOP - 1.4, 0]}><boxGeometry args={[0.12, 0.3, TOP_D]} /><meshBasicMaterial color="#ffd23f" toneMapped={false} /></mesh>
+      ))}
+      <mesh position={[0, FLOOR + TABLE_H / 2, 0]}><boxGeometry args={[TOP_W - 10, TABLE_H - 1.6, TOP_D - 10]} /><meshStandardMaterial color="#0b1d6b" roughness={0.35} metalness={0.5} /></mesh>
+      <Trophy position={[-19.5, TABLE_TOP, -13]} s={M * 0.36} />
+      <CapArenaRoom />
+    </group>
+  )
+}
+
 /* ── Picking the venue ─────────────────────────────── */
 
 export default function Venue({ stadium }) {
@@ -1410,6 +1530,7 @@ export default function Venue({ stadium }) {
     case 'bar': return <BarCounter />
     case 'desk': return <SchoolDesk />
     case 'beach': return <BeachTowel />
+    case 'capArena': return <CapArenaTable />
     default: return <GameTable />
   }
 }

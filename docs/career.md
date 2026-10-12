@@ -37,12 +37,13 @@ Windows: pre-season and after league match 5; each has a youth prospect.
 ## Club business (src/game/club.js)
 Football Manager-style finances. All money in units (₦10k); every flow is booked in `biz.ledger` (gate, prize, sponsor, tv, sales / wages, transfers, facilities), reset each summer and kept in `past[].finance`.
 - Wages: `priceOf(p)/20` per player per match, starters and bench (`wageBill`). Paid on every league and cup match.
-- Match day (`matchDay`): home gate = attendance × ticket price; attendance = fans × ticket demand × form, capped at seats. Tickets: cheap ×0.7 price / 1.15 demand, standard ×1 / 0.9, premium ×1.5 / 0.6; base ₦500/700/1,000/1,500 by division.
-- Fans: start 300; wins add 6% of the room left to the division's fan base (2k/6k/15k/40k), draws 2%, losses −2%. Summer: promoted ×1.25, champions ×1.1, cup win ×1.1, relegated ×0.85; capped at 1.2× the new division's base.
-- Sponsor: three offers each summer (steady per match, per win ×2.2, up front ×9) from (8 + 0.6√fans) × (1 + 0.6 × division).
+- Match day (`matchDay`): home gate = attendance × ticket price; attendance = fans × ticket demand × form, capped at the venue's room. Tickets: cheap ×0.7 price / 1.15 demand, standard ×1 / 0.9, premium ×1.5 / 0.6; base ₦2,000/2,800/4,000/6,000 by division.
+- Fans: start 75; wins add 6% of the room left to the division's fan base (500/1.5k/3.75k/10k), draws 2%, losses −2%. Summer: promoted ×1.25, champions ×1.1, cup win ×1.1, relegated ×0.85; capped at 1.2× the new division's base.
+- Sponsor: three offers each summer (steady per match, per win ×2.2, up front ×9) from (8 + 1.2√fans) × (1 + 0.6 × division).
 - TV money at the start of each season: 0 / 150 / 500 / 1,500 by division.
-- Facilities (levels 0–4): stadium 600→12,000 seats (300/1k/3k/8k); training xp ×1→×1.6 on match growth; academy gives a summer graduate with +0/3/6/9 potential (200/600/1.5k/4k each).
-- Youth graduate: sign into a bench slot (that player leaves for his sale value) or release.
+- Venue (key `stadium`, levels 0–4), a real table venue used for home matches: Street corner (street, 150 watching) → Garden (gravel, 400) → Viewing centre (bar, 750) → Game room (arena, 1,500) → Cap Arena (capArena, 3,000; career-only venue with stands). Costs 300/1k/3k/8k. Away matches use the opponent's venue (`matchVenue`: their division, +0/1 by name).
+- Facilities (levels 0–4): training xp ×1→×1.6 on match growth; academy gives a summer graduate with +0/3/6/9 potential (200/600/1.5k/4k each).
+- Squad of up to 15 (`MAX_SQUAD`): starting six + bench of four (the matchday ten) + up to five `reserves`. Reserves are paid, develop in summer (retirees just leave), don't play; `promoteReserve` swaps one into the ten (keeper for keeper), `sellReserve` sells any time. Market signings and academy graduates go into a free reserve place, or replace someone (sold for 60%).
 - In the red (coins < 0): transfers and building frozen (`spendingFrozen`).
 - `clubEconomy.test.js` simulates ten seasons: strong clubs end around ₦100–400m, weak ones stay solvent.
 

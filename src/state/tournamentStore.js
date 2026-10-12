@@ -1,3 +1,4 @@
+import { matchVenue } from '../game/club'
 import { anytimeRequest } from './anytimeStore'
 import { isLagos } from '../platform'
 /**
@@ -30,7 +31,7 @@ const HISTORY_MAX = 30
 const RECENT_MAX = 10
 
 // Prefs a tournament fixture borrows, given back afterwards
-const BORROWED = ['teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'goalTarget', 'chosenTeam1Side', 'team1Side']
+const BORROWED = ['stadium', 'teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'goalTarget', 'chosenTeam1Side', 'team1Side']
 
 const storage = () => {
   try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null }
@@ -341,6 +342,8 @@ export const useTournamentStore = create((set, get) => ({
       chosenTeam1Side: 'left',
       team1Side: 'left',
       formations: { team1: 'default', team2: 'default' },
+      // Career: home matches are at your club's venue, away ones at theirs
+      ...(career ? { stadium: matchVenue(career.biz, home.id === 'T1', levelOf(home.id === 'T1' ? away : home), (home.id === 'T1' ? away : home).name) } : {}),
     })
     useMatchStore.getState().goToScreen(SCREEN.FORMATION)
   },

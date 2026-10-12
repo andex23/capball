@@ -1,7 +1,7 @@
 /**
- * Running the club as a business, the Football Manager way: fans fill the
- * stadium and buy tickets, a sponsor pays, TV money grows with the division;
- * players earn wages every match; the owner invests in the stadium, the
+ * Running the club as a business, the Football Manager way: fans come to
+ * watch at your venue and buy tickets, a sponsor pays, TV money grows with the division;
+ * players earn wages every match; the owner invests in the venue, the
  * training ground and the youth academy. Money is kept in units (₦10,000 —
  * see `money` in squad.js).
  *
@@ -12,13 +12,18 @@ import { priceOf } from './squad'
 
 /* ── Facilities: five levels each (0–4) ── */
 
-export const STADIUM = [
-  { name: 'Community pitch', seats: 600 },
-  { name: 'Small ground', seats: 1_500 },
-  { name: 'Town stadium', seats: 3_000 },
-  { name: 'City stadium', seats: 6_000 },
-  { name: 'National arena', seats: 12_000 },
+// Counterball is a tabletop game, so the "stadium" is where your table is: a
+// better table in a bigger room, with space for more people to watch. Each
+// level is a real venue your home matches are played in.
+export const VENUE = [
+  { name: 'Street corner', venue: 'street', table: 'Folding table on the pavement', seats: 150 },
+  { name: 'Garden', venue: 'gravel', table: 'Picnic table in the compound', seats: 400 },
+  { name: 'Viewing centre', venue: 'bar', table: 'Varnished table at the bar', seats: 750 },
+  { name: 'Game room', venue: 'arena', table: 'Black table under neon lights', seats: 1_500 },
+  { name: 'Cap Arena', venue: 'capArena', table: 'Pro table with stands all round', seats: 3_000 },
 ]
+/** Older name for the same thing. */
+export const STADIUM = VENUE
 export const TRAINING = [
   { name: 'Open field', xp: 1 },
   { name: 'Training pitch', xp: 1.15 },
@@ -33,7 +38,7 @@ export const ACADEMY = [
   { name: 'Category 2 academy', pot: 6 },
   { name: 'Category 1 academy', pot: 9 },
 ]
-export const FACILITIES = { stadium: STADIUM, training: TRAINING, academy: ACADEMY }
+export const FACILITIES = { stadium: VENUE, training: TRAINING, academy: ACADEMY }
 /** What it costs (units) to reach each level. */
 export const UPGRADE_COST = {
   stadium: [0, 300, 1_000, 3_000, 8_000],
@@ -41,10 +46,22 @@ export const UPGRADE_COST = {
   academy: [0, 200, 600, 1_500, 4_000],
 }
 
+/**
+ * Where a career match is played: your own venue at home; away, the other
+ * club's, which is grander the higher the division (the same every time).
+ */
+export function matchVenue(club, home, level = 0, opponentName = '') {
+  if (home) return VENUE[club?.stadium ?? 0]?.venue || VENUE[0].venue
+  let h = 0
+  for (const ch of String(opponentName)) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  const i = Math.max(0, Math.min(VENUE.length - 1, level + (h % 2)))
+  return VENUE[i].venue
+}
+
 /* ── Tickets ── */
 
 // A normal ticket in each division, in naira (bottom to top)
-export const BASE_TICKET = [500, 700, 1_000, 1_500]
+export const BASE_TICKET = [2_000, 2_800, 4_000, 6_000]
 export const TICKETS = {
   cheap: { label: 'Cheap', price: 0.7, demand: 1.15 },
   standard: { label: 'Standard', price: 1, demand: 0.9 },
@@ -55,7 +72,7 @@ export const ticketPrice = (level, ticket) => Math.round((BASE_TICKET[level] ?? 
 /* ── TV money, at the start of each season ── */
 export const TV_MONEY = [0, 150, 500, 1_500]
 
-export const START_FANS = 300
+export const START_FANS = 75
 const NAIRA_PER_UNIT = 10_000
 
 export function newClub(level = 0, seed = 'club') {
@@ -95,8 +112,8 @@ export const book = (club, entries) => {
 /** A player's wage per match (units), rising with his value like real wages (a season's wages ≈ two-thirds of his fee). */
 export const wageOf = (p) => Math.max(1, Math.round(priceOf(p) / 20))
 
-/** The whole squad's wage bill per match (starters and bench). */
-export const wageBill = (squad, bench = []) => [...Object.values(squad || {}), ...(bench || [])].reduce((a, p) => a + (p ? wageOf(p) : 0), 0)
+/** The whole squad's wage bill per match (starters, bench and reserves). */
+export const wageBill = (squad, bench = [], reserves = []) => [...Object.values(squad || {}), ...(bench || []), ...(reserves || [])].reduce((a, p) => a + (p ? wageOf(p) : 0), 0)
 
 /* ── Match day ── */
 
@@ -104,18 +121,18 @@ export const wageBill = (squad, bench = []) => [...Object.values(squad || {}), .
 export function attendance(club, form = 0) {
   const t = TICKETS[club.ticket] || TICKETS.standard
   const want = club.fans * t.demand * (1 + Math.max(-0.2, Math.min(0.2, form)))
-  return Math.max(0, Math.min(STADIUM[club.stadium]?.seats ?? 600, Math.round(want)))
+  return Math.max(0, Math.min(VENUE[club.stadium]?.seats ?? VENUE[0].seats, Math.round(want)))
 }
 
 // How many supporters a club in each division can hope to draw (growth slows as you near it)
-export const FAN_BASE = [2_000, 6_000, 15_000, 40_000]
+export const FAN_BASE = [500, 1_500, 3_750, 10_000]
 
 /** Fans after a result: wins bring people in (less as you near your division's fan base), losses lose a few. */
 export function fansAfter(fans, outcome, level = 0) {
-  const cap = FAN_BASE[level] ?? 2_000
+  const cap = FAN_BASE[level] ?? FAN_BASE[0]
   const room = Math.max(0, cap - fans)
-  const next = outcome === 'win' ? fans + Math.max(3, room * 0.06) : outcome === 'draw' ? fans + room * 0.02 : fans * 0.98
-  return Math.max(100, Math.round(next))
+  const next = outcome === 'win' ? fans + Math.max(1, room * 0.06) : outcome === 'draw' ? fans + room * 0.02 : fans * 0.98
+  return Math.max(25, Math.round(next))
 }
 
 /**
@@ -142,7 +159,7 @@ export function matchDay(club, { home, outcome, prize, level, wages, form = 0 })
 export function sponsorOffers(level, fans, seed) {
   const rng = seededRng(`sponsor:${seed}`)
   // Grows with the size of the club, but more slowly than the crowd (like real shirt deals)
-  const base = (8 + Math.sqrt(Math.max(0, fans)) * 0.6) * (1 + level * 0.6)
+  const base = (8 + Math.sqrt(Math.max(0, fans)) * 1.2) * (1 + level * 0.6)
   const names = ['Mama Put Foods', 'Okada Express', 'Naija Fizz', 'Bukka Hut Caps', 'Danfo Logistics', 'Jollof Kings', 'Suya Spot', 'Eko Mobile', 'Agege Bread Co', 'Island Telecom']
   const pickName = () => names.splice(Math.floor(rng() * names.length), 1)[0]
   const vary = () => 0.9 + rng() * 0.2
@@ -182,12 +199,12 @@ export function fansAfterSeason(fans, outcome, cup, level = 0) {
   if (outcome === 'relegated') f *= 0.85
   if (cup === 'won') f *= 1.1
   // A club can outgrow its division a little, not endlessly
-  return Math.max(100, Math.round(Math.min(f, (FAN_BASE[level] ?? 2_000) * 1.2)))
+  return Math.max(25, Math.round(Math.min(f, (FAN_BASE[level] ?? FAN_BASE[0]) * 1.2)))
 }
 
 /** Club value: the squad's market value plus the ground. */
-export function clubValue(squad, bench, club) {
-  const players = [...Object.values(squad || {}), ...(bench || [])].reduce((a, p) => a + (p ? priceOf(p) : 0), 0)
+export function clubValue(squad, bench, club, reserves = []) {
+  const players = [...Object.values(squad || {}), ...(bench || []), ...(reserves || [])].reduce((a, p) => a + (p ? priceOf(p) : 0), 0)
   const ground = UPGRADE_COST.stadium.slice(0, (club?.stadium ?? 0) + 1).reduce((a, b) => a + b, 0) + UPGRADE_COST.training.slice(0, (club?.training ?? 0) + 1).reduce((a, b) => a + b, 0) + UPGRADE_COST.academy.slice(0, (club?.academy ?? 0) + 1).reduce((a, b) => a + b, 0)
   return players + ground
 }
@@ -204,7 +221,7 @@ export function sanitizeClub(input, level = 0, seed = 'club') {
   const ledger = emptyLedger()
   if (isObj(input.ledger)) for (const k of Object.keys(ledger)) ledger[k] = Math.max(0, num(input.ledger[k]))
   return {
-    fans: Math.max(100, num(input.fans, START_FANS)),
+    fans: Math.max(25, num(input.fans, START_FANS)),
     stadium: lvl(input.stadium),
     training: lvl(input.training),
     academy: lvl(input.academy),

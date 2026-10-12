@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
-import { spendingFrozen, DIVISIONS } from '../game/career'
+import { spendingFrozen, DIVISIONS, MAX_RESERVES } from '../game/career'
 import {
-  STADIUM, TRAINING, ACADEMY, UPGRADE_COST, TICKETS, ticketPrice, attendance, wageBill, ledgerTotals,
+  VENUE, TRAINING, ACADEMY, UPGRADE_COST, TICKETS, ticketPrice, attendance, wageBill, ledgerTotals,
   INCOME, COSTS, LEDGER_LABEL, clubValue, TV_MONEY,
 } from '../game/club'
 import { money, potentialRange, sellValue } from '../game/squad'
@@ -13,7 +13,7 @@ const naira = (n) => money(n / 10_000)
 const people = (n) => Math.round(n).toLocaleString('en-NG')
 
 const FACILITY = [
-  { kind: 'stadium', label: 'Stadium', levels: STADIUM, effect: (l) => `${people(l.seats)} seats` },
+  { kind: 'stadium', label: 'Venue', levels: VENUE, effect: (l) => `${l.table}, room for ${people(l.seats)} to watch` },
   { kind: 'training', label: 'Training ground', levels: TRAINING, effect: (l) => (l.xp > 1 ? `Players improve ${Math.round((l.xp - 1) * 100)}% faster` : 'No boost to development') },
   { kind: 'academy', label: 'Youth academy', levels: ACADEMY, effect: (l) => (l.pot == null ? 'No graduates' : `A graduate each summer${l.pot > 0 ? `, +${l.pot} potential` : ''}`) },
 ]
@@ -31,11 +31,11 @@ export default function ClubPanel({ career }) {
   if (!biz) return null
   const store = useCareerStore.getState()
   const frozen = spendingFrozen(career)
-  const wages = wageBill(career.squad, career.bench)
+  const wages = wageBill(career.squad, career.bench, career.reserves)
   const books = ledgerTotals(biz.ledger)
   const last = biz.lastMatch
   const lastNet = last ? last.gate + last.sponsor + last.prize - last.wages : null
-  const seats = STADIUM[biz.stadium].seats
+  const seats = VENUE[biz.stadium].seats
 
   return (
     <section className="card card-pad club-card" aria-label="Club business">
@@ -47,7 +47,7 @@ export default function ClubPanel({ career }) {
       <dl className="club-facts">
         <div><dt>Fans</dt><dd>{people(biz.fans)}</dd></div>
         <div><dt>Wage bill</dt><dd>{money(wages)} a match</dd></div>
-        <div><dt>Club value</dt><dd>{money(clubValue(career.squad, career.bench, biz))}</dd></div>
+        <div><dt>Club value</dt><dd>{money(clubValue(career.squad, career.bench, biz, career.reserves))}</dd></div>
       </dl>
 
       {frozen && (
@@ -97,7 +97,7 @@ export default function ClubPanel({ career }) {
           )
         })}
       </div>
-      <p className="muted t-note">Cheaper tickets fill more seats. The crowd at home matches also grows as you win.</p>
+      <p className="muted t-note">Your home venue: <b>{VENUE[biz.stadium].name}</b>, {VENUE[biz.stadium].table.toLowerCase()}, with room for {people(seats)} to watch. Cheaper tickets bring more people in, and more come as you win.</p>
 
       <h3 className="squad-sub-h">Sponsor</h3>
       {biz.sponsor ? (
@@ -145,21 +145,32 @@ export default function ClubPanel({ career }) {
 /** Put the academy graduate on the bench in place of someone (who leaves for his value). */
 function YouthSigning({ career, onDone }) {
   const y = career.youthOffer
-  const slots = (career.bench || []).map((p, i) => ({ p, i })).filter(({ p }) => (p.pos === 'GK') === (y.pos === 'GK'))
+  const reserves = career.reserves || []
+  const free = reserves.length < MAX_RESERVES
+  const take = (slot) => { playConfirm(); if (useCareerStore.getState().youth(slot)) onDone() }
+  const slots = [
+    ...(career.bench || []).map((p, i) => ({ p, slot: i, where: 'Bench' })).filter(({ p }) => (p.pos === 'GK') === (y.pos === 'GK')),
+    ...reserves.map((p, i) => ({ p, slot: `reserve:${i}`, where: 'Reserve' })),
+  ]
   return (
     <Modal title={`Sign ${y.name}`} onClose={onDone}>
-      <p className="muted t-note">He takes a place on the bench. Who leaves? You get his sale value.</p>
+      {free ? (
+        <>
+          <p className="muted t-note">There’s room in the reserves ({reserves.length} of {MAX_RESERVES}), so nobody has to leave.</p>
+          <button className="btn btn-gold btn-block" onClick={() => take('reserve')}>Add to the reserves</button>
+          <p className="muted t-note">You can move him into the matchday ten from the squad list.</p>
+        </>
+      ) : <p className="muted t-note">The squad is full (15). Who leaves? You get his sale value.</p>}
       <ul className="squad-list squad-bench">
-        {slots.map(({ p, i }) => (
+        {slots.filter(() => !free).map(({ p, slot, where }) => (
           <li key={p.id}>
-            <span className="squad-role">{p.pos}</span>
-            <span className="squad-name"><span className="squad-name-main">{p.name}</span><small className="squad-stats">Age {p.age} · OVR {p.rating}</small></span>
+            <span className="squad-role">{where === 'Bench' ? p.pos : 'RES'}</span>
+            <span className="squad-name"><span className="squad-name-main">{p.name}</span><small className="squad-stats">{p.pos} · Age {p.age} · OVR {p.rating}</small></span>
             <span />
-            <button className="btn btn-secondary squad-buy" onClick={() => { playConfirm(); if (useCareerStore.getState().youth(i)) onDone() }}>+{money(sellValue(p))}</button>
+            <button className="btn btn-secondary squad-buy" onClick={() => take(slot)}>+{money(sellValue(p))}</button>
           </li>
         ))}
       </ul>
-      {slots.length === 0 && <p className="muted t-note">No bench place for a {y.pos === 'GK' ? 'keeper' : 'outfield player'}.</p>}
     </Modal>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
-import { transferWindow, playedThisSeason, DIVISIONS } from '../game/career'
+import { transferWindow, playedThisSeason, DIVISIONS, MAX_RESERVES, MAX_SQUAD, squadSize } from '../game/career'
 import { formOf, ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER, ATTRS, ATTR_LABEL, potentialRange, ovrAt, migratePlayer, money } from '../game/squad'
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
@@ -31,6 +31,7 @@ function Coins({ n }) {
 export default function SquadPanel({ career }) {
   const [marketOpen, setMarketOpen] = useState(false)
   const [starting, setStarting] = useState(null) // bench index being brought into the six
+  const [reserve, setReserve] = useState(null) // reserve index being moved or sold
   const win = transferWindow(career)
   const played = playedThisSeason(career.league)
   const mine = averageRating(squadRatings(career.squad))
@@ -82,6 +83,25 @@ export default function SquadPanel({ career }) {
         ))}
       </ul>
       <p className="muted t-note">Make up to three substitutions in a match from the pause menu. Players who never get a game slide a little over the summer.</p>
+      <h3 className="squad-sub-h">Reserves · {(career.reserves || []).length} of {MAX_RESERVES}</h3>
+      {(career.reserves || []).length > 0 ? (
+        <ul className="squad-list squad-bench">
+          {career.reserves.map((p, i) => (
+            <li key={p.id}>
+              <span className="squad-role">{p.pos}</span>
+              <span className="squad-name">
+                <span className="squad-name-main">{p.name}</span>
+                <small className="squad-stats">Age {p.age} · POT {potentialRange(p)}</small>
+                <Attrs attrs={p.attrs} />
+              </span>
+              <Rating value={p.rating} />
+              <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setReserve(i) }}>Manage</button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="muted t-note">No reserves yet. Sign players in the transfer window or from your academy to build a squad of up to {MAX_SQUAD}.</p>}
+      <p className="muted t-note">Squad: <b>{squadSize(career)}</b> of {MAX_SQUAD}. Ten make the matchday squad; reserves train and earn wages but don’t play until you bring them in.</p>
+      {reserve != null && career.reserves?.[reserve] && <ManageReserve career={career} index={reserve} onDone={() => setReserve(null)} />}
       {starting != null && career.bench?.[starting] && <StartFromBench career={career} index={starting} onDone={() => setStarting(null)} />}
       {win ? (
         <>
@@ -123,6 +143,34 @@ function StartFromBench({ career, index, onDone }) {
   )
 }
 
+/** A reserve: bring him into the matchday ten (someone drops to the reserves) or sell him. */
+function ManageReserve({ career, index, onDone }) {
+  const p = career.reserves[index]
+  const keeper = p.pos === 'GK'
+  const slots = [
+    ...CAP_ROLES.filter((r) => (r === 'gk') === keeper).map((role) => ({ slot: role, label: ROLE_LABEL[role], out: migratePlayer(career.squad[role], role), here: ovrAt(p, role), was: ovrAt(migratePlayer(career.squad[role], role), role) })),
+    ...(career.bench || []).map((out, i) => ({ slot: `bench:${i}`, label: 'BENCH', out, here: p.rating, was: out.rating })).filter(({ out }) => (out.pos === 'GK') === keeper),
+  ]
+  const store = useCareerStore.getState()
+  return (
+    <Modal title={p.name} onClose={onDone}>
+      <p className="muted t-note">{p.pos} · Age {p.age} · OVR {p.rating} · POT {potentialRange(p)}. Bring him into the matchday ten; the player he replaces drops to the reserves.</p>
+      <ul className="squad-list squad-bench">
+        {slots.map(({ slot, label, out, here, was }) => (
+          <li key={slot}>
+            <span className="squad-role">{label}</span>
+            <span className="squad-name">{out.name} <Rating value={was} /> → <b>{here}</b></span>
+            <span />
+            <button className="btn btn-gold squad-buy" onClick={() => { if (store.promote(index, slot)) { playConfirm(); onDone() } }}>Swap</button>
+          </li>
+        ))}
+      </ul>
+      <button className="btn btn-danger btn-block" onClick={() => { if (store.sellReserve(index)) { playConfirm(); onDone() } }}>Sell for {money(sellValue(p))}</button>
+      <button className="btn btn-ghost btn-block" onClick={onDone}>Cancel</button>
+    </Modal>
+  )
+}
+
 function TransferMarket({ career, market, onClose }) {
   const [buying, setBuying] = useState(null)
   return (
@@ -146,7 +194,7 @@ function TransferMarket({ career, market, onClose }) {
           )
         })}
       </ul>
-      <p className="muted t-note">Fees rise steeply with OVR; young players with room to grow cost more, players over 30 less. Signing a player lets the one in that spot go for 60% of his value. Keepers only replace your keeper; outfield players can play anywhere outfield, at their OVR for that position.</p>
+      <p className="muted t-note">Fees rise steeply with OVR; young players with room to grow cost more, players over 30 less. Add a signing to the reserves while there’s room (a squad of up to 15), or put him straight in and let the player in that spot go for 60% of his value. Keepers only replace your keeper; outfield players can play anywhere outfield, at their OVR for that position.</p>
       {buying && <SignFor career={career} player={buying} onDone={() => setBuying(null)} />}
     </Modal>
   )
@@ -157,6 +205,8 @@ function SignFor({ career, player, onDone }) {
   const fee = priceOf(player)
   const roles = CAP_ROLES.filter((r) => (r === 'gk') === (player.pos === 'GK'))
   const benchSlots = (career.bench || []).map((p, i) => [i, p]).filter(([, p]) => (p.pos === 'GK') === (player.pos === 'GK'))
+  const reserves = career.reserves || []
+  const roomInReserves = reserves.length < MAX_RESERVES
   const [error, setError] = useState(null)
   const sign = (role) => {
     if (useCareerStore.getState().buy(player.id, role)) { playConfirm(); onDone() }
@@ -164,8 +214,13 @@ function SignFor({ career, player, onDone }) {
   }
   return (
     <div className="squad-sign" role="group" aria-label={`Sign ${player.name}`}>
-      <p><b>{player.name}</b> ({player.pos} · {player.rating}) costs <Coins n={fee} />. Who makes way?</p>
-      <ul className="squad-list">
+      <p><b>{player.name}</b> ({player.pos} · {player.rating}) costs <Coins n={fee} />. {roomInReserves ? 'Add him to the reserves, or put him straight in and let someone go.' : 'The squad is full. Who makes way?'}</p>
+      {roomInReserves && (
+        <button className="btn btn-gold btn-block" disabled={career.coins < fee} onClick={() => sign('reserve')}>
+          Add to the reserves ({reserves.length + 1} of {MAX_RESERVES}) · −{money(fee)}
+        </button>
+      )}
+      <ul className="squad-list squad-bench">
         {roles.map((role) => {
           const out = migratePlayer(career.squad[role], role)
           const cost = fee - sellValue(out)
@@ -174,20 +229,22 @@ function SignFor({ career, player, onDone }) {
             <li key={role}>
               <span className="squad-role">{ROLE_LABEL[role]}</span>
               <span className="squad-name">{out.name} <Rating value={ovrAt(out, role)} /> → <b>{ovrAt(player, role)}</b> here</span>
+              <span />
               <button className="btn btn-gold squad-buy" disabled={!afford} onClick={() => sign(role)}>
                 {cost <= 0 ? `+${money(-cost)}` : `−${money(cost)}`}
               </button>
             </li>
           )
         })}
-        {benchSlots.map(([i, out]) => {
+        {[...benchSlots.map(([i, out]) => [`bench:${i}`, 'BENCH', out]), ...reserves.map((out, i) => [`reserve:${i}`, 'RES', out])].map(([slot, label, out]) => {
           const cost = fee - sellValue(out)
           const afford = career.coins >= cost
           return (
-            <li key={`b${i}`}>
-              <span className="squad-role">BENCH</span>
+            <li key={slot}>
+              <span className="squad-role">{label}</span>
               <span className="squad-name">{out.name} <Rating value={out.rating} /></span>
-              <button className="btn btn-gold squad-buy" disabled={!afford} onClick={() => sign(`bench:${i}`)}>
+              <span />
+              <button className="btn btn-gold squad-buy" disabled={!afford} onClick={() => sign(slot)}>
                 {cost <= 0 ? `+${money(-cost)}` : `−${money(cost)}`}
               </button>
             </li>
