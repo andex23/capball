@@ -1,4 +1,5 @@
 import { automaticLanInvite, automaticLanRoomCode } from './lanInvite'
+import { platformHooks } from '../platformHooks'
 import { connectVoice, disconnectVoice, receiveVoice, leaveVoice } from './voiceStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { createLanPeer } from './lan'
@@ -149,7 +150,15 @@ function stopSync() {
 
 /* ── Incoming messages ── */
 
+/** Messages for the host platform (Lagos Life bets), passed on as they are; the platform checks them. */
+function platformMessage(msg) {
+  if (msg?.type !== 'bet' || !isObj(msg.data)) return false
+  platformHooks.onPeerBet?.(msg.data)
+  return true
+}
+
 function handleAsHost(msg) {
+  if (platformMessage(msg)) return
   const store = useMatchStore.getState()
   if (lan && store.onlineReconnect && msg?.type !== 'bye') return
   const action = validateGuestMessage(msg, store)
@@ -169,6 +178,7 @@ function handleAsHost(msg) {
 
 function handleAsGuest(msg) {
   if (!isObj(msg)) return
+  if (platformMessage(msg)) return
   const store = useMatchStore.getState()
   if (msg.type === 'sync' && msg.data) {
     // Do not animate queued state or advance either displayed clock behind recovery.
@@ -615,6 +625,7 @@ if (typeof document !== 'undefined') document.addEventListener('visibilitychange
 
 /* Guest requests (the host ignores anything it doesn't allow) */
 export function sendTeamConfig(config) { send('teamConfig', { config }) }
+export function sendBet(data) { send('bet', data) }
 export function sendFormation(key) { send('formation', { key }) }
 export function sendSelect(capId) { send('select', { capId }) }
 export function sendFlick(capId, velocity) { send('flick', { capId, velocity }) }

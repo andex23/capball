@@ -13,6 +13,7 @@ import { startMenuMusic, stopMenuMusic } from '../audio/MusicManager'
 import { holdIosAudio } from './iosAudio'
 import { isProduct, productIdFor, naira } from '../data/shop'
 import { platformHooks } from '../platformHooks'
+import { sendBet } from '../multiplayer/MultiplayerManager'
 import { switchSaveTo, ownKit } from './ownership'
 import { currentProgress } from '../state/unlocks'
 
@@ -43,6 +44,15 @@ let lastScoreAt = 0
 let resultSent = new Set()
 let matchPoll = null
 
+/** Make or join the bet's match; if Lagos Life says you're already in one, leave the free match and try again. */
+async function openStaked(make) {
+  try { return await make() } catch (e) {
+    if (e?.code === 'cancelled' || e?.code === 'limit' || e?.code === 'friendly_only' || e?.code === 'not_found' || e?.code === 'not_open') throw e
+    await sdk.match.leave().catch(() => {})
+    return make()
+  }
+}
+
 /** A match from Lagos Life, whatever wrapper it arrives in, with players as { id, name }. */
 export function normaliseMatch(raw) {
   const m = raw?.match ?? raw
@@ -52,14 +62,16 @@ export function normaliseMatch(raw) {
 }
 
 /** Bets with a friend, in Lagos Life money (0 is a free match). */
-export const BET_MIN = 100
-export const BET_MAX = 100_000 // Lagos Life's limit per match
-export const BET_PICKS = [100, 500, 1000, 5000]
-/** A bet amount the platform accepts: whole naira, in steps of 50, within the limits. */
+export const BET_MIN = 10_000
+export const BET_MAX = 100_000 // Lagos Life's limit per match (and ₦500,000 a day per player)
+export const BET_STEP = 5_000
+export const BET_PICKS = [10_000, 20_000, 50_000, 100_000]
+/** A bet amount the platform accepts: whole thousands, within the limits. */
 export function cleanStake(n, clamp = true) {
-  const v = Math.round((Number(n) || 0) / 50) * 50
+  const v = Math.round((Number(n) || 0) / 1000) * 1000
   return clamp ? Math.min(BET_MAX, Math.max(BET_MIN, v)) : Math.min(BET_MAX, Math.max(0, v))
 }
+const CODE = /^[A-Z0-9]{6}$/
 /** Lagos Life keeps 5% of the pot; the winner gets the rest. */
 export const potFor = (stake) => Math.floor(stake * 2 * 0.95)
 
@@ -110,8 +122,10 @@ export const useLagosStore = create((set, get) => ({
   owned: [],         // product ids of caps bought (from our server)
   buying: null,      // product id being bought right now
   shopNote: null,    // { tone: 'good' | 'bad', text }
+  bet: null,         // a bet being agreed with the other phone: { side: 'mine' | 'theirs', stake, code?, step }
   botMatch: null,    // the sandbox test match being played against the computer on this phone
-  betNote: null,     // { stake, outcome: 'won' | 'lost' | 'refund' } after a bet settles
+  betNote: null,
+  betError: null,     // { stake, outcome: 'won' | 'lost' | 'refund' } after a bet settles
   justBought: null,  // { productId, state: 'done' | 'pending' | 'failed', text } shows the purchase note
 
   /** Is this cap design bought? */
@@ -378,6 +392,69 @@ export const useLagosStore = create((set, get) => ({
     }
   },
 
+  /* ── Betting with the player you're matched with ── */
+
+  /**
+   * Offer a bet. Lagos Life fixes a match's stake when it's made, so this makes
+   * a new match at that stake (Lagos Life asks you to confirm the money), then
+   * sends its code to the other phone to accept.
+   */
+  async offerBet(amount) {
+    const stake = cleanStake(amount)
+    if (!sdk?.match || get().bet) return
+    set({ bet: { side: 'mine', stake, step: 'confirming' } })
+    try {
+      const m = normaliseMatch(await openStaked(() => sdk.match.create({ stake, seats: 2 })))
+      if (!m?.code) throw Object.assign(new Error('no code'), { code: 'error' })
+      set({ match: m, bet: { side: 'mine', stake, code: m.code, step: 'waiting' } })
+      sendBet({ kind: 'offer', stake, code: m.code })
+    } catch (e) {
+      set({ bet: null, shopNote: null, betError: e?.code === 'cancelled' ? null : sdkMessage(e) })
+    }
+  },
+
+  /** The other phone offered a bet. */
+  receiveBet(data) {
+    const { kind } = data || {}
+    const bet = get().bet
+    if (kind === 'offer' && CODE.test(data.code || '') && Number(data.stake) >= BET_MIN && Number(data.stake) <= BET_MAX && !bet) {
+      set({ bet: { side: 'theirs', stake: cleanStake(data.stake), code: data.code, step: 'asking' } })
+    } else if (kind === 'accept' && bet?.side === 'mine') {
+      set({ bet: { ...bet, step: 'on' } })
+    } else if ((kind === 'decline' || kind === 'withdraw') && bet && bet.step !== 'on') {
+      if (bet.side === 'mine') sdk?.match?.leave?.().catch(() => {}) // not started: Lagos Life gives the stake back
+      set({ bet: null, betError: kind === 'decline' ? 'They said no to the bet. Play on for free.' : 'They took the bet back.' })
+    }
+  },
+
+  async acceptBet() {
+    const bet = get().bet
+    if (bet?.side !== 'theirs' || bet.step !== 'asking') return
+    set({ bet: { ...bet, step: 'confirming' } })
+    try {
+      const m = normaliseMatch(await openStaked(() => sdk.match.join(bet.code)))
+      set({ match: m, bet: { ...bet, step: 'on' } })
+      sendBet({ kind: 'accept' })
+    } catch (e) {
+      sendBet({ kind: 'decline' })
+      set({ bet: null, betError: e?.code === 'cancelled' ? null : sdkMessage(e) })
+    }
+  },
+
+  declineBet() {
+    if (get().bet?.side === 'theirs') sendBet({ kind: 'decline' })
+    set({ bet: null })
+  },
+
+  /** Take back an offer nobody has accepted yet. */
+  withdrawBet() {
+    const bet = get().bet
+    if (bet?.side !== 'mine' || bet.step === 'on') return
+    sendBet({ kind: 'withdraw' })
+    sdk?.match?.leave?.().catch(() => {})
+    set({ bet: null })
+  },
+
   /** Sandbox only: play the test opponent's seat against the computer on this phone. */
   playTestOpponent() {
     const { match, mode } = get()
@@ -402,7 +479,8 @@ export const useLagosStore = create((set, get) => ({
 /** Count wins and report friend-match results as matches end. */
 export function watchMatches() {
   // Leaving a bet mid-match loses it, and the pause menu says so first
-  platformHooks.onOnlineQuit = () => useLagosStore.getState().concede()
+  platformHooks.onOnlineQuit = () => { useLagosStore.getState().concede(); useLagosStore.setState({ bet: null }) }
+  platformHooks.onPeerBet = (data) => useLagosStore.getState().receiveBet(data)
   platformHooks.leaveWarning = () => {
     const m = useLagosStore.getState().match
     return m?.status === 'playing' && Number(m.stake) > 0 ? `Leaving now loses your ${naira(Number(m.stake))} bet.` : null
