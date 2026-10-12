@@ -1,6 +1,6 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
 import { PHYSICS, PITCH } from '../data/TeamData'
-import { flickScale, aimWobble } from './squad'
+import { flickScale, aimWobble, powerScale, flickWobble } from './squad'
 import { applyFlick, getBody, diveKeeper, radiusOf } from '../physics/PhysicsWorld'
 import { strikeDirection, crossingY, cpuDive } from './penalty'
 import { playDive } from '../audio/SoundManager'
@@ -31,16 +31,27 @@ export function flickError(state, { capId, velocity, byTeam = null, ball = null 
   return null
 }
 
-/** How hard this cap flicks compared with an average player: 1 unless the team has ratings. */
-export function flickScaleFor(state, capId) {
+/** A career player's attributes for this cap, or null. */
+function attrsFor(state, capId) {
   const i = capId.indexOf('_')
-  const team = capId.slice(0, i)
-  const role = capId.slice(i + 1)
-  return flickScale(state.teamConfig?.[team]?.ratings?.[role])
+  return state.teamConfig?.[capId.slice(0, i)]?.attrs?.[capId.slice(i + 1)] || null
 }
 
-/** The most this cap's aim can stray, in degrees (0 unless the team has ratings). */
-export function aimWobbleFor(state, capId) {
+/** How hard this cap flicks compared with an average player: his PWR (career), 1 otherwise. */
+export function flickScaleFor(state, capId) {
+  const a = attrsFor(state, capId)
+  if (a) return powerScale(a.pwr)
+  const i = capId.indexOf('_')
+  return flickScale(state.teamConfig?.[capId.slice(0, i)]?.ratings?.[capId.slice(i + 1)])
+}
+
+/**
+ * The most this cap's aim can stray, in degrees: his PAS for a soft pass,
+ * SHT for a hard shot (career); 0 in ordinary matches.
+ */
+export function aimWobbleFor(state, capId, power = 1) {
+  const a = attrsFor(state, capId)
+  if (a) return flickWobble(a, power)
   const i = capId.indexOf('_')
   return aimWobble(state.teamConfig?.[capId.slice(0, i)]?.ratings?.[capId.slice(i + 1)])
 }
@@ -62,7 +73,8 @@ export function performFlick(capId, velocity, byTeam = null) {
   // A better player flicks harder (career squads); scale the power and its cap together
   const scale = flickScaleFor(state, capId)
   // ...and aims steadier: a lower-rated player's flick can stray a degree or two (never a penalty)
-  const v = state.penaltyKick ? velocity : wobble(velocity, aimWobbleFor(state, capId))
+  const power = Math.min(1, Math.hypot(velocity.x, velocity.y) / PHYSICS.maxFlickVelocity)
+  const v = state.penaltyKick ? velocity : wobble(velocity, aimWobbleFor(state, capId, power))
   applyFlick(capId, { x: v.x * scale, y: v.y * scale }, PHYSICS.maxFlickVelocity * scale) // clamps to max power
   if (state.penaltyKick) keeperDives(state, capId, velocity)
   state.commitFlick(capId)

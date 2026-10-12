@@ -150,7 +150,7 @@ export function recordCupResult(career, fixtureId, result) {
   const home = mine?.home === ME
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
-  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga) : 0
+  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga, career.level) : 0
   return { ...career, cup: { ...career.cup, tournament: after }, coins: (career.coins ?? 0) + earned, lastEarned: earned }
 }
 
@@ -278,7 +278,7 @@ export function recordCareerResult(career, fixtureId, result) {
   const home = mine?.home === ME
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
-  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga) : 0
+  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga, career.level) : 0
   return { ...career, league, coins: (career.coins ?? 0) + earned, lastEarned: earned }
 }
 

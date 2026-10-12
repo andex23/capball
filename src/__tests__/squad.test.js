@@ -5,10 +5,10 @@ import { newCareer, transferWindow, buyPlayer, recordCareerResult, finishSeason,
 const club = { name: 'Test FC', primary: '#123456', edge: '#FFFFFF' }
 
 describe('squad', () => {
-  it('flick power scales with rating around an average player', () => {
-    expect(flickScale(50)).toBeCloseTo(1, 1)
-    expect(flickScale(1)).toBeCloseTo(0.84, 2)
-    expect(flickScale(99)).toBeCloseTo(1.16, 2)
+  it('flick power scales with PWR around a 70', () => {
+    expect(flickScale(70)).toBeCloseTo(1, 2)
+    expect(flickScale(45)).toBeCloseTo(0.88, 2)
+    expect(flickScale(95)).toBeCloseTo(1.12, 2)
     expect(flickScale(undefined)).toBe(1)
   })
 
@@ -26,10 +26,10 @@ describe('squad', () => {
 
   it('signing swaps the player, charges the fee and refunds the sale', () => {
     const s = startingSquad('x')
-    const player = { id: 'p1', name: 'New Guy', keeper: false, rating: 55 }
+    const player = { id: 'p1', name: 'New Guy', pos: 'ATK', keeper: false, age: 25, rating: 55, pot: 58, attrs: { pwr: 58, sht: 60, pas: 50, phy: 45 } }
     const deal = signPlayer(s, 1000, player, 'atk1')
     expect(deal.squad.atk1.name).toBe('New Guy')
-    expect(deal.coins).toBe(1000 - priceOf(55) + sellValue(s.atk1.rating))
+    expect(deal.coins).toBe(1000 - priceOf(player) + sellValue(s.atk1))
     expect(signPlayer(s, 0, player, 'atk1')).toBeNull()       // can't afford
     expect(signPlayer(s, 1000, player, 'gk')).toBeNull()      // outfielder in goal
   })
@@ -61,7 +61,8 @@ describe('squad', () => {
 
   it('sanitizeSquad repairs junk', () => {
     const s = sanitizeSquad({ gk: { name: 'Ok', rating: 300 }, def1: 'junk' })
-    expect(s.gk.rating).toBe(99)
+    expect(s.gk.rating).toBeGreaterThan(90)
+    expect(s.gk.attrs).toBeTruthy()
     expect(s.def1.name).toBeTruthy()
     expect(Object.keys(squadRatings(s))).toHaveLength(6)
   })
@@ -131,17 +132,18 @@ describe('match ratings and growth', () => {
     expect(loss.def1).toBeLessThan(5)
   })
 
-  it('a match adds apps, goals and form; great games can raise a rating', async () => {
+  it('a match adds apps, goals and form; good games build experience until a player steps up', async () => {
     const { applyMatchToSquad, startingSquad, formOf } = await import('../game/squad')
-    const squad = startingSquad('g')
-    let grew = 0
-    for (let i = 0; i < 20; i++) {
-      const r = applyMatchToSquad(squad, { ratings: { gk: 6, def1: 6, def2: 6, mid: 6, atk1: 9, atk2: 6 }, goalsByRole: { atk1: 2 }, seed: `s${i}` })
-      if (r.squad.atk1.rating > squad.atk1.rating) grew++
-      expect(r.squad.mid.rating).toBe(squad.mid.rating) // an average game doesn't move anyone
-      expect(r.squad.atk1).toMatchObject({ apps: 1, goals: 2 })
-      expect(formOf(r.squad.atk1)).toBe(9)
-    }
-    expect(grew).toBeGreaterThan(10)
+    let squad = startingSquad('g')
+    squad = { ...squad, atk1: { ...squad.atk1, age: 21, pot: squad.atk1.rating + 10 } }
+    const start = squad.atk1.rating
+    const r = applyMatchToSquad(squad, { ratings: { gk: 6, def1: 6, def2: 6, mid: 6.3, atk1: 9, atk2: 6 }, goalsByRole: { atk1: 2 }, seed: 's' })
+    expect(r.squad.atk1).toMatchObject({ apps: 1, goals: 2 })
+    expect(formOf(r.squad.atk1)).toBe(9)
+    expect(r.squad.atk1.rating).toBe(start + 1) // a 9/10 game is enough for a 21-year-old under his potential
+    expect(r.squad.mid.rating).toBe(squad.mid.rating) // an average game doesn't move anyone
+    // ...but never past his potential
+    const capped = { ...squad, atk1: { ...squad.atk1, pot: squad.atk1.rating } }
+    expect(applyMatchToSquad(capped, { ratings: { atk1: 9 }, seed: 't' }).squad.atk1.rating).toBe(start)
   })
 })
