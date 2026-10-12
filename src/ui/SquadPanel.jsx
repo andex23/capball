@@ -1,92 +1,104 @@
 import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
-import { transferWindow, playedThisSeason, DIVISIONS, MAX_RESERVES, MAX_SQUAD, squadSize } from '../game/career'
-import { formOf, ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER, ATTRS, ATTR_LABEL, potentialRange, ovrAt, migratePlayer, money } from '../game/squad'
+import { DIVISIONS } from '../game/career'
+import {
+  transferWindow, playedThisSeason, squadSize, MAX_SQUAD, YOUTH_MAX, inSlot, offersFor, loanClub, releaseCost, valueOf,
+} from '../game/transfers'
+import { wageOf } from '../game/club'
+import { formOf, ROLE_LABEL, squadRatings, averageRating, WINDOW_AFTER, potentialRange, ovrAt, migratePlayer, money } from '../game/squad'
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
 import Icon from './Icon'
+import { Rating, Attrs, Coins, DIV_SHORT } from './PlayerBits'
+import TransferMarket from './TransferMarket'
 
-function Rating({ value }) {
-  const tier = value >= 75 ? 'gold' : value >= 65 ? 'silver' : 'bronze' // EA FC card colours
-  return <span className="squad-rating" data-tier={tier} aria-label={`Rating ${value}`}>{value}</span>
+const DEAL_LINE = {
+  in: (d) => `Signed ${d.name}${d.club ? ` from ${d.club}` : ' on a free'} · ${money(d.fee)}`,
+  out: (d) => `Sold ${d.name} to ${d.club} · ${money(d.fee)}`,
+  released: (d) => `Released ${d.name} · paid ${money(d.fee)}`,
+  loan: (d) => `Loaned ${d.name} to ${d.club}`,
 }
 
-/** PWR · SHT · PAS · PHY, small. */
-function Attrs({ attrs }) {
-  if (!attrs) return null
-  return (
-    <span className="squad-attrs">
-      {ATTRS.map((k) => <span key={k}><small>{ATTR_LABEL[k]}</small>{attrs[k]}</span>)}
-    </span>
-  )
-}
-
-/** Club money, in naira. */
-function Coins({ n }) {
-  return <span className="squad-coins squad-naira">{money(n)}</span>
-}
-
-/** Your six players, your club budget and the transfer window. */
+/** Your squad of up to fifteen, the youth team, players out on loan and the transfer market. */
 export default function SquadPanel({ career }) {
   const [marketOpen, setMarketOpen] = useState(false)
   const [starting, setStarting] = useState(null) // bench index being brought into the six
-  const [reserve, setReserve] = useState(null) // reserve index being moved or sold
+  const [manage, setManage] = useState(null)     // slot of the player being managed
+  const [youth, setYouth] = useState(null)       // youth-team index being managed
   const win = transferWindow(career)
   const played = playedThisSeason(career.league)
   const mine = averageRating(squadRatings(career.squad))
-  const rivals = career.league.teams.filter((t) => t.cpu)
-  const leagueAvg = rivals.length ? Math.round(rivals.reduce((a, t) => a + averageRating(clubRatings(career.level, t.name)), 0) / rivals.length) : 0
+  const rivals = career.league.teams.filter((t) => t.cpu && Number.isFinite(t.ovr))
+  const leagueAvg = rivals.length ? Math.round(rivals.reduce((a, t) => a + t.ovr, 0) / rivals.length) : null
   const opensAt = WINDOW_AFTER.find((n) => n > played)
+  const size = squadSize(career)
   const shutLine = opensAt != null
-    ? `The transfer window opens after matchday ${opensAt}.`
-    : 'The transfer window opens again before next season.'
+    ? `The transfer window opens after matchday ${opensAt}. Free agents can sign any time.`
+    : 'The transfer window opens again before next season. Free agents can sign any time.'
+  const row = (slot, p, label, extra = null) => (
+    <li key={slot}>
+      <span className="squad-role">{label}</span>
+      <span className="squad-name">
+        <span className="squad-name-main">{p.name}</span>
+        <small className="squad-stats">{p.pos !== label && label !== 'BENCH' && label !== 'RES' ? `${p.pos} playing ${label} · ` : ''}Age {p.age} · POT {potentialRange(p)}{p.apps > 0 ? ` · ${p.goals || 0} goal${p.goals === 1 ? '' : 's'} · form ${formOf(p)}` : ''}</small>
+        <Attrs attrs={p.attrs} />
+      </span>
+      <Rating value={CAP_ROLES.includes(slot) ? ovrAt(p, slot) : p.rating} />
+      <span className="squad-actions">
+        {extra}
+        <button className="btn btn-secondary squad-buy" aria-label={`Manage ${p.name}`} onClick={() => { playButtonSelect(); setManage(slot) }}>
+          <Icon name="settings" size={14} />
+        </button>
+      </span>
+    </li>
+  )
 
   return (
     <section className="card card-pad squad-card" aria-label="Squad">
       <div className="squad-head">
-        <h2 className="saved-h">Starting six</h2>
+        <h2 className="saved-h">Squad <small className="squad-count" data-full={size >= MAX_SQUAD ? 'true' : undefined}>{size} of {MAX_SQUAD}</small></h2>
         <Coins n={career.coins} />
       </div>
-      <p className="muted t-note">PWR: how hard he flicks · SHT: how straight a hard flick goes · PAS: how straight a soft one goes · PHY: how hard he is to knock aside. Your OVR is <b>{mine}</b>; the {DIVISIONS[career.level].name} averages <b>{leagueAvg}</b>.</p>
-      <ul className="squad-list">
-        {CAP_ROLES.map((role) => {
-          const p = migratePlayer(career.squad[role], role)
-          const here = ovrAt(p, role)
-          return (
-            <li key={role}>
-              <span className="squad-role">{ROLE_LABEL[role]}</span>
-              <span className="squad-shirt">{career.club.numbers?.[role] ?? ''}</span>
-              <span className="squad-name">
-                <span className="squad-name-main">{p.name}</span>
-                <small className="squad-stats">{p.pos !== ROLE_LABEL[role] ? `${p.pos} playing ${ROLE_LABEL[role]} · ` : ''}Age {p.age} · POT {potentialRange(p)}{p.apps > 0 ? ` · ${p.goals || 0} goal${p.goals === 1 ? '' : 's'} · form ${formOf(p)}` : ''}</small>
-                <Attrs attrs={p.attrs} />
-              </span>
-              <Rating value={here} />
-            </li>
-          )
-        })}
+      <p className="muted t-note">Six start and four sit on the bench; up to five more are reserves. PWR: how hard he flicks · SHT: how straight a hard flick goes · PAS: how straight a soft one goes · PHY: how hard he is to knock aside. Your OVR is <b>{mine}</b>{leagueAvg ? <>; the {DIVISIONS[career.level].name} averages <b>{leagueAvg}</b></> : null}.</p>
+
+      <h3 className="squad-sub-h">Starting six</h3>
+      <ul className="squad-list squad-rows">
+        {CAP_ROLES.map((role) => row(role, migratePlayer(career.squad[role], role), ROLE_LABEL[role]))}
       </ul>
+
       <h3 className="squad-sub-h">Bench</h3>
-      <ul className="squad-list squad-bench">
-        {(career.bench || []).map((p, i) => (
-          <li key={p.id}>
-            <span className="squad-role">{p.pos}</span>
-            <span className="squad-name">
-              <span className="squad-name-main">{p.name}</span>
-              <small className="squad-stats">Age {p.age} · POT {potentialRange(p)}{p.apps > 0 ? ` · ${p.apps} app${p.apps === 1 ? '' : 's'}` : ' · no games yet'}</small>
-              <Attrs attrs={p.attrs} />
-            </span>
-            <Rating value={p.rating} />
-            <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setStarting(i) }}>Start</button>
-          </li>
-        ))}
+      <ul className="squad-list squad-rows">
+        {(career.bench || []).map((p, i) => row(`bench:${i}`, p, p.pos,
+          <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setStarting(i) }}>Start</button>))}
       </ul>
       <p className="muted t-note">Make up to three substitutions in a match from the pause menu. Players who never get a game slide a little over the summer.</p>
-      <h3 className="squad-sub-h">Reserves · {(career.reserves || []).length} of {MAX_RESERVES}</h3>
-      {(career.reserves || []).length > 0 ? (
-        <ul className="squad-list squad-bench">
-          {career.reserves.map((p, i) => (
+
+      <h3 className="squad-sub-h">Reserves</h3>
+      {(career.reserves || []).length > 0
+        ? <ul className="squad-list squad-rows">{career.reserves.map((p, i) => row(`reserve:${i}`, p, p.pos))}</ul>
+        : <p className="muted t-note">No reserves. Sign players from the market or promote from the youth team, up to a squad of {MAX_SQUAD}.</p>}
+      {size > MAX_SQUAD && <p className="club-alert" role="alert">Your squad is over {MAX_SQUAD} after loans came back. Sell, release or loan out {size - MAX_SQUAD} before you can sign anyone.</p>}
+
+      {(career.loans || []).length > 0 && (
+        <>
+          <h3 className="squad-sub-h">Out on loan</h3>
+          <ul className="squad-list squad-simple">
+            {career.loans.map((l) => (
+              <li key={l.player.id}>
+                <span className="squad-role">{l.player.pos}</span>
+                <span className="squad-name"><span className="squad-name-main">{l.player.name}</span><small className="squad-stats">At {l.club} ({DIVISIONS[l.level]?.name}) until the summer</small></span>
+                <Rating value={l.player.rating} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <h3 className="squad-sub-h">Youth team · {(career.youthTeam || []).length} of {YOUTH_MAX}</h3>
+      {(career.youthTeam || []).length > 0 ? (
+        <ul className="squad-list squad-rows">
+          {career.youthTeam.map((p, i) => (
             <li key={p.id}>
               <span className="squad-role">{p.pos}</span>
               <span className="squad-name">
@@ -95,26 +107,35 @@ export default function SquadPanel({ career }) {
                 <Attrs attrs={p.attrs} />
               </span>
               <Rating value={p.rating} />
-              <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setReserve(i) }}>Manage</button>
+              <span className="squad-actions">
+                <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setYouth(i) }}>
+                  <Icon name="settings" size={14} />
+                </button>
+              </span>
             </li>
           ))}
         </ul>
-      ) : <p className="muted t-note">No reserves yet. Sign players in the transfer window or from your academy to build a squad of up to {MAX_SQUAD}.</p>}
-      <p className="muted t-note">Squad: <b>{squadSize(career)}</b> of {MAX_SQUAD}. Ten make the matchday squad; reserves train and earn wages but don’t play until you bring them in.</p>
-      {reserve != null && career.reserves?.[reserve] && <ManageReserve career={career} index={reserve} onDone={() => setReserve(null)} />}
-      {starting != null && career.bench?.[starting] && <StartFromBench career={career} index={starting} onDone={() => setStarting(null)} />}
-      {win ? (
-        <>
-          <p className="t-note squad-window">The {win.index === 0 ? 'pre-season' : 'mid-season'} transfer window is open.</p>
-          <button className="btn btn-gold btn-block" onClick={() => { playButtonSelect(); setMarketOpen(true) }}>
-            <Icon name="next" size={18} /> Transfer market
-          </button>
-        </>
-      ) : (
-        <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>
+      ) : <p className="muted t-note">The youth team is empty. Your academy sends up new players every summer.</p>}
+      <p className="muted t-note">Youth players don’t count towards the {MAX_SQUAD} and aren’t paid. They grow fast; promote them when they’re ready. At 19 they must move up or leave.</p>
+
+      {win
+        ? <p className="t-note squad-window">The {win.index === 0 ? 'pre-season' : 'mid-season'} transfer window is open.</p>
+        : <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>}
+      <button className="btn btn-gold btn-block" onClick={() => { playButtonSelect(); setMarketOpen(true) }}>
+        <Icon name="next" size={18} /> Transfer market
+      </button>
+
+      {(career.deals || []).length > 0 && (
+        <ul className="club-lines squad-deals" aria-label="Recent transfers">
+          {career.deals.slice(0, 4).map((d, i) => <li key={i}><span>{DEAL_LINE[d.type]?.(d)}</span></li>)}
+        </ul>
       )}
-      {career.biz?.lastMatch && <p className="muted t-note">Last match: <Coins n={career.lastEarned} /> after wages. A win pays {money(60)} in prize money, a draw {money(25)}, a loss {money(10)}, plus {money(5)} a goal; each division up pays half as much again. The full books are under Club business.</p>}
-      {marketOpen && win && <TransferMarket career={career} market={win.market} onClose={() => setMarketOpen(false)} />}
+      {career.biz?.lastMatch && <p className="muted t-note">Last match: <Coins n={career.lastEarned} /> after wages. The full books are under Club business.</p>}
+
+      {starting != null && career.bench?.[starting] && <StartFromBench career={career} index={starting} onDone={() => setStarting(null)} />}
+      {manage && inSlot(career, manage) && <PlayerSheet career={career} slot={manage} onDone={() => setManage(null)} />}
+      {youth != null && career.youthTeam?.[youth] && <YouthSheet career={career} index={youth} onDone={() => setYouth(null)} />}
+      {marketOpen && <TransferMarket career={career} onClose={() => setMarketOpen(false)} />}
     </section>
   )
 }
@@ -126,7 +147,7 @@ function StartFromBench({ career, index, onDone }) {
   return (
     <Modal title={`Start ${p.name}`} onClose={onDone}>
       <p className="muted t-note">{p.pos} · OVR {p.rating}. Who drops to the bench?</p>
-      <ul className="squad-list">
+      <ul className="squad-list squad-simple">
         {roles.map((role) => {
           const out = migratePlayer(career.squad[role], role)
           return (
@@ -143,117 +164,104 @@ function StartFromBench({ career, index, onDone }) {
   )
 }
 
-/** A reserve: bring him into the matchday ten (someone drops to the reserves) or sell him. */
-function ManageReserve({ career, index, onDone }) {
-  const p = career.reserves[index]
-  const keeper = p.pos === 'GK'
-  const slots = [
-    ...CAP_ROLES.filter((r) => (r === 'gk') === keeper).map((role) => ({ slot: role, label: ROLE_LABEL[role], out: migratePlayer(career.squad[role], role), here: ovrAt(p, role), was: ovrAt(migratePlayer(career.squad[role], role), role) })),
-    ...(career.bench || []).map((out, i) => ({ slot: `bench:${i}`, label: 'BENCH', out, here: p.rating, was: out.rating })).filter(({ out }) => (out.pos === 'GK') === keeper),
-  ]
+/** One of your players: his details, and selling, loaning, releasing or moving him. */
+function PlayerSheet({ career, slot, onDone }) {
+  const [error, setError] = useState(null)
+  const [confirmRelease, setConfirmRelease] = useState(false)
+  const p = inSlot(career, slot)
   const store = useCareerStore.getState()
+  const win = transferWindow(career)
+  const isReserve = slot.startsWith('reserve:')
+  const where = isReserve ? 'Reserves' : slot.startsWith('bench:') ? 'Bench' : `Starting six · ${ROLE_LABEL[slot]}`
+  const offers = offersFor(career, slot)
+  const loanTo = win ? loanClub(career, slot) : null
+  const run = (r) => { if (r === true) { playConfirm(); onDone() } else setError(r?.error || 'That can’t be done.') }
+  // A reserve can come into the ten in place of a starter or bench player (keeper for keeper)
+  const keeper = p.pos === 'GK'
+  const swaps = isReserve ? [
+    ...CAP_ROLES.filter((r) => (r === 'gk') === keeper).map((role) => ({ to: role, label: ROLE_LABEL[role], out: migratePlayer(career.squad[role], role), here: ovrAt(p, role), was: ovrAt(migratePlayer(career.squad[role], role), role) })),
+    ...(career.bench || []).map((out, i) => ({ to: `bench:${i}`, label: 'BENCH', out, here: p.rating, was: out.rating })).filter(({ out }) => (out.pos === 'GK') === keeper),
+  ] : []
   return (
     <Modal title={p.name} onClose={onDone}>
-      <p className="muted t-note">{p.pos} · Age {p.age} · OVR {p.rating} · POT {potentialRange(p)}. Bring him into the matchday ten; the player he replaces drops to the reserves.</p>
-      <ul className="squad-list squad-bench">
-        {slots.map(({ slot, label, out, here, was }) => (
-          <li key={slot}>
-            <span className="squad-role">{label}</span>
-            <span className="squad-name">{out.name} <Rating value={was} /> → <b>{here}</b></span>
-            <span />
-            <button className="btn btn-gold squad-buy" onClick={() => { if (store.promote(index, slot)) { playConfirm(); onDone() } }}>Swap</button>
-          </li>
-        ))}
-      </ul>
-      <button className="btn btn-danger btn-block" onClick={() => { if (store.sellReserve(index)) { playConfirm(); onDone() } }}>Sell for {money(sellValue(p))}</button>
-      <button className="btn btn-ghost btn-block" onClick={onDone}>Cancel</button>
-    </Modal>
-  )
-}
+      <div className="player-card">
+        <Rating value={CAP_ROLES.includes(slot) ? ovrAt(p, slot) : p.rating} />
+        <div>
+          <p className="player-card-line"><b>{p.pos}</b> · Age {p.age} · POT {potentialRange(p)} · {where}</p>
+          <Attrs attrs={p.attrs} />
+          <p className="muted t-note">Value {money(valueOf(p))} · Wages {money(wageOf(p))} a match{p.apps ? ` · ${p.apps} app${p.apps === 1 ? '' : 's'}, ${p.goals || 0} goal${p.goals === 1 ? '' : 's'}` : ''}</p>
+        </div>
+      </div>
 
-function TransferMarket({ career, market, onClose }) {
-  const [buying, setBuying] = useState(null)
-  return (
-    <Modal title="Transfer market" onClose={onClose}>
-      <div className="squad-head"><span className="muted">Club budget</span><Coins n={career.coins} /></div>
-      {market.length === 0 && <p className="muted">You’ve signed everyone on offer this window.</p>}
-      <ul className="squad-list squad-market">
-        {market.map((p) => {
-          const fee = priceOf(p)
-          return (
-            <li key={p.id}>
-              <span className="squad-role">{p.pos}</span>
-              <span className="squad-name">
-                <span className="squad-name-main">{p.name}</span>
-                <small className="squad-stats">Age {p.age} · POT {potentialRange(p)}{p.youth ? ' · youth prospect' : ''}</small>
-                <Attrs attrs={p.attrs} />
-              </span>
-              <Rating value={p.rating} />
-              <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setBuying(p) }}><Coins n={fee} /></button>
-            </li>
-          )
-        })}
-      </ul>
-      <p className="muted t-note">Fees rise steeply with OVR; young players with room to grow cost more, players over 30 less. Add a signing to the reserves while there’s room (a squad of up to 15), or put him straight in and let the player in that spot go for 60% of his value. Keepers only replace your keeper; outfield players can play anywhere outfield, at their OVR for that position.</p>
-      {buying && <SignFor career={career} player={buying} onDone={() => setBuying(null)} />}
-    </Modal>
-  )
-}
-
-/** Pick who makes way for the new signing. */
-function SignFor({ career, player, onDone }) {
-  const fee = priceOf(player)
-  const roles = CAP_ROLES.filter((r) => (r === 'gk') === (player.pos === 'GK'))
-  const benchSlots = (career.bench || []).map((p, i) => [i, p]).filter(([, p]) => (p.pos === 'GK') === (player.pos === 'GK'))
-  const reserves = career.reserves || []
-  const roomInReserves = reserves.length < MAX_RESERVES
-  const [error, setError] = useState(null)
-  const sign = (role) => {
-    if (useCareerStore.getState().buy(player.id, role)) { playConfirm(); onDone() }
-    else setError('Not enough in the club budget for that deal.')
-  }
-  return (
-    <div className="squad-sign" role="group" aria-label={`Sign ${player.name}`}>
-      <p><b>{player.name}</b> ({player.pos} · {player.rating}) costs <Coins n={fee} />. {roomInReserves ? 'Add him to the reserves, or put him straight in and let someone go.' : 'The squad is full. Who makes way?'}</p>
-      {roomInReserves && (
-        <button className="btn btn-gold btn-block" disabled={career.coins < fee} onClick={() => sign('reserve')}>
-          Add to the reserves ({reserves.length + 1} of {MAX_RESERVES}) · −{money(fee)}
-        </button>
+      {swaps.length > 0 && (
+        <>
+          <h3 className="squad-sub-h">Bring him into the matchday ten</h3>
+          <ul className="squad-list squad-simple">
+            {swaps.map(({ to, label, out, here, was }) => (
+              <li key={to}>
+                <span className="squad-role">{label}</span>
+                <span className="squad-name">{out.name} <Rating value={was} /> → <b>{here}</b></span>
+                <button className="btn btn-gold squad-buy" onClick={() => { if (store.promote(Number(slot.split(':')[1]), to)) { playConfirm(); onDone() } }}>Swap</button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-      <ul className="squad-list squad-bench">
-        {roles.map((role) => {
-          const out = migratePlayer(career.squad[role], role)
-          const cost = fee - sellValue(out)
-          const afford = career.coins >= cost
-          return (
-            <li key={role}>
-              <span className="squad-role">{ROLE_LABEL[role]}</span>
-              <span className="squad-name">{out.name} <Rating value={ovrAt(out, role)} /> → <b>{ovrAt(player, role)}</b> here</span>
-              <span />
-              <button className="btn btn-gold squad-buy" disabled={!afford} onClick={() => sign(role)}>
-                {cost <= 0 ? `+${money(-cost)}` : `−${money(cost)}`}
-              </button>
-            </li>
-          )
-        })}
-        {[...benchSlots.map(([i, out]) => [`bench:${i}`, 'BENCH', out]), ...reserves.map((out, i) => [`reserve:${i}`, 'RES', out])].map(([slot, label, out]) => {
-          const cost = fee - sellValue(out)
-          const afford = career.coins >= cost
-          return (
-            <li key={slot}>
-              <span className="squad-role">{label}</span>
-              <span className="squad-name">{out.name} <Rating value={out.rating} /></span>
-              <span />
-              <button className="btn btn-gold squad-buy" disabled={!afford} onClick={() => sign(slot)}>
-                {cost <= 0 ? `+${money(-cost)}` : `−${money(cost)}`}
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-      {error && <p className="t-note" role="alert">{error}</p>}
-      <button className="btn btn-ghost btn-block" onClick={onDone}>Cancel</button>
-    </div>
+
+      <h3 className="squad-sub-h">Sell</h3>
+      {!win ? <p className="muted t-note"><Icon name="lock" size={13} /> Clubs only buy while a transfer window is open.</p>
+        : offers.length === 0 ? <p className="muted t-note">No club has made an offer. Clubs bid for players who would get into their team.</p>
+          : (
+            <ul className="squad-list squad-simple">
+              {offers.map((o) => (
+                <li key={o.clubId}>
+                  <span className="squad-role">{DIV_SHORT[o.level]}</span>
+                  <span className="squad-name"><span className="squad-name-main">{o.club}</span><small className="squad-stats">{DIVISIONS[o.level]?.name}</small></span>
+                  <button className="btn btn-gold squad-buy" onClick={() => run(store.sell(slot, o.clubId))}>Accept {money(o.fee)}</button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+      <h3 className="squad-sub-h">Loan out</h3>
+      {!win ? <p className="muted t-note"><Icon name="lock" size={13} /> Loans are agreed in a transfer window.</p>
+        : loanTo ? (
+          <>
+            <p className="muted t-note">{loanTo.name} ({DIVISIONS[loanTo.level].name}) will play him until the summer. He frees a squad place, they pay his wages, and regular games help him grow.</p>
+            <button className="btn btn-secondary btn-block" onClick={() => run(store.loan(slot))}>Loan to {loanTo.name}</button>
+          </>
+        ) : <p className="muted t-note">No club wants him on loan: he wouldn’t get games anywhere.</p>}
+
+      <h3 className="squad-sub-h">Release</h3>
+      {!confirmRelease
+        ? <button className="btn btn-ghost btn-block" onClick={() => setConfirmRelease(true)}>Release him ({money(releaseCost(p))} to pay off his wages)</button>
+        : <button className="btn btn-danger btn-block" onClick={() => run(store.release(slot))}>Yes, release {p.name}</button>}
+
+      {error && <p className="club-alert" role="alert">{error}</p>}
+    </Modal>
+  )
+}
+
+/** A youth-team player: promote him to the squad or let him go. */
+function YouthSheet({ career, index, onDone }) {
+  const [error, setError] = useState(null)
+  const p = career.youthTeam[index]
+  const store = useCareerStore.getState()
+  const run = (r) => { if (r === true) { playConfirm(); onDone() } else setError(r?.error || 'That can’t be done.') }
+  return (
+    <Modal title={p.name} onClose={onDone}>
+      <div className="player-card">
+        <Rating value={p.rating} />
+        <div>
+          <p className="player-card-line"><b>{p.pos}</b> · Age {p.age} · POT {potentialRange(p)} · Youth team</p>
+          <Attrs attrs={p.attrs} />
+          <p className="muted t-note">Value {money(valueOf(p))}. Promoting him puts him in the reserves and on wages of {money(wageOf(p))} a match.</p>
+        </div>
+      </div>
+      <button className="btn btn-gold btn-block" onClick={() => run(store.promoteYouth(index))}>Promote to the squad</button>
+      <button className="btn btn-ghost btn-block" onClick={() => run(store.releaseYouth(index))}>Release him</button>
+      {error && <p className="club-alert" role="alert">{error}</p>}
+    </Modal>
   )
 }
 

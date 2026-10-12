@@ -2366,3 +2366,64 @@ button { cursor: pointer; background: none; border: 0; }
 .subs-left { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--iss-yellow, #ffd23f); color: #0b0830; font-size: 11px; font-weight: 800; display: grid; place-items: center; padding: 0 4px; }
 .subs-sheet .squad-buy { min-width: 64px; }
 .squad-sub-h { margin: 14px 0 6px; font-size: 14px; letter-spacing: 0.04em; color: var(--text-2); }
+
+/* ===== Career: squad of fifteen, transfer market, league clubs ===== */
+.squad-rows li { grid-template-columns: 44px minmax(0, 1fr) auto auto; }
+.squad-simple li { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.squad-actions { display: inline-flex; gap: 4px; align-items: center; }
+.squad-actions .squad-buy { min-width: 34px; justify-content: center; }
+.squad-count { font-family: inherit; font-size: 12px; font-weight: 800; margin-left: 6px; padding: 2px 6px; border: 2px solid var(--line-strong); color: var(--text-2); letter-spacing: 0.02em; vertical-align: middle; }
+.squad-count[data-full='true'] { border-color: var(--iss-yellow, #ffd23f); color: var(--iss-yellow, #ffd23f); }
+.squad-stats { white-space: normal; }
+.squad-deals { font-size: 13px; color: var(--text-2); }
+.squad-deals li { border-bottom: 1px dashed var(--line); }
+
+.player-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; }
+.player-card .squad-rating { min-width: 48px; height: 40px; font-size: 22px; }
+.player-card-line { margin: 0 0 4px; }
+.player-card .t-note { margin: 6px 0 0; }
+
+.market-status { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 14px; }
+.market-status > span { display: inline-flex; gap: 6px; align-items: center; }
+.market-status [data-full='true'] b { color: #ff6b6b; }
+.market-status [data-open='true'] { color: var(--good, #34d27b); font-weight: 800; }
+.market-filters { display: flex; flex-direction: column; gap: 8px; }
+.market-filters .segmented { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.market-filters .segmented button { padding: 0 2px; font-size: 11px; min-width: 0; }
+.market-selects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.market-selects label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.market-selects label span { font-size: 11px; font-weight: 700; color: var(--text-2); }
+.market-selects .field { min-height: 40px; padding: 0 6px; font-size: 14px; }
+.market-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.market-checks label { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; cursor: pointer; }
+.market-checks input { width: 18px; height: 18px; accent-color: var(--iss-yellow, #ffd23f); }
+.market-count { margin: 0; }
+.market-rows li { display: block; padding: 0; }
+.market-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto 64px; gap: 8px; align-items: center; width: 100%; padding: 6px 8px; min-height: 48px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.market-row:hover { background: rgba(255, 255, 255, 0.05); }
+.market-row:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.market-row[data-unwilling='true'] { opacity: 0.55; }
+.market-price { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; color: var(--iss-yellow, #ffd23f); }
+.market-back { align-self: flex-start; min-height: 34px; padding: 0 10px; }
+.market-ask { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px; border: 2px solid var(--line-strong); background: rgba(5, 10, 46, 0.45); }
+.market-ask b { font-size: 20px; color: var(--iss-yellow, #ffd23f); font-variant-numeric: tabular-nums; }
+.market-bid { display: flex; flex-direction: column; gap: 8px; }
+.market-bid .t-note { margin: 0; }
+.market-stepper { display: grid; grid-template-columns: 48px 1fr 48px; gap: 8px; align-items: center; }
+.market-stepper .btn { min-height: 44px; padding: 0; font-size: 22px; }
+.market-stepper output { text-align: center; font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.market-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.market-quick .btn { min-height: 34px; font-size: 13px; }
+.market-quick .btn[aria-pressed='true'] { border-color: var(--iss-yellow, #ffd23f); color: var(--iss-yellow, #ffd23f); }
+.market-verdict { margin: 0; padding: 10px 12px; border: 2px solid var(--line-strong); font-size: 14px; }
+.market-verdict[data-verdict='counter'] { border-color: var(--iss-yellow, #ffd23f); }
+.market-verdict[data-verdict='reject'], .market-verdict[data-verdict='ended'] { border-color: #ff6b6b; }
+
+.league-clubs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.league-club-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; background: rgba(5, 10, 46, 0.45); border: 2px solid var(--line); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.league-clubs li[data-mine='true'] .league-club-row { border-color: var(--iss-yellow, #ffd23f); cursor: default; }
+.league-club-row[aria-expanded='true'] { border-color: var(--line-strong); }
+.league-club-row:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.league-club-name { display: flex; flex-direction: column; min-width: 0; }
+.league-club-name small { font-size: 11px; color: var(--text-2); }
+.league-club-squad { margin: 4px 0 8px 10px; }

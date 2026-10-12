@@ -1,13 +1,11 @@
-import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
-import { spendingFrozen, DIVISIONS, MAX_RESERVES } from '../game/career'
+import { spendingFrozen, DIVISIONS } from '../game/career'
 import {
   VENUE, TRAINING, ACADEMY, UPGRADE_COST, TICKETS, ticketPrice, attendance, wageBill, ledgerTotals,
   INCOME, COSTS, LEDGER_LABEL, clubValue, TV_MONEY,
 } from '../game/club'
-import { money, potentialRange, sellValue } from '../game/squad'
+import { money } from '../game/squad'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
-import Modal from './Modal'
 
 const naira = (n) => money(n / 10_000)
 const people = (n) => Math.round(n).toLocaleString('en-NG')
@@ -15,7 +13,7 @@ const people = (n) => Math.round(n).toLocaleString('en-NG')
 const FACILITY = [
   { kind: 'stadium', label: 'Venue', levels: VENUE, effect: (l) => `${l.table}, room for ${people(l.seats)} to watch` },
   { kind: 'training', label: 'Training ground', levels: TRAINING, effect: (l) => (l.xp > 1 ? `Players improve ${Math.round((l.xp - 1) * 100)}% faster` : 'No boost to development') },
-  { kind: 'academy', label: 'Youth academy', levels: ACADEMY, effect: (l) => (l.pot == null ? 'No graduates' : `A graduate each summer${l.pot > 0 ? `, +${l.pot} potential` : ''}`) },
+  { kind: 'academy', label: 'Academy', levels: ACADEMY, effect: (l) => `${l.intake} youth player${l.intake === 1 ? '' : 's'} a summer${l.pot > 0 ? `, +${l.pot} potential` : l.pot < 0 ? ', modest potential' : ''}` },
 ]
 
 const SPONSOR_KIND = {
@@ -26,7 +24,6 @@ const SPONSOR_KIND = {
 
 /** The business side of the club: money in and out, the ground, tickets, sponsor and academy. */
 export default function ClubPanel({ career }) {
-  const [youthOpen, setYouthOpen] = useState(false)
   const biz = career.biz
   if (!biz) return null
   const store = useCareerStore.getState()
@@ -52,14 +49,6 @@ export default function ClubPanel({ career }) {
 
       {frozen && (
         <p className="club-alert" role="alert">The club is in the red. The board has frozen transfers and building work until the balance is back above zero. Sell a player or win some matches.</p>
-      )}
-
-      {career.youthOffer && (
-        <div className="club-youth">
-          <p><b>Academy graduate:</b> {career.youthOffer.name}, {career.youthOffer.pos}, age {career.youthOffer.age}. OVR {career.youthOffer.rating}, potential {potentialRange(career.youthOffer)}.</p>
-          <button className="btn btn-gold squad-buy" onClick={() => { playButtonSelect(); setYouthOpen(true) }}>Sign him</button>
-          <button className="btn btn-ghost squad-buy" onClick={() => { playButtonSelect(); store.youth(null) }}>Let him go</button>
-        </div>
       )}
 
       {last && (
@@ -137,40 +126,6 @@ export default function ClubPanel({ career }) {
         })}
       </ul>
 
-      {youthOpen && career.youthOffer && <YouthSigning career={career} onDone={() => setYouthOpen(false)} />}
     </section>
-  )
-}
-
-/** Put the academy graduate on the bench in place of someone (who leaves for his value). */
-function YouthSigning({ career, onDone }) {
-  const y = career.youthOffer
-  const reserves = career.reserves || []
-  const free = reserves.length < MAX_RESERVES
-  const take = (slot) => { playConfirm(); if (useCareerStore.getState().youth(slot)) onDone() }
-  const slots = [
-    ...(career.bench || []).map((p, i) => ({ p, slot: i, where: 'Bench' })).filter(({ p }) => (p.pos === 'GK') === (y.pos === 'GK')),
-    ...reserves.map((p, i) => ({ p, slot: `reserve:${i}`, where: 'Reserve' })),
-  ]
-  return (
-    <Modal title={`Sign ${y.name}`} onClose={onDone}>
-      {free ? (
-        <>
-          <p className="muted t-note">There’s room in the reserves ({reserves.length} of {MAX_RESERVES}), so nobody has to leave.</p>
-          <button className="btn btn-gold btn-block" onClick={() => take('reserve')}>Add to the reserves</button>
-          <p className="muted t-note">You can move him into the matchday ten from the squad list.</p>
-        </>
-      ) : <p className="muted t-note">The squad is full (15). Who leaves? You get his sale value.</p>}
-      <ul className="squad-list squad-bench">
-        {slots.filter(() => !free).map(({ p, slot, where }) => (
-          <li key={p.id}>
-            <span className="squad-role">{where === 'Bench' ? p.pos : 'RES'}</span>
-            <span className="squad-name"><span className="squad-name-main">{p.name}</span><small className="squad-stats">{p.pos} · Age {p.age} · OVR {p.rating}</small></span>
-            <span />
-            <button className="btn btn-secondary squad-buy" onClick={() => take(slot)}>+{money(sellValue(p))}</button>
-          </li>
-        ))}
-      </ul>
-    </Modal>
   )
 }

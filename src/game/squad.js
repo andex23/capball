@@ -22,7 +22,6 @@ export const START_COINS = 300
 export const SELL_SHARE = 0.6
 // After how many of your matches each window opens: before the season and part-way through
 export const WINDOW_AFTER = [0, 5]
-export const MARKET_SIZE = 6
 
 // A typical player's OVR in each division, bottom to top (FIFA-like: a lower-league side in the
 // 50s, a top-flight side in the high 70s; stars in the 80s and 90s)
@@ -41,15 +40,17 @@ export const WEIGHTS = {
   GK: { phy: 0.45, pas: 0.25, pwr: 0.20, sht: 0.10 },
 }
 
-export const MIN_AGE = 17
+export const MIN_AGE = 15
 export const RETIRE_FROM = 33
 
 const clamp99 = (r) => Math.max(1, Math.min(99, Math.round(r)))
 const pick = (rng, list) => list[Math.floor(rng() * list.length) % list.length]
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
 
-const FIRST = ['Sam', 'Alex', 'Jo', 'Kit', 'Ray', 'Max', 'Lou', 'Ben', 'Dev', 'Tom', 'Remi', 'Ade', 'Nico', 'Theo', 'Kofi', 'Luca', 'Ezra', 'Finn', 'Omar', 'Ravi', 'Tariq', 'Milo', 'Jude', 'Ike', 'Tunde', 'Emeka', 'Seun', 'Bayo']
-const LAST = ['Fizzwell', 'Corker', 'Crimp', 'Tinley', 'Pops', 'Bottley', 'Spinner', 'Rimmer', 'Flickson', 'Capper', 'Sodaby', 'Twister', 'Glassby', 'Ringer', 'Clinks', 'Bubbles', 'Hopsworth', 'Seltzer', 'Fizzard', 'Crowne', 'Shaker', 'Pressley', 'Tapps', 'Brewer']
+const FIRST = ['Sam', 'Alex', 'Jo', 'Kit', 'Ray', 'Max', 'Lou', 'Ben', 'Dev', 'Tom', 'Remi', 'Ade', 'Nico', 'Theo', 'Kofi', 'Luca', 'Ezra', 'Finn', 'Omar', 'Ravi', 'Tariq', 'Milo', 'Jude', 'Ike', 'Tunde', 'Emeka', 'Seun', 'Bayo',
+  'Chidi', 'Femi', 'Kunle', 'Uche', 'Dayo', 'Segun', 'Obi', 'Nnamdi', 'Wale', 'Ayo', 'Musa', 'Sani', 'Yusuf', 'Kwame', 'Yaw', 'Mo', 'Ibra', 'Leo', 'Rafa', 'Marco', 'Diego', 'Hugo', 'Ola', 'Tobi', 'Gbenga', 'Chuka', 'Efe', 'Victor', 'Joel', 'Kayode']
+const LAST = ['Fizzwell', 'Corker', 'Crimp', 'Tinley', 'Pops', 'Bottley', 'Spinner', 'Rimmer', 'Flickson', 'Capper', 'Sodaby', 'Twister', 'Glassby', 'Ringer', 'Clinks', 'Bubbles', 'Hopsworth', 'Seltzer', 'Fizzard', 'Crowne', 'Shaker', 'Pressley', 'Tapps', 'Brewer',
+  'Okafor', 'Adeyemi', 'Balogun', 'Eze', 'Nwosu', 'Okon', 'Bello', 'Danjuma', 'Afolabi', 'Mensah', 'Boateng', 'Fizzola', 'Capello', 'Corkoran', 'Tinsley', 'Flickett', 'Kapsule', 'Lidwell', 'Crownfield', 'Popoola', 'Sodiq', 'Bottomley', 'Gassama', 'Ekwueme', 'Ogun', 'Fasanya', 'Ironcap', 'Twistle', 'Spritzer', 'Cordell']
 
 /* ── OVR ── */
 
@@ -105,9 +106,12 @@ export function makePlayer(rng, base, pos = 'MID', spread = 3, ages = [19, 31]) 
   }
 }
 
-/** A youth prospect: 17–18, a few points below the division, with plenty of potential. */
-export function makeYouth(rng, level, pos = 'MID', potBonus = 0) {
-  const p = makePlayer(rng, (DIVISION_RATING[level] ?? 52) - 7, pos, 3, [17, 18])
+/** A made-up name. */
+export const randomName = (rng) => `${pick(rng, FIRST)} ${pick(rng, LAST)}`
+
+/** A youth prospect: 17–18 (or `ages`), a few points below the division, with plenty of potential. */
+export function makeYouth(rng, level, pos = 'MID', potBonus = 0, ages = [17, 18], below = 7) {
+  const p = makePlayer(rng, (DIVISION_RATING[level] ?? 52) - below, pos, 3, ages)
   return { ...p, youth: true, pot: Math.min(99, p.rating + 12 + Math.floor(rng() * 12) + potBonus) }
 }
 
@@ -283,22 +287,6 @@ export function seasonBonus(outcome) {
 /** Which transfer window is open: 0 (pre-season), 1 (mid-season) or -1 (shut). */
 export function openWindow(played) {
   return WINDOW_AFTER.indexOf(played)
-}
-
-/** The players on offer in this window: the same list for a reload, minus the ones you've signed. */
-export function marketFor({ season, level, windowIndex, taken = [], seed = '' }) {
-  const rng = seededRng(`market:${seed}:${season}:${windowIndex}`)
-  const base = DIVISION_RATING[level] ?? 60
-  const slots = [
-    ['ATK', 10, [24, 30]], // a star striker
-    ['MID', 7, [22, 29]],
-    ['DEF', 6, [23, 31]],
-    ['ATK', 4, [20, 27]],
-    ['GK', 5, [24, 32]],
-  ]
-  const players = slots.map(([pos, lift, ages]) => makePlayer(rng, base + lift, pos, 2, ages))
-  players.push(makeYouth(rng, level, pick(rng, ['ATK', 'MID', 'DEF'])))
-  return players.filter((p) => !taken.includes(p.id))
 }
 
 /* ── Growth ── */
@@ -481,31 +469,6 @@ export function applyMatchByPlayer(squad, bench, byPlayer, seed, xpMult = 1) {
 
 /** Average of the last few match ratings, or null before any. */
 export const formOf = (p) => (p?.form?.length ? round1(p.form.reduce((a, b) => a + b, 0) / p.form.length) : null)
-
-/**
- * Sign `player` into `role`, letting the current player there go. Keepers
- * only replace keepers; outfield players can play anywhere outfield (at
- * their OVR for that position). Returns { squad, coins } or null.
- */
-export function signPlayer(squad, coins, player, role, bench = null) {
-  // A bench slot: 'bench:0'..'bench:3'
-  const b = /^bench:(\d)$/.exec(role || '')
-  if (b) {
-    const i = Number(b[1])
-    const out = bench?.[i]
-    if (!out || !player || (out.pos === 'GK') !== (player.pos === 'GK')) return null
-    const fee = priceOf(player)
-    const back = sellValue(out)
-    if (coins + back < fee) return null
-    return { squad, bench: bench.map((x, j) => (j === i ? { ...player } : x)), coins: coins + back - fee }
-  }
-  if (!squad?.[role] || !player) return null
-  if ((role === 'gk') !== (player.pos === 'GK' || !!player.keeper)) return null
-  const fee = priceOf(player)
-  const back = sellValue(migratePlayer(squad[role], role))
-  if (coins + back < fee) return null
-  return { squad: { ...squad, [role]: { ...player } }, bench, coins: coins + back - fee }
-}
 
 /**
  * Swap a bench player into the starting six. Keepers only for keepers;

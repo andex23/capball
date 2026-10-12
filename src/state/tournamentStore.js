@@ -19,9 +19,9 @@ import {
 } from '../game/tournament'
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
-import { nextMatch } from '../game/career'
+import { nextMatch, opponentSix } from '../game/career'
 import { useCareerStore } from './careerStore'
-import { squadRatings, clubRatings, squadSurnames, matchRatings, squadAttrs, clubAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
+import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
 import { applyCapMasses } from '../physics/PhysicsWorld'
 import { playerOf } from '../game/commentary'
 import { useAchievementStore } from './achievementStore'
@@ -328,11 +328,13 @@ export const useTournamentStore = create((set, get) => ({
     const career = kind === 'career' || kind === 'careerCup' ? cc : null
     // Cup clubs come from several divisions: each plays at its own division's ratings
     const levelOf = (team) => (kind === 'careerCup' ? career?.cup?.levels?.[team.id] ?? career?.level : career?.level)
-    const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : clubRatings(levelOf(team), team.name))
+    // Computer clubs field their real best six from the career world
+    const sixOf = (team) => opponentSix(career, team.name, levelOf(team))
+    const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : squadRatings(sixOf(team)))
     // ...and each player's attributes: PWR, SHT, PAS and PHY play out on the pitch
-    const attrsOf = (team) => (!career ? null : team.id === 'T1' ? squadAttrs(career.squad) : clubAttrs(levelOf(team), team.name))
+    const attrsOf = (team) => (!career ? null : team.id === 'T1' ? squadAttrs(career.squad) : squadAttrs(sixOf(team)))
     // Career: your players' own names go on your caps
-    const playersOf = (team) => (career && team.id === 'T1' ? squadSurnames(career.squad) : null)
+    const playersOf = (team) => (!career ? null : squadSurnames(team.id === 'T1' ? career.squad : sixOf(team)))
     useMatchStore.setState({
       teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home), playersOf(home), attrsOf(home)), team2: kitFor(away, 'team2', ratingsOf(away), playersOf(away), attrsOf(away)) },
       gameMode: cpuSide ? 'ai' : 'local',

@@ -3,7 +3,7 @@ import {
   newCareer, nextMatch, recordCareerResult, finishSeason, sanitizeCareer, ME,
   cupTie, cupNext, cupRun, cupPending, recordCupResult, CUP_AFTER, targetFor, targetMet, playedThisSeason,
 } from '../game/career'
-import { ageGrowth, developSeason, startingSquad, matchupOf, priceOf, marketFor, RETIRE_FROM, powerScale, accuracyWobble, flickWobble, massScale, ovrOf, ovrAt, shiftOvr, potentialRange, makePlayer, migratePlayer } from '../game/squad'
+import { ageGrowth, developSeason, startingSquad, matchupOf, priceOf, RETIRE_FROM, powerScale, accuracyWobble, flickWobble, massScale, ovrOf, ovrAt, shiftOvr, potentialRange, makePlayer, migratePlayer } from '../game/squad'
 import { seededRng } from '../game/tournament'
 import { wobble } from '../game/flick'
 
@@ -112,7 +112,8 @@ describe('bigger seasons', () => {
 
   it('the board sets a target from how the squad compares, and pays when it is met', () => {
     const c = newCareer(club, { now: 4 })
-    expect(['promotion', 'topHalf']).toContain(c.target)
+    // A new club starts as one of the weakest in the Sunday League
+    expect(['topHalf', 'notLast']).toContain(c.target)
     expect(targetMet('promotion', 2)).toBe(true)
     expect(targetMet('topHalf', 4)).toBe(false)
     expect(targetMet('survive', 5)).toBe(true)
@@ -154,11 +155,7 @@ describe('ages, growth and retirement', () => {
     expect(next.atk1.age).toBeLessThanOrEqual(18)
     expect(next.def1.age).toBe(squad.def1.age + 1)
   })
-  it('the market always has a youth prospect, and fees work like real values', () => {
-    const m = marketFor({ season: 1, level: 0, windowIndex: 0, seed: 'x' })
-    const youth = m.find((p) => p.youth)
-    expect(youth).toBeTruthy()
-    expect(youth.age).toBeLessThanOrEqual(18)
+  it('fees work like real values', () => {
     // Fees rise steeply with OVR; youth with room to grow carry a premium, veterans a discount
     const at = (ovr, age, pot = ovr) => priceOf({ rating: ovr, age, pot })
     expect(at(80, 26)).toBeGreaterThan(at(70, 26) * 2)

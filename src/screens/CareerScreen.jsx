@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
-import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, nextMatch, seasonOver, myPosition, outcomeFor, cupTie, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
+import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, nextMatch, seasonOver, myPosition, outcomeFor, cupTie, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
 import { teamById, allFixtures, standings, roundName } from '../game/tournament'
 import { formatClock } from '../game/rules'
 import { TEAM_NAME_MAX } from '../data/TeamOptions'
@@ -18,7 +18,8 @@ import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
-import { seasonBonus, startingSquad, squadSurnames, squadRatings, clubRatings, averageRating, matchupOf, money } from '../game/squad'
+import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money } from '../game/squad'
+import LeagueClubs from '../ui/LeagueClubs'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel from '../ui/ClubPanel'
 
@@ -226,7 +227,7 @@ export default function CareerScreen() {
   const play = () => { playConfirm(); useTournamentStore.getState().playFixture('career', next) }
   // Overall ratings: yours against this opponent's
   const myOvr = averageRating(squadRatings(career.squad))
-  const ovrOf = (team, level = career.level) => (team ? averageRating(clubRatings(level, team.name)) : 0)
+  const ovrOf = (team, level = career.level) => (team ? opponentOvr(career, team.name, level) : 0)
   const theirOvr = ovrOf(opponent)
   const MATCHUP = { favourite: 'Favourites', even: 'Evenly matched', underdog: 'Underdogs' }
   // The Cap Cup
@@ -315,12 +316,23 @@ export default function CareerScreen() {
             </p>
           )}
 
-          {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0) && (
+          {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0 || career.lastSummer.youthIn?.length > 0 || career.lastSummer.world?.length > 0) && (
             <section className="card card-pad" aria-label="Summer news">
               <h2 className="saved-h">Over the summer</h2>
               <ul className="career-summer">
                 {career.lastSummer.retired.map((r) => <li key={`r${r.role}`}><b>{r.name}</b> retired at {r.age}. {r.left ? 'His place in the reserves is free.' : 'A youth player comes in.'}</li>)}
                 {career.lastSummer.changes.map((c) => <li key={`c${c.role}`} data-up={c.to > c.from ? 'true' : undefined}>{c.name}: {c.from} → <b>{c.to}</b></li>)}
+                {(career.lastSummer.loansBack || []).map((p) => <li key={`l${p.name}`}><b>{p.name}</b> is back from loan, now {p.rating}.</li>)}
+                {(career.lastSummer.youthIn || []).map((p) => <li key={`y${p.name}`} data-up="true">Academy: <b>{p.name}</b> ({p.pos}, {p.rating}) joins the youth team.</li>)}
+                {(career.lastSummer.youthOut || []).map((p) => <li key={`o${p.name}`}><b>{p.name}</b> turned 19 and left the youth team.</li>)}
+              </ul>
+              {(career.lastSummer.world || []).length > 0 && <h3 className="squad-sub-h">Around the leagues</h3>}
+              <ul className="career-summer">
+                {(career.lastSummer.world || []).map((n, i) => (
+                  <li key={`w${i}`}>{n.type === 'transfer'
+                    ? <><b>{n.name}</b> ({n.ovr}) {n.from ? `${n.from} → ${n.to}` : `signs for ${n.to} on a free`}{n.fee ? `, ${money(n.fee)}` : ''}</>
+                    : <><b>{n.name}</b> of {n.club} retires at {n.age}.</>}</li>
+                ))}
               </ul>
             </section>
           )}
@@ -339,6 +351,8 @@ export default function CareerScreen() {
               {career.level > 0 && <> <i className="career-dot down" /> Relegation</>}
             </p>
           </section>
+
+          <LeagueClubs career={career} />
 
           <Ladder level={career.level} promotions={career.promotions} titles={career.titles} cups={career.cups} />
 

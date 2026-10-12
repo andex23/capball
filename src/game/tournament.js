@@ -177,6 +177,8 @@ export function sanitizeTeam(input, i = 0) {
     bands: Object.fromEntries(CAP_ROLES.map((r) => [r, isObj(t.bands) ? t.bands[r] : null]).filter(([, b]) => BAND_KEYS.has(b))),
     cpu: t.cpu === true,
     difficulty: AI_DIFFICULTIES.includes(t.difficulty) ? t.difficulty : 'medium',
+    // Career: a computer club's OVR, so simulated results follow squad quality
+    ...(Number.isFinite(t.ovr) && t.ovr >= 1 && t.ovr <= 99 ? { ovr: Math.round(t.ovr) } : {}),
   }
 }
 
@@ -348,10 +350,16 @@ function goalsFor(strength, rng) {
 export function simulateResult(t, fixture, rng = Math.random) {
   const home = teamById(t, fixture.home)
   const away = teamById(t, fixture.away)
-  const result = {
-    home: goalsFor(STRENGTH[home?.difficulty] ?? 1.2, rng),
-    away: goalsFor(STRENGTH[away?.difficulty] ?? 1.2, rng),
-  }
+  // Both sides rated (career clubs): the better squad scores more, about 7% more goals per point of OVR
+  const rated = Number.isFinite(home?.ovr) && Number.isFinite(away?.ovr)
+  const base = STRENGTH[home?.difficulty] ?? 1.2
+  const lean = (d) => Math.max(0.25, Math.min(3.2, base * Math.exp(d * 0.07)))
+  const result = rated
+    ? { home: goalsFor(lean(home.ovr - away.ovr + 1), rng), away: goalsFor(lean(away.ovr - home.ovr - 1), rng) }
+    : {
+      home: goalsFor(STRENGTH[home?.difficulty] ?? 1.2, rng),
+      away: goalsFor(STRENGTH[away?.difficulty] ?? 1.2, rng),
+    }
   if (t.format === 'knockout' && result.home === result.away) {
     // Shootout: best of three, then sudden death
     const homeWins = rng() < 0.5
