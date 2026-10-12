@@ -28,7 +28,7 @@ import Modal from './ui/Modal'
 import Icon from './ui/Icon'
 import PwaUpdateToast from './pwa/PwaUpdateToast'
 import OnlineReconnect from './ui/OnlineReconnect'
-import PurchaseToast from './lagos/PurchaseToast'
+import PurchaseToast, { BetToast } from './lagos/PurchaseToast'
 
 // three.js is most of the download — only fetch it once a match is coming up
 const loadScene = () => import('./scene/Scene')
@@ -158,7 +158,7 @@ export default function App() {
         {/* No service worker inside Lagos Life */}
         {!isLagos() && <PwaUpdateToast />}
         <UnlockToast />
-        {isLagos() && <PurchaseToast />}
+        {isLagos() && <><PurchaseToast /><BetToast /></>}
         <AchievementToast />
       </ErrorBoundary>
     </div>

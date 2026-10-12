@@ -116,3 +116,24 @@ pair for a friend match.
   friend-match lobby
 - `src/platform.js`: `isLagos()`, which the menus check
 - `server/lagos.js`, `api/lagos.js`: result posting
+
+## Betting with friends
+
+Friend matches can carry a bet: Free, ₦100, ₦500, ₦1,000 or ₦5,000 of the
+player's Lagos Life in-game money (never real money, never cashed out).
+Lagos Life holds both bets and pays the winner the pot less its 5% house cut;
+a draw, a match that never fills (15 min) or no result within 2 hours gives
+both bets back.
+
+- **Turning it on:** Lagos Life must approve matches, then stakes, for the
+  reviewed version. Until stakes are approved, a bet answers `friendly_only`
+  and the game says betting isn't switched on yet. Sandbox test matches
+  always work (test money).
+- **Fair results:** our server pays out only on agreement. A phone saying its
+  own player lost is believed at once; otherwise both phones must report the
+  same winner. If they differ, the match is posted as a draw (both bets back).
+  Reports are stored once per player and can't be changed
+  (`cb_lagos_reports` in `supabase/lagos.sql`).
+- **Leaving early** (Leave match in the pause menu) loses the bet: it's
+  reported straight away so the friend is paid. The pause menu warns first.
+- Needs `SUPABASE_SERVICE_ROLE_KEY` in Vercel and the reports SQL run.

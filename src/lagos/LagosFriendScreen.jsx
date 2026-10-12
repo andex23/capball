@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
-import { useLagosStore } from './lagosStore'
+import { useLagosStore, STAKES, potFor } from './lagosStore'
+import { naira } from '../data/shop'
 import { sdkMessage } from './sdk'
 import { roomCodeFor, isHostFor, opponentOf } from './friendMatch'
 import Icon from '../ui/Icon'
@@ -30,6 +31,7 @@ export default function LagosFriendScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [madeCode, setMadeCode] = useState(false)
+  const [stake, setStake] = useState(0)
   const linking = useRef(null)
 
   // Both players in: open the room on the host's phone, connect from the other
@@ -74,7 +76,7 @@ export default function LagosFriendScreen() {
     setError(null)
     try {
       if (lagos.match && used.has(lagos.match.id)) await useLagosStore.getState().leaveMatch()
-      await useLagosStore.getState().findMatch(kind, code)
+      await useLagosStore.getState().findMatch(kind, code, kind === 'join' ? 0 : stake)
       setMadeCode(kind === 'create')
     } catch (e) {
       setError(sdkMessage(e))
@@ -102,13 +104,14 @@ export default function LagosFriendScreen() {
   const waiting = match?.status === 'open'
   const playing = match?.status === 'playing'
   const ready = lagos.status === 'ready'
+  const bet = match ? Number(match.stake) || 0 : view === 'menu' ? stake : 0
 
   return (
     <div className="screen online-screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
       <div className="card" style={{ width: 'min(460px, 100%)' }}>
         <div className="sheet-head">
           <div>
-            <div className="eyebrow">Lagos Life · free match</div>
+            <div className="eyebrow">{bet > 0 ? `Lagos Life · ${naira(bet)} bet` : 'Lagos Life · free match'}</div>
             <h1 className="display" style={{ fontSize: 40 }}>
               {playing ? `Vs ${opponent?.name || 'your friend'}` : waiting ? (madeCode ? 'Waiting for a friend' : 'Finding a player') : view === 'join' ? 'Join a friend' : 'Play a friend'}
             </h1>
@@ -125,8 +128,23 @@ export default function LagosFriendScreen() {
 
           {ready && !match && view === 'menu' && (
             <>
-              <p className="muted">Play another Lagos Life player on their own phone. Friend matches are free — no stakes. The player who hosts plays the home team.</p>
-              <button className="btn btn-gold btn-lg btn-block" onClick={() => find('quick')} disabled={busy}>{busy ? <><Spinner /> Searching…</> : 'Find a player'}</button>
+              <p className="muted">Play another Lagos Life player on their own phone. The player who hosts plays the home team.</p>
+              <div className="lagos-bet" role="radiogroup" aria-label="Bet">
+                <div className="lagos-bet-label">Bet with your Lagos Life money</div>
+                <div className="lagos-bet-chips">
+                  {STAKES.map((n) => (
+                    <button key={n} type="button" role="radio" aria-checked={stake === n} className={`chip${stake === n ? ' is-on' : ''}`} onClick={() => { playButtonSelect(); setStake(n) }} disabled={busy}>
+                      {n === 0 ? 'Free' : naira(n)}
+                    </button>
+                  ))}
+                </div>
+                <p className="muted t-note">
+                  {stake === 0
+                    ? 'No money on it. Just for the win.'
+                    : `You each put in ${naira(stake)}. The winner takes ${naira(potFor(stake))} (Lagos Life keeps 5%). A draw gives both bets back. Leaving early loses yours.`}
+                </p>
+              </div>
+              <button className="btn btn-gold btn-lg btn-block" onClick={() => find('quick')} disabled={busy}>{busy ? <><Spinner /> Searching…</> : stake ? `Find a player for ${naira(stake)}` : 'Find a player'}</button>
               <button className="btn btn-purple btn-lg btn-block" onClick={() => find('create')} disabled={busy}>Make a code for a friend</button>
               <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} disabled={busy}>I have a code</button>
             </>
@@ -160,13 +178,15 @@ export default function LagosFriendScreen() {
                 <div style={{ textAlign: 'center' }}>
                   <div className="eyebrow" style={{ marginBottom: 8 }}>Match code</div>
                   <div className="display tabular" aria-live="polite" style={{ fontSize: 56, letterSpacing: '0.12em', color: 'var(--accent)' }}>{match.code}</div>
-                  <p className="muted t-note">Tell your friend this code. They open Counterball in Lagos Life, tap Play a Friend, then I have a code.</p>
+                  <p className="muted t-note">Tell your friend this code. They open Counterball in Lagos Life, tap Play a Friend, then I have a code.{bet > 0 ? ` They’ll be asked to match your ${naira(bet)} bet.` : ''}</p>
                 </div>
               )}
               <div role="status" className="chip online-status" style={{ justifyContent: 'center', cursor: 'default' }}><Spinner /> Waiting for the other player…</div>
               <button className="btn btn-secondary btn-block" onClick={cancel}>Cancel</button>
             </>
           )}
+
+          {playing && bet > 0 && <p className="lagos-pot" role="status">Winner takes {naira(potFor(bet))}</p>}
 
           {playing && !error && (
             <div role="status" className="chip online-status" style={{ justifyContent: 'center', cursor: 'default', borderColor: status.status === 'connected' ? 'var(--good)' : undefined, color: status.status === 'connected' ? 'var(--good)' : undefined }}>
