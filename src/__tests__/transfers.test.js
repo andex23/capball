@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { newCareer, sanitizeCareer, finishSeason, nextMatch, recordCareerResult, seasonOver, ME, MAX_SQUAD, opponentOvr, targetFor } from '../game/career'
 import {
   makeBid, offersFor, sellTo, releasePlayer, releaseCost, loanOut, loanClub, promoteYouth, releaseYouth, promoteReserve,
-  squadSize, squadFull, transferWindow, vacate, YOUTH_MAX,
+  squadSize, squadFull, transferWindow, vacate, YOUTH_MAX, allSlots,
 } from '../game/transfers'
 import {
   createWorld, searchMarket, locate, bestSix, clubOvr, strengthOf, worldSummer, askingPrice, willingness, sanitizeWorld,
@@ -149,7 +149,7 @@ describe('the transfer market', () => {
 
   it('a player who drops down costs a bonus and keeps higher wages', () => {
     const c = rich(newCareer(club, { now: 13 }))
-    const r = searchMarket(c.world, { level: 2, sort: 'price' }, 0)[0]
+    const r = searchMarket(c.world, { level: 2, sort: 'price' }, 0, c.rep)[0]
     const { career: next, result } = makeBid(c, r.player.id, r.asking)
     expect(result.verdict).toBe('accept')
     expect(next.coins).toBe(c.coins - r.asking - r.willing.bonus)
@@ -203,7 +203,7 @@ describe('selling, releasing, loans and the youth team', () => {
     expect(out.loans[0].player.id).toBe('loanee')
     expect(wageBill(out.squad, out.bench, out.reserves)).toBeLessThan(wageBill(c.squad, c.bench, c.reserves))
     const next = finishSeason({ ...playSeason(out), cup: null })
-    const back = next.reserves.find((p) => p.id === 'loanee')
+    const back = allSlots(next).map((x) => x.player).find((p) => p.id === 'loanee')
     expect(back.rating).toBeGreaterThan(young.rating)
     expect(next.loans).toHaveLength(0)
   })
@@ -219,6 +219,8 @@ describe('selling, releasing, loans and the youth team', () => {
     expect(releaseYouth(c, 1).youthTeam).toHaveLength(1)
     const full = { ...c, reserves: [kid('a'), kid('b'), kid('c'), kid('d'), kid('e', 'GK')] }
     expect(promoteYouth(full, 0).error).toBeTruthy()
+    // (long contracts all round, so nobody's deal runs out and pulls a youngster up)
+    c = { ...c, squad: Object.fromEntries(Object.entries(c.squad).map(([r, p]) => [r, { ...p, contract: 5 }])), bench: c.bench.map((p) => ({ ...p, contract: 5 })) }
     c = finishSeason({ ...playSeason({ ...c, biz: { ...c.biz, academy: 4 } }), cup: null })
     expect(c.youthTeam.length).toBe(Math.min(YOUTH_MAX, 2 + 3))
     expect(c.lastSummer.youthIn).toHaveLength(3)

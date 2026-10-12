@@ -2434,3 +2434,14 @@ button { cursor: pointer; background: none; border: 0; }
 .league-club-name { display: flex; flex-direction: column; min-width: 0; }
 .league-club-name small { font-size: 11px; color: var(--text-2); }
 .league-club-squad { margin: 4px 0 8px 10px; }
+
+.squad-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.squad-tags span { font-size: 10px; font-weight: 800; padding: 1px 5px; border: 1px solid currentColor; color: var(--text-2); white-space: nowrap; }
+.squad-tags [data-tone='warn'] { color: var(--iss-yellow, #ffd23f); }
+.squad-tags [data-tone='bad'] { color: #ff9f6b; }
+.career-inbox li { grid-template-columns: minmax(0, 1fr) auto auto; }
+.career-awards { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.career-rep { display: inline-flex; gap: 6px; align-items: baseline; }
+.market-scout { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.market-scout .t-note { margin: 0; flex: 1 1 180px; }
+.career-inbox .squad-name, .career-inbox .squad-name-main { white-space: normal; }

@@ -4,6 +4,7 @@ import { clubOvr, bestSix, hydrate, TIER_LABEL, standingOf, STANDING_LABEL } fro
 import { potentialRange, squadRatings, averageRating } from '../game/squad'
 import { playButtonSelect } from '../audio/SoundManager'
 import { Rating } from './PlayerBits'
+import { isScouted, roughPotential } from '../game/clubLife'
 
 /** The clubs in your division: how strong each is, its star, and its whole squad. */
 export default function LeagueClubs({ career }) {
@@ -45,7 +46,7 @@ export default function LeagueClubs({ career }) {
                       <span className="squad-role">{p.pos}</span>
                       <span className="squad-name">
                         <span className="squad-name-main">{p.name}</span>
-                        <small className="squad-stats">{p.age} · POT {potentialRange(p)} · {six.has(p.id) ? 'Plays' : STANDING_LABEL[standingOf(p, c)]}</small>
+                        <small className="squad-stats">{p.age} · POT {isScouted(career, p.id) ? potentialRange(p) : `${roughPotential(p)}?`} · {six.has(p.id) ? 'Plays' : STANDING_LABEL[standingOf(p, c)]}</small>
                       </span>
                       <Rating value={p.rating} />
                     </li>

@@ -64,7 +64,7 @@ export function inSlot(career, slot) {
   return career.squad?.[slot] || null
 }
 
-function putInSlot(career, slot, p) {
+export function putInSlot(career, slot, p) {
   const b = /^bench:(\d)$/.exec(slot)
   if (b) return { ...career, bench: career.bench.map((x, i) => (i === Number(b[1]) ? p : x)) }
   const r = /^reserve:(\d+)$/.exec(slot)
@@ -140,7 +140,7 @@ export function makeBid(career, playerId, amount) {
   if (club && !win) return { career, result: { verdict: 'shut', why: 'The transfer window is shut. Free agents can sign any time.' } }
   if (spendingFrozen(career)) return { career, result: { verdict: 'frozen', why: 'The board has frozen spending while the club is in the red.' } }
   // A player dropping down wants a signing bonus on top (and higher wages)
-  const will = willingness(player, club, career.level)
+  const will = willingness(player, club, career.level, career.rep ?? 0)
   const bid = Math.max(0, Math.round(amount))
   if ((career.coins ?? 0) < bid + will.bonus) return { career, result: { verdict: 'funds', why: will.bonus ? `With his ${money(will.bonus)} signing bonus that’s more than your budget.` : 'You don’t have that much in the club budget.' } }
   const talks = talksFor(career, key)
@@ -152,7 +152,9 @@ export function makeBid(career, playerId, amount) {
   // Done deal
   let world = takePlayer(career.world, playerId).world
   if (club) world = settleClub(world, club.id, seededRng(`settle:${key}:${playerId}`))
-  const signed = sanitizePlayer({ ...hydrate(player), id: player.id, ...(will.premium > 1 ? { wageX: will.premium } : {}) }, ROLE_FOR_POS[player.pos] || 'mid')
+  // A new deal: young players sign longer (4 seasons at 23 or under, 3 to 29, then 2)
+  const contract = player.age <= 23 ? 4 : player.age <= 29 ? 3 : 2
+  const signed = sanitizePlayer({ ...hydrate(player), id: player.id, contract, ...(will.premium > 1 ? { wageX: will.premium } : {}) }, ROLE_FOR_POS[player.pos] || 'mid')
   const cost = bid + will.bonus
   const biz = book(career.biz || newClub(career.level), { transfers: cost })
   return {
@@ -247,7 +249,7 @@ export function promoteYouth(career, index) {
   const p = career.youthTeam?.[index]
   if (!p) return { error: 'No such player.' }
   if (squadFull(career)) return { error: `Your squad is full (${MAX_SQUAD}). Make room first.` }
-  return { ...career, youthTeam: career.youthTeam.filter((_, i) => i !== index), reserves: [...(career.reserves || []), { ...p, youth: p.age <= 19 }] }
+  return { ...career, youthTeam: career.youthTeam.filter((_, i) => i !== index), reserves: [...(career.reserves || []), { ...p, youth: p.age <= 19, contract: 3 }] }
 }
 
 /** Release a youth player (free). */

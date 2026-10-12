@@ -196,11 +196,13 @@ const STANDING_PREMIUM = { star: 1.4, key: 1.2 }
  * Free agents and players from your division or below come at the normal rate.
  * Returns { premium, bonus (units, paid to him on signing), reluctant, why }.
  */
-export function willingness(p, club, myLevel) {
+export function willingness(p, club, myLevel, rep = 0) {
   if (!club) return { premium: 1, bonus: 0, reluctant: false }
   const gap = Math.max(0, Math.min(3, club.level - myLevel))
   if (!gap) return { premium: 1, bonus: 0, reluctant: false }
-  const premium = Math.round(DROP_PREMIUM[gap] * (STANDING_PREMIUM[standingOf(p, club)] ?? 1) * 10) / 10
+  // Your reputation as a manager takes up to two-thirds of the premium away
+  const base = DROP_PREMIUM[gap] * (STANDING_PREMIUM[standingOf(p, club)] ?? 1)
+  const premium = Math.max(1.1, Math.round((1 + (base - 1) * (1 - Math.max(0, Math.min(100, rep)) / 150)) * 10) / 10)
   const bonus = round5(priceOf(hydrate(p)) * (premium - 1) * 0.5)
   const from = DIVISIONS[club.level].name
   const to = DIVISIONS[myLevel]?.name || 'your division'
@@ -326,7 +328,7 @@ export function loanClubFor(world, p, myLevel) {
  * bonus), sort ('ovr'|'price'|'age'|'pot') }.
  * Returns [{ player (filled out), club, asking, total, standing, willing }].
  */
-export function searchMarket(world, filters = {}, myLevel = 0) {
+export function searchMarket(world, filters = {}, myLevel = 0, rep = 0) {
   const all = [
     ...world.clubs.flatMap((club) => club.players.map((p) => ({ p, club }))),
     ...world.free.map((p) => ({ p, club: null })),
@@ -344,7 +346,7 @@ export function searchMarket(world, filters = {}, myLevel = 0) {
     if (filters.listed && club && !p.listed) continue
     if (q && !player.name.toLowerCase().includes(q) && !(club?.name || '').toLowerCase().includes(q)) continue
     const asking = askingPrice(p, club)
-    const willing = willingness(p, club, myLevel)
+    const willing = willingness(p, club, myLevel, rep)
     if (filters.happy && willing.reluctant) continue
     // What he really costs you: the fee plus any bonus he wants for dropping down
     const total = asking + willing.bonus

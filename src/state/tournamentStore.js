@@ -20,6 +20,7 @@ import {
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
 import { nextMatch, cupTie, opponentSix } from '../game/career'
+import { matchAttrs } from '../game/clubLife'
 import { useCareerStore } from './careerStore'
 import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
 import { applyCapMasses } from '../physics/PhysicsWorld'
@@ -332,7 +333,9 @@ export const useTournamentStore = create((set, get) => ({
     const sixOf = (team) => opponentSix(career, team.name, levelOf(team))
     const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : squadRatings(sixOf(team)))
     // ...and each player's attributes: PWR, SHT, PAS and PHY play out on the pitch
-    const attrsOf = (team) => (!career ? null : team.id === 'T1' ? squadAttrs(career.squad) : squadAttrs(sixOf(team)))
+    // Your players play at their fitness: a tired player flicks softer and is lighter
+    const tiredSquad = (sq) => Object.fromEntries(Object.entries(sq).map(([r, p]) => [r, { ...p, attrs: matchAttrs(p) }]))
+    const attrsOf = (team) => (!career ? null : team.id === 'T1' ? squadAttrs(tiredSquad(career.squad)) : squadAttrs(sixOf(team)))
     // Career: your players' own names go on your caps
     const playersOf = (team) => (!career ? null : squadSurnames(team.id === 'T1' ? career.squad : sixOf(team)))
     useMatchStore.setState({

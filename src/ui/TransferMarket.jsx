@@ -5,6 +5,10 @@ import { transferWindow, squadSize, squadFull, MAX_SQUAD, talksWith, spendingFro
 import { searchMarket, locate, hydrate, askingPrice, willingness, standingOf, STANDING_LABEL, clubOvr, TIER_LABEL, MAX_BIDS } from '../game/world'
 import { wageOf } from '../game/club'
 import { potentialRange, priceOf, money, windowDeadline } from '../game/squad'
+import { isScouted, roughPotential, SCOUT_FEE } from '../game/clubLife'
+
+/** Potential as you know it: exact range once scouted, a rough guess before. */
+const potOf = (career, p) => (isScouted(career, p.id) ? potentialRange(p) : `${roughPotential(p)}?`)
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
 import Icon from './Icon'
@@ -36,8 +40,8 @@ export default function TransferMarket({ career, onClose }) {
     return searchMarket(career.world, {
       pos, level: lv, sort, maxAge: Number(maxAge) || undefined, name, listed,
       maxPrice: affordable ? Math.max(0, career.coins) : undefined, happy: happyOnly,
-    }, career.level)
-  }, [career.world, career.level, career.coins, pos, level, sort, maxAge, name, affordable, happyOnly, listed])
+    }, career.level, career.rep ?? 0)
+  }, [career.world, career.level, career.rep, career.coins, pos, level, sort, maxAge, name, affordable, happyOnly, listed])
 
   const win = transferWindow(career)
   const reset = () => setShown(PAGE)
@@ -97,7 +101,7 @@ export default function TransferMarket({ career, onClose }) {
                   <span className="squad-role">{p.pos}</span>
                   <span className="squad-name">
                     <span className="squad-name-main">{p.name}</span>
-                    <small className="squad-stats">{club ? `${club.name} · ${DIV_SHORT[club.level]}` : 'Free agent'} · {p.age} · POT {potentialRange(p)}{standing === 'listed' ? ' · listed' : ''}</small>
+                    <small className="squad-stats">{club ? `${club.name} · ${DIV_SHORT[club.level]}` : 'Free agent'} · {p.age} · POT {potOf(career, p)}{standing === 'listed' ? ' · listed' : ''}</small>
                   </span>
                   <Rating value={p.rating} />
                   <span className="market-price">{money(total)}{willing.reluctant && <small>×{willing.premium} wages</small>}</span>
@@ -133,7 +137,7 @@ function PlayerDetail({ career, id, onBack, onClose }) {
   }
   const hp = hydrate(p0)
   const standing = standingOf(p0, club)
-  const willing = willingness(p0, club, career.level)
+  const willing = willingness(p0, club, career.level, career.rep ?? 0)
   const win = transferWindow(career)
   const ended = talks?.ended || (talks?.tries ?? 0) >= MAX_BIDS
   const blocked = squadFull(career) ? `Your squad is full (${MAX_SQUAD}). Sell, release or loan out a player first.`
@@ -155,7 +159,7 @@ function PlayerDetail({ career, id, onBack, onClose }) {
       <div className="player-card">
         <Rating value={hp.rating} />
         <div>
-          <p className="player-card-line"><b>{hp.pos}</b> · Age {hp.age} · POT {potentialRange(hp)}</p>
+          <p className="player-card-line"><b>{hp.pos}</b> · Age {hp.age} · POT {potOf(career, hp)}</p>
           <Attrs attrs={hp.attrs} />
           <p className="muted t-note">
             {club ? <>{STANDING_LABEL[standing]} at <b>{club.name}</b> ({DIVISIONS[club.level].name}, {TIER_LABEL[club.tier].toLowerCase()}, OVR {clubOvr(club)})</> : 'Free agent: no club, no fee, just a signing-on payment.'}
@@ -163,6 +167,13 @@ function PlayerDetail({ career, id, onBack, onClose }) {
           <p className="muted t-note">Value {money(priceOf(hp))} · Wages {money(wageOf(hp))} a match</p>
         </div>
       </div>
+
+      {!isScouted(career, id) && (
+        <div className="market-scout">
+          <p className="muted t-note">His potential is a rough guess until a scout watches him.</p>
+          <button className="btn btn-secondary" disabled={career.coins < (SCOUT_FEE[career.level] ?? 10)} onClick={() => { playButtonSelect(); useCareerStore.getState().scout(id) }}>Scout him · {money(SCOUT_FEE[career.level] ?? 10)}</button>
+        </div>
+      )}
 
       <div className="market-ask">
         <span>{club ? 'Asking price' : 'Signing-on fee'}</span>

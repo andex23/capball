@@ -11,6 +11,7 @@ import { DIVISIONS } from './divisions'
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
 import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, TICKETS } from './club'
 import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
+import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withContracts, REP_START, sanitizeAwards } from './clubLife'
 import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
 import {
   playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, squadSummer, youthIntake,
@@ -197,8 +198,8 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     past: [],          // finished seasons, newest first
     promotions: 0,
     titles: 0,         // top-division wins
-    squad: sq,
-    bench: startingBench(now, 0),
+    squad: Object.fromEntries(withContracts(Object.entries(sq).map(([r, p]) => ({ ...p, _role: r })), `${now}:six`).map(({ _role, ...p }) => [_role, p])),
+    bench: withContracts(startingBench(now, 0), `${now}:bench`),
     reserves: [],      // up to five more players who train but aren't in the matchday ten
     loans: [],         // your players out on loan until the summer
     youthTeam: youthIntake(0, 0, `${now}:start`, 2),
@@ -209,6 +210,9 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     lastEarned: 0,
     lastReport: null,
     warning: false,    // missed a target: the next miss is the sack
+    rep: REP_START,    // your name as a manager (0–100)
+    scouted: [],       // players whose potential your scouts have checked
+    rejected: null,    // offers for your players you've turned down this window
     sacked: null,      // set when the board sacks you: the career is over
   }
 }
@@ -320,6 +324,9 @@ export function finishSeason(career, now = Date.now()) {
     cupT = settleCpu(recordResult(cupT, t.id, simulateResult(cupT, t, seededRng(`${cupT.id}:${t.id}`))))
   }
   const cup = cupRun(cupT)
+  // Before the summer resets the season's stats: the club's awards, and who's unhappy
+  const awards = seasonAwards(career)
+  const unhappy = unhappyAfterSeason(career, level)
   const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
   const entry = {
     season: career.season,
@@ -329,6 +336,7 @@ export function finishSeason(career, now = Date.now()) {
     outcome,
     bonus,
     target, targetMet: met, warned: !!target && !met && !career.warning,
+    awards,
     cup,
     cupWinner: cupT?.championId ? teamById(cupT, cupT.championId)?.name || null : null,
     record: me ? { w: me.w, d: me.d, l: me.l, gf: me.gf, ga: me.ga, pts: me.pts } : null,
@@ -365,7 +373,7 @@ export function finishSeason(career, now = Date.now()) {
   // Your loans come back, the youth team grows and the academy sends up its graduates
   const sq = squadSummer({ ...career, world: ws.world, reserves }, { level, seed })
   const world = sq.career.world
-  return {
+  const next = {
     ...career,
     level,
     season: career.season + 1,
@@ -397,7 +405,13 @@ export function finishSeason(career, now = Date.now()) {
     lastEarned: 0,
     // Missing the target earns a final warning; meeting one clears it
     warning: !!target && !met,
+    // Your name as a manager: trophies and promotions build it
+    rep: repAfterSeason(career.rep ?? REP_START, { outcome, met, cup }),
+    rejected: null,
   }
+  // Contracts run down: expired deals leave on a free; unhappy players want out
+  const cs = contractSummer(next, { level, seed, unhappy })
+  return { ...cs.career, lastSummer: { ...next.lastSummer, left: cs.left, unhappy: cs.unhappy } }
 }
 
 /** Load a saved career, or null if it's missing or unreadable. */
@@ -415,7 +429,7 @@ export function sanitizeCareer(input) {
     season: Math.max(1, n(input.season)),
     matchDuration: [60, 90, 120, 150, 180].includes(input.matchDuration) ? input.matchDuration : 120,
     league,
-    past: Array.isArray(input.past) ? input.past.filter(isObj).slice(0, 50) : [],
+    past: Array.isArray(input.past) ? input.past.filter(isObj).slice(0, 50).map((e) => (e.awards ? { ...e, awards: sanitizeAwards(e.awards) } : e)) : [],
     promotions: n(input.promotions),
     titles: n(input.titles),
     // Careers from before the squad existed get a starting squad and purse
@@ -433,6 +447,10 @@ export function sanitizeCareer(input) {
     biz: sanitizeClub(input.biz, level, league.id),
     lastReport: sanitizeReport(input.lastReport),
     warning: input.warning === true,
+    rep: Number.isInteger(input.rep) ? Math.max(0, Math.min(100, input.rep)) : REP_START,
+    scouted: Array.isArray(input.scouted) ? input.scouted.filter((x) => typeof x === 'string').map((x) => x.slice(0, 16)).slice(-400) : [],
+    rejected: isObj(input.rejected) && typeof input.rejected.key === 'string' && Array.isArray(input.rejected.ids)
+      ? { key: input.rejected.key.slice(0, 20), ids: input.rejected.ids.filter((x) => typeof x === 'string').slice(-30) } : null,
     sacked: isObj(input.sacked) ? {
       season: n(input.sacked.season), division: String(input.sacked.division || '').slice(0, 30),
       position: n(input.sacked.position), target: Object.hasOwn(TARGETS, input.sacked.target) ? input.sacked.target : 'promotion',
@@ -448,6 +466,8 @@ export function sanitizeCareer(input) {
       youthIn: Array.isArray(input.lastSummer.youthIn) ? input.lastSummer.youthIn.filter(isObj).slice(0, YOUTH_MAX) : [],
       youthOut: Array.isArray(input.lastSummer.youthOut) ? input.lastSummer.youthOut.filter(isObj).slice(0, YOUTH_MAX) : [],
       world: Array.isArray(input.lastSummer.world) ? input.lastSummer.world.filter(isObj).slice(0, 8).map(cleanNews) : [],
+      left: Array.isArray(input.lastSummer.left) ? input.lastSummer.left.filter((x) => typeof x === 'string').slice(0, MAX_SQUAD) : [],
+      unhappy: Array.isArray(input.lastSummer.unhappy) ? input.lastSummer.unhappy.filter((x) => typeof x === 'string').slice(0, MAX_SQUAD) : [],
     } : null,
   }
 }

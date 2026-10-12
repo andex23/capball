@@ -529,6 +529,10 @@ export function sanitizePlayer(raw, role) {
       form: Array.isArray(p.form) ? p.form.filter((x) => Number.isFinite(x) && x >= 0 && x <= 10).slice(-5) : [],
       xp: Number.isFinite(p.xp) ? Math.max(-3, Math.min(5, p.xp)) : 0,
       ...(Number.isFinite(p.wageX) && p.wageX > 1 ? { wageX: Math.min(10, Math.round(p.wageX * 10) / 10) } : {}),
+      // Your players only: seasons left on his contract, fitness, unhappiness
+      ...(Number.isInteger(p.contract) ? { contract: Math.max(0, Math.min(6, p.contract)) } : {}),
+      ...(Number.isFinite(p.fit) && p.fit < 100 ? { fit: Math.max(30, Math.round(p.fit)) } : {}),
+      ...(p.wantsAway === true ? { wantsAway: true } : {}),
     }
 }
 
