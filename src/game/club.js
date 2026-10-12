@@ -32,11 +32,11 @@ export const TRAINING = [
   { name: 'Elite campus', xp: 1.6 },
 ]
 export const ACADEMY = [
-  { name: 'No academy', pot: null },
-  { name: 'Youth team', pot: 0 },
-  { name: 'Youth academy', pot: 3 },
-  { name: 'Category 2 academy', pot: 6 },
-  { name: 'Category 1 academy', pot: 9 },
+  { name: 'Youth team', intake: 1, pot: -4 },
+  { name: 'Youth academy', intake: 2, pot: 0 },
+  { name: 'Category 3 academy', intake: 2, pot: 3 },
+  { name: 'Category 2 academy', intake: 3, pot: 6 },
+  { name: 'Category 1 academy', intake: 3, pot: 9 },
 ]
 export const FACILITIES = { stadium: VENUE, training: TRAINING, academy: ACADEMY }
 /** What it costs (units) to reach each level. */

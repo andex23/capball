@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { flickScale, priceOf, sellValue, startingSquad, signPlayer, coinsForResult, openWindow, marketFor, sanitizeSquad, clubRatings, squadRatings, averageRating, START_COINS } from '../game/squad'
-import { newCareer, transferWindow, buyPlayer, recordCareerResult, finishSeason, nextMatch, sanitizeCareer, seasonOver, playedThisSeason, ME } from '../game/career'
+import { flickScale, priceOf, sellValue, startingSquad, coinsForResult, openWindow, sanitizeSquad, clubRatings, squadRatings, averageRating, START_COINS } from '../game/squad'
+import { newCareer, transferWindow, recordCareerResult, finishSeason, nextMatch, sanitizeCareer, seasonOver, playedThisSeason, ME } from '../game/career'
 
 const club = { name: 'Test FC', primary: '#123456', edge: '#FFFFFF' }
 
@@ -24,16 +24,6 @@ describe('squad', () => {
     expect(s.atk1.keeper).toBe(false)
   })
 
-  it('signing swaps the player, charges the fee and refunds the sale', () => {
-    const s = startingSquad('x')
-    const player = { id: 'p1', name: 'New Guy', pos: 'ATK', keeper: false, age: 25, rating: 55, pot: 58, attrs: { pwr: 58, sht: 60, pas: 50, phy: 45 } }
-    const deal = signPlayer(s, 1000, player, 'atk1')
-    expect(deal.squad.atk1.name).toBe('New Guy')
-    expect(deal.coins).toBe(1000 - priceOf(player) + sellValue(s.atk1))
-    expect(signPlayer(s, 0, player, 'atk1')).toBeNull()       // can't afford
-    expect(signPlayer(s, 1000, player, 'gk')).toBeNull()      // outfielder in goal
-  })
-
   it('results pay coins', () => {
     expect(coinsForResult(2, 0)).toBe(70)
     expect(coinsForResult(1, 1)).toBe(30)
@@ -44,14 +34,6 @@ describe('squad', () => {
     expect(openWindow(0)).toBe(0)
     expect(openWindow(5)).toBe(1)
     expect(openWindow(1)).toBe(-1)
-  })
-
-  it('the market is the same for a reload and drops signed players', () => {
-    const a = marketFor({ season: 1, level: 0, windowIndex: 0, seed: 's' })
-    const b = marketFor({ season: 1, level: 0, windowIndex: 0, seed: 's' })
-    expect(a).toEqual(b)
-    expect(a.some((p) => p.keeper)).toBe(true)
-    expect(marketFor({ season: 1, level: 0, windowIndex: 0, seed: 's', taken: [a[0].id] })).toHaveLength(a.length - 1)
   })
 
   it('computer clubs get stronger up the divisions', () => {
@@ -75,15 +57,16 @@ describe('career transfers', () => {
     expect(transferWindow(c).index).toBe(0)
   })
 
-  it('buying from the window spends coins and removes the player from the market', () => {
+  it('buying from the market spends coins and takes the player out of the world', async () => {
+    const { makeBid } = await import('../game/transfers')
+    const { searchMarket, locate } = await import('../game/world')
     const c = newCareer(club, { now: 1 })
-    const w = transferWindow(c)
-    const cheapest = [...w.market].filter((p) => !p.keeper && !p.youth).sort((a, b) => a.rating - b.rating)[0]
-    const next = buyPlayer(c, cheapest.id, 'mid')
-    expect(next.squad.mid.id).toBe(cheapest.id)
-    expect(next.coins).toBeLessThan(c.coins)
-    expect(transferWindow(next).market.find((p) => p.id === cheapest.id)).toBeUndefined()
-    expect(buyPlayer(next, cheapest.id, 'mid')).toBeNull()
+    const target = searchMarket(c.world, { sort: 'price' }, 0).find((r) => r.club && r.willing.ok && r.asking <= c.coins)
+    const { career: next, result } = makeBid(c, target.player.id, target.asking)
+    expect(result.verdict).toBe('accept')
+    expect(next.reserves.at(-1).id).toBe(target.player.id)
+    expect(next.coins).toBe(c.coins - target.asking)
+    expect(locate(next.world, target.player.id)).toBeNull()
   })
 
   it('results earn coins; the window shuts after matchday 1 and reopens after matchday 5', () => {

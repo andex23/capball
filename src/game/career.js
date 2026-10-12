@@ -7,57 +7,23 @@
  *
  * Pure functions over plain JSON, built on the league engine in tournament.js.
  */
+import { DIVISIONS } from './divisions'
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
-import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, ACADEMY, TICKETS } from './club'
-import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, makeYouth, sanitizePlayer, priceOf, sellValue, coinsForResult, seasonBonus, developSeason, openWindow, marketFor, signPlayer, squadRatings, clubRatings, averageRating } from './squad'
+import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, TICKETS } from './club'
+import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
+import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
+import {
+  playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, squadSummer, youthIntake,
+  sanitizeLoans, sanitizeYouth, sanitizeTalks, sanitizeDeals, MATCHDAY, MAX_RESERVES, MAX_SQUAD, YOUTH_MAX,
+} from './transfers'
+
+export { playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, MATCHDAY, MAX_RESERVES, MAX_SQUAD, YOUTH_MAX }
 
 export const CAREER_VERSION = 1
 // Each season: everyone plays everyone home and away
 export const LEGS = 2
 
-// Bottom (index 0) to top. Each division is a league of you plus five computer clubs.
-export const DIVISIONS = [
-  {
-    name: 'Sunday League', difficulty: 'easy',
-    clubs: [
-      { name: 'Bottle Rockets', primary: '#FF7043', edge: '#FFFFFF', pattern: 'stripe' },
-      { name: 'Corner Shop FC', primary: '#8D6E63', edge: '#FFE082', pattern: 'ring' },
-      { name: 'Fizzy Rovers', primary: '#26C6DA', edge: '#FFFFFF', pattern: 'dots' },
-      { name: 'Park Rangers', primary: '#43A047', edge: '#FFFFFF', pattern: 'split' },
-      { name: 'Kerbside Utd', primary: '#757575', edge: '#FFEB3B', pattern: 'cross' },
-    ],
-  },
-  {
-    name: 'District League', difficulty: 'easy',
-    clubs: [
-      { name: 'Crown City', primary: '#5E35B1', edge: '#FFD54F', pattern: 'ring', badge: 'crown' },
-      { name: 'Tin Town', primary: '#90A4AE', edge: '#263238', pattern: 'stripe' },
-      { name: 'Soda Valley', primary: '#EC407A', edge: '#FFFFFF', pattern: 'wave' },
-      { name: 'Flick Athletic', primary: '#1E88E5', edge: '#FFEB3B', pattern: 'split' },
-      { name: 'Rimside Wdrs', primary: '#6D4C41', edge: '#FFFFFF', pattern: 'rays' },
-    ],
-  },
-  {
-    name: 'National League', difficulty: 'medium',
-    clubs: [
-      { name: 'Cola Athletic', primary: '#C8102E', edge: '#FFFFFF', pattern: 'wave' },
-      { name: 'Crimp United', primary: '#0D47A1', edge: '#FFFFFF', pattern: 'stripe', badge: 'shield' },
-      { name: 'Bottleneck City', primary: '#00897B', edge: '#FFFFFF', pattern: 'ring' },
-      { name: 'Seaside Pop', primary: '#FFB300', edge: '#0D47A1', pattern: 'rays' },
-      { name: 'Ginger Town', primary: '#0B4D2C', edge: '#E8C766', pattern: 'stripe' },
-    ],
-  },
-  {
-    name: 'Premier Cap League', difficulty: 'hard',
-    clubs: [
-      { name: 'Royal Crowns', primary: '#4A148C', edge: '#FFD700', pattern: 'ring', badge: 'crown', finish: 'chrome' },
-      { name: 'Chrome FC', primary: '#B0BEC5', edge: '#B71C1C', pattern: 'none', badge: 'star', finish: 'chrome' },
-      { name: 'Golden Caps', primary: '#F9A825', edge: '#3E2723', pattern: 'rays', finish: 'gloss' },
-      { name: 'Sparkle Utd', primary: '#E53935', edge: '#FFFFFF', pattern: 'dots', badge: 'bolt' },
-      { name: 'Metro Fizz', primary: '#212121', edge: '#00E5FF', pattern: 'split', badge: 'flame' },
-    ],
-  },
-]
+export { DIVISIONS }
 
 export const TOP = DIVISIONS.length - 1
 // Top two of a division go up; the bottom club goes down
@@ -68,13 +34,29 @@ export const ME = 'T1'
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
 
 /** A new season's league for the club in division `level`. */
-export function createSeason(club, level, matchDuration = 120, now = Date.now()) {
+export function createSeason(club, level, matchDuration = 120, now = Date.now(), world = null) {
   const div = DIVISIONS[level]
   const teams = [
     { ...club, cpu: false },
-    ...div.clubs.map((c) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: div.difficulty })),
+    ...div.clubs.map((c) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: div.difficulty, ...ovrField(world, c.name) })),
   ]
   return createTournament({ format: 'league', legs: LEGS, teams, matchDuration, now })
+}
+
+/** A computer club's OVR from the world, for simulated results (stronger clubs win more). */
+function ovrField(world, name) {
+  const c = clubByName(world, name)
+  return c ? { ovr: clubOvr(c) } : {}
+}
+
+/** A computer club's best six (by role) for a match: from the world, or made up for older saves. */
+export function opponentSix(career, name, level = career?.level ?? 0) {
+  return sixFor(career?.world, name) || clubPlayers(level, name)
+}
+
+/** A computer club's OVR. */
+export function opponentOvr(career, name, level) {
+  return averageRating(squadRatings(opponentSix(career, name, level)))
 }
 
 /* ── The Cap Cup ── */
@@ -90,7 +72,7 @@ const CUP_ROUNDS = ['quarter', 'semi', 'final']
  * divisions either side. Returns { tournament, levels } — the division each
  * club comes from (for its ratings and level), by team id.
  */
-export function createCup(club, level, matchDuration, season, now = Date.now()) {
+export function createCup(club, level, matchDuration, season, now = Date.now(), world = null) {
   const rng = seededRng(`cup:${club.name}:${season}:${now}`)
   const own = DIVISIONS[level].clubs.slice().sort(() => rng() - 0.5).slice(0, 3).map((c) => ({ c, lv: level }))
   // Four more from the divisions next door: two above and two below, or four from the one neighbour at the ends
@@ -99,7 +81,7 @@ export function createCup(club, level, matchDuration, season, now = Date.now()) 
   const entrants = [...own, ...others.slice(0, 4)]
   const teams = [
     { ...club, cpu: false },
-    ...entrants.map(({ c, lv }) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: DIVISIONS[lv].difficulty })),
+    ...entrants.map(({ c, lv }) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: DIVISIONS[lv].difficulty, ...ovrField(world, c.name) })),
   ]
   const tournament = createTournament({ format: 'knockout', teams, matchDuration, rng, now })
   const levels = { [ME]: level }
@@ -162,17 +144,22 @@ export const TARGETS = {
   promotion: `Finish in the top ${2}`,
   topHalf: 'Finish in the top half',
   survive: 'Stay up',
+  notLast: 'Don’t finish bottom',
 }
-export const TARGET_BONUS = { title: 200, promotion: 150, topHalf: 80, survive: 60 }
+export const TARGET_BONUS = { title: 200, promotion: 150, topHalf: 80, survive: 60, notLast: 40 }
 
-/** What the board expects, from how your squad compares with the division. */
-export function targetFor(level, squad) {
+/**
+ * What the board expects, from where your squad ranks in the division (like
+ * a real board: the favourites are told to win it, the smallest club to stay up).
+ */
+export function targetFor(level, squad, world = null) {
   const mine = averageRating(squadRatings(squad))
-  const theirs = Math.round(DIVISIONS[level].clubs.reduce((a, c) => a + averageRating(clubRatings(level, c.name)), 0) / DIVISIONS[level].clubs.length)
-  const d = mine - theirs
-  if (d >= 3) return level === TOP ? 'title' : 'promotion'
-  if (d >= -2) return level === 0 ? 'promotion' : 'topHalf'
-  return level === 0 ? 'topHalf' : 'survive'
+  const theirs = DIVISIONS[level].clubs.map((c) => averageRating(squadRatings(sixFor(world, c.name) || clubPlayers(level, c.name))))
+  const rank = 1 + theirs.filter((o) => o > mine).length // 1 = strongest
+  if (rank === 1) return level === TOP ? 'title' : 'promotion'
+  if (rank <= 2) return level === TOP ? 'topHalf' : 'promotion'
+  if (rank <= 4) return 'topHalf'
+  return level === 0 ? 'notLast' : 'survive'
 }
 
 /** Did finishing `pos` of `count` meet the target? */
@@ -181,21 +168,24 @@ export function targetMet(target, pos, count = 6) {
   if (target === 'promotion') return pos <= PROMOTED
   if (target === 'topHalf') return pos <= Math.floor(count / 2)
   if (target === 'survive') return pos <= count - RELEGATED
+  if (target === 'notLast') return pos < count
   return false
 }
 
 /** A brand-new career for `club` (a kit: name, colours, badge...). */
 export function newCareer(club, { matchDuration = 120, now = Date.now(), squad = null } = {}) {
   const sq = squad ? sanitizeSquad(squad, now) : startingSquad(now)
+  const world = createWorld(`${club.name}:${now}`)
   return {
     v: CAREER_VERSION,
     club,
     level: 0,
     season: 1,
     matchDuration,
-    league: createSeason(club, 0, matchDuration, now),
-    cup: createCup(club, 0, matchDuration, 1, now),
-    target: targetFor(0, sq),
+    world,             // every computer club's squad, and the free agents
+    league: createSeason(club, 0, matchDuration, now, world),
+    cup: createCup(club, 0, matchDuration, 1, now, world),
+    target: targetFor(0, sq, world),
     cups: 0,
     lastSummer: null,
     past: [],          // finished seasons, newest first
@@ -204,110 +194,21 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     squad: sq,
     bench: startingBench(now, 0),
     reserves: [],      // up to five more players who train but aren't in the matchday ten
+    loans: [],         // your players out on loan until the summer
+    youthTeam: youthIntake(0, 0, `${now}:start`, 2),
     biz: newClub(0, `${club.name}:${now}`),
-    youthOffer: null,
     coins: START_COINS,
-    signed: { key: '', ids: [] }, // players already bought in the current window
+    talks: null,       // bids made in the current window
+    deals: [],         // your recent transfers
     lastEarned: 0,
     lastReport: null,
   }
-}
-
-/** How many of your matches you've played this season. */
-export function playedThisSeason(league) {
-  return allFixtures(league).filter((f) => f.result && (f.home === ME || f.away === ME)).length
-}
-
-/** The open transfer window: { index, key, market } or null when it's shut. */
-export function transferWindow(career) {
-  const index = openWindow(playedThisSeason(career.league))
-  if (index < 0) return null
-  const key = `${career.season}:${index}`
-  const taken = career.signed?.key === key ? career.signed.ids : []
-  return { index, key, market: marketFor({ season: career.season, level: career.level, windowIndex: index, taken, seed: career.league.id }) }
-}
-
-/** Buy a player from the open window into `role`. Returns the new career, or null if you can't. */
-export function buyPlayer(career, playerId, role) {
-  const w = transferWindow(career)
-  const player = w?.market.find((p) => p.id === playerId)
-  if (!player) return null
-  if (spendingFrozen(career)) return null
-  const ids = career.signed?.key === w.key ? career.signed.ids : []
-  const signed = { key: w.key, ids: [...ids, playerId] }
-  // Into the reserves: a free place (no one leaves) or in place of a reserve
-  const r = /^reserve(?::(\d))?$/.exec(role || '')
-  if (r) {
-    const reserves = career.reserves || []
-    const i = r[1] == null ? null : Number(r[1])
-    const out = i == null ? null : reserves[i]
-    if (i == null ? reserves.length >= MAX_RESERVES : !out) return null
-    const fee = priceOf(player)
-    const back = out ? sellValue(out) : 0
-    if ((career.coins ?? 0) + back < fee) return null
-    const next = i == null ? [...reserves, { ...player }] : reserves.map((x, j) => (j === i ? { ...player } : x))
-    const biz = book(career.biz || newClub(career.level), { transfers: fee, sales: back })
-    return { ...career, reserves: next, coins: career.coins + back - fee, biz, signed }
-  }
-  const deal = signPlayer(career.squad, career.coins, player, role, career.bench)
-  if (!deal) return null
-  const b = /^bench:(\d)$/.exec(role || '')
-  const out = b ? career.bench?.[Number(b[1])] : career.squad?.[role]
-  const biz = book(career.biz || newClub(career.level), { transfers: priceOf(player), sales: out ? sellValue(out) : 0 })
-  return { ...career, ...deal, bench: deal.bench || career.bench, biz, signed }
 }
 
 /** Swap a bench player into the starting six (before a match). Returns the new career, or null. */
 export function swapLineup(career, benchIndex, role) {
   const r = swapIn(career.squad, career.bench, benchIndex, role)
   return r ? { ...career, ...r } : null
-}
-
-/* ── The whole squad: up to fifteen ── */
-
-export const MATCHDAY = 10   // six start, four on the bench
-export const MAX_RESERVES = 5
-export const MAX_SQUAD = MATCHDAY + MAX_RESERVES
-
-/** Everyone at the club. */
-export const squadSize = (career) => Object.keys(career.squad || {}).length + (career.bench || []).length + (career.reserves || []).length
-
-/** Who is in a slot: 'atk1' (starting six), 'bench:2' or 'reserve:0'. */
-function inSlot(career, slot) {
-  const b = /^bench:(\d)$/.exec(slot)
-  if (b) return career.bench?.[Number(b[1])] || null
-  const r = /^reserve:(\d)$/.exec(slot)
-  if (r) return career.reserves?.[Number(r[1])] || null
-  return career.squad?.[slot] || null
-}
-
-function putInSlot(career, slot, p) {
-  const b = /^bench:(\d)$/.exec(slot)
-  if (b) return { ...career, bench: career.bench.map((x, i) => (i === Number(b[1]) ? p : x)) }
-  const r = /^reserve:(\d)$/.exec(slot)
-  if (r) return { ...career, reserves: career.reserves.map((x, i) => (i === Number(r[1]) ? p : x)) }
-  return { ...career, squad: { ...career.squad, [slot]: p } }
-}
-
-/**
- * Bring a reserve into the matchday ten, swapping with a starter or bench
- * player (who drops to the reserves). Keepers swap with keepers.
- */
-export function promoteReserve(career, reserveIndex, slot) {
-  const from = `reserve:${reserveIndex}`
-  const a = inSlot(career, from)
-  const b = inSlot(career, slot)
-  if (!a || !b || slot.startsWith('reserve:')) return null
-  if ((a.pos === 'GK') !== (b.pos === 'GK')) return null
-  return putInSlot(putInSlot(career, from, b), slot, a)
-}
-
-/** Sell a reserve for his value (any time: it frees up his wages). */
-export function sellReserve(career, index) {
-  const p = career.reserves?.[index]
-  if (!p) return null
-  const back = sellValue(p)
-  return { ...career, reserves: career.reserves.filter((_, i) => i !== index), coins: (career.coins ?? 0) + back, biz: book(career.biz || newClub(career.level), { sales: back }) }
 }
 
 /** Has every fixture of the season been played? */
@@ -332,9 +233,6 @@ function payMatchDay(career, { home, gf, ga }) {
   return { ...career, biz: r.club, coins: (career.coins ?? 0) + r.net, lastEarned: r.net }
 }
 
-/** In the red: the board freezes transfers and upgrades until the books are back above zero. */
-export const spendingFrozen = (career) => (career.coins ?? 0) < 0
-
 /** Choose this season's sponsor (one of three offers). */
 export function signSponsor(career, index) {
   const r = chooseSponsor(career.biz, index)
@@ -352,32 +250,6 @@ export function buildFacility(career, kind) {
 export function setTickets(career, ticket) {
   if (!Object.hasOwn(TICKETS, ticket)) return null
   return { ...career, biz: { ...career.biz, ticket } }
-}
-
-/**
- * Take on this summer's academy graduate: into a free place in the reserves
- * (slot 'reserve'), in place of a reserve ('reserve:i') or bench player (a
- * bench index) who is sold for his value, or let him go (slot null).
- */
-export function takeYouth(career, slot) {
-  const y = career.youthOffer
-  if (!y) return career
-  if (slot == null) return { ...career, youthOffer: null }
-  if (slot === 'reserve') {
-    if ((career.reserves || []).length >= MAX_RESERVES) return null
-    return { ...career, reserves: [...(career.reserves || []), y], youthOffer: null }
-  }
-  const r = /^reserve:(\d)$/.exec(String(slot))
-  if (r) {
-    const out = career.reserves?.[Number(r[1])]
-    if (!out) return null
-    const back = sellValue(out)
-    return { ...career, reserves: career.reserves.map((p, i) => (i === Number(r[1]) ? y : p)), youthOffer: null, coins: (career.coins ?? 0) + back, biz: book(career.biz, { sales: back }) }
-  }
-  const out = career.bench?.[slot]
-  if (!out || (out.pos === 'GK') !== (y.pos === 'GK')) return null
-  const back = sellValue(out)
-  return { ...career, bench: career.bench.map((p, i) => (i === slot ? y : p)), youthOffer: null, coins: (career.coins ?? 0) + back, biz: book(career.biz, { sales: back }) }
 }
 
 /** Your club's next match, or null when your season is done. */
@@ -456,14 +328,11 @@ export function finishSeason(career, now = Date.now()) {
     finance: (() => { const l = { ...emptyLedger(), ...(career.biz?.ledger || {}) }; l.prize += bonus; return { ...ledgerTotals(l), ledger: l } })(),
   }
   // The business side of the summer: fans move with the season, TV money for the new division,
-  // new sponsor offers, a fresh set of books, and an academy graduate if there's an academy
+  // new sponsor offers and a fresh set of books
   const biz0 = career.biz || newClub(career.level)
   const fans = fansAfterSeason(biz0.fans, outcome, cup, level)
   const tv = TV_MONEY[level] ?? 0
   const bizNext = book({ ...biz0, fans, sponsor: null, offers: sponsorOffers(level, fans, `${career.league.id}:${career.season + 1}`), ledger: emptyLedger(), lastMatch: null }, { tv })
-  const academy = ACADEMY[biz0.academy || 0]
-  const youthRng = seededRng(`academy:${career.league.id}:${career.season}`)
-  const youthOffer = academy.pot == null ? null : makeYouth(youthRng, level, ['ATK', 'MID', 'DEF', 'GK'][Math.floor(youthRng() * 4)], academy.pot)
   const summer = developSeason(career.squad || startingSquad(career.season), `${career.league.id}:${career.season}`, level)
   // The bench develops too (and players who never got a game slide a little)
   const benchSummer = developSeason(Object.fromEntries((career.bench || []).map((p, i) => [String(i), p])), `${career.league.id}:${career.season}:bench`, level)
@@ -472,29 +341,41 @@ export function finishSeason(career, now = Date.now()) {
   const resSummer = developSeason(Object.fromEntries((career.reserves || []).map((p, i) => [String(i), p])), `${career.league.id}:${career.season}:res`, level)
   const gone = new Set(resSummer.retired.map((r) => r.role))
   const reserves = (career.reserves || []).map((_, i) => (gone.has(String(i)) ? null : resSummer.squad[String(i)])).filter(Boolean)
+  // The rest of the world moves on: development, retirements, clubs buying and selling
+  const seed = `${career.league.id}:${career.season}`
+  const ws = worldSummer(career.world || createWorld(career.league.id), seed)
+  // Your loans come back, the youth team grows and the academy sends up its graduates
+  const sq = squadSummer({ ...career, world: ws.world, reserves }, { level, seed })
+  const world = sq.career.world
   return {
     ...career,
     level,
     season: career.season + 1,
-    league: createSeason(career.club, level, career.matchDuration, now),
-    cup: createCup(career.club, level, career.matchDuration, career.season + 1, now),
-    target: targetFor(level, summer.squad),
+    world,
+    league: createSeason(career.club, level, career.matchDuration, now, world),
+    cup: createCup(career.club, level, career.matchDuration, career.season + 1, now, world),
+    target: targetFor(level, summer.squad, world),
     past: [entry, ...career.past].slice(0, 50),
     promotions: career.promotions + (outcome === 'promoted' ? 1 : 0),
     titles: career.titles + (outcome === 'champions' ? 1 : 0),
     cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
     coins: (career.coins ?? 0) + bonus + tv,
     biz: bizNext,
-    youthOffer,
     squad: summer.squad,
     bench,
-    reserves,
+    reserves: sq.career.reserves,
+    loans: [],
+    youthTeam: sq.career.youthTeam,
+    talks: null,
     lastSummer: {
       season: career.season + 1,
       retired: [...summer.retired, ...benchSummer.retired, ...resSummer.retired.map((r) => ({ ...r, role: `res${r.role}`, left: true }))],
       changes: [...summer.changes, ...benchSummer.changes, ...resSummer.changes.map((c) => ({ ...c, role: `res${c.role}` }))],
+      loansBack: sq.loansBack.map((p) => ({ name: p.name, rating: p.rating })),
+      youthIn: sq.youthIn.map((p) => ({ name: p.name, pos: p.pos, rating: p.rating })),
+      youthOut: sq.youthOut.map((p) => ({ name: p.name })),
+      world: ws.news.slice(0, 8),
     },
-    signed: { key: '', ids: [] },
     lastEarned: 0,
   }
 }
@@ -519,14 +400,16 @@ export function sanitizeCareer(input) {
     // Careers from before the squad existed get a starting squad and purse
     squad: sanitizeSquad(input.squad, league.id),
     bench: sanitizeBench(input.bench, league.id, level),
-    reserves: Array.isArray(input.reserves) ? input.reserves.map((p) => sanitizePlayer(p, { GK: 'gk', DEF: 'def1', MID: 'mid', ATK: 'atk1' }[p?.pos] || 'mid')).filter(Boolean).slice(0, MAX_RESERVES) : [],
+    // Returning loans can push the reserves past five for a while (no signings until you're back to fifteen)
+    reserves: Array.isArray(input.reserves) ? input.reserves.map((p) => sanitizePlayer(p, { GK: 'gk', DEF: 'def1', MID: 'mid', ATK: 'atk1' }[p?.pos] || 'mid')).filter(Boolean).slice(0, MAX_SQUAD) : [],
+    loans: sanitizeLoans(input.loans),
+    youthTeam: sanitizeYouth(input.youthTeam) ?? youthIntake(level, 0, `${league.id}:start`, 2),
+    world: sanitizeWorld(input.world, league.id),
+    talks: sanitizeTalks(input.talks),
+    deals: sanitizeDeals(input.deals),
     coins: Number.isInteger(input.coins) ? input.coins : START_COINS,
-    signed: isObj(input.signed) && typeof input.signed.key === 'string' && Array.isArray(input.signed.ids)
-      ? { key: input.signed.key.slice(0, 20), ids: input.signed.ids.filter((x) => typeof x === 'string').slice(0, 20) }
-      : { key: '', ids: [] },
     lastEarned: Number.isInteger(input.lastEarned) ? input.lastEarned : 0,
     biz: sanitizeClub(input.biz, level, league.id),
-    youthOffer: isObj(input.youthOffer) ? sanitizePlayer(input.youthOffer, { GK: 'gk', DEF: 'def1', MID: 'mid', ATK: 'atk1' }[input.youthOffer.pos] || 'mid') : null,
     lastReport: sanitizeReport(input.lastReport),
     cup: sanitizeCup(input.cup),
     target: Object.hasOwn(TARGETS, input.target) ? input.target : null,
@@ -535,6 +418,10 @@ export function sanitizeCareer(input) {
       season: n(input.lastSummer.season),
       retired: Array.isArray(input.lastSummer.retired) ? input.lastSummer.retired.filter(isObj).slice(0, MAX_SQUAD) : [],
       changes: Array.isArray(input.lastSummer.changes) ? input.lastSummer.changes.filter(isObj).slice(0, MAX_SQUAD) : [],
+      loansBack: Array.isArray(input.lastSummer.loansBack) ? input.lastSummer.loansBack.filter(isObj).slice(0, MAX_SQUAD) : [],
+      youthIn: Array.isArray(input.lastSummer.youthIn) ? input.lastSummer.youthIn.filter(isObj).slice(0, YOUTH_MAX) : [],
+      youthOut: Array.isArray(input.lastSummer.youthOut) ? input.lastSummer.youthOut.filter(isObj).slice(0, YOUTH_MAX) : [],
+      world: Array.isArray(input.lastSummer.world) ? input.lastSummer.world.filter(isObj).slice(0, 8).map(cleanNews) : [],
     } : null,
   }
 }

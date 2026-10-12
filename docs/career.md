@@ -42,12 +42,32 @@ Football Manager-style finances. All money in units (₦10k); every flow is book
 - Sponsor: three offers each summer (steady per match, per win ×2.2, up front ×9) from (8 + 1.2√fans) × (1 + 0.6 × division).
 - TV money at the start of each season: 0 / 150 / 500 / 1,500 by division.
 - Venue (key `stadium`, levels 0–4), a real table venue used for home matches: Street corner (street, 150 watching) → Garden (gravel, 400) → Viewing centre (bar, 750) → Game room (arena, 1,500) → Cap Arena (capArena, 3,000; career-only venue with stands). Costs 300/1k/3k/8k. Away matches use the opponent's venue (`matchVenue`: their division, +0/1 by name).
-- Facilities (levels 0–4): training xp ×1→×1.6 on match growth; academy gives a summer graduate with +0/3/6/9 potential (200/600/1.5k/4k each).
-- Squad of up to 15 (`MAX_SQUAD`): starting six + bench of four (the matchday ten) + up to five `reserves`. Reserves are paid, develop in summer (retirees just leave), don't play; `promoteReserve` swaps one into the ten (keeper for keeper), `sellReserve` sells any time. Market signings and academy graduates go into a free reserve place, or replace someone (sold for 60%).
+- Facilities (levels 0–4): training xp ×1→×1.6 on match growth; academy sends 1/2/2/3/3 youngsters a summer to the youth team with −4/0/+3/+6/+9 potential (200/600/1.5k/4k each).
+- Squad rules: see “Squad and transfers” below.
 - In the red (coins < 0): transfers and building frozen (`spendingFrozen`).
 - `clubEconomy.test.js` simulates ten seasons: strong clubs end around ₦100–400m, weak ones stay solvent.
 
+## The world (src/game/world.js)
+Every computer club has a real squad, kept in `career.world` ({ clubs, free, nextId, news }); players compact ({ id, name, pos, age, attrs, pot, listed? }), filled out with `hydrate`.
+- Club strength = `DIVISION_RATING[level]` + tier offset by its place in `DIVISIONS` (favourites +6, contenders +3, mid-table 0, battling −2, strugglers −5).
+- Squad of 12: 2 GK, 3 DEF, 2 MID, 3 ATK, 2 youth. Bands: star S+6..10 (ages 24–30; the top two clubs get a second star in midfield), first team S+0..4, squad S−6..−2, youth S−12..−8 with potential +4..15.
+- A club plays its `bestSix` (keeper, then best fit per role). Its OVR (`clubOvr`) goes on league/cup teams as `ovr`; CPU-v-CPU results lean ~7% more goals per OVR point (`simulateResult`). Your opponents' caps carry their real players' names and attributes.
+- Each summer (`worldSummer`): development (ageGrowth ±1, capped by potential, +1 max above 85), retirements 33–37, a youth graduate per club, clubs that need it buying from weaker clubs or free agents (big clubs first, within budget = 3× a S+2 player's fee), squads settled to 10–13 with position minimums, older non-starters and surplus listed, free-agent pool refilled (16–30). News of the biggest moves shows on the career screen.
+- 20-season simulation: club OVRs drift up about 3–5 points; stars top out around 90–94.
+
+## Squad and transfers (src/game/transfers.js)
+- Squad of 15 (`MAX_SQUAD`): starting six + bench of four (the matchday ten) + up to five reserves. Full = no signings until someone leaves. Returning loans can push you over; signings stay blocked until you're back to 15.
+- Youth team (`youthTeam`, max 8) is outside the 15 and unpaid: academy intake each summer (ages 15–16, ~13 below the division, potential +14..27 + academy bonus), grows by age (+1 with training ≥ Training centre), must leave at 19 (becomes a free agent). Promote to the reserves when there's room.
+- Market (`searchMarket`): every club player and free agent; filter position, division/free, OVR, age, price, name or club, listed; sort OVR / potential / price / age.
+- Asking price (`askingPrice`) = value × star 1.6 / first team 1.3 / prospect 1.25 / squad 1 / listed 0.75; free agent = 15% signing-on fee.
+- Willingness: won't drop two divisions; a first-teamer won't drop one. Free agents always talk.
+- Bids (`makeBid`): each club's bottom line is 85–100% of asking (seeded per window); ≥70% gets a counter at asking; three tries a window then talks end. Club players only in a window; free agents any time. Blocked when full, in the red, or short of money. Signings join the reserves.
+- Selling (`offersFor` / `sellTo`, window only): up to three clubs where he'd be within 2 of their weakest starter and who can afford ~70% of his value; fee 75–115% of value. Leaving the ten pulls in the best reserve who can play there (keeper for keeper); with no cover the move is refused.
+- Release (`releasePlayer`, any time): pay five matches' wages; he becomes a free agent.
+- Loan out (`loanOut`, window only): to the best club no higher than your division where he'd be within 5 of their weakest starter. No wages, no squad place; back in the summer, developed as a 7.0-average season.
+
 ## Season, Cap Cup, board target
+Board target from your rank by OVR among the six clubs: strongest → promotion (title at the top); 2nd → promotion (top half at the top); 3rd–4th → top half; else stay up (don't finish bottom in the Sunday League).
 Ten league matches (home and away). Cap Cup: 8 clubs (3 from your division, 4 from the ones next door); QF after league match 2, SF after 5, final after 8 (all open once the league ends). Prizes 250 / 100 / 50.
 Board target from your OVR vs the division (win the league / top 2 / top half / stay up), worth 200 / 150 / 80 / 60.
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { newCareer, swapLineup, sanitizeCareer, finishSeason, nextMatch, recordCareerResult, ME } from '../game/career'
-import { startingBench, signPlayer, applyMatchByPlayer, developSeason, BENCH_POS, MAX_SUBS } from '../game/squad'
+import { startingBench, applyMatchByPlayer, developSeason, BENCH_POS, MAX_SUBS } from '../game/squad'
 import { performanceByPlayer } from '../state/tournamentStore'
 
 const club = { name: 'Bench FC', primary: '#123456', edge: '#FFFFFF' }
@@ -21,14 +21,6 @@ describe('a squad of ten', () => {
     expect(swapLineup(c, 0, 'atk1')).toBeNull() // bench keeper can't play up front
     expect(swapLineup(c, 1, 'gk')).toBeNull()   // outfielder can't go in goal
     expect(swapLineup(c, 0, 'gk').squad.gk.pos).toBe('GK')
-  })
-
-  it('signings can go straight onto the bench', () => {
-    const bench = startingBench('b')
-    const star = { ...bench[3], id: 'new', name: 'New Star', rating: 60, pot: 62 }
-    const deal = signPlayer({}, 100000, star, 'bench:3', bench)
-    expect(deal.bench[3].id).toBe('new')
-    expect(signPlayer({}, 100000, star, 'bench:0', bench)).toBeNull() // outfielder into the keeper's bench spot
   })
 
   it('saves keep the bench; older saves get one', () => {

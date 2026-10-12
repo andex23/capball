@@ -4,7 +4,8 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending, swapLineup, signSponsor, buildFacility, setTickets, takeYouth, promoteReserve, sellReserve } from '../game/career'
+import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
+import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { TRAINING } from '../game/club'
 import { allFixtures } from '../game/tournament'
 import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
@@ -105,16 +106,17 @@ export const useCareerStore = create((set, get) => ({
     set({ career: next })
   },
 
-  /** Sign a player from the open transfer window into `role`. True if the deal went through. */
-  buy(playerId, role) {
+  /** Bid for a player in the market. Returns the club's answer ({ verdict, fee?, why? }). */
+  bid(playerId, amount) {
     const { career } = get()
-    if (!career) return false
-    const next = buyPlayer(career, playerId, role)
-    if (!next) return false
-    save(next)
-    set({ career: next })
-    useAccountStore.getState().save({ force: true })
-    return true
+    if (!career) return { verdict: 'reject' }
+    const { career: next, result } = makeBid(career, playerId, amount)
+    if (next !== career) {
+      save(next)
+      set({ career: next })
+      useAccountStore.getState().save({ force: true })
+    }
+    return result
   },
 
   /** Before a match: bring a bench player into the starting six. True if done. */
@@ -141,11 +143,25 @@ export const useCareerStore = create((set, get) => ({
     return true
   },
   sponsor(index) { return get()._apply(signSponsor, index) },
+  /** Squad moves: each returns true, or { error } saying why not. */
+  _move(fn, ...args) {
+    const { career } = get()
+    if (!career) return { error: 'No career.' }
+    const next = fn(career, ...args)
+    if (!next || next.error) return next || { error: 'That can’t be done.' }
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+    return true
+  },
+  sell(slot, clubId) { return get()._move(sellTo, slot, clubId) },
+  release(slot) { return get()._move(releasePlayer, slot) },
+  loan(slot) { return get()._move(loanOut, slot) },
+  promoteYouth(index) { return get()._move(promoteYouth, index) },
+  releaseYouth(index) { return get()._move(releaseYouth, index) },
   build(kind) { return get()._apply(buildFacility, kind) },
   tickets(level) { return get()._apply(setTickets, level) },
-  youth(slot) { return get()._apply(takeYouth, slot) },
   promote(reserveIndex, slot) { return get()._apply(promoteReserve, reserveIndex, slot) },
-  sellReserve(index) { return get()._apply(sellReserve, index) },
 
   retire() {
     save(null)
