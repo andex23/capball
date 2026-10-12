@@ -175,12 +175,16 @@ export function targetMet(target, pos, count = 6) {
 }
 
 /** A brand-new career for `club` (a kit: name, colours, badge...). */
-export function newCareer(club, { matchDuration = 120, now = Date.now(), squad = null } = {}) {
+/** How a career is played: on your own against the computer, or against a friend online or over LAN. */
+export const CAREER_MODES = ['solo', 'online', 'lan']
+
+export function newCareer(club, { matchDuration = 120, now = Date.now(), squad = null, mode = 'solo' } = {}) {
   const sq = squad ? sanitizeSquad(squad, now) : startingSquad(now)
   const world = createWorld(`${club.name}:${now}`)
   return {
     v: CAREER_VERSION,
     club,
+    mode: CAREER_MODES.includes(mode) ? mode : 'solo',
     level: 0,
     season: 1,
     matchDuration,
@@ -406,6 +410,7 @@ export function sanitizeCareer(input) {
   return {
     v: CAREER_VERSION,
     club: input.club,
+    mode: CAREER_MODES.includes(input.mode) ? input.mode : 'solo',
     level,
     season: Math.max(1, n(input.season)),
     matchDuration: [60, 90, 120, 150, 180].includes(input.matchDuration) ? input.matchDuration : 120,

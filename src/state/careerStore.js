@@ -4,7 +4,7 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
+import { CAREER_MODES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
 import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { TRAINING } from '../game/club'
 import { allFixtures } from '../game/tournament'
@@ -51,8 +51,8 @@ function withPerformance(career, perf, seed, fixtureId) {
 export const useCareerStore = create((set, get) => ({
   career: load(),
 
-  start(club, matchDuration, squad) {
-    const career = newCareer(club, { matchDuration, squad })
+  start(club, matchDuration, squad, mode = 'solo') {
+    const career = newCareer(club, { matchDuration, squad, mode })
     save(career)
     set({ career })
     useAccountStore.getState().save({ force: true })
@@ -89,6 +89,16 @@ export const useCareerStore = create((set, get) => ({
     if (outcome === 'promoted') useAchievementStore.getState().award(['promoted'])
     if (outcome === 'champions') useAchievementStore.getState().award(['premier'])
     if (next.past[0]?.cup === 'won') useAchievementStore.getState().award(['capcup'])
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+  },
+
+  /** Switch between a solo career and playing a friend (online or LAN). */
+  setMode(mode) {
+    const { career } = get()
+    if (!career || !CAREER_MODES.includes(mode)) return
+    const next = { ...career, mode }
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })

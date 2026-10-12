@@ -37,7 +37,7 @@ export default function OnlineScreen() {
     const t = setTimeout(() => {
       const p = useTournamentStore.getState().playing
       if (!getIsHost() && p?.kind === 'lanGuest') return
-      goToScreen(getIsHost() && p?.lan && p.kind === 'career' ? SCREEN.FORMATION : SCREEN.TEAM_SELECT)
+      goToScreen(getIsHost() && p?.lan && (p.kind === 'career' || p.kind === 'careerCup') ? SCREEN.FORMATION : SCREEN.TEAM_SELECT)
     }, 900)
     return () => clearTimeout(t)
   }, [status.status, goToScreen])
