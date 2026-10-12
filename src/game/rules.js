@@ -1,0 +1,172 @@
+/**
+ * COUNTER BALL match rules as pure functions.
+ *
+ * Nothing in here touches the physics engine, the store or the DOM, so every
+ * rule can be unit tested directly and shared between the host and the AI.
+ */
+
+import { PITCH, BALL_RADIUS } from '../data/TeamData.js'
+
+export const SHOOTOUT_ROUNDS = 3
+
+export function otherTeam(team) {
+  return team === 'team1' ? 'team2' : 'team1'
+}
+
+/** 'team1' | 'team2' | null for a body label such as 'team2_atk1'. */
+export function teamOf(label) {
+  if (typeof label !== 'string') return null
+  if (label.startsWith('team1_')) return 'team1'
+  if (label.startsWith('team2_')) return 'team2'
+  return null
+}
+
+export function isGoalkeeper(capId) {
+  return typeof capId === 'string' && capId.endsWith('_gk')
+}
+
+/** Direction of a team's OWN goal: -1 = left goal, +1 = right goal. */
+export function teamHomeDir(team, team1Side = 'left') {
+  const team1Dir = team1Side === 'right' ? 1 : -1
+  return team === 'team1' ? team1Dir : -team1Dir
+}
+
+/** Which team a ball at (x, y) has scored for, ignoring any rule violations. */
+export function scorerForBall(x, y, team1Side = 'left') {
+  if (Math.abs(y) >= PITCH.goalWidth / 2) return null
+  let goalDir = 0
+  if (x < -PITCH.halfW - BALL_RADIUS) goalDir = -1
+  else if (x > PITCH.halfW + BALL_RADIUS) goalDir = 1
+  if (!goalDir) return null
+  // The goal belongs to the team whose home dir matches — the OTHER team scores.
+  return teamHomeDir('team1', team1Side) === goalDir ? 'team2' : 'team1'
+}
+
+/**
+ * Decide what a ball crossing a goal line means.
+ *
+ * - The flick straight from a kick-off can't score (kickoffGuard).
+ * - Goalkeepers may score in open play. A direct goal kick cannot score
+ *   for the taker's team; own goals still count.
+ *
+ * Returns { outcome: 'goal' | 'kickoff_violation' | 'goal_kick_violation', scorer }
+ * or null when the ball isn't in a goal.
+ */
+export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, banked = false, goalKickGuard = false }) {
+  const scorer = scorerForBall(x, y, team1Side)
+  if (!scorer) return null
+  if (kickoffGuard) return { outcome: 'kickoff_violation', scorer }
+  if (goalKickGuard && teamOf(lastFlickedCapId) === scorer) {
+    return { outcome: 'goal_kick_violation', scorer }
+  }
+  // Straight off the wall into the net doesn't count: a goal kick to the defenders
+  if (banked) return { outcome: 'bank_shot', scorer }
+  return { outcome: 'goal', scorer }
+}
+
+/**
+ * Classify the first thing the flicked cap touched.
+ * 'ball' = legal, 'teammate' = wasted turn, 'foul' = opponent hit first,
+ * 'wall' = cushion (doesn't count — the next contact decides).
+ */
+export function classifyContact(flickedCapId, otherLabel) {
+  if (otherLabel === 'ball') return 'ball'
+  const otherT = teamOf(otherLabel)
+  if (!otherT) return 'wall'
+  return otherT === teamOf(flickedCapId) ? 'teammate' : 'foul'
+}
+
+/** Is (x, y) inside the penalty area of the goal at homeDir (-1 left / +1 right)? */
+export function isInPenaltyArea(x, y, homeDir) {
+  if (Math.abs(y) >= PITCH.penAreaH / 2) return false
+  return homeDir === -1
+    ? x < -PITCH.halfW + PITCH.penAreaW
+    : x > PITCH.halfW - PITCH.penAreaW
+}
+
+// Only a ball wedged right into the corner — touching both the end wall and the
+// side wall, where no cap can get behind it — is dead and restarts with a
+// corner kick or a goal kick. A ball (or a cap) merely resting near the corner
+// is still in play.
+export const CORNER_ZONE = BALL_RADIUS + 0.25
+
+/** The corner the ball is stuck in — { ex, ey } (signs of x and y) — or null. */
+export function ballInCorner(x, y, zone = CORNER_ZONE) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  if (Math.abs(x) < PITCH.halfW - zone || Math.abs(y) < PITCH.halfH - zone) return null
+  return { ex: x < 0 ? -1 : 1, ey: y < 0 ? -1 : 1 }
+}
+
+/**
+ * Restart for a ball stuck in a corner at end `ex`, as in real football:
+ * the defending side touched it last → corner kick to the attackers;
+ * otherwise → goal kick to the defenders.
+ */
+export function cornerRestart(ex, lastTouchTeam, team1Side = 'left') {
+  const defending = teamHomeDir('team1', team1Side) === ex ? 'team1' : 'team2'
+  return lastTouchTeam === defending
+    ? { kind: 'corner', team: otherTeam(defending) }
+    : { kind: 'goalKick', team: defending }
+}
+
+// How far outside his own penalty area the ball can be and the keeper still come for it.
+// The keeper can't leave his box, so this is just the ball's own radius and a
+// whisker: any further out and he could never actually touch it.
+export const KEEPER_REACH = 0.7
+
+/** The area a keeper's centre is confined to (his penalty box, less his radius). */
+export function keeperZone(homeDir, r) {
+  const { halfW, penAreaW, penAreaH } = PITCH
+  return homeDir === -1
+    ? { minX: -halfW + r, maxX: -halfW + penAreaW - r, minY: -penAreaH / 2 + r, maxY: penAreaH / 2 - r }
+    : { minX: halfW - penAreaW + r, maxX: halfW - r, minY: -penAreaH / 2 + r, maxY: penAreaH / 2 - r }
+}
+
+/**
+ * A goalkeeper may only be flicked while the ball is in or near his own
+ * penalty area (homeDir = which end that keeper defends: -1 left, +1 right).
+ * Out in open play the outfield caps have to do the work.
+ */
+export function keeperCanPlay(ballX, ballY, homeDir, margin = KEEPER_REACH) {
+  if (!Number.isFinite(ballX) || !Number.isFinite(ballY)) return true
+  if (Math.abs(ballY) > PITCH.penAreaH / 2 + margin) return false
+  return homeDir === -1
+    ? ballX < -PITCH.halfW + PITCH.penAreaW + margin
+    : ballX > PITCH.halfW - PITCH.penAreaW - margin
+}
+
+/**
+ * Penalty shootout state after any number of kicks.
+ * Best of SHOOTOUT_ROUNDS, stops early once one side can't catch up, then
+ * sudden death (equal kicks, different score) if still level.
+ *
+ * @param {{team1:number, team2:number}} kicks  kicks taken per team
+ * @param {{team1:number, team2:number}} goals  goals scored per team
+ * @returns {{decided:boolean, winner:'team1'|'team2'|null, suddenDeath:boolean}}
+ */
+export function shootoutStatus(kicks, goals) {
+  const target = Math.max(SHOOTOUT_ROUNDS, kicks.team1, kicks.team2)
+  const rem1 = target - kicks.team1
+  const rem2 = target - kicks.team2
+  const suddenDeath = Math.min(kicks.team1, kicks.team2) >= SHOOTOUT_ROUNDS
+  if (goals.team1 > goals.team2 + rem2) return { decided: true, winner: 'team1', suddenDeath }
+  if (goals.team2 > goals.team1 + rem1) return { decided: true, winner: 'team2', suddenDeath }
+  return { decided: false, winner: null, suddenDeath }
+}
+
+/** Whose turn it is in a shootout: team1 shoots first each round. */
+export function nextShooter(kicks) {
+  return kicks.team1 > kicks.team2 ? 'team2' : 'team1'
+}
+
+/** Winner of a finished match on goals, or null for a draw. */
+export function matchWinner(score) {
+  if (score.team1 > score.team2) return 'team1'
+  if (score.team2 > score.team1) return 'team2'
+  return null
+}
+
+export function formatClock(seconds) {
+  const s = Math.max(0, Math.ceil(seconds))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}

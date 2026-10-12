@@ -1,0 +1,210 @@
+import { useState } from 'react'
+import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
+import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText, CLEAR_TO } from '../data/TeamOptions'
+import CapDesigns from '../ui/CapDesigns'
+import ColorPicker from '../ui/ColorPicker'
+import SquadEditor from '../ui/SquadEditor'
+import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
+import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
+import SetupShell from '../ui/SetupShell'
+import CapPreview from '../ui/CapPreview'
+import Icon from '../ui/Icon'
+import { displayColor } from '../ui/color'
+
+// The ball is a carrom coin: white or black, or the red queen
+const BALL_COLORS = [
+  { color: '#EFE6D2', label: 'White' },
+  { color: '#1C1B1A', label: 'Black' },
+  { color: '#B71C1C', label: 'Red' },
+]
+
+const TABS = [
+  { key: 'designs', label: 'Designs' },
+  { key: 'colors', label: 'Colours' },
+  { key: 'badge', label: 'Text' },
+  { key: 'style', label: 'Finish' },
+  { key: 'squad', label: 'Squad' },
+]
+
+// Tapping the chosen option again clears it (back to `clearTo`)
+function Chips({ label, options, value, onPick, disabled, clearTo }) {
+  return (
+    <div>
+      <div className="eyebrow" style={{ marginBottom: 8 }}>{label}</div>
+      <div className="chip-row" role="group" aria-label={label}>
+        {options.map((o) => (
+          <button
+            key={o.key}
+            className="chip"
+            aria-pressed={value === o.key}
+            disabled={disabled}
+            onClick={() => { playButtonSelect(); onPick(value === o.key && clearTo ? clearTo : o.key) }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
+  const [tab, setTab] = useState('designs')
+  const [draftName, setDraftName] = useState(null)
+  const [draftText, setDraftText] = useState(null)
+  const commitText = () => {
+    if (draftText === null) return
+    onUpdate({ capText: sanitizeCapText(draftText) })
+    setDraftText(null)
+  }
+  const teamColor = displayColor(config.primary)
+
+  const commitName = () => {
+    if (draftName === null) return
+    const name = draftName.trim()
+    if (name) onUpdate({ name })
+    setDraftName(null)
+  }
+
+  return (
+    <section className="card team-card kit-card" style={{ '--team': teamColor }} aria-label={`${config.name} kit`}>
+      <div className="team-card-head">
+        <input
+          className="team-name-input"
+          value={draftName ?? config.name}
+          maxLength={TEAM_NAME_MAX}
+          disabled={locked}
+          aria-label={`${teamKey === 'team1' ? 'Home' : 'Away'} team name`}
+          onChange={(e) => setDraftName(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+        />
+        {tag && <span className="lock-note">{locked && <Icon name="lock" size={14} />}{tag}</span>}
+      </div>
+
+      <div className="kit-preview">
+        <CapPreview config={config} size={128} number={config.numbers?.atk1 ?? DEFAULT_TEAM_CONFIG[teamKey].numbers.atk1} />
+      </div>
+
+      {locked ? (
+        <p className="muted" style={{ padding: '4px 20px 20px', textAlign: 'center', fontSize: 13 }}>
+          Your opponent is building this kit.
+        </p>
+      ) : (
+        <>
+          <div className="tabs kit-tabs" role="tablist">
+            {TABS.map((t) => (
+              <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => { playButtonSelect(); setTab(t.key) }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="card-pad kit-options">
+            {tab === 'designs' && (
+              <>
+                <p className="muted kit-note">Pick a drink-cap design, then change anything you like. Or build your own in the other tabs.</p>
+                <CapDesigns config={config} onPick={(patch) => { setDraftText(null); onUpdate(patch) }} />
+              </>
+            )}
+            {tab === 'colors' && (
+              <>
+                <ColorPicker label="Top colour" value={config.primary} onPick={(c) => onUpdate({ primary: c || config.primary })} />
+                <ColorPicker label="Pattern & ring colour" value={config.edge} onPick={(c) => onUpdate({ edge: c || config.edge })} />
+                <ColorPicker label="Text & badge colour" value={config.textColor || ''} allowDefault onPick={(c) => onUpdate({ textColor: c })} />
+                <ColorPicker label="Sides colour" value={config.skirtColor || ''} allowDefault autoLabel="Same as top" onPick={(c) => onUpdate({ skirtColor: c })} />
+              </>
+            )}
+            {tab === 'badge' && (
+              <>
+                <div>
+                  <label className="eyebrow" htmlFor={`cap-text-${teamKey}`} style={{ display: 'block', marginBottom: 8 }}>Text on your caps</label>
+                  <input
+                    id={`cap-text-${teamKey}`}
+                    className="field"
+                    value={draftText ?? config.capText ?? ''}
+                    maxLength={CAP_TEXT_MAX}
+                    placeholder="Leave empty to print your team name"
+                    autoComplete="off"
+                    onChange={(e) => setDraftText(e.target.value)}
+                    onBlur={commitText}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  />
+                </div>
+                <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} clearTo={CLEAR_TO.badge} />
+              </>
+            )}
+            {tab === 'squad' && <SquadEditor config={config} teamKey={teamKey} onUpdate={onUpdate} />}
+            {tab === 'style' && (
+              <>
+                <Chips label="Pattern" options={PATTERNS} value={config.pattern} onPick={(k) => onUpdate({ pattern: k })} clearTo={CLEAR_TO.pattern} />
+                <Chips label="Finish" options={FINISHES} value={config.finish} onPick={(k) => onUpdate({ finish: k })} clearTo={CLEAR_TO.finish} />
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+export default function TeamSelectScreen() {
+  const teamConfig = useMatchStore((s) => s.teamConfig)
+  const setTeamConfig = useMatchStore((s) => s.setTeamConfig)
+  const ballColor = useMatchStore((s) => s.ballColor)
+  const setBallColor = useMatchStore((s) => s.setBallColor)
+  const goToScreen = useMatchStore((s) => s.goToScreen)
+  const gameMode = useMatchStore((s) => s.gameMode)
+  const myTeam = useMatchStore((s) => s.onlineMyTeam)
+  const aiTeam = useMatchStore((s) => s.aiTeam)
+  const isOnline = gameMode === 'online'
+  const isGuest = isOnline && myTeam === 'team2'
+
+  const update = (team, config) => {
+    setTeamConfig(team, config)
+    // The guest asks the host to apply its edits; the host's copy comes back via sync
+    if (isGuest && team === 'team2') sendTeamConfig(config)
+  }
+
+  const tagFor = (team) => {
+    if (isOnline) return team === myTeam ? 'You' : 'Opponent'
+    if (gameMode === 'ai') return team === aiTeam ? 'CPU' : 'You'
+    return team === 'team1' ? 'Player 1' : 'Player 2'
+  }
+
+  return (
+    <SetupShell
+      step={0}
+      title="Build your teams"
+      subtitle="Name your side and design your caps."
+      onBack={() => goToScreen(SCREEN.MENU)}
+      next={{ label: 'Choose venue', onClick: () => goToScreen(SCREEN.STADIUM_SELECT) }}
+      onBothReady={() => goToScreen(SCREEN.STADIUM_SELECT)}
+    >
+      <div className="versus">
+        <TeamCard teamKey="team1" config={teamConfig.team1} onUpdate={(c) => update('team1', c)} locked={isOnline && myTeam !== 'team1'} tag={tagFor('team1')} />
+        <div className="vs-badge" aria-hidden>VS</div>
+        <TeamCard teamKey="team2" config={teamConfig.team2} onUpdate={(c) => update('team2', c)} locked={isOnline && myTeam !== 'team2'} tag={tagFor('team2')} />
+      </div>
+
+      <div className="card card-pad" style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div className="eyebrow">Match ball</div>
+        <div className="chip-row" role="group" aria-label="Match ball colour">
+          {BALL_COLORS.map(({ color, label }) => (
+            <button
+              key={color}
+              className="swatch"
+              style={{ background: color, width: 32 }}
+              aria-pressed={ballColor === color}
+              aria-label={`${label} ball`}
+              title={label}
+              disabled={isGuest}
+              onMouseEnter={playHoverTick}
+              onClick={() => { playButtonSelect(); setBallColor(color) }}
+            />
+          ))}
+        </div>
+        {isGuest && <span className="muted" style={{ fontSize: 13 }}>The host picks the ball.</span>}
+      </div>
+    </SetupShell>
+  )
+}

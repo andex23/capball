@@ -1,0 +1,2 @@
+/* Lagos Life keeps its own top bar above the game; nothing here needs to sit under it. */
+.lagos-avatar { object-fit: cover; }
