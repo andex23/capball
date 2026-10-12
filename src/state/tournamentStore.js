@@ -386,7 +386,7 @@ export const useTournamentStore = create((set, get) => ({
   },
 
   /** A saved local cup/league or career fixture, played on two LAN devices. */
-  playLanFixture(kind, fixture, hostTeamId = fixture?.home) {
+  playLanFixture(kind, fixture, hostTeamId = fixture?.home, transport = 'lan') {
     if (!['local', 'career'].includes(kind)) return false
     const t = kind === 'career' ? useCareerStore.getState().career?.league : get().local
     if (!t) return false
@@ -400,12 +400,13 @@ export const useTournamentStore = create((set, get) => ({
     if (!get().playing) return false
     const reversed = hostTeamId === fixture.away
     const ms = useMatchStore.getState()
-    set({ playing: { ...get().playing, lan: true, reversed } })
+    // `lan` marks a fixture played with a friend on another device; `transport` says how they connect
+    set({ playing: { ...get().playing, lan: true, reversed, transport: transport === 'internet' ? 'internet' : 'lan' } })
     useMatchStore.setState({
       ...(reversed ? { teamConfig: { team1: ms.teamConfig.team2, team2: ms.teamConfig.team1 } } : {}),
       matchResult: null, goalTarget: 0, gameMode: 'local',
     })
-    useMatchStore.getState().goToScreen(SCREEN.LAN)
+    useMatchStore.getState().goToScreen(transport === 'internet' ? SCREEN.ONLINE : SCREEN.LAN)
     return true
   },
 

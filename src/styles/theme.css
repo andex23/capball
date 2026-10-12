@@ -1153,6 +1153,7 @@ button { cursor: pointer; background: none; border: 0; }
 
 .t-team { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .t-team > svg { flex: none; }
+.t-team[data-mirror='true'] { flex-direction: row-reverse; text-align: right; }
 .t-team-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .t-team[data-strong='true'] .t-team-name { font-weight: 800; color: var(--text); }
 .t-team[data-out='true'] { opacity: 0.45; }
@@ -2342,6 +2343,7 @@ button { cursor: pointer; background: none; border: 0; }
 .career-ovr[data-matchup='underdog'] .career-ovr-word { border-color: #ff8a65; color: #ff8a65; }
 .career-strip { margin: 0; padding: 10px 14px; border: 2px solid var(--line-strong); background: rgba(5, 10, 46, 0.45); font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .career-strip[data-met='true'] { border-color: var(--good, #34d27b); }
+.career-friend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .career-board { border-color: var(--iss-yellow, #ffd23f); }
 .career-board .saved-h { margin: 4px 0 6px; color: var(--iss-yellow, #ffd23f); }
 .career-board .t-note { margin: 0; }

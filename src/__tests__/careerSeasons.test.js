@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  newCareer, nextMatch, recordCareerResult, finishSeason, sanitizeCareer, ME,
+  newCareer, nextMatch, recordCareerResult, finishSeason, sanitizeCareer, ME, seasonOver,
   cupTie, cupNext, cupRun, cupPending, recordCupResult, CUP_AFTER, targetFor, targetMet, playedThisSeason,
 } from '../game/career'
 import { ageGrowth, developSeason, startingSquad, matchupOf, priceOf, RETIRE_FROM, powerScale, accuracyWobble, flickWobble, massScale, ovrOf, ovrAt, shiftOvr, potentialRange, makePlayer, migratePlayer } from '../game/squad'
@@ -110,18 +110,29 @@ describe('bigger seasons', () => {
     expect(next.past[0].cupWinner).toBeTruthy()
   })
 
-  it('the board sets a target from how the squad compares, and pays when it is met', () => {
+  it('the board wants promotion until the top, and sacks you if you miss it', () => {
     const c = newCareer(club, { now: 4 })
-    // A new club starts as one of the weakest in the Sunday League
-    expect(['topHalf', 'notLast']).toContain(c.target)
+    expect(c.target).toBe('promotion')
+    expect(targetFor(3)).toBe('topHalf')
     expect(targetMet('promotion', 2)).toBe(true)
+    expect(targetMet('promotion', 3)).toBe(false)
     expect(targetMet('topHalf', 4)).toBe(false)
-    expect(targetMet('survive', 5)).toBe(true)
-    // A much stronger squad is expected to go up; a much weaker one to stay up
-    const strong = Object.fromEntries(Object.entries(startingSquad(1)).map(([r, p]) => [r, shiftOvr(p, 75 - p.rating, seededRng(r))]))
-    const weak = Object.fromEntries(Object.entries(startingSquad(1)).map(([r, p]) => [r, shiftOvr(p, 40 - p.rating, seededRng(r))]))
-    expect(targetFor(1, strong)).toBe('promotion')
-    expect(targetFor(1, weak)).toBe('survive')
+    // Lose every match: finished bottom, sacked, and there's no next season
+    let lost = c
+    while (!seasonOver(lost.league)) {
+      const f = nextMatch(lost.league)
+      if (!f) break
+      lost = recordCareerResult(lost, f.id, f.home === ME ? { home: 0, away: 3 } : { home: 3, away: 0 })
+    }
+    const after = finishSeason({ ...lost, cup: null })
+    expect(after.sacked).toMatchObject({ season: 1, target: 'promotion' })
+    expect(after.season).toBe(1)
+    expect(after.past[0].sacked).toBe(true)
+    expect(sanitizeCareer(JSON.parse(JSON.stringify(after))).sacked).toEqual(after.sacked)
+    // Win them all: promoted, not sacked
+    const won = finishSeason({ ...playLeague(c, 99), cup: null })
+    expect(won.sacked).toBeNull()
+    expect(won.level).toBe(1)
   })
 
   it('saves and loads with the cup, target and ages', () => {

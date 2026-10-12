@@ -83,7 +83,7 @@ export const useCareerStore = create((set, get) => ({
   /** The season's over: see it into the record books and start the next. */
   nextSeason() {
     const { career } = get()
-    if (!career || !seasonOver(career.league) || cupPending(career)) return
+    if (!career || career.sacked || !seasonOver(career.league) || cupPending(career)) return
     const next = finishSeason(career)
     const outcome = next.past[0]?.outcome
     if (outcome === 'promoted') useAchievementStore.getState().award(['promoted'])

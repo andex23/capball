@@ -36,6 +36,7 @@ function play(c, rng, weak = false) {
 }
 
 it('the club economy stays sensible over ten seasons: no runaway riches, no hopeless debt', () => {
+  const sacked = []
   for (const seed of [1, 2, 3, 'weak']) {
     const weak = seed === 'weak'
     const rng = seededRng(`econ${seed}`)
@@ -49,6 +50,8 @@ it('the club economy stays sensible over ten seasons: no runaway riches, no hope
       const pos = myPosition(c.league); const fin = ledgerTotals(c.biz.ledger); const lvl = c.level
       const wages = wageBill(c.squad, c.bench)
       c = finishSeason(c)
+      if (c.sacked) sacked.push(`${seed}:s${s}`)
+      if (c.sacked) break
       void pos; void fin; void lvl; void wages
       maxBank = Math.max(maxBank, c.coins)
       minBank = Math.min(minBank, c.coins)
@@ -56,4 +59,6 @@ it('the club economy stays sensible over ten seasons: no runaway riches, no hope
     expect(maxBank).toBeLessThan(100_000) // never more than ₦1bn in the bank after ten seasons
     expect(minBank).toBeGreaterThan(0)    // a club playing sensibly never sinks into debt
   }
+  // A club that strengthens sensibly can meet the board; one that never signs anyone gets sacked
+  expect(sacked.some((x) => x.startsWith('weak'))).toBe(true)
 })

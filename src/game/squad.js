@@ -18,7 +18,7 @@
 import { seededRng } from './tournament'
 import { CAP_ROLES } from '../data/TeamOptions'
 
-export const START_COINS = 300
+export const START_COINS = 400
 export const SELL_SHARE = 0.6
 // After how many of your matches each window opens: before the season and part-way through
 export const WINDOW_AFTER = [0, 5]
@@ -185,11 +185,11 @@ export function sellValue(p) {
 
 /* ── Squads ── */
 
-/** Your first squad: a little below the bottom division, one young prospect among them. */
+/** Your first squad: about a mid-table Sunday League side, one young prospect among them. */
 export function startingSquad(seed = 'start') {
   const rng = seededRng(`squad:${seed}`)
   return Object.fromEntries(CAP_ROLES.map((role) => {
-    const p = role === 'mid' ? makeYouth(rng, 0, 'MID') : makePlayer(rng, DIVISION_RATING[0] - 3, POS_OF[role], 2, [20, 30])
+    const p = role === 'mid' ? makeYouth(rng, 0, 'MID') : makePlayer(rng, DIVISION_RATING[0] - 1, POS_OF[role], 2, [20, 30])
     return [role, p]
   }))
 }
