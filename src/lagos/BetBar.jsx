@@ -17,12 +17,14 @@ export default function BetBar() {
   const gameMode = useMatchStore((s) => s.gameMode)
   const connected = useMatchStore((s) => s.onlineStatus?.status === 'connected')
   const opponent = useMatchStore((s) => s.teamConfig?.[s.onlineMyTeam === 'team1' ? 'team2' : 'team1']?.name)
-  const { bet, betError, match, botMatch } = useLagosStore()
+  const { bet, betError, match, botMatch, player } = useLagosStore()
   const [choosing, setChoosing] = useState(false)
   if (gameMode !== 'online' || botMatch) return null
   const setup = SETUP.includes(screen)
   const staked = Number(match?.stake) > 0 && bet?.step === 'on'
-  const who = opponent || 'Your opponent'
+  // Their Lagos Life name first (from the match), then their team name
+  const fromMatch = match?.players?.find((p) => p.id !== player?.id)?.name
+  const who = fromMatch || (opponent && !/^Team [12]$/.test(opponent) ? opponent : 'Your opponent')
 
   return (
     <>
