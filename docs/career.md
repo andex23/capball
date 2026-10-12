@@ -28,7 +28,8 @@ Dynamic: an average match rating ≥7.5 in a season raises a ≤26-year-old's po
 - Summer: age (≤20 +4, ≤23 +3, ≤26 +2, ≤28 +1, ≤30 0, ≤32 −2, older −3) + form (avg ≥7.5 +2, ≥7 +1, ≥6.3 0, else −1) ± 1, capped at potential. Growth goes into the position's key attributes; decline takes PHY and PWR first.
 - Retirement from 33 (20% at 33, 40% at 34, …), certain at 37. A youth prospect replaces him.
 
-## Money
+## Club budget (naira)
+Shown in naira: 1 unit = ₦10,000 (`money()`), so a win ≈ ₦600k, a 64 ≈ ₦1.5m, an 88 ≈ ₦20m. It's in-game club money, separate from Lagos Life money.
 Results: win 60, draw 25, loss 10, +5/goal; ×1.5 per division up. Season bonus: champions 600, promoted 250, stayed 80, relegated 40.
 Fee = 30 × 1.115^(OVR−50) × age factor (≤21 1.25, ≤25 1.1, ≤29 1, ≤31 0.75, older 0.5) × (1 + 2.5% per point of potential room). Sell for 60%.
 Windows: pre-season and after league match 5; each has a youth prospect.

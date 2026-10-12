@@ -166,3 +166,14 @@ describe('ages, growth and retirement', () => {
     expect(at(65, 33)).toBeLessThan(at(65, 27))
   })
 })
+
+describe('club budget in naira', () => {
+  it('shows club money as short naira', async () => {
+    const { money } = await import('../game/squad')
+    expect(money(60)).toBe('₦600k')
+    expect(money(155)).toBe('₦1.6m')
+    expect(money(2000)).toBe('₦20m')
+    expect(money(300000)).toBe('₦3bn')
+    expect(money(-25)).toBe('−₦250k')
+  })
+})

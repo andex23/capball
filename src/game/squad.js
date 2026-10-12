@@ -239,6 +239,21 @@ export function averageRating(ratings) {
 
 /* ── Money ── */
 
+// Club money is kept in units; on screen it's naira at a football-like scale
+export const NAIRA_PER_UNIT = 10_000
+
+/** Club money as naira, short: ₦600k, ₦1.5m, ₦2.1bn. */
+export function money(units) {
+  const n = Math.round((Number(units) || 0) * NAIRA_PER_UNIT)
+  const sign = n < 0 ? '−' : ''
+  const a = Math.abs(n)
+  const short = (v, s) => `${(Math.round(v * 10) / 10).toLocaleString('en-NG')}${s}`
+  if (a >= 1e9) return `${sign}₦${short(a / 1e9, 'bn')}`
+  if (a >= 1e6) return `${sign}₦${short(a / 1e6, 'm')}`
+  if (a >= 1e3) return `${sign}₦${short(a / 1e3, 'k')}`
+  return `${sign}₦${a}`
+}
+
 /** Coins for one of your results; bigger divisions pay more. */
 export function coinsForResult(gf, ga, level = 0) {
   const base = gf > ga ? 60 : gf === ga ? 25 : 10

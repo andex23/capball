@@ -1,6 +1,6 @@
 import Modal from './Modal'
 import { CUP_NAME, CUP_AFTER, TARGET_BONUS } from '../game/career'
-import { DIVISION_RATING, WINDOW_AFTER, WEIGHTS, powerScale, accuracyWobble, massScale } from '../game/squad'
+import { DIVISION_RATING, WINDOW_AFTER, WEIGHTS, powerScale, accuracyWobble, massScale, money, priceOf } from '../game/squad'
 
 const pct = (n) => { const v = Math.round((n - 1) * 100); return `${v > 0 ? '+' : ''}${v}%` }
 const W = (pos) => Object.entries(WEIGHTS[pos]).sort((a, b) => b[1] - a[1]).map(([k, w]) => `${k.toUpperCase()} ${Math.round(w * 100)}%`).join(' · ')
@@ -42,11 +42,11 @@ export default function RatingsGuide({ onClose }) {
         <h3>Match rating (out of 10)</h3>
         <p>Everyone starts on 6. A win adds 0.5 and a loss takes off 0.4. A goal is worth 1.3 and a shot on target 0.3. Keepers get 0.7 a save, defenders 0.5 a block, and the keeper and defenders get 1 for a clean sheet.</p>
 
-        <h3>Money</h3>
-        <p>Wins pay 60 coins, draws 25 and losses 10, plus 5 a goal, and every division up pays half as much again. Fees rise steeply with OVR, like real values: young players with potential cost more, and players over 30 cost less. Transfer windows open before the season and after league match {WINDOW_AFTER[1]}.</p>
+        <h3>The club budget</h3>
+        <p>Your club’s money is in naira. A win pays {money(60)}, a draw {money(25)} and a loss {money(10)}, plus {money(5)} a goal, and every division up pays half as much again. Fees rise steeply with OVR, like real values: a 60 costs about {money(priceOf({ rating: 60, age: 26 }))}, a 70 about {money(priceOf({ rating: 70, age: 26 }))} and an 80 about {money(priceOf({ rating: 80, age: 26 }))}. Young players with potential cost more, and players over 30 less. Transfer windows open before the season and after league match {WINDOW_AFTER[1]}.</p>
 
         <h3>The season</h3>
-        <p>Ten league matches, home and away. The {CUP_NAME} runs alongside: the quarter-final opens after league match {CUP_AFTER[0]}, the semi after {CUP_AFTER[1]} and the final after {CUP_AFTER[2]}. Meet the board’s target for up to {Math.max(...Object.values(TARGET_BONUS))} bonus coins.</p>
+        <p>Ten league matches, home and away. The {CUP_NAME} runs alongside: the quarter-final opens after league match {CUP_AFTER[0]}, the semi after {CUP_AFTER[1]} and the final after {CUP_AFTER[2]}. Meet the board’s target for a bonus of up to {money(Math.max(...Object.values(TARGET_BONUS)))}.</p>
       </div>
     </Modal>
   )
