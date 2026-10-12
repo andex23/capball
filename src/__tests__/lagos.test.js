@@ -184,3 +184,16 @@ describe('webhook', () => {
     expect(db).not.toHaveBeenCalled()
   })
 })
+
+describe('cloud save', () => {
+  it('only ever reads and writes the verified player’s own save', async () => {
+    const { handleLagos } = await import('../../server/lagos.js')
+    const api = { verifySession: vi.fn(async () => ({ status: 200, data: { playerId: 't_ada', mode: 'test' } })) }
+    const saves = vi.fn(async (action) => (action === 'get' ? { ok: true, data: { v: 1, items: { 'capball:career:v1': '{}', evil: 'x' } } } : { ok: true }))
+    await expect(handleLagos({ action: 'loadSave', session: 's', playerId: 't_bayo' }, api, null, saves)).resolves.toEqual({ ok: true, data: { v: 1, items: { 'capball:career:v1': '{}' } } })
+    expect(saves).toHaveBeenLastCalledWith('get', 'test', 't_ada')
+    await handleLagos({ action: 'putSave', session: 's', data: { v: 1, items: { 'capball:daily:v1': '{}' } } }, api, null, saves)
+    expect(saves).toHaveBeenLastCalledWith('put', 'test', 't_ada', { v: 1, items: { 'capball:daily:v1': '{}' } })
+    await expect(handleLagos({ action: 'putSave', session: 's', data: 'junk' }, api, null, saves)).rejects.toThrow('bad-request')
+  })
+})
