@@ -1,14 +1,18 @@
 /**
  * Career mode: your club starts in the bottom division and plays a season at
- * a time against computer clubs. Finish high enough to go up, finish bottom
- * and you go down; win the top division to be champions.
+ * a time against computer clubs, home and away. Finish high enough to go up,
+ * finish bottom and you go down; win the top division to be champions.
+ * Alongside the league runs the Cap Cup, an eight-club knockout, and the
+ * board sets a target for the season.
  *
  * Pure functions over plain JSON, built on the league engine in tournament.js.
  */
-import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng } from './tournament'
-import { START_COINS, startingSquad, sanitizeSquad, coinsForResult, seasonBonus, developSquad, openWindow, marketFor, signPlayer } from './squad'
+import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
+import { START_COINS, startingSquad, sanitizeSquad, coinsForResult, seasonBonus, developSeason, openWindow, marketFor, signPlayer, squadRatings, clubRatings, averageRating } from './squad'
 
 export const CAREER_VERSION = 1
+// Each season: everyone plays everyone home and away
+export const LEGS = 2
 
 // Bottom (index 0) to top. Each division is a league of you plus five computer clubs.
 export const DIVISIONS = [
@@ -69,11 +73,118 @@ export function createSeason(club, level, matchDuration = 120, now = Date.now())
     { ...club, cpu: false },
     ...div.clubs.map((c) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: div.difficulty })),
   ]
-  return createTournament({ format: 'league', legs: 1, teams, matchDuration, now })
+  return createTournament({ format: 'league', legs: LEGS, teams, matchDuration, now })
+}
+
+/* ── The Cap Cup ── */
+
+export const CUP_NAME = 'Cap Cup'
+// Each cup round opens once you've played this many league matches: quarter-final, semi-final, final
+export const CUP_AFTER = [2, 5, 8]
+export const CUP_PRIZE = { won: 250, final: 100, semi: 50, quarter: 0 }
+const CUP_ROUNDS = ['quarter', 'semi', 'final']
+
+/**
+ * This season's cup: you, three clubs from your division and four from the
+ * divisions either side. Returns { tournament, levels } — the division each
+ * club comes from (for its ratings and level), by team id.
+ */
+export function createCup(club, level, matchDuration, season, now = Date.now()) {
+  const rng = seededRng(`cup:${club.name}:${season}:${now}`)
+  const own = DIVISIONS[level].clubs.slice().sort(() => rng() - 0.5).slice(0, 3).map((c) => ({ c, lv: level }))
+  // Four more from the divisions next door: two above and two below, or four from the one neighbour at the ends
+  const near = [level + 1, level - 1].filter((l) => l >= 0 && l <= TOP)
+  const others = near.flatMap((lv) => DIVISIONS[lv].clubs.slice().sort(() => rng() - 0.5).slice(0, 4 / near.length).map((c) => ({ c, lv })))
+  const entrants = [...own, ...others.slice(0, 4)]
+  const teams = [
+    { ...club, cpu: false },
+    ...entrants.map(({ c, lv }) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: DIVISIONS[lv].difficulty })),
+  ]
+  const tournament = createTournament({ format: 'knockout', teams, matchDuration, rng, now })
+  const levels = { [ME]: level }
+  entrants.forEach(({ lv }, i) => { levels[`T${i + 2}`] = lv })
+  return { tournament: settleCpu(tournament), levels }
+}
+
+/** Your next cup tie if it's open to play now, else null. */
+export function cupTie(career) {
+  const cup = career.cup?.tournament
+  if (!cup || cup.championId) return null
+  const tie = readyFixtures(cup).find((f) => f.home === ME || f.away === ME)
+  if (!tie) return null
+  return playedThisSeason(career.league) >= CUP_AFTER[tie.round] ? tie : null
+}
+
+/** Your next cup tie whether or not it's open yet, plus after how many league matches it opens. */
+export function cupNext(career) {
+  const cup = career.cup?.tournament
+  if (!cup || cup.championId) return null
+  const tie = readyFixtures(cup).find((f) => f.home === ME || f.away === ME)
+  return tie ? { tie, opensAfter: CUP_AFTER[tie.round] } : null
+}
+
+/** How far you got: 'won' | 'final' | 'semi' | 'quarter' | null (still in). */
+export function cupRun(cup) {
+  if (!cup) return null
+  if (cup.championId === ME) return 'won'
+  for (let r = 0; r < cup.rounds.length; r++) {
+    const tie = cup.rounds[r].find((t) => t.home === ME || t.away === ME)
+    if (tie?.winner && tie.winner !== ME) return CUP_ROUNDS[r] || 'quarter'
+    if (!tie?.winner) return null
+  }
+  return cup.championId ? 'final' : null
+}
+
+/** Are you still to play a cup tie this season? */
+export function cupPending(career) {
+  return !!career.cup && cupRun(career.cup.tournament) == null
+}
+
+/** Record your cup result; the other ties in that round play out alongside. */
+export function recordCupResult(career, fixtureId, result) {
+  const cup = career.cup?.tournament
+  if (!cup) return career
+  const after = settleCpu(recordResult(cup, fixtureId, result))
+  const mine = allFixtures(cup).find((f) => f.id === fixtureId)
+  const home = mine?.home === ME
+  const gf = home ? result.home : result.away
+  const ga = home ? result.away : result.home
+  const earned = mine && Number.isFinite(gf) && Number.isFinite(ga) ? coinsForResult(gf, ga) : 0
+  return { ...career, cup: { ...career.cup, tournament: after }, coins: (career.coins ?? 0) + earned, lastEarned: earned }
+}
+
+/* ── The board's target ── */
+
+export const TARGETS = {
+  title: 'Win the league',
+  promotion: `Finish in the top ${2}`,
+  topHalf: 'Finish in the top half',
+  survive: 'Stay up',
+}
+export const TARGET_BONUS = { title: 200, promotion: 150, topHalf: 80, survive: 60 }
+
+/** What the board expects, from how your squad compares with the division. */
+export function targetFor(level, squad) {
+  const mine = averageRating(squadRatings(squad))
+  const theirs = Math.round(DIVISIONS[level].clubs.reduce((a, c) => a + averageRating(clubRatings(level, c.name)), 0) / DIVISIONS[level].clubs.length)
+  const d = mine - theirs
+  if (d >= 3) return level === TOP ? 'title' : 'promotion'
+  if (d >= -2) return level === 0 ? 'promotion' : 'topHalf'
+  return level === 0 ? 'topHalf' : 'survive'
+}
+
+/** Did finishing `pos` of `count` meet the target? */
+export function targetMet(target, pos, count = 6) {
+  if (target === 'title') return pos === 1
+  if (target === 'promotion') return pos <= PROMOTED
+  if (target === 'topHalf') return pos <= Math.floor(count / 2)
+  if (target === 'survive') return pos <= count - RELEGATED
+  return false
 }
 
 /** A brand-new career for `club` (a kit: name, colours, badge...). */
 export function newCareer(club, { matchDuration = 120, now = Date.now(), squad = null } = {}) {
+  const sq = squad ? sanitizeSquad(squad, now) : startingSquad(now)
   return {
     v: CAREER_VERSION,
     club,
@@ -81,10 +192,14 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     season: 1,
     matchDuration,
     league: createSeason(club, 0, matchDuration, now),
+    cup: createCup(club, 0, matchDuration, 1, now),
+    target: targetFor(0, sq),
+    cups: 0,
+    lastSummer: null,
     past: [],          // finished seasons, newest first
     promotions: 0,
     titles: 0,         // top-division wins
-    squad: squad ? sanitizeSquad(squad, now) : startingSquad(now),
+    squad: sq,
     coins: START_COINS,
     signed: { key: '', ids: [] }, // players already bought in the current window
     lastEarned: 0,
@@ -173,25 +288,44 @@ export function finishSeason(career, now = Date.now()) {
   const me = table[pos - 1]
   const outcome = outcomeFor(career.level, pos, table.length)
   const level = outcome === 'promoted' ? career.level + 1 : outcome === 'relegated' ? career.level - 1 : career.level
+  const target = career.target || null
+  const met = target ? targetMet(target, pos, table.length) : false
+  // A cup still going (you're out) plays out to the end
+  let cupT = career.cup?.tournament || null
+  for (let i = 0; cupT && !cupT.championId && i < 8; i++) {
+    const t = readyFixtures(cupT).find((f) => f.home !== ME && f.away !== ME)
+    if (!t) break
+    cupT = settleCpu(recordResult(cupT, t.id, simulateResult(cupT, t, seededRng(`${cupT.id}:${t.id}`))))
+  }
+  const cup = cupRun(cupT)
+  const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
   const entry = {
     season: career.season,
     division: DIVISIONS[career.level].name,
     level: career.level,
     position: pos,
     outcome,
-    bonus: seasonBonus(outcome),
+    bonus,
+    target, targetMet: met,
+    cup,
+    cupWinner: cupT?.championId ? teamById(cupT, cupT.championId)?.name || null : null,
     record: me ? { w: me.w, d: me.d, l: me.l, gf: me.gf, ga: me.ga, pts: me.pts } : null,
   }
+  const summer = developSeason(career.squad || startingSquad(career.season), `${career.league.id}:${career.season}`, level)
   return {
     ...career,
     level,
     season: career.season + 1,
     league: createSeason(career.club, level, career.matchDuration, now),
+    cup: createCup(career.club, level, career.matchDuration, career.season + 1, now),
+    target: targetFor(level, summer.squad),
     past: [entry, ...career.past].slice(0, 50),
     promotions: career.promotions + (outcome === 'promoted' ? 1 : 0),
     titles: career.titles + (outcome === 'champions' ? 1 : 0),
-    coins: (career.coins ?? 0) + seasonBonus(outcome),
-    squad: developSquad(career.squad || startingSquad(career.season), `${career.league.id}:${career.season}`),
+    cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
+    coins: (career.coins ?? 0) + bonus,
+    squad: summer.squad,
+    lastSummer: { season: career.season + 1, retired: summer.retired, changes: summer.changes },
     signed: { key: '', ids: [] },
     lastEarned: 0,
   }
@@ -222,7 +356,24 @@ export function sanitizeCareer(input) {
       : { key: '', ids: [] },
     lastEarned: n(input.lastEarned),
     lastReport: sanitizeReport(input.lastReport),
+    cup: sanitizeCup(input.cup),
+    target: Object.hasOwn(TARGETS, input.target) ? input.target : null,
+    cups: n(input.cups),
+    lastSummer: isObj(input.lastSummer) ? {
+      season: n(input.lastSummer.season),
+      retired: Array.isArray(input.lastSummer.retired) ? input.lastSummer.retired.filter(isObj).slice(0, 6) : [],
+      changes: Array.isArray(input.lastSummer.changes) ? input.lastSummer.changes.filter(isObj).slice(0, 6) : [],
+    } : null,
   }
+}
+
+function sanitizeCup(c) {
+  if (!isObj(c)) return null
+  const tournament = sanitizeTournament(c.tournament)
+  if (!tournament || tournament.format !== 'knockout') return null
+  const levels = {}
+  if (isObj(c.levels)) for (const [k, v] of Object.entries(c.levels)) if (/^T\d$/.test(k) && Number.isInteger(v) && v >= 0 && v <= TOP) levels[k] = v
+  return { tournament, levels }
 }
 
 /** The last match's player ratings (kept for the career screen). */

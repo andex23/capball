@@ -226,6 +226,26 @@ function PauseMenu({ onClose }) {
   )
 }
 
+/** Career matches: the picked-up cap's player and rating (better players flick harder and steadier). */
+function CapCard() {
+  const capId = useMatchStore((s) => s.selectedCapId)
+  const teamConfig = useMatchStore((s) => s.teamConfig)
+  if (!capId) return null
+  const i = capId.indexOf('_')
+  const team = capId.slice(0, i)
+  const role = capId.slice(i + 1)
+  const rating = teamConfig?.[team]?.ratings?.[role]
+  if (!Number.isFinite(rating)) return null
+  const name = teamConfig[team].players?.[role]
+  const label = { gk: 'GK', def1: 'DEF', def2: 'DEF', mid: 'MID', atk1: 'ATK', atk2: 'ATK' }[role] || ''
+  return (
+    <div className="cap-card" role="status">
+      <span className="cap-card-role">{label}</span>{name ? <span className="cap-card-name">{name}</span> : null}
+      <b className="cap-card-rating" data-tier={rating >= 75 ? 'gold' : rating >= 60 ? 'silver' : rating >= 45 ? 'bronze' : 'plain'}>{rating}</b>
+    </div>
+  )
+}
+
 export default function HUD() {
   useEffect(() => () => leaveVoice(), [])
   const phase = useMatchStore((s) => s.phase)
@@ -337,6 +357,7 @@ export default function HUD() {
             <ShotClock />
           </div>
         )}
+        {!paused && <CapCard />}
       </div>
 
       <div className="hud-corner tr">

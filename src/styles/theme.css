@@ -2306,3 +2306,28 @@ button { cursor: pointer; background: none; border: 0; }
 .iss-menu.is-lagos .iss-layout { padding-bottom: calc(var(--safe-bottom) + 14px); gap: 16px; }
 /* The backdrop never makes the page scroll */
 .iss-backdrop { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+
+/* Career: matchday OVR, cup, board target, summer news, cap card */
+.career-ovr { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin: 4px 0 2px; text-align: center; }
+.career-ovr b { display: block; font-family: var(--font-display); font-size: 30px; line-height: 1; }
+.career-ovr small { font-size: 11px; letter-spacing: 0.08em; color: var(--text-2); }
+.career-ovr-word { font-weight: 700; font-size: 13px; padding: 4px 10px; border: 2px solid var(--line-strong); }
+.career-ovr[data-matchup='favourite'] .career-ovr-word { border-color: var(--good, #34d27b); color: var(--good, #34d27b); }
+.career-ovr[data-matchup='underdog'] .career-ovr-word { border-color: #ff8a65; color: #ff8a65; }
+.career-strip { margin: 0; padding: 10px 14px; border: 2px solid var(--line-strong); background: rgba(5, 10, 46, 0.45); font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.career-strip[data-met='true'] { border-color: var(--good, #34d27b); }
+.career-target-line { margin: 4px 0; }
+.career-target-line[data-met='true'] b { color: var(--good, #34d27b); }
+.career-summer { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.career-summer li[data-up='true'] b { color: var(--good, #34d27b); }
+.ratings-guide h3 { margin: 14px 0 6px; font-size: 15px; }
+.ratings-guide h3:first-child { margin-top: 0; }
+.ratings-guide p, .ratings-guide li { font-size: 14px; line-height: 1.5; }
+.ratings-guide ul { margin: 6px 0; padding-left: 18px; }
+.cap-card { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 10px; background: rgba(5, 10, 46, 0.82); border: 2px solid var(--line-strong); font-size: 13px; }
+.cap-card-role { font-family: var(--font-pixel, inherit); font-size: 11px; color: var(--text-2); }
+.cap-card-name { font-weight: 700; }
+.cap-card-rating { font-family: var(--font-display); font-size: 18px; color: #fff; }
+.cap-card-rating[data-tier='gold'] { color: #ffd23f; }
+.cap-card-rating[data-tier='silver'] { color: #dfe6ee; }
+.cap-card-rating[data-tier='bronze'] { color: #e3a46b; }

@@ -1,6 +1,6 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
 import { PHYSICS, PITCH } from '../data/TeamData'
-import { flickScale } from './squad'
+import { flickScale, aimWobble } from './squad'
 import { applyFlick, getBody, diveKeeper, radiusOf } from '../physics/PhysicsWorld'
 import { strikeDirection, crossingY, cpuDive } from './penalty'
 import { playDive } from '../audio/SoundManager'
@@ -39,6 +39,20 @@ export function flickScaleFor(state, capId) {
   return flickScale(state.teamConfig?.[team]?.ratings?.[role])
 }
 
+/** The most this cap's aim can stray, in degrees (0 unless the team has ratings). */
+export function aimWobbleFor(state, capId) {
+  const i = capId.indexOf('_')
+  return aimWobble(state.teamConfig?.[capId.slice(0, i)]?.ratings?.[capId.slice(i + 1)])
+}
+
+/** Turn a flick by up to ±maxDeg (a less steady player's aim strays a little). */
+export function wobble(velocity, maxDeg, rng = Math.random) {
+  if (!maxDeg) return velocity
+  const a = (rng() * 2 - 1) * maxDeg * Math.PI / 180
+  const c = Math.cos(a), s = Math.sin(a)
+  return { x: velocity.x * c - velocity.y * s, y: velocity.x * s + velocity.y * c }
+}
+
 /** Validate and apply a flick. Returns null on success or the reason it was refused. */
 export function performFlick(capId, velocity, byTeam = null) {
   const state = useMatchStore.getState()
@@ -47,7 +61,9 @@ export function performFlick(capId, velocity, byTeam = null) {
   if (!getBody(capId)) return 'no-body'
   // A better player flicks harder (career squads); scale the power and its cap together
   const scale = flickScaleFor(state, capId)
-  applyFlick(capId, { x: velocity.x * scale, y: velocity.y * scale }, PHYSICS.maxFlickVelocity * scale) // clamps to max power
+  // ...and aims steadier: a lower-rated player's flick can stray a degree or two (never a penalty)
+  const v = state.penaltyKick ? velocity : wobble(velocity, aimWobbleFor(state, capId))
+  applyFlick(capId, { x: v.x * scale, y: v.y * scale }, PHYSICS.maxFlickVelocity * scale) // clamps to max power
   if (state.penaltyKick) keeperDives(state, capId, velocity)
   state.commitFlick(capId)
   return null

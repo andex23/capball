@@ -7,8 +7,8 @@ const club = { name: 'Test FC', primary: '#123456', edge: '#FFFFFF' }
 describe('squad', () => {
   it('flick power scales with rating around an average player', () => {
     expect(flickScale(50)).toBeCloseTo(1, 1)
-    expect(flickScale(1)).toBeCloseTo(0.88, 2)
-    expect(flickScale(99)).toBeCloseTo(1.12, 2)
+    expect(flickScale(1)).toBeCloseTo(0.84, 2)
+    expect(flickScale(99)).toBeCloseTo(1.16, 2)
     expect(flickScale(undefined)).toBe(1)
   })
 
@@ -40,9 +40,9 @@ describe('squad', () => {
     expect(coinsForResult(0, 3)).toBe(10)
   })
 
-  it('windows open pre-season and after matchday 3', () => {
+  it('windows open pre-season and after matchday 5', () => {
     expect(openWindow(0)).toBe(0)
-    expect(openWindow(3)).toBe(1)
+    expect(openWindow(5)).toBe(1)
     expect(openWindow(1)).toBe(-1)
   })
 
@@ -77,7 +77,7 @@ describe('career transfers', () => {
   it('buying from the window spends coins and removes the player from the market', () => {
     const c = newCareer(club, { now: 1 })
     const w = transferWindow(c)
-    const cheapest = [...w.market].filter((p) => !p.keeper).sort((a, b) => a.rating - b.rating)[0]
+    const cheapest = [...w.market].filter((p) => !p.keeper && !p.youth).sort((a, b) => a.rating - b.rating)[0]
     const next = buyPlayer(c, cheapest.id, 'mid')
     expect(next.squad.mid.id).toBe(cheapest.id)
     expect(next.coins).toBeLessThan(c.coins)
@@ -85,7 +85,7 @@ describe('career transfers', () => {
     expect(buyPlayer(next, cheapest.id, 'mid')).toBeNull()
   })
 
-  it('results earn coins; the window shuts after matchday 1 and reopens after matchday 3', () => {
+  it('results earn coins; the window shuts after matchday 1 and reopens after matchday 5', () => {
     let c = newCareer(club, { now: 1 })
     const start = c.coins
     const play = () => {
@@ -95,8 +95,8 @@ describe('career transfers', () => {
     play()
     expect(c.coins).toBe(start + 70)
     expect(transferWindow(c)).toBeNull()
-    play(); play()
-    expect(playedThisSeason(c.league)).toBe(3)
+    play(); play(); play(); play()
+    expect(playedThisSeason(c.league)).toBe(5)
     expect(transferWindow(c).index).toBe(1)
     while (!seasonOver(c.league)) play()
     const before = c.coins
