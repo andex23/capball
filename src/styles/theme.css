@@ -2281,3 +2281,14 @@ button { cursor: pointer; background: none; border: 0; }
 @media (max-width: 420px) {
   .kit-tabs button { font-size: 10px; padding: 0 4px; }
 }
+
+/* Lagos Life shop */
+.shop { display: flex; flex-direction: column; gap: 10px; }
+.shop .t-note { margin: 0; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.shop-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; background: rgba(5, 10, 46, 0.4); border: 2px solid transparent; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.shop-item[aria-pressed='true'] { border-color: var(--accent); background: rgba(255, 210, 63, 0.12); }
+.shop-name { font-size: 12px; font-weight: 700; text-align: center; line-height: 1.15; }
+.shop-price { font-family: var(--font-pixel); font-size: 11px; color: var(--accent); }
+.shop-owned { font-size: 11px; font-weight: 700; color: var(--good, #5fe08a); }
+.shop-band { width: 52px; height: 52px; border-width: 11px; margin: 6px 0; }

@@ -21,6 +21,8 @@ import { useDailyStore, playDaily, liveStreak } from '../state/dailyStore'
 import { challengeFor, dayKey } from '../game/daily'
 import { useCareerStore } from '../state/careerStore'
 import { DIVISIONS } from '../game/career'
+import ShopPanel from '../lagos/ShopPanel'
+import { useLagosStore } from '../lagos/lagosStore'
 
 /**
  * Home screen in the style of a 16-bit console football game: a title card
@@ -119,6 +121,7 @@ export default function MenuScreen() {
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
+      ...(lagos ? [{ key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => openDialog('shop') }] : []),
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
@@ -225,6 +228,11 @@ export default function MenuScreen() {
       {dialog === 'settings' && (
         <Modal title="Settings" onClose={() => setDialog(null)}>
           <SettingsPanel />
+        </Modal>
+      )}
+      {dialog === 'shop' && (
+        <Modal title="Shop" onClose={() => { setDialog(null); useLagosStore.getState().clearShopNote() }}>
+          <ShopPanel />
         </Modal>
       )}
       {dialog === 'records' && (
