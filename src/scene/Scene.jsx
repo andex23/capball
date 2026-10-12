@@ -178,8 +178,33 @@ function FloodLight({ position, intensity = 0.7, color = '#ffe8cc' }) {
 
 /* ===================================================== */
 
+/**
+ * Free a finished match's graphics memory: every geometry, material and
+ * texture under `root`. Each match builds its own (caps, pitch, the room
+ * around the table); left behind, they pile up until a phone runs out and
+ * new textures come out black. Anything shared and used again is simply
+ * uploaded afresh by three.js.
+ */
+export function disposeTree(root) {
+  if (!root) return
+  const seen = new Set()
+  const free = (x) => { if (x && !seen.has(x) && typeof x.dispose === 'function') { seen.add(x); x.dispose() } }
+  root.traverse((o) => {
+    free(o.geometry)
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      if (!m) continue
+      for (const v of Object.values(m)) if (v && v.isTexture) free(v)
+      if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u?.value?.isTexture) free(u.value)
+      free(m)
+    }
+  })
+}
+
 function GameWorld() {
   const meshRefs = useRef({})
+  const rootRef = useRef(null)
+  // Before R3F takes the match's objects away, free their graphics memory
+  useLayoutEffect(() => () => disposeTree(rootRef.current), [])
   const trajectoryRef = useRef(null)
 
   const phase = useMatchStore((s) => s.phase)
@@ -248,7 +273,7 @@ function GameWorld() {
   const team2Caps = CAP_ROLES.map((r) => `team2_${r}`)
 
   return (
-    <group>
+    <group ref={rootRef}>
       <TrajectoryLineManager trajectoryRef={trajectoryRef} />
 
       {/* Stadium atmosphere behind the pitch */}
@@ -363,7 +388,7 @@ function CameraRefCapture() {
     setCameraRefs({ camera, canvas: gl.domElement })
     resetCameraPreset()
     // Dev only: lets the colour check script find caps on screen
-    if (import.meta.env.DEV) window.__capballCam = camera
+    if (import.meta.env.DEV) { window.__capballCam = camera; window.__capballGl = gl }
   }, [camera, gl])
   // Re-fit when the screen size/orientation changes
   useEffect(() => {
