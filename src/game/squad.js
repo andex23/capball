@@ -106,9 +106,9 @@ export function makePlayer(rng, base, pos = 'MID', spread = 3, ages = [19, 31]) 
 }
 
 /** A youth prospect: 17–18, a few points below the division, with plenty of potential. */
-export function makeYouth(rng, level, pos = 'MID') {
+export function makeYouth(rng, level, pos = 'MID', potBonus = 0) {
   const p = makePlayer(rng, (DIVISION_RATING[level] ?? 52) - 7, pos, 3, [17, 18])
-  return { ...p, youth: true, pot: Math.min(99, p.rating + 12 + Math.floor(rng() * 12)) }
+  return { ...p, youth: true, pot: Math.min(99, p.rating + 12 + Math.floor(rng() * 12) + potBonus) }
 }
 
 /** What the scouts say about his potential: a range, not the exact figure (like Football Manager's stars). */
@@ -448,7 +448,7 @@ export function applyMatchToSquad(squad, { ratings, goalsByRole = {}, seed }) {
  * didn't are left alone. byPlayer: { [id]: { rating, goals } }.
  * Returns { squad, bench, changes }.
  */
-export function applyMatchByPlayer(squad, bench, byPlayer, seed) {
+export function applyMatchByPlayer(squad, bench, byPlayer, seed, xpMult = 1) {
   const rng = seededRng(`grow:${seed}`)
   const changes = []
   const one = (p0, key) => {
@@ -457,7 +457,8 @@ export function applyMatchByPlayer(squad, bench, byPlayer, seed) {
     let p = migratePlayer(p0, POS_OF[key] ? key : ROLE_FOR_POS[p0.pos])
     const r = perf.rating ?? 6
     const before = p.rating
-    let xp = (p.xp || 0) + (r - 6.3)
+    // A better training ground turns good games into growth faster
+    let xp = (p.xp || 0) + (r - 6.3) * (r > 6.3 ? xpMult : 1)
     const need = p.age <= 21 ? 2 : p.age <= 25 ? 3 : 4.5
     if (xp >= need && p.rating < p.pot && p.age <= 30) { p = shiftOvr(p, 1, rng); xp = 0 }
     else if (xp <= -3) { p = shiftOvr(p, -1, rng); xp = 0 }

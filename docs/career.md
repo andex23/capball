@@ -34,6 +34,18 @@ Results: win 60, draw 25, loss 10, +5/goal; ×1.5 per division up. Season bonus:
 Fee = 30 × 1.115^(OVR−50) × age factor (≤21 1.25, ≤25 1.1, ≤29 1, ≤31 0.75, older 0.5) × (1 + 2.5% per point of potential room). Sell for 60%.
 Windows: pre-season and after league match 5; each has a youth prospect.
 
+## Club business (src/game/club.js)
+Football Manager-style finances. All money in units (₦10k); every flow is booked in `biz.ledger` (gate, prize, sponsor, tv, sales / wages, transfers, facilities), reset each summer and kept in `past[].finance`.
+- Wages: `priceOf(p)/20` per player per match, starters and bench (`wageBill`). Paid on every league and cup match.
+- Match day (`matchDay`): home gate = attendance × ticket price; attendance = fans × ticket demand × form, capped at seats. Tickets: cheap ×0.7 price / 1.15 demand, standard ×1 / 0.9, premium ×1.5 / 0.6; base ₦500/700/1,000/1,500 by division.
+- Fans: start 300; wins add 6% of the room left to the division's fan base (2k/6k/15k/40k), draws 2%, losses −2%. Summer: promoted ×1.25, champions ×1.1, cup win ×1.1, relegated ×0.85; capped at 1.2× the new division's base.
+- Sponsor: three offers each summer (steady per match, per win ×2.2, up front ×9) from (8 + 0.6√fans) × (1 + 0.6 × division).
+- TV money at the start of each season: 0 / 150 / 500 / 1,500 by division.
+- Facilities (levels 0–4): stadium 600→12,000 seats (300/1k/3k/8k); training xp ×1→×1.6 on match growth; academy gives a summer graduate with +0/3/6/9 potential (200/600/1.5k/4k each).
+- Youth graduate: sign into a bench slot (that player leaves for his sale value) or release.
+- In the red (coins < 0): transfers and building frozen (`spendingFrozen`).
+- `clubEconomy.test.js` simulates ten seasons: strong clubs end around ₦100–400m, weak ones stay solvent.
+
 ## Season, Cap Cup, board target
 Ten league matches (home and away). Cap Cup: 8 clubs (3 from your division, 4 from the ones next door); QF after league match 2, SF after 5, final after 8 (all open once the league ends). Prizes 250 / 100 / 50.
 Board target from your OVR vs the division (win the league / top 2 / top half / stay up), worth 200 / 150 / 80 / 60.

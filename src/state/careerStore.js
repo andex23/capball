@@ -4,7 +4,8 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending, swapLineup } from '../game/career'
+import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending, swapLineup, signSponsor, buildFacility, setTickets, takeYouth } from '../game/career'
+import { TRAINING } from '../game/club'
 import { allFixtures } from '../game/tournament'
 import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
 import { useAccountStore } from './accountStore'
@@ -34,7 +35,7 @@ function save(career) {
  */
 function withPerformance(career, perf, seed, fixtureId) {
   if (perf?.byPlayer) {
-    const r = applyMatchByPlayer(career.squad, career.bench, perf.byPlayer, seed)
+    const r = applyMatchByPlayer(career.squad, career.bench, perf.byPlayer, seed, TRAINING[career.biz?.training || 0]?.xp || 1)
     const played = Object.entries(perf.byPlayer).map(([id, v]) => ({ id, ...v }))
     const motm = played.slice().sort((a, b) => (b.rating - a.rating) || ((b.goals || 0) - (a.goals || 0)))[0]?.id || null
     return { ...career, squad: r.squad, bench: r.bench, lastReport: { fixtureId, players: played, motmId: motm, changes: r.changes, ratings: perf.ratings || {}, goals: perf.goalsByRole || {} } }
@@ -127,6 +128,22 @@ export const useCareerStore = create((set, get) => ({
     useAccountStore.getState().save({ force: true })
     return true
   },
+
+  /** The business side: one helper for every club decision. */
+  _apply(fn, ...args) {
+    const { career } = get()
+    if (!career) return false
+    const next = fn(career, ...args)
+    if (!next) return false
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+    return true
+  },
+  sponsor(index) { return get()._apply(signSponsor, index) },
+  build(kind) { return get()._apply(buildFacility, kind) },
+  tickets(level) { return get()._apply(setTickets, level) },
+  youth(slot) { return get()._apply(takeYouth, slot) },
 
   retire() {
     save(null)

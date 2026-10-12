@@ -93,7 +93,7 @@ export default function SquadPanel({ career }) {
       ) : (
         <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>
       )}
-      {career.lastEarned > 0 && <p className="muted t-note">Last match earned <Coins n={career.lastEarned} />. A win pays {money(60)}, a draw {money(25)}, a loss {money(10)}, plus {money(5)} a goal; each division up pays half as much again.</p>}
+      {career.biz?.lastMatch && <p className="muted t-note">Last match: <Coins n={career.lastEarned} /> after wages. A win pays {money(60)} in prize money, a draw {money(25)}, a loss {money(10)}, plus {money(5)} a goal; each division up pays half as much again. The full books are under Club business.</p>}
       {marketOpen && win && <TransferMarket career={career} market={win.market} onClose={() => setMarketOpen(false)} />}
     </section>
   )
