@@ -155,3 +155,32 @@ describe('cap shop server', () => {
     await expect(handleLagos({ action: 'owned', session: 's' }, api(), db())).resolves.toEqual({ ok: true, owned: ['cap_silver'] })
   })
 })
+
+describe('webhook', () => {
+  it('accepts only bodies signed with the webhook secret', async () => {
+    const { webhookSigned } = await import('../../server/lagos.js')
+    const raw = '{"type":"purchase.paid","data":{"purchaseId":"pu_1"}}'
+    const sig = 'sha256=' + createHmac('sha256', 'whsec').update(raw).digest('hex')
+    expect(webhookSigned(raw, sig, 'whsec')).toBe(true)
+    expect(webhookSigned(raw + ' ', sig, 'whsec')).toBe(false)
+    expect(webhookSigned(raw, sig, 'other')).toBe(false)
+    expect(webhookSigned(raw, undefined, 'whsec')).toBe(false)
+    expect(webhookSigned(raw, sig, '')).toBe(false)
+  })
+  it('records and delivers a paid purchase it checked itself', async () => {
+    const { handleWebhook } = await import('../../server/lagos.js')
+    const api = { getPurchase: vi.fn(async () => ({ status: 200, data: { id: 'pu_1', productId: 'band_gold', playerId: 't_a', status: 'paid', mode: 'test' } })), deliver: vi.fn(async () => ({ status: 200 })) }
+    const db = vi.fn(async () => ['band_gold'])
+    await expect(handleWebhook({ type: 'purchase.paid', data: { purchaseId: 'pu_1' } }, api, db)).resolves.toEqual({ ok: true })
+    expect(db).toHaveBeenCalledWith('grant', 'test', 't_a', 'band_gold', 'pu_1')
+    expect(api.deliver).toHaveBeenCalledWith('pu_1')
+  })
+  it('ignores other events and refunded or unknown purchases', async () => {
+    const { handleWebhook } = await import('../../server/lagos.js')
+    const db = vi.fn()
+    await expect(handleWebhook({ type: 'test.ping' }, null, null)).resolves.toMatchObject({ ignored: true })
+    const api = { getPurchase: async () => ({ status: 200, data: { id: 'pu_1', productId: 'cap_danfo', playerId: 't_a', status: 'refunded' } }), deliver: vi.fn() }
+    await expect(handleWebhook({ type: 'purchase.paid', data: { purchaseId: 'pu_1' } }, api, db)).resolves.toMatchObject({ ignored: true })
+    expect(db).not.toHaveBeenCalled()
+  })
+})

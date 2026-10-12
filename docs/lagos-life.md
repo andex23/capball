@@ -70,6 +70,12 @@ match exactly; the names can be anything.
 | `band_purple` | Purple band (exclusive) | ₦100 |
 | `band_gold` | Gold band (exclusive) | ₦200 |
 
+**Webhook** (optional but recommended): in the Lagos Life dashboard, set the
+webhook address to `https://www.counterball.fun/api/lagos-webhook`, and add
+the webhook signing secret (`vtr_whsec_…`) to Vercel as `VATAR_WEBHOOK_SECRET`.
+When a purchase is paid, the server checks it and unlocks it straight away,
+even if the player closed the game right after paying.
+
 Run `supabase/lagos.sql` once in the Supabase SQL editor. The server uses the
 same `SUPABASE_SERVICE_ROLE_KEY` as play-anytime matches.
 

@@ -14,8 +14,9 @@
  *   VATAR_SECRET               vtr_test_… or vtr_live_…
  *   VATAR_RESULTS_SECRET       the results signing secret
  *   SUPABASE_SERVICE_ROLE_KEY  for the bought-caps table (supabase/lagos.sql)
+ *   VATAR_WEBHOOK_SECRET       vtr_whsec_… (checks webhooks really come from Lagos Life)
  */
-import { createHash, createHmac } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { isProduct } from '../src/data/shop.js'
 
 const DATABASE_URL = 'https://tmbittgluvbpuoygrrqb.supabase.co'
@@ -151,4 +152,37 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb()) {
   if (r.status === 409 && r.data?.error === 'already_settled') return { ok: true, settled: true }
   if (r.status === 409) fail('not-playing')
   throw new Error('upstream')
+}
+
+/* ── Webhook: Lagos Life tells us a purchase was paid ── */
+
+/** Is `header` (X-Vatar-Signature: sha256=<hex>) the HMAC of the raw body? Constant-time. */
+export function webhookSigned(raw, header, secret) {
+  if (!secret || typeof header !== 'string' || !header.startsWith('sha256=')) return false
+  const want = Buffer.from(createHmac('sha256', secret).update(raw).digest('hex'))
+  const got = Buffer.from(header.slice(7))
+  return want.length === got.length && timingSafeEqual(want, got)
+}
+
+/**
+ * A signed webhook. For purchase.paid we treat it as a nudge: look the
+ * purchase up with Lagos Life ourselves, then record and deliver it, the same
+ * as when the game claims it. So a cap reaches the player even if the game
+ * closed straight after paying. Anything else is acknowledged and ignored.
+ */
+export async function handleWebhook(event, api = makeApi(), db = makeOwnedDb()) {
+  if (event?.type !== 'purchase.paid') return { ok: true, ignored: true }
+  if (!api || !db) fail('not-configured')
+  const id = event.data?.purchaseId
+  if (!ID.test(id || '')) fail('bad-request')
+  const p = await api.getPurchase(id)
+  if (p.status === 404) return { ok: true, ignored: true }
+  if (p.status !== 200) throw new Error('upstream')
+  const buy = p.data || {}
+  if (!buy.playerId || !isProduct(buy.productId) || buy.status === 'refunded') return { ok: true, ignored: true }
+  if (buy.status !== 'paid' && buy.status !== 'delivered') return { ok: true, ignored: true }
+  await db('grant', buy.mode === 'live' ? 'live' : 'test', buy.playerId, buy.productId, buy.id || id)
+  const d = await api.deliver(buy.id || id)
+  if (d.status !== 200 && d.status !== 201 && d.status !== 204) throw new Error('upstream')
+  return { ok: true }
 }
