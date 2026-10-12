@@ -112,7 +112,8 @@ export function cupTie(career) {
   if (!cup || cup.championId) return null
   const tie = readyFixtures(cup).find((f) => f.home === ME || f.away === ME)
   if (!tie) return null
-  return playedThisSeason(career.league) >= CUP_AFTER[tie.round] ? tie : null
+  // Once the league season is over, any tie still to play opens straight away
+  return playedThisSeason(career.league) >= CUP_AFTER[tie.round] || seasonOver(career.league) ? tie : null
 }
 
 /** Your next cup tie whether or not it's open yet, plus after how many league matches it opens. */
