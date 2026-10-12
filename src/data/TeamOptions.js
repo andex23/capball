@@ -1,4 +1,4 @@
-import { hasArt } from '../game/capArt'
+import { hasArt } from '../game/capArt.js'
 // Cap customisation options shared by the team builder and online validation.
 
 export const BADGES = [

@@ -6,8 +6,8 @@
  *
  * Caps are looks only: no cap ever plays differently.
  */
-import { RARE_DESIGNS } from './TeamOptions'
-import { BANDS } from './bands'
+import { RARE_DESIGNS } from './TeamOptions.js'
+import { BANDS } from './bands.js'
 
 /** Rare caps: still earned for free, or bought to skip the wait. */
 export const RARE_PRICES = { silver: 100, wall: 100, lucky: 200, boot: 200, cup: 300, gold: 300, royal: 500 }
