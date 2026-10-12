@@ -1,0 +1,132 @@
+<!doctype html><html><head><style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"./three/build/three.module.js","three/addons/":"./three/examples/jsm/"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+const P = new URLSearchParams(location.search)
+const SIZE = 1024, N = 21
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+renderer.setPixelRatio(1); renderer.setSize(SIZE, SIZE)
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0
+renderer.outputColorSpace = THREE.SRGBColorSpace
+document.body.appendChild(renderer.domElement)
+const scene = new THREE.Scene()
+const pm = new THREE.PMREMGenerator(renderer)
+scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture
+scene.environmentIntensity = 0.55
+
+// ---- printed top: Counterball's own cap (texture covers radius 1.12) ----
+const R_TEX = 1.12
+await Promise.all([new FontFace('BCI', 'url(bci.woff2)', { style: 'italic', weight: '900' }), new FontFace('SS', 'url(ss.woff2)', { weight: '700' })].map(async (f) => document.fonts.add(await f.load())))
+const PAINT = P.get('paint') || '#1638b8'
+const tc = document.createElement('canvas'); tc.width = tc.height = 2048
+const g = tc.getContext('2d'); const S = 1024, k = S / R_TEX
+g.fillStyle = PAINT; g.fillRect(0, 0, 2048, 2048)
+const id = g.getImageData(0, 0, 2048, 2048)
+for (let i = 0; i < id.data.length; i += 4) { const n = (Math.random() - 0.5) * 8; id.data[i] += n; id.data[i + 1] += n; id.data[i + 2] += n }
+g.putImageData(id, 0, 0)
+const ring = (r, w, c) => { g.beginPath(); g.arc(S, S, r * k, 0, Math.PI * 2); g.lineWidth = w * k; g.strokeStyle = c; g.stroke() }
+ring(0.79, 0.022, '#ffd23f')
+ring(0.43, 0.016, '#ffd23f')
+// lettering round the edge, like the name on a drink cap
+function arcText(text, radius, size, color, bottom) {
+  g.save(); g.translate(S, S); g.font = `700 ${size * k}px SS`; g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'
+  const R = radius * k, spacing = size * k * 0.16
+  const widths = [...text].map((ch) => g.measureText(ch).width + spacing)
+  const total = widths.reduce((x, y) => x + y, 0) - spacing
+  // top: angle 0 is straight up, reading clockwise; bottom: 0 is straight down, reading anticlockwise
+  let ang = (bottom ? 1 : -1) * total / 2 / R
+  for (let i = 0; i < text.length; i++) {
+    const half = widths[i] / 2 / R
+    ang += bottom ? -half : half
+    g.save(); g.rotate(ang); g.translate(0, bottom ? R : -R); g.fillText(text[i], 0, 0); g.restore()
+    ang += bottom ? -half : half
+  }
+  g.restore()
+}
+arcText('COUNTERBALL', 0.615, 0.13, '#fffbe6', false)
+arcText('TABLETOP FOOTBALL', 0.63, 0.075, '#fffbe6', true)
+g.fillStyle = '#ffd23f'
+for (const a of [0, Math.PI]) { g.save(); g.translate(S + Math.cos(a) * 0.62 * k, S + Math.sin(a) * 0.62 * k); g.beginPath(); for (let j = 0; j < 10; j++) { const r = (j % 2 ? 0.02 : 0.046) * k, b = -Math.PI / 2 + j * Math.PI / 5; g[j ? 'lineTo' : 'moveTo'](r * Math.cos(b), r * Math.sin(b)) } g.fill(); g.restore() }
+// CB in the logo's banded chrome lettering
+g.save(); g.translate(S, S + 0.005 * k)
+g.font = `italic 900 ${0.66 * k}px BCI`; g.textAlign = 'center'; g.textBaseline = 'alphabetic'
+const base = 0.225 * k, top = -0.25 * k
+g.lineJoin = 'round'
+g.fillStyle = '#0b0830'; g.fillText('CB', 0.035 * k, base + 0.04 * k)
+g.lineWidth = 0.05 * k; g.strokeStyle = '#0b0830'; g.strokeText('CB', 0, base)
+const lg = g.createLinearGradient(0, top, 0, base)
+const bands = [['#fffbe6', 0, 0.22], ['#ffe36a', 0.22, 0.46], ['#ffb21a', 0.46, 0.62], ['#ff7a12', 0.62, 0.8], ['#e8261f', 0.8, 1]]
+for (const [c, a, b] of bands) { lg.addColorStop(a, c); lg.addColorStop(b, c) }
+g.fillStyle = lg; g.fillText('CB', 0, base)
+g.restore()
+const tex = new THREE.CanvasTexture(tc); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 16
+
+// ---- crown cap geometry ----
+const SEG_T = N * 18, SEG_S = 160
+function profile(s, th) {
+  // top disc, slight dome
+  if (s <= 0.5) { const r = 0.84 * (s / 0.5); return [r, 0.215 + 0.012 * (1 - (r / 0.84) ** 2)] }
+  // rounded shoulder
+  if (s <= 0.66) { const f = (s - 0.5) / 0.16, phi = Math.PI / 2 * (1 - f); return [0.84 + 0.085 * Math.cos(phi), 0.13 + 0.085 * Math.sin(phi)] }
+  // fluted skirt that flares out
+  const t = (s - 0.66) / 0.34
+  // rounded corrugations, nearly straight down with a slight flare
+  const flute = Math.cos(N * th)
+  const soft = Math.sign(flute) * Math.pow(Math.abs(flute), 0.75)
+  const amp = 0.034 * Math.pow(t, 0.55)
+  const r = 0.925 + 0.045 * Math.pow(t, 1.4) + amp * soft
+  const z = 0.13 - 0.175 * t + 0.008 * t * soft
+  return [r, z]
+}
+const pos = [], uv = [], idx = []
+for (let i = 0; i <= SEG_S; i++) for (let j = 0; j <= SEG_T; j++) {
+  const s = i / SEG_S, th = j / SEG_T * Math.PI * 2
+  const [r, z] = profile(s, th)
+  const x = r * Math.cos(th), y = r * Math.sin(th)
+  pos.push(x, z, y); uv.push(0.5 + x / (2 * R_TEX), 0.5 - y / (2 * R_TEX))
+}
+for (let i = 0; i < SEG_S; i++) for (let j = 0; j < SEG_T; j++) {
+  const a = i * (SEG_T + 1) + j, b = a + SEG_T + 1
+  idx.push(a, b, a + 1, b, b + 1, a + 1)
+}
+const geo = new THREE.BufferGeometry()
+geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+geo.setIndex(idx); geo.computeVertexNormals()
+const mat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.5, roughness: 0.48, side: THREE.DoubleSide })
+const cap = new THREE.Mesh(geo, mat); cap.castShadow = true; cap.receiveShadow = true
+cap.position.y = 0.045; cap.rotation.y = 0
+scene.add(cap)
+
+// ---- pitch ----
+const gc = document.createElement('canvas'); gc.width = gc.height = 1024
+const gg = gc.getContext('2d')
+for (let x = 0; x < 1024; x += 128) { gg.fillStyle = (x / 128) % 2 ? '#185a20' : '#1e6a27'; gg.fillRect(x, 0, 128, 1024) }
+const gd = gg.getImageData(0, 0, 1024, 1024)
+for (let i = 0; i < gd.data.length; i += 4) { const n = (Math.random() - 0.5) * 18; gd.data[i] += n * 0.5; gd.data[i + 1] += n; gd.data[i + 2] += n * 0.4 }
+gg.putImageData(gd, 0, 0)
+gg.strokeStyle = 'rgba(245,245,235,0.92)'; gg.lineWidth = 16
+gg.beginPath(); gg.arc(512, 512, 400, 0, Math.PI * 2); gg.stroke()
+gg.beginPath(); gg.moveTo(0, 512); gg.lineTo(1024, 512); gg.stroke()
+const gt = new THREE.CanvasTexture(gc); gt.colorSpace = THREE.SRGBColorSpace; gt.anisotropy = 8
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshStandardMaterial({ map: gt, roughness: 0.95 }))
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground)
+
+// ---- light ----
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x1d4a1f, 0.45))
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.9)
+sun.position.set(-2.6, 3.2, 2.2); sun.castShadow = true
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = 9; sun.shadow.bias = -0.0005
+Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2, near: 0.5, far: 10 })
+scene.add(sun)
+const rim = new THREE.DirectionalLight(0xbfd4ff, 0.8); rim.position.set(2.5, 1.2, -2.5); scene.add(rim)
+
+const camera = new THREE.PerspectiveCamera(Number(P.get('fov') || 30), 1, 0.1, 50)
+const el = Number(P.get('el') || 48) * Math.PI / 180, dist = Number(P.get('d') || 4.6)
+camera.position.set(0, Math.sin(el) * dist, Math.cos(el) * dist)
+camera.lookAt(0, -0.05, 0.06)
+renderer.render(scene, camera)
+window.done = true
+</script></body></html>

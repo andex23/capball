@@ -4,3 +4,4 @@ dist
 *.local
 .env
 .vercel
+tools/cap-icon/three
