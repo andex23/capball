@@ -4,7 +4,7 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending, swapLineup, signSponsor, buildFacility, setTickets, takeYouth } from '../game/career'
+import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending, swapLineup, signSponsor, buildFacility, setTickets, takeYouth, promoteReserve, sellReserve } from '../game/career'
 import { TRAINING } from '../game/club'
 import { allFixtures } from '../game/tournament'
 import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
@@ -144,6 +144,8 @@ export const useCareerStore = create((set, get) => ({
   build(kind) { return get()._apply(buildFacility, kind) },
   tickets(level) { return get()._apply(setTickets, level) },
   youth(slot) { return get()._apply(takeYouth, slot) },
+  promote(reserveIndex, slot) { return get()._apply(promoteReserve, reserveIndex, slot) },
+  sellReserve(index) { return get()._apply(sellReserve, index) },
 
   retire() {
     save(null)

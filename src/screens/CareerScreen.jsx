@@ -319,7 +319,7 @@ export default function CareerScreen() {
             <section className="card card-pad" aria-label="Summer news">
               <h2 className="saved-h">Over the summer</h2>
               <ul className="career-summer">
-                {career.lastSummer.retired.map((r) => <li key={`r${r.role}`}><b>{r.name}</b> retired at {r.age}. A youth player comes in.</li>)}
+                {career.lastSummer.retired.map((r) => <li key={`r${r.role}`}><b>{r.name}</b> retired at {r.age}. {r.left ? 'His place in the reserves is free.' : 'A youth player comes in.'}</li>)}
                 {career.lastSummer.changes.map((c) => <li key={`c${c.role}`} data-up={c.to > c.from ? 'true' : undefined}>{c.name}: {c.from} → <b>{c.to}</b></li>)}
               </ul>
             </section>
