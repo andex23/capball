@@ -390,7 +390,7 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   return texture
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, isSelected, badge, number, pattern, finish, capText }, ref) {
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, isSelected, badge, number, pattern, finish, capText, band }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -471,6 +471,14 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
           fog={false}
         />
       </mesh>}
+
+      {/* A rubber band stretched round the skirt (cosmetic) */}
+      {band && (
+        <mesh position={[0, -0.03, 0]} rotation-x={Math.PI / 2}>
+          <torusGeometry args={[radius * 0.985, 0.034, 8, 48]} />
+          <meshStandardMaterial color={band} emissive={band} emissiveIntensity={0.35} roughness={0.75} metalness={0} toneMapped={false} fog={false} />
+        </mesh>
+      )}
 
       {/* Dark inside of the cap, seen only at the very bottom edge */}
       <mesh position={[0, -halfH + 0.006, 0]} rotation-x={-Math.PI / 2}>

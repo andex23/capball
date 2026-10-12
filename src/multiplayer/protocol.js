@@ -8,6 +8,7 @@
  */
 
 import { BADGES, PATTERNS, FINISHES, CAP_ROLES, TEAM_NAME_MAX, sanitizeCapText, CAP_NAME_MODES, sanitizePlayerName } from '../data/TeamOptions'
+import { BAND_KEYS } from '../data/bands'
 import { FORMATIONS } from '../data/TeamData'
 import { teamOf } from '../game/rules'
 
@@ -69,6 +70,12 @@ export function sanitizeTeamConfig(input) {
       if (Number.isInteger(n) && n >= 0 && n <= 99) numbers[role] = n
     }
     if (Object.keys(numbers).length) out.numbers = numbers
+  }
+  // Rubber bands, one per player (missing = no band)
+  if (isObj(input.bands)) {
+    const bands = {}
+    for (const role of CAP_ROLES) if (BAND_KEYS.has(input.bands[role])) bands[role] = input.bands[role]
+    out.bands = bands
   }
   return out
 }

@@ -25,36 +25,50 @@ fitted to the frame.
   computer pauses and all sound stops. Sound comes back on return; the player
   taps Resume.
 
-## Cap shop (Lagos Life only)
+## Caps and bands (shop inside Lagos Life)
 
-Players can buy caps with Lagos Life's checkout. Caps are looks only; no cap
-plays differently.
+Counterball is about the caps you grew up flicking: "that's my cap, that's my
+player". Everything for sale is looks only; paying never makes a player
+stronger.
 
-- The 7 rare caps can still be earned for free, or bought.
-- 5 Lagos Life exclusives can only be bought.
+- **Starter caps**: familiar drink-cap looks under our own names (Cola, Green
+  Lager, Red Lager, Stout, Malta, Orange Pop, Lemon Lime, Bitter Lemon, Ginger
+  Ale, Tonic). No real brand names or logos until permission is secured.
+- **Rare caps**: earned free, or bought inside Lagos Life.
+- **Lagos Life exclusives**: bought only.
+- **Rubber bands**: one per player, stretched round his cap. Some free, some
+  earned, some bought.
 
 After payment, `/api/lagos` checks the purchase with Lagos Life, records it in
-the `cb_lagos_owned` table (so the cap follows the player to any phone), then
-marks it delivered. If anything fails, the payment stays "paid but not
-delivered", and the game claims it again next time it opens.
+`cb_lagos_owned` (so it follows the player to any phone), then marks it
+delivered. If anything fails, the payment stays "paid but not delivered" and
+the game claims it again the next time it opens.
 
 Create these products in the Lagos Life dashboard (Products tab). The IDs must
-match exactly:
+match exactly; the names can be anything.
 
-| Product ID | Cap | Price |
+| Product ID | Item | Price |
 |---|---|---|
-| `cap_silver` | Silver Star | ₦100 |
-| `cap_wall` | Iron Wall | ₦100 |
-| `cap_lucky` | Lucky Seven | ₦200 |
-| `cap_boot` | Golden Boot | ₦200 |
-| `cap_cup` | Cup Winner | ₦300 |
-| `cap_gold` | Golden Crown | ₦300 |
-| `cap_royal` | Royal Purple | ₦500 |
-| `cap_danfo` | Danfo (exclusive) | ₦300 |
-| `cap_jollof` | Jollof (exclusive) | ₦300 |
-| `cap_ankara` | Ankara (exclusive) | ₦400 |
-| `cap_eko` | Eko Nights (exclusive) | ₦400 |
-| `cap_naija` | Naija Green (exclusive) | ₦500 |
+| `cap_silver` | Ten Up (rare cap) | ₦100 |
+| `cap_wall` | No Entry (rare cap) | ₦100 |
+| `cap_lucky` | Seven Straight (rare cap) | ₦200 |
+| `cap_boot` | Fifty Burner (rare cap) | ₦200 |
+| `cap_cup` | Silverware (rare cap) | ₦300 |
+| `cap_gold` | Moving Up (rare cap) | ₦300 |
+| `cap_royal` | Champion of Champions (rare cap) | ₦500 |
+| `cap_danfo` | Yellow Fever (exclusive cap) | ₦300 |
+| `cap_jollof` | Party Jollof (exclusive cap) | ₦300 |
+| `cap_ankara` | Owambe (exclusive cap) | ₦400 |
+| `cap_eko` | Third Mainland (exclusive cap) | ₦400 |
+| `cap_naija` | Oga at the Top (exclusive cap) | ₦500 |
+| `band_blue` | Blue band | ₦100 |
+| `band_green` | Green band | ₦100 |
+| `band_white` | White band | ₦100 |
+| `band_orange` | Orange band | ₦200 |
+| `band_pink` | Hot Pink band (exclusive) | ₦100 |
+| `band_glow` | Glow Green band (exclusive) | ₦100 |
+| `band_purple` | Purple band (exclusive) | ₦100 |
+| `band_gold` | Gold band (exclusive) | ₦200 |
 
 Run `supabase/lagos.sql` once in the Supabase SQL editor. The server uses the
 same `SUPABASE_SERVICE_ROLE_KEY` as play-anytime matches.

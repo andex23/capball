@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { bandColor } from '../data/bands'
 import { darkenHex, lightenHex } from './color'
 import { capLabel } from '../data/TeamOptions'
 
@@ -162,6 +163,11 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   const inkColor = config.textColor || printColor
   const withText = capText.length > 0
   const hasBadge = badge && badge !== 'none'
+  // This player's rubber band, if any, stretched round the middle of the skirt
+  const band = bandColor(config.bands?.[role])
+  const bandY = tc + H * 0.5
+  const bandRx = (R + R2) / 2 * 1.005
+  const bandPath = `M ${(cx + bandRx).toFixed(2)} ${bandY.toFixed(2)} A ${bandRx.toFixed(2)} ${(bandRx * K).toFixed(2)} 0 0 1 ${(cx - bandRx).toFixed(2)} ${bandY.toFixed(2)}`
 
   // Fluted skirt: each pleat is two folds, one catching the light, one in shade.
   // Only the front half (towards the viewer) shows.
@@ -218,6 +224,14 @@ export default function CapPreview({ config, size = 120, number = null, role = '
         <path key={i} d={f.d} fill={f.fill} stroke={darkenHex(skirtBase, 0.55)} strokeWidth={size * 0.004} strokeLinejoin="round" />
       ))}
       {folds.filter((f) => f.shine).map((f, i) => <path key={`s${i}`} d={f.d} fill={`url(#skirtShine-${uid})`} />)}
+
+      {band && (
+        <g>
+          <path d={bandPath} fill="none" stroke="rgba(0,0,0,0.55)" strokeWidth={size * 0.062} strokeLinecap="round" />
+          <path d={bandPath} fill="none" stroke={band} strokeWidth={size * 0.044} strokeLinecap="round" />
+          <path d={bandPath} fill="none" stroke="#ffffff" strokeOpacity="0.28" strokeWidth={size * 0.012} transform={`translate(0 ${(-size * 0.01).toFixed(2)})`} />
+        </g>
+      )}
 
       {/* Rolled edge round the top */}
       <ellipse cx={cx} cy={tc} rx={R} ry={R * K} fill={darkenHex(primary, 0.3)} />

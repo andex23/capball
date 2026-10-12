@@ -11,6 +11,7 @@ import PitchMesh from './PitchMesh'
 import Venue, { VenueSky } from './Venues'
 import BallTrail from './BallTrail'
 import { CAP_ROLES, capLabel } from '../data/TeamOptions'
+import { bandColor } from '../data/bands'
 import CapMesh from './CapMesh'
 import BallMesh from './BallMesh'
 import { usePhysicsSync } from '../physics/PhysicsSync'
@@ -272,6 +273,7 @@ function GameWorld() {
             textColor={team1.textColor}
             skirtColor={team1.skirtColor}
             finish={team1.finish}
+            band={bandColor(team1.bands?.[id.slice(6)])}
           />
         )
       })}
@@ -293,6 +295,7 @@ function GameWorld() {
             textColor={team2.textColor}
             skirtColor={team2.skirtColor}
             finish={team2.finish}
+            band={bandColor(team2.bands?.[id.slice(6)])}
           />
         )
       })}

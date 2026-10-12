@@ -2256,3 +2256,18 @@ button { cursor: pointer; background: none; border: 0; }
 .cap-buy .t-note { margin: 0; text-align: center; }
 /* Caps for sale show their real colours (just dimmed), so you see what you're buying */
 .cap-design[data-locked='true'][data-shop='true'] .cap-design-art svg { filter: brightness(0.8); }
+
+/* Rubber bands: pick a player, then a band */
+.band-picker { display: flex; flex-direction: column; gap: 8px; }
+.band-picker .t-note { margin: 0; }
+.band-players { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.band-player { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; background: transparent; border: 2px solid transparent; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.band-player small { font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2, #c9d2ff); }
+.band-player[aria-pressed='true'] { border-color: var(--accent, #ffd23f); background: rgba(255, 210, 63, 0.1); }
+.band-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.band-swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: rgba(0, 0, 0, 0.18); border: 2px solid transparent; color: inherit; font: inherit; cursor: pointer; }
+.band-swatch small { font-size: 11px; text-align: center; line-height: 1.1; }
+.band-swatch[aria-pressed='true'] { border-color: var(--accent, #ffd23f); }
+.band-dot { width: 30px; height: 30px; border-radius: 50%; border: 7px solid var(--band, #888); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.35); display: grid; place-items: center; color: #fff; }
+.band-none { border-color: rgba(255, 255, 255, 0.18); border-style: dashed; }
+.band-swatch[data-locked='true'] .band-dot { filter: brightness(0.7); }

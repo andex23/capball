@@ -2,6 +2,7 @@ import { CAP_ROLES, playerNames, capNameMode, dummyNames, sanitizePlayerName, PL
 import { DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { playButtonSelect } from '../audio/SoundManager'
 import CapPreview from './CapPreview'
+import BandPicker from './BandPicker'
 
 const ROLE_NAMES = { gk: 'Keeper', def1: 'Defender', def2: 'Defender', mid: 'Midfield', atk1: 'Forward', atk2: 'Forward' }
 
@@ -72,6 +73,7 @@ export default function SquadEditor({ config, onUpdate, teamKey = 'team1', disab
         {fixedNames && <p className="muted t-note" style={{ marginTop: 6 }}>Your players’ names come from your squad — sign new players in the transfer market.</p>}
         {used.some((n, i) => used.indexOf(n) !== i) && <p className="t-warn" style={{ marginTop: 6 }}>Two caps share a number.</p>}
       </div>
+      <BandPicker config={config} onUpdate={onUpdate} numberOf={numberOf} disabled={disabled} />
     </div>
   )
 }

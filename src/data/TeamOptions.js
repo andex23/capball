@@ -56,15 +56,16 @@ export function sanitizeCapText(input) {
  * colours, print, finish and text in one go; everything stays editable after.
  */
 export const CAP_DESIGNS = [
+  // The caps you grew up flicking: familiar drink-cap looks, our own names
   { key: 'cola', name: 'Cola', primary: '#C8102E', edge: '#FFFFFF', pattern: 'wave', badge: 'none', finish: 'gloss', capText: 'COLA' },
-  { key: 'fizz', name: 'Blue Fizz', primary: '#0B3D91', edge: '#FFFFFF', pattern: 'split', badge: 'none', finish: 'gloss', capText: 'FIZZ' },
+  { key: 'greenlager', name: 'Green Lager', primary: '#0B6E3B', edge: '#E8C766', pattern: 'ring', badge: 'star', finish: 'gloss', capText: 'LAGER' },
+  { key: 'redlager', name: 'Red Lager', primary: '#B71C1C', edge: '#F2C14E', pattern: 'rays', badge: 'star', finish: 'gloss', capText: 'PREMIUM' },
+  { key: 'stout', name: 'Stout', primary: '#121212', edge: '#EADFC8', pattern: 'ring', badge: 'none', finish: 'satin', capText: 'STOUT' },
+  { key: 'malta', name: 'Malta', primary: '#4E2A12', edge: '#E8B84A', pattern: 'ring', badge: 'crown', finish: 'gloss', capText: 'MALTA' },
+  { key: 'orange', name: 'Orange Pop', primary: '#F57F17', edge: '#0B3D91', pattern: 'rays', badge: 'none', finish: 'gloss', capText: 'ORANGE' },
   { key: 'lemon', name: 'Lemon Lime', primary: '#1E8E3E', edge: '#FFE14D', pattern: 'wave', badge: 'none', finish: 'gloss', capText: 'LEMON LIME' },
-  { key: 'orange', name: 'Orange Pop', primary: '#F57F17', edge: '#FFFFFF', pattern: 'rays', badge: 'none', finish: 'gloss', capText: 'ORANGE' },
-  { key: 'root', name: 'Root Beer', primary: '#5D3A1A', edge: '#F2E2B6', pattern: 'ring', badge: 'none', finish: 'satin', capText: 'ROOT BEER' },
+  { key: 'bitter', name: 'Bitter Lemon', primary: '#F2D21B', edge: '#1E5E2E', pattern: 'stripe', badge: 'none', finish: 'satin', capText: 'BITTER LEMON' },
   { key: 'ginger', name: 'Ginger Ale', primary: '#0B4D2C', edge: '#E8C766', pattern: 'stripe', badge: 'none', finish: 'satin', capText: 'GINGER ALE' },
-  { key: 'malt', name: 'Malt', primary: '#141414', edge: '#D4AF37', pattern: 'ring', badge: 'crown', finish: 'gloss', capText: 'MALT' },
-  { key: 'lager', name: 'Lager', primary: '#E9E9E9', edge: '#B71C1C', pattern: 'none', badge: 'star', finish: 'chrome', capText: 'LAGER' },
-  { key: 'cream', name: 'Cream Soda', primary: '#E91E63', edge: '#FFFFFF', pattern: 'dots', badge: 'none', finish: 'gloss', capText: 'CREAM SODA' },
   { key: 'tonic', name: 'Tonic', primary: '#00838F', edge: '#FFFFFF', pattern: 'cross', badge: 'none', finish: 'satin', capText: 'TONIC' },
 ]
 
@@ -90,19 +91,19 @@ export const CLEAR_TO = { pattern: 'none', badge: 'none', finish: 'gloss' }
  * says how far along they are: [have, target].
  */
 export const RARE_DESIGNS = [
-  { key: 'silver', name: 'Silver Star', primary: '#CFD8DC', edge: '#0D47A1', pattern: 'ring', badge: 'star', finish: 'chrome', capText: 'SILVER',
+  { key: 'silver', name: 'Ten Up', primary: '#CFD8DC', edge: '#0D47A1', pattern: 'ring', badge: 'star', finish: 'chrome', capText: 'SILVER',
     hint: 'Win 10 matches', need: (p) => [p.won, 10] },
-  { key: 'gold', name: 'Golden Crown', primary: '#D4AF37', edge: '#FFF3B0', pattern: 'rays', badge: 'crown', finish: 'chrome', capText: 'GOLD',
+  { key: 'gold', name: 'Moving Up', primary: '#D4AF37', edge: '#FFF3B0', pattern: 'rays', badge: 'crown', finish: 'chrome', capText: 'GOLD',
     hint: 'Win promotion in Career', need: (p) => [p.promotions, 1] },
-  { key: 'boot', name: 'Golden Boot', primary: '#1A1A1A', edge: '#FFD700', pattern: 'stripe', badge: 'bolt', finish: 'gloss', capText: 'BOOT',
+  { key: 'boot', name: 'Fifty Burner', primary: '#1A1A1A', edge: '#FFD700', pattern: 'stripe', badge: 'bolt', finish: 'gloss', capText: 'BOOT',
     hint: 'Score 50 goals', need: (p) => [p.goalsFor, 50] },
-  { key: 'wall', name: 'Iron Wall', primary: '#37474F', edge: '#B0BEC5', pattern: 'cross', badge: 'shield', finish: 'satin', capText: 'IRON WALL',
+  { key: 'wall', name: 'No Entry', primary: '#37474F', edge: '#B0BEC5', pattern: 'cross', badge: 'shield', finish: 'satin', capText: 'IRON WALL',
     hint: 'Keep 5 clean sheets', need: (p) => [p.cleanSheets, 5] },
-  { key: 'cup', name: 'Cup Winner', primary: '#8E0000', edge: '#FFD700', pattern: 'split', badge: 'crown', finish: 'gloss', capText: 'WINNERS',
+  { key: 'cup', name: 'Silverware', primary: '#8E0000', edge: '#FFD700', pattern: 'split', badge: 'crown', finish: 'gloss', capText: 'WINNERS',
     hint: 'Win a tournament', need: (p) => [p.cups, 1] },
-  { key: 'lucky', name: 'Lucky Seven', primary: '#00A651', edge: '#FFFFFF', pattern: 'dots', badge: 'star', finish: 'gloss', capText: 'LUCKY 7',
+  { key: 'lucky', name: 'Seven Straight', primary: '#00A651', edge: '#FFFFFF', pattern: 'dots', badge: 'star', finish: 'gloss', capText: 'LUCKY 7',
     hint: 'Beat the daily challenge 7 days running', need: (p) => [p.streak, 7] },
-  { key: 'royal', name: 'Royal Purple', primary: '#4A148C', edge: '#FFD700', pattern: 'ring', badge: 'crown', finish: 'chrome', capText: 'ROYAL',
+  { key: 'royal', name: 'Champion of Champions', primary: '#4A148C', edge: '#FFD700', pattern: 'ring', badge: 'crown', finish: 'chrome', capText: 'ROYAL',
     hint: 'Win the Premier Cap League', need: (p) => [p.titles, 1] },
 ]
 

@@ -16,6 +16,7 @@
  *   result = { home: goals, away: goals, pens?: { home, away } }
  */
 
+import { BAND_KEYS } from '../data/bands.js'
 import { AI_DIFFICULTIES } from './records.js'
 import { sanitizeCapText, CAP_ROLES, CAP_NAME_MODES, sanitizePlayerName } from '../data/TeamOptions.js'
 
@@ -171,6 +172,7 @@ export function sanitizeTeam(input, i = 0) {
     capNames: CAP_NAME_MODES.includes(t.capNames) ? t.capNames : 'player',
     players: Object.fromEntries(CAP_ROLES.map((r) => [r, sanitizePlayerName(isObj(t.players) ? t.players[r] : '')]).filter(([, n]) => n)),
     numbers,
+    bands: Object.fromEntries(CAP_ROLES.map((r) => [r, isObj(t.bands) ? t.bands[r] : null]).filter(([, b]) => BAND_KEYS.has(b))),
     cpu: t.cpu === true,
     difficulty: AI_DIFFICULTIES.includes(t.difficulty) ? t.difficulty : 'medium',
   }
