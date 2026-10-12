@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMatchStore, PHASE } from '../state/MatchStore'
 import { otherTeam, teamHomeDir } from '../game/rules'
 import { PITCH } from '../data/TeamData'
@@ -17,8 +17,9 @@ function screenRight(goalX) {
 
 /**
  * Before a penalty: the keeper's side secretly picks a dive. The keeper goes
- * that way the instant the kick is taken. On a shared phone the kicker looks
- * away while the keeper picks; online only the keeper's phone shows this.
+ * that way the instant the kick is taken. On a shared phone the phone is
+ * handed to the keeper, the dive picked behind a cover, then handed back to
+ * the kicker; online only the keeper's phone shows this.
  */
 export default function KeeperPick() {
   const phase = useMatchStore((s) => s.phase)
@@ -30,6 +31,9 @@ export default function KeeperPick() {
   const paused = useMatchStore((s) => s.paused)
   const [right, setRight] = useState(1)
   const [sent, setSent] = useState(false)
+  // Two players on one phone: hand over to the keeper, pick, hand back to the kicker
+  const [step, setStep] = useState('handTo') // 'handTo' | 'pick' | 'handBack'
+  const chosen = useRef(0)
 
   const keeperTeam = otherTeam(activeTeam)
   const active = phase === PHASE.KEEPER_PICK && !paused
@@ -37,7 +41,7 @@ export default function KeeperPick() {
 
   // Work out screen left/right for this goal once the camera has settled
   useEffect(() => {
-    if (!active) { setSent(false); return }
+    if (!active) { setSent(false); setStep('handTo'); return }
     const t = setTimeout(() => setRight(screenRight(goalX)), 250)
     return () => clearTimeout(t)
   }, [active, goalX])
@@ -55,16 +59,42 @@ export default function KeeperPick() {
     )
   }
 
+  const shared = gameMode === 'local'
   const pick = (dive) => {
     playButtonSelect()
-    if (gameMode === 'online') { sendKeeperDive(dive); setSent(true) } else useMatchStore.getState().pickKeeperDive(dive)
+    if (gameMode === 'online') { sendKeeperDive(dive); setSent(true) }
+    else if (shared) { chosen.current = dive; setStep('handBack') }
+    else useMatchStore.getState().pickKeeperDive(dive)
+  }
+
+  if (shared && step !== 'pick') {
+    const toKeeper = step === 'handTo'
+    const who = toKeeper ? keeperTeam : activeTeam
+    return (
+      <div className="pass-phone" role="dialog" aria-label={toKeeper ? `Pass the phone to ${keeperName}` : `Pass the phone back to ${kickerName}`}
+        style={{ '--team': displayColor(teamConfig[who]?.primary) }}>
+        <div className="pass-phone-card">
+          <div className="pass-phone-icon" aria-hidden="true">{toKeeper ? '🧤' : '🔒'}</div>
+          <p className="pass-phone-eyebrow">{toKeeper ? 'Penalty' : 'Dive locked in'}</p>
+          <h2 className="pass-phone-title">{toKeeper ? `Pass the phone to ${keeperName}` : `Pass the phone back to ${kickerName}`}</h2>
+          <p className="pass-phone-note">{toKeeper ? `${kickerName}, no peeking — the keeper picks a side in secret.` : 'The keeper’s choice stays hidden until the ball is struck.'}</p>
+          <button className="btn btn-gold btn-lg btn-block" onClick={() => {
+            playButtonSelect()
+            if (toKeeper) setStep('pick')
+            else useMatchStore.getState().pickKeeperDive(chosen.current)
+          }}>{toKeeper ? 'I’m the keeper' : 'Ready to shoot'}</button>
+        </div>
+      </div>
+    )
   }
 
   return (
+    <>
+    {/* Shared phone: hide the pitch while the keeper picks */}
+    {shared && <div className="pass-phone pass-phone-shade" aria-hidden="true" />}
     <div className="keeper-pick" role="dialog" aria-label="Keeper: pick your dive" style={{ '--team': displayColor(teamConfig[keeperTeam]?.primary) }}>
       <div className="keeper-pick-tab">Keeper</div>
       <p className="keeper-pick-title">{gameMode === 'local' ? `${keeperName}: pick your dive` : 'Pick your dive'}</p>
-      {gameMode === 'local' && <p className="keeper-pick-note">{kickerName}, look away!</p>}
       {sent ? (
         <p className="keeper-pick-note">Locked in. Waiting for the kick…</p>
       ) : (
@@ -76,5 +106,6 @@ export default function KeeperPick() {
       )}
       <p className="keeper-pick-note">The kicker won’t see your choice. You dive as the ball is struck.</p>
     </div>
+    </>
   )
 }

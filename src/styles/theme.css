@@ -2227,3 +2227,25 @@ button { cursor: pointer; background: none; border: 0; }
 /* A persistent share shortcut, clear of menu content and phone safe areas. */
 .iss-menu .iss-layout { padding-bottom: calc(var(--safe-bottom) + 80px); }
 .iss-share { position: fixed; left: calc(var(--safe-left) + 16px); bottom: calc(var(--safe-bottom) + 16px); z-index: 10; }
+
+/* ===== Pass the phone (penalties, two players on one phone) ===== */
+.pass-phone {
+  position: absolute; inset: 0; z-index: 60; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 20px;
+  pointer-events: auto;
+  background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--team, #1e40d2) 40%, #0b0830) 0%, #05041a 75%);
+}
+.pass-phone-shade { z-index: 40; background: rgba(5, 4, 26, 0.94); }
+.pass-phone-shade + .keeper-pick { z-index: 50; }
+.pass-phone-card {
+  width: min(420px, 100%); min-width: 0; padding: 24px 20px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(30, 64, 210, 0.96), rgba(10, 27, 110, 0.97));
+  box-shadow: 0 0 0 4px #0b0830, inset 0 0 0 3px #0b0830, inset 0 6px 0 3px var(--team, #ffd23f), 10px 10px 0 4px rgba(0, 0, 0, 0.5);
+  animation: pass-phone-in 320ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+@keyframes pass-phone-in { from { transform: translateY(30px) scale(0.94); opacity: 0; } }
+.pass-phone-card .btn { white-space: normal; }
+.pass-phone-icon { font-size: 54px; line-height: 1; }
+.pass-phone-eyebrow { margin: 0; font: 700 13px/1 var(--font-pixel, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: #ffd23f; }
+.pass-phone-title { margin: 0; overflow-wrap: anywhere; font: italic 800 clamp(28px, 7.5vw, 38px)/1.02 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #0b0830; }
+.pass-phone-note { margin: 0 0 6px; font: 600 15px/1.4 var(--font-ui); color: rgba(255, 255, 255, 0.88); }
+@media (prefers-reduced-motion: reduce) { .pass-phone-card { animation: none; } }
