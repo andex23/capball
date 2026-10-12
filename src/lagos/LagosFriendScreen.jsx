@@ -3,7 +3,6 @@ import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import { useLagosStore, potFor } from './lagosStore'
-import BetSheet from './BetSheet'
 import { naira } from '../data/shop'
 import { sdkMessage } from './sdk'
 import { roomCodeFor, isHostFor, opponentOf } from './friendMatch'
@@ -33,7 +32,6 @@ export default function LagosFriendScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [madeCode, setMadeCode] = useState(false)
-  const [betting, setBetting] = useState(false)
   const linking = useRef(null)
 
   // Both players in: open the room on the host's phone, connect from the other
@@ -84,10 +82,8 @@ export default function LagosFriendScreen() {
       const old = useLagosStore.getState().match
       if (old && (used.has(old.id) || !['open', 'playing'].includes(old.status))) await useLagosStore.getState().leaveMatch()
       await useLagosStore.getState().findMatch(kind, code, kind === 'join' ? 0 : stake)
-      setBetting(false)
       setMadeCode(kind === 'create')
     } catch (e) {
-      setBetting(false)
       setError(sdkMessage(e))
     } finally {
       setBusy(false)
@@ -137,11 +133,10 @@ export default function LagosFriendScreen() {
 
           {ready && !match && view === 'menu' && (
             <>
-              <p className="muted">Play another Lagos Life player on their own phone, for free or for a bet.</p>
+              <p className="muted">Play another Lagos Life player on their own phone. Once you’re matched, you can put a bet on it.</p>
               <button className="btn btn-gold btn-lg btn-block" onClick={() => find('quick')} disabled={busy}>{busy ? <><Spinner /> Searching…</> : 'Find a player'}</button>
               <button className="btn btn-purple btn-lg btn-block" onClick={() => find('create')} disabled={busy}>Make a code for a friend</button>
               <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} disabled={busy}>I have a code</button>
-              <button className="btn btn-secondary btn-lg btn-block lagos-bet-btn" onClick={() => { playButtonSelect(); setBetting(true) }} disabled={busy}>₦ Bet with Lagos Life money</button>
             </>
           )}
 
@@ -198,7 +193,6 @@ export default function LagosFriendScreen() {
           )}
 
           {error && <p className="t-warn" role="alert">{error}</p>}
-          {betting && <BetSheet busy={busy} onClose={() => setBetting(false)} onPlay={(kind, stake) => find(kind, undefined, stake)} />}
           {error && playing && <button className="btn btn-secondary btn-block" onClick={cancel}>Leave this match</button>}
 
           <button className="btn btn-secondary" onClick={back} style={{ alignSelf: 'flex-start' }}>

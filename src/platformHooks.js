@@ -7,4 +7,6 @@ export const platformHooks = {
   onOnlineQuit: null,
   /** A line shown above "Leave match", e.g. that leaving loses a stake. */
   leaveWarning: null,
+  /** A bet message from the other phone in an online match. */
+  onPeerBet: null,
 }

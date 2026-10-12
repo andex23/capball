@@ -20,3 +20,11 @@
 .bet-picks .chip { min-height: 40px; padding: 0 14px; cursor: pointer; }
 .bet-picks .chip.is-on { background: var(--accent); border-color: #fff; color: var(--ink); }
 .bet-pot { margin: 4px 0 0; text-align: center; font-family: var(--font-pixel, inherit); font-size: 20px; color: var(--accent); }
+.bet-bar { position: fixed; z-index: 250; top: calc(var(--safe-top, 0px) + 10px); right: calc(var(--safe-right, 0px) + 10px); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 20px); pointer-events: none; }
+.bet-bar > * { pointer-events: auto; }
+.bet-bar-btn { min-height: 40px; padding: 0 16px; }
+.bet-on, .bet-wait, .bet-note { background: rgba(5, 10, 46, 0.88); border: 2px solid var(--accent); color: var(--accent); padding: 8px 12px; font-weight: 700; font-size: 13px; }
+.bet-wait { border-color: #fff; color: #fff; }
+.bet-note { border-color: #ff6b6b; color: #ffd0d0; }
+.bet-offer { margin: 0; text-align: center; font-size: 16px; }
+.bet-big { font-size: 40px; margin: 0; }
