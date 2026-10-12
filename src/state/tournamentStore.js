@@ -1,4 +1,5 @@
 import { anytimeRequest } from './anytimeStore'
+import { isLagos } from '../platform'
 /**
  * Tournaments in the app: the one on this device, online ones from the
  * database, the winners' history, and the fixture being played right now.
@@ -121,7 +122,7 @@ export const useTournamentStore = create((set, get) => ({
   busy: false,
   error: null,
 
-  setLocalTransport(value) { set({ localTransport: value === 'lan' ? 'lan' : 'device' }); save(get()) },
+  setLocalTransport(value) { set({ localTransport: value === 'lan' && !isLagos() ? 'lan' : 'device' }); save(get()) },
 
   /* ── This device ── */
 

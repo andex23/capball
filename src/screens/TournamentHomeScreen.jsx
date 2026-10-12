@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { isLagos } from '../platform'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { progress, teamById } from '../game/tournament'
@@ -120,7 +121,7 @@ export default function TournamentHomeScreen() {
               </>
             ) : (
               <>
-                <p className="muted">A knockout cup or a league for 3 to 8 teams. Play on this phone or over LAN with friends on the same Wi-Fi or hotspot. Choose LAN in the competition hub. Computer games follow the fixture schedule.</p>
+                <p className="muted">{isLagos() ? 'A knockout cup or a league for 3 to 8 teams, played on this phone. Computer games follow the fixture schedule.' : 'A knockout cup or a league for 3 to 8 teams. Play on this phone or over LAN with friends on the same Wi-Fi or hotspot. Choose LAN in the competition hub. Computer games follow the fixture schedule.'}</p>
                 <div className="t-actions">
                   <button className="btn btn-gold btn-lg" onClick={() => { playConfirm(); startSetup('local') }} onMouseEnter={playHoverTick}>
                     New tournament <Icon name="next" size={18} />
@@ -130,6 +131,8 @@ export default function TournamentHomeScreen() {
             )}
           </section>
 
+          {/* LAN and online competitions need their own pairing and accounts; not in Lagos Life */}
+          {!isLagos() && <>
           <section className="card card-pad t-home-card">
             <div className="eyebrow">Same Wi-Fi or hotspot · no internet</div>
             <h2 className="display t-card-title">LAN cups &amp; leagues</h2>
@@ -198,6 +201,8 @@ export default function TournamentHomeScreen() {
               </div>
             )}
           </section>
+
+          </>}
 
           <section className="card card-pad t-home-card t-home-history">
             <div className="eyebrow" style={{ marginBottom: 10 }}>Winners</div>

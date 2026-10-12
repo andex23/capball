@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isLagos } from '../platform'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { MIN_TEAMS, MAX_TEAMS } from '../game/tournament'
@@ -266,7 +267,7 @@ export default function TournamentSetupScreen() {
 
         <main className="shell-body t-setup">
           <div className="t-setup-options">
-            {!online && <section className="card card-pad">
+            {!online && !isLagos() && <section className="card card-pad">
               <div className="eyebrow">Where to play</div>
               <div className="segmented stretch">
                 <button aria-pressed={!lan} onClick={() => useTournamentStore.getState().setLocalTransport('device')}>This device</button>

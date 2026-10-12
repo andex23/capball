@@ -1,5 +1,7 @@
 // Full screen for desktop browsers (phones use the installed app instead).
-export const canFullscreen = () => typeof document !== 'undefined' && !!document.fullscreenEnabled
+import { isLagos } from '../platform'
+// (Lagos Life doesn't grant full screen to games)
+export const canFullscreen = () => !isLagos() && typeof document !== 'undefined' && !!document.fullscreenEnabled
 
 export function toggleFullscreen() {
   if (!canFullscreen()) return

@@ -9,6 +9,7 @@ import RankingsPanel from '../ui/RankingsPanel'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import InstallGuide from '../pwa/InstallGuide'
+import { isLagos } from '../platform'
 import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
@@ -56,7 +57,9 @@ export default function MenuScreen() {
   const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
   const username = useAccountStore((s) => s.username)
   const canInstall = useCanInstall()
-  const installed = isStandalone()
+  const lagos = isLagos()
+  // Inside Lagos Life the game already lives in an app
+  const installed = lagos || isStandalone()
   const localT = useTournamentStore((s) => s.local)
   const localFixtures = localT ? allFixtures(localT) : []
   const localDone = localFixtures.filter((f) => f.result).length
@@ -112,14 +115,19 @@ export default function MenuScreen() {
         sub: `${localT.teams.length} teams · ${localDone}/${localTotal} played — saved`, tag: 'SAVE',
         action: () => { playConfirm(); useTournamentStore.getState().openHub('local') },
       }] : []),
-      { key: 'play', title: 'Quick Match', sub: 'Computer, local, LAN or online', tag: '►', action: () => go('play') },
+      { key: 'play', title: 'Quick Match', sub: lagos ? 'Computer, one phone or a friend' : 'Computer, local, LAN or online', tag: '►', action: () => go('play') },
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
-      { key: 'tournament', title: 'Tournament', sub: 'Leagues and cups · local, LAN or online', tag: '►', action: () => go('tournament') },
+      { key: 'tournament', title: 'Tournament', sub: lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
-    play: [
+    play: lagos ? [
+      { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
+      { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
+      { key: 'online', title: 'Play a Friend', sub: 'Another Lagos Life player · free', tag: 'NET', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
+      back,
+    ] : [
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
       { key: 'lan', title: 'LAN Match', sub: 'Same Wi-Fi or hotspot · no internet', tag: 'LAN', action: () => { playConfirm(); goToScreen(SCREEN.LAN) } },
       { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
@@ -133,7 +141,7 @@ export default function MenuScreen() {
     ],
     options: [
       { key: 'records', title: 'Rankings', sub: 'Leaderboards and your records', action: () => openDialog('records') },
-      { key: 'account', title: username ? `My games · ${username}` : 'My games', sub: username ? 'Saved match, career totals, results' : 'Save your games to an account', action: () => openDialog('account') },
+      { key: 'account', title: username ? `My games · ${username}` : 'My games', sub: username || lagos ? 'Saved match, career totals, results' : 'Save your games to an account', action: () => openDialog('account') },
       { key: 'settings', title: 'Settings', sub: 'Sound, music, aiming', action: () => openDialog('settings') },
       { key: 'rules', title: 'How to play', action: () => openDialog('rules') },
       back,
@@ -209,7 +217,7 @@ export default function MenuScreen() {
         </footer>
       </div>
 
-      {started && <button className="icon-btn iss-share" aria-label="Share game" title="Share game" onClick={() => openDialog('share')}>
+      {started && !lagos && <button className="icon-btn iss-share" aria-label="Share game" title="Share game" onClick={() => openDialog('share')}>
         <Icon name="share" size={22} />
       </button>}
 
@@ -235,7 +243,7 @@ export default function MenuScreen() {
           <Modal title="Daily challenge" onClose={() => setDialog(null)}>
             {!username ? (
               <div className="daily-panel">
-                <p className="t-note">The daily challenge counts towards your streak and rewards, so it needs an account. Sign in or create one — it only takes a username and a password.</p>
+                {!lagos && <p className="t-note">The daily challenge counts towards your streak and rewards, so it needs an account. Sign in or create one — it only takes a username and a password.</p>}
                 <AccountPanel formOnly />
               </div>
             ) : (

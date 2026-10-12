@@ -3,6 +3,8 @@ import { setPlaybackAudioSession } from './audioSession'
 
 // Web Audio API synthesized sounds — no external files needed
 let audioCtx = null
+// Held while the host app (Lagos Life) has the game in the background
+let held = false
 
 // Returns null where Web Audio isn't available (tests, old browsers) so every
 // sound quietly becomes a no-op instead of throwing mid-match.
@@ -12,10 +14,19 @@ function getCtx() {
     if (!Ctx) return null
     try { audioCtx = new Ctx() } catch { return null }
   }
+  if (held) return null
   if (audioCtx.state === 'suspended') {
     audioCtx.resume().catch(() => {})
   }
   return audioCtx
+}
+
+/** Silence every sound until released (the game was sent to the background). */
+export function holdAudio(on) {
+  held = !!on
+  if (!audioCtx) return
+  if (held) audioCtx.suspend?.().catch?.(() => {})
+  else audioCtx.resume?.().catch?.(() => {})
 }
 
 function getVolume() {

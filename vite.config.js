@@ -54,6 +54,8 @@ export default defineConfig({
     // three.js is one big lazily-loaded chunk by design
     chunkSizeWarningLimit: 1000,
     rolldownOptions: {
+      // The website, plus the page Lagos Life loads in its Games app
+      input: { main: 'index.html', lagos: 'lagos.html' },
       output: {
         // Keep the heavy 3D/physics libraries in their own cacheable chunks
         advancedChunks: {

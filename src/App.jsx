@@ -1,4 +1,5 @@
 import LanScreen from './screens/LanScreen'
+import { isLagos } from './platform'
 import AnytimeScreen from './screens/AnytimeScreen'
 import AnytimeHUD from './ui/AnytimeHUD'
 import { Component, Suspense, lazy, useEffect } from 'react'
@@ -31,6 +32,8 @@ import OnlineReconnect from './ui/OnlineReconnect'
 // three.js is most of the download — only fetch it once a match is coming up
 const loadScene = () => import('./scene/Scene')
 const Scene = lazy(loadScene)
+// Lagos Life's friend-match lobby (only loaded inside Lagos Life)
+const LagosFriendScreen = lazy(() => import('./lagos/LagosFriendScreen'))
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -92,9 +95,10 @@ function Screen({ screen }) {
           <HUD /><Tutorial /><GameEffects />
         </>
       )
-    case SCREEN.LAN: return <LanScreen />
-    case SCREEN.ANYTIME: return <AnytimeScreen />
-    case SCREEN.ONLINE: return <OnlineScreen />
+    // Inside Lagos Life, friends meet through Lagos Life's own matchmaking
+    case SCREEN.LAN: return isLagos() ? <MenuScreen /> : <LanScreen />
+    case SCREEN.ANYTIME: return isLagos() ? <MenuScreen /> : <AnytimeScreen />
+    case SCREEN.ONLINE: return isLagos() ? <Suspense fallback={null}><LagosFriendScreen /></Suspense> : <OnlineScreen />
     case SCREEN.TEAM_SELECT: return <TeamSelectScreen />
     case SCREEN.STADIUM_SELECT: return <StadiumSelectScreen />
     case SCREEN.FORMATION: return <FormationScreen />
@@ -138,7 +142,7 @@ export default function App() {
   // F toggles full screen anywhere in the game (desktop)
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e)) toggleFullscreen()
+      if (!isLagos() && (e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e)) toggleFullscreen()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -150,7 +154,8 @@ export default function App() {
         <Screen screen={screen} />
         <OnlineReconnect />
         <ConnectionLost />
-        <PwaUpdateToast />
+        {/* No service worker inside Lagos Life */}
+        {!isLagos() && <PwaUpdateToast />}
         <UnlockToast />
         <AchievementToast />
       </ErrorBoundary>

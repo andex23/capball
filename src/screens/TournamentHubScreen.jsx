@@ -1,4 +1,5 @@
 import { useAnytimeStore } from '../state/anytimeStore'
+import { isLagos } from '../platform'
 import { useState, useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
@@ -481,7 +482,7 @@ export default function TournamentHubScreen() {
         </header>
 
         <main className="shell-body t-hub" data-format={t.format}>
-          {!isOnline && !guestLan && <section className="card card-pad">
+          {!isOnline && !guestLan && !isLagos() && <section className="card card-pad">
             <div className="eyebrow">Play fixtures</div>
             <div className="segmented stretch">
               <button aria-pressed={!useLan} onClick={() => setUseLan(false)}>This device</button>

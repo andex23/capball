@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isLagos } from '../platform'
 import { useClipStore, shareClip } from '../game/clips'
 import { playButtonSelect } from '../audio/SoundManager'
 import Icon from './Icon'
@@ -32,7 +33,7 @@ export default function GoalClips({ limit = 3, open = false }) {
                   <span>{c.scorer || 'Goal'}</span>
                 </button>
               )}
-            <button className="btn btn-gold goal-clip-share" onClick={() => share(c)}><Icon name="share" size={16} /> Share</button>
+            {!isLagos() && <button className="btn btn-gold goal-clip-share" onClick={() => share(c)}><Icon name="share" size={16} /> Share</button>}
           </div>
         ))}
       </div>
