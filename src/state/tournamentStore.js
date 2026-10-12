@@ -20,7 +20,8 @@ import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
 import { nextMatch } from '../game/career'
 import { useCareerStore } from './careerStore'
-import { squadRatings, clubRatings, squadSurnames, matchRatings, squadAttrs, clubAttrs } from '../game/squad'
+import { squadRatings, clubRatings, squadSurnames, matchRatings, squadAttrs, clubAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
+import { applyCapMasses } from '../physics/PhysicsWorld'
 import { playerOf } from '../game/commentary'
 import { useAchievementStore } from './achievementStore'
 
@@ -69,6 +70,32 @@ function save(state) {
 }
 
 /** Match kit for a tournament team. */
+/**
+ * Career: every player who played, rated only for his own time on the pitch.
+ * A role is split at each substitution (by how many goals and events had
+ * happened by then). Returns { [playerId]: { rating, goals, role, sub } }.
+ */
+export function performanceByPlayer({ side, startLineup, subs, goalLog, matchEvents, score }) {
+  const out = {}
+  for (const [role, firstId] of Object.entries(startLineup)) {
+    const changes = subs.filter((x) => x.role === role)
+    let id = firstId
+    let g0 = 0
+    let e0 = 0
+    for (let i = 0; i <= changes.length; i++) {
+      const c = changes[i]
+      const g1 = c ? c.goalIdx : goalLog.length
+      const e1 = c ? c.eventIdx : matchEvents.length
+      const gl = goalLog.slice(g0, g1)
+      const r = matchRatings({ side, goalLog: gl, matchEvents: matchEvents.slice(e0, e1), score })[role]
+      const goals = gl.filter((g) => g.cap === `${side}_${role}` && !g.own && !g.shootout).length
+      out[id] = { rating: r, goals, role, sub: i > 0 ? 'on' : c ? 'off' : null }
+      if (c) { id = c.inId; g0 = g1; e0 = e1 }
+    }
+  }
+  return out
+}
+
 function kitFor(team, side, ratings = null, players = null, attrs = null) {
   const base = DEFAULT_TEAM_CONFIG[side]
   return {
@@ -292,7 +319,10 @@ export const useTournamentStore = create((set, get) => ({
     const stash = get().stash || Object.fromEntries(BORROWED.map((k) => [k, ms[k]]))
     const cpuSide = home.cpu ? 'team1' : away.cpu ? 'team2' : null
     const cpuTeam = home.cpu ? home : away.cpu ? away : null
-    set({ stash, playing: { kind, code: kind === 'online' ? get().online?.code : undefined, fixture: { id: fixture.id, home: fixture.home, away: fixture.away }, knockout: t.format === 'knockout', recorded: false } })
+    const cc0 = (kind === 'career' || kind === 'careerCup') ? useCareerStore.getState().career : null
+    // Career: who starts in each role (substitutions change it during the match)
+    const lineup = cc0 ? Object.fromEntries(Object.entries(cc0.squad).map(([role, pl]) => [role, pl.id])) : null
+    set({ stash, playing: { kind, code: kind === 'online' ? get().online?.code : undefined, fixture: { id: fixture.id, home: fixture.home, away: fixture.away }, knockout: t.format === 'knockout', recorded: false, ...(lineup ? { lineup, startLineup: lineup, subs: [] } : {}) } })
     // Career: your squad's ratings and the computer clubs' set how hard each cap flicks
     const career = kind === 'career' || kind === 'careerCup' ? cc : null
     // Cup clubs come from several divisions: each plays at its own division's ratings
@@ -313,6 +343,41 @@ export const useTournamentStore = create((set, get) => ({
       formations: { team1: 'default', team2: 'default' },
     })
     useMatchStore.getState().goToScreen(SCREEN.FORMATION)
+  },
+
+  /**
+   * Career: bring a bench player on for the player in `role`. Up to three a
+   * match; a player taken off can't come back. The cap takes on the new
+   * player's name, OVR and attributes (and weight) at once.
+   * Returns null when done, or why not.
+   */
+  substitute(role, benchId) {
+    const p = get().playing
+    if (!p || !p.lineup || p.lan) return 'not-career'
+    const subs = p.subs || []
+    if (subs.length >= MAX_SUBS) return 'no-subs-left'
+    const career = useCareerStore.getState().career
+    const incoming = career?.bench?.find((x) => x.id === benchId)
+    if (!incoming || Object.values(p.lineup).includes(benchId) || subs.some((x) => x.outId === benchId)) return 'not-available'
+    if ((role === 'gk') !== (incoming.pos === 'GK')) return 'keeper-for-keeper'
+    const ms = useMatchStore.getState()
+    const side = p.fixture.home === 'T1' ? 'team1' : 'team2'
+    const cfg = ms.teamConfig[side]
+    const surname = String(incoming.name).trim().split(/\s+/).pop().slice(0, 12)
+    useMatchStore.setState({
+      teamConfig: {
+        ...ms.teamConfig,
+        [side]: {
+          ...cfg,
+          players: { ...(cfg.players || {}), [role]: surname },
+          ratings: { ...(cfg.ratings || {}), [role]: ovrAt(incoming, role) },
+          attrs: { ...(cfg.attrs || {}), [role]: incoming.attrs },
+        },
+      },
+    })
+    applyCapMasses(useMatchStore.getState().teamConfig, massScale)
+    set({ playing: { ...p, lineup: { ...p.lineup, [role]: incoming.id }, subs: [...subs, { role, outId: p.lineup[role], inId: incoming.id, goalIdx: (ms.goalLog || []).length, eventIdx: (ms.matchEvents || []).length }] } })
+    return null
   },
 
   /** A saved local cup/league or career fixture, played on two LAN devices. */
@@ -455,8 +520,11 @@ export const useTournamentStore = create((set, get) => ({
       const ratings = matchRatings({ side, goalLog: ms.goalLog, matchEvents: ms.matchEvents, score: matchResult.score })
       const goalsByRole = {}
       for (const g of ms.goalLog || []) if (!g.own && !g.shootout && g.cap?.startsWith(`${side}_`)) goalsByRole[g.cap.slice(6)] = (goalsByRole[g.cap.slice(6)] || 0) + 1
-      if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, { ratings, goalsByRole })
-      else useCareerStore.getState().record(p.fixture.id, result, { ratings, goalsByRole })
+      // Each player rated for his own time on the pitch (substitutes split a role)
+      const byPlayer = p.startLineup && !p.lan ? performanceByPlayer({ side, startLineup: p.startLineup, subs: p.subs || [], goalLog: ms.goalLog || [], matchEvents: ms.matchEvents || [], score: matchResult.score }) : null
+      const perf = { ratings, goalsByRole, ...(byPlayer ? { byPlayer } : {}) }
+      if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, perf)
+      else useCareerStore.getState().record(p.fixture.id, result, perf)
       return
     }
     if (p.kind === 'local') {
