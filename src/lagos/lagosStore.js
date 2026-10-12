@@ -130,7 +130,8 @@ export const useLagosStore = create((set, get) => ({
       // Progress follows the player, not the phone
       if (await get().loadCloudSave()) return false
       // Caps bought before: from our server, and any paid but not yet unlocked
-      get().loadOwned()
+      // Leftovers from earlier visits unlock quietly: a note only if something new actually arrives
+      await get().loadOwned()
       sdk.onPurchase?.((p) => get().claim(p?.purchaseId, p?.productId))
       sdk.purchases?.().then((list) => { for (const p of list || []) get().claim(p?.purchaseId, p?.productId) }).catch(() => {})
       return true
@@ -256,26 +257,30 @@ export const useLagosStore = create((set, get) => ({
    * purchase note shows how it went: complete, paid and still unlocking
    * (retried by itself until it works), or failed.
    */
-  async claim(purchaseId, productId = null) {
+  async claim(purchaseId, productId = null, { announce = false } = {}) {
     if (!purchaseId || claiming.has(purchaseId)) return false
     claiming.add(purchaseId)
+    const had = new Set(get().owned)
     try {
       const r = await server({ action: 'claim', purchaseId })
+      const wasPending = unclaimed.has(purchaseId)
       unclaimed.delete(purchaseId)
-      set({ owned: Array.isArray(r.owned) ? r.owned.filter(isProduct) : [...new Set([...get().owned, r.productId])], justBought: { productId: r.productId, state: 'done', at: Date.now() } })
+      set({ owned: Array.isArray(r.owned) ? r.owned.filter(isProduct) : [...new Set([...get().owned, r.productId])] })
+      // Say so only when it's news: just bought, or it arrives now after waiting
+      if (announce || wasPending || !had.has(r.productId)) set({ justBought: { productId: r.productId, state: 'done', at: Date.now() } })
       get().enforceOwnership()
       return r.productId
     } catch (e) {
       const id = productId || unclaimed.get(purchaseId) || null
       if (FINAL_CLAIM_ERRORS.has(e?.code)) {
         unclaimed.delete(purchaseId)
-        set({ justBought: { productId: id, state: 'failed', text: e.message, at: Date.now() }, shopNote: { tone: 'bad', text: e.message } })
+        if (announce) set({ justBought: { productId: id, state: 'failed', text: e.message, at: Date.now() }, shopNote: { tone: 'bad', text: e.message } })
       } else {
-        // Paid, but our server couldn't unlock it yet: keep trying by itself
+        // Paid, but our server couldn't unlock it yet: keep trying quietly
         const first = !unclaimed.has(purchaseId)
         unclaimed.set(purchaseId, id)
         retryClaims(get)
-        if (first) set({ justBought: { productId: id, state: 'pending', at: Date.now() }, shopNote: { tone: 'good', text: 'Payment received. It unlocks in a moment; no need to pay again.' } })
+        if (first && announce) set({ justBought: { productId: id, state: 'pending', at: Date.now() }, shopNote: { tone: 'good', text: 'Payment received. It unlocks in a moment; no need to pay again.' } })
       }
       return false
     } finally {
@@ -293,7 +298,7 @@ export const useLagosStore = create((set, get) => ({
         set({ justBought: { productId, state: 'pending', at: Date.now() } })
         return
       }
-      const got = await get().claim(p.purchaseId, productId)
+      const got = await get().claim(p.purchaseId, productId, { announce: true })
       if (got) set({ shopNote: { tone: 'good', text: `${name} is yours. Tap it to put it on your caps.` } })
     } catch (e) {
       if (e?.code === 'owned') get().loadOwned()
