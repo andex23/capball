@@ -4,9 +4,9 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending } from '../game/career'
+import { newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, buyPlayer, cupPending, swapLineup } from '../game/career'
 import { allFixtures } from '../game/tournament'
-import { applyMatchToSquad } from '../game/squad'
+import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
 import { useAccountStore } from './accountStore'
 import { useAchievementStore } from './achievementStore'
 
@@ -28,6 +28,24 @@ function save(career) {
   } catch { /* storage full or blocked */ }
 }
 
+/**
+ * Put one match's performances into the squad: by player when we know who
+ * played when (substitutes), else by role. Keeps a report for the screens.
+ */
+function withPerformance(career, perf, seed, fixtureId) {
+  if (perf?.byPlayer) {
+    const r = applyMatchByPlayer(career.squad, career.bench, perf.byPlayer, seed)
+    const played = Object.entries(perf.byPlayer).map(([id, v]) => ({ id, ...v }))
+    const motm = played.slice().sort((a, b) => (b.rating - a.rating) || ((b.goals || 0) - (a.goals || 0)))[0]?.id || null
+    return { ...career, squad: r.squad, bench: r.bench, lastReport: { fixtureId, players: played, motmId: motm, changes: r.changes, ratings: perf.ratings || {}, goals: perf.goalsByRole || {} } }
+  }
+  if (perf?.ratings) {
+    const r = applyMatchToSquad(career.squad, { ...perf, seed })
+    return { ...career, squad: r.squad, lastReport: { fixtureId, ratings: r.ratings, motm: r.motm, changes: r.changes, goals: perf.goalsByRole || {} } }
+  }
+  return career
+}
+
 export const useCareerStore = create((set, get) => ({
   career: load(),
 
@@ -43,11 +61,7 @@ export const useCareerStore = create((set, get) => ({
     const { career } = get()
     if (!career) return
     let next = recordCareerResult(career, fixtureId, result)
-    if (perf?.ratings) {
-      // Ratings, form, goals — and a chance for a player to grow after a big game
-      const r = applyMatchToSquad(next.squad, { ...perf, seed: `${career.league.id}:${fixtureId}` })
-      next = { ...next, squad: r.squad, lastReport: { fixtureId, ratings: r.ratings, motm: r.motm, changes: r.changes, goals: perf.goalsByRole || {} } }
-    }
+    next = withPerformance(next, perf, `${career.league.id}:${fixtureId}`, fixtureId)
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -58,10 +72,7 @@ export const useCareerStore = create((set, get) => ({
     const { career } = get()
     if (!career?.cup) return
     let next = recordCupResult(career, fixtureId, result)
-    if (perf?.ratings) {
-      const r = applyMatchToSquad(next.squad, { ...perf, seed: `${career.cup.tournament.id}:${fixtureId}` })
-      next = { ...next, squad: r.squad, lastReport: { fixtureId, ratings: r.ratings, motm: r.motm, changes: r.changes, goals: perf.goalsByRole || {} } }
-    }
+    next = withPerformance(next, perf, `${career.cup.tournament.id}:${fixtureId}`, fixtureId)
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -98,6 +109,18 @@ export const useCareerStore = create((set, get) => ({
     const { career } = get()
     if (!career) return false
     const next = buyPlayer(career, playerId, role)
+    if (!next) return false
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+    return true
+  },
+
+  /** Before a match: bring a bench player into the starting six. True if done. */
+  swap(benchIndex, role) {
+    const { career } = get()
+    if (!career) return false
+    const next = swapLineup(career, benchIndex, role)
     if (!next) return false
     save(next)
     set({ career: next })

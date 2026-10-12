@@ -190,6 +190,21 @@ export function startingSquad(seed = 'start') {
   }))
 }
 
+/* ── The bench ── */
+
+// Ten caps a club: six on the pitch and four on the bench, one of each position
+export const BENCH_POS = ['GK', 'DEF', 'MID', 'ATK']
+export const BENCH_SIZE = 4
+export const MAX_SUBS = 3
+// A squad role to read a position by (for migrating and replacing bench players)
+const ROLE_FOR_POS = { GK: 'gk', DEF: 'def1', MID: 'mid', ATK: 'atk1' }
+
+/** Your first bench: a backup for each position, a little below the starters. */
+export function startingBench(seed = 'bench', level = 0) {
+  const rng = seededRng(`bench:${seed}`)
+  return BENCH_POS.map((pos) => makePlayer(rng, (DIVISION_RATING[level] ?? 52) - 6, pos, 2, [18, 31]))
+}
+
 /** OVR by cap role, as shown and as a match uses them. */
 export function squadRatings(squad) {
   if (!squad) return null
@@ -327,15 +342,16 @@ export function developSeason(squad, seed, level = 0) {
   const changes = []
   const next = {}
   for (const [role, p0] of Object.entries(squad)) {
-    const p = migratePlayer(p0, role)
+    const p = migratePlayer(p0, ROLE_FOR_POS[p0?.pos] && !POS_OF[role] ? ROLE_FOR_POS[p0.pos] : role)
     const age = p.age
     if (age >= RETIRE_FROM && (age >= 37 || rng() < (age - RETIRE_FROM + 1) * 0.2)) {
       retired.push({ role, name: p.name, age, rating: p.rating })
-      next[role] = makeYouth(rng, level, POS_OF[role])
+      next[role] = makeYouth(rng, level, POS_OF[role] || p.pos)
       continue
     }
     const avg = p.apps ? p.ratingSum / p.apps : null
-    const form = avg == null ? 0 : avg >= 7.5 ? 2 : avg >= 7 ? 1 : avg >= 6.3 ? 0 : -1
+    // Like EA FC: a player who never gets a game slides a little
+    const form = avg == null ? -1 : avg >= 7.5 ? 2 : avg >= 7 ? 1 : avg >= 6.3 ? 0 : -1
     let pot = p.pot
     // Dynamic potential: a great season lifts the ceiling of a young player; a poor one lowers it
     if (avg != null && avg >= 7.5 && age <= 26) pot = Math.min(99, pot + 1 + Math.floor(rng() * 2))
@@ -426,6 +442,42 @@ export function applyMatchToSquad(squad, { ratings, goalsByRole = {}, seed }) {
   return { squad: next, changes, motm: manOfTheMatch(ratings, goalsByRole), ratings }
 }
 
+/**
+ * One match for a whole club (starters and bench), by player: everyone who
+ * played gets his rating, goals, an appearance and experience; those who
+ * didn't are left alone. byPlayer: { [id]: { rating, goals } }.
+ * Returns { squad, bench, changes }.
+ */
+export function applyMatchByPlayer(squad, bench, byPlayer, seed) {
+  const rng = seededRng(`grow:${seed}`)
+  const changes = []
+  const one = (p0, key) => {
+    const perf = byPlayer?.[p0?.id]
+    if (!perf) return p0
+    let p = migratePlayer(p0, POS_OF[key] ? key : ROLE_FOR_POS[p0.pos])
+    const r = perf.rating ?? 6
+    const before = p.rating
+    let xp = (p.xp || 0) + (r - 6.3)
+    const need = p.age <= 21 ? 2 : p.age <= 25 ? 3 : 4.5
+    if (xp >= need && p.rating < p.pot && p.age <= 30) { p = shiftOvr(p, 1, rng); xp = 0 }
+    else if (xp <= -3) { p = shiftOvr(p, -1, rng); xp = 0 }
+    if (p.rating !== before) changes.push({ id: p.id, name: p.name, from: before, to: p.rating })
+    return {
+      ...p,
+      xp: round1(Math.max(-3, Math.min(need, xp))),
+      apps: (p.apps || 0) + 1,
+      goals: (p.goals || 0) + (perf.goals || 0),
+      ratingSum: round1((p.ratingSum || 0) + r),
+      form: [...(p.form || []), r].slice(-5),
+    }
+  }
+  return {
+    squad: Object.fromEntries(Object.entries(squad).map(([role, p]) => [role, one(p, role)])),
+    bench: (bench || []).map((p) => one(p, null)),
+    changes,
+  }
+}
+
 /** Average of the last few match ratings, or null before any. */
 export const formOf = (p) => (p?.form?.length ? round1(p.form.reduce((a, b) => a + b, 0) / p.form.length) : null)
 
@@ -434,13 +486,36 @@ export const formOf = (p) => (p?.form?.length ? round1(p.form.reduce((a, b) => a
  * only replace keepers; outfield players can play anywhere outfield (at
  * their OVR for that position). Returns { squad, coins } or null.
  */
-export function signPlayer(squad, coins, player, role) {
+export function signPlayer(squad, coins, player, role, bench = null) {
+  // A bench slot: 'bench:0'..'bench:3'
+  const b = /^bench:(\d)$/.exec(role || '')
+  if (b) {
+    const i = Number(b[1])
+    const out = bench?.[i]
+    if (!out || !player || (out.pos === 'GK') !== (player.pos === 'GK')) return null
+    const fee = priceOf(player)
+    const back = sellValue(out)
+    if (coins + back < fee) return null
+    return { squad, bench: bench.map((x, j) => (j === i ? { ...player } : x)), coins: coins + back - fee }
+  }
   if (!squad?.[role] || !player) return null
   if ((role === 'gk') !== (player.pos === 'GK' || !!player.keeper)) return null
   const fee = priceOf(player)
   const back = sellValue(migratePlayer(squad[role], role))
   if (coins + back < fee) return null
-  return { squad: { ...squad, [role]: { ...player } }, coins: coins + back - fee }
+  return { squad: { ...squad, [role]: { ...player } }, bench, coins: coins + back - fee }
+}
+
+/**
+ * Swap a bench player into the starting six. Keepers only for keepers;
+ * outfield players can start anywhere outfield. Returns { squad, bench } or null.
+ */
+export function swapIn(squad, bench, benchIndex, role) {
+  const incoming = bench?.[benchIndex]
+  const outgoing = squad?.[role]
+  if (!incoming || !outgoing) return null
+  if ((role === 'gk') !== (incoming.pos === 'GK')) return null
+  return { squad: { ...squad, [role]: incoming }, bench: bench.map((p, i) => (i === benchIndex ? outgoing : p)) }
 }
 
 /* ── Saves ── */
@@ -453,7 +528,7 @@ export function migratePlayer(p, role) {
   if (!isObj(p)) return p
   if (isObj(p.attrs) && p.pos) return p
   const rng = seededRng(`migrate:${p.id || role}`)
-  const pos = POS_OF[role] || 'MID'
+  const pos = POS_OF[role] || p.pos || 'MID'
   const old = Number.isFinite(p.rating) ? p.rating : 40
   const ovr = clamp99(52 + (old - 40) * 0.72)
   const age = Number.isInteger(p.age) ? p.age : 20 + Math.floor(rng() * 10)
@@ -462,19 +537,15 @@ export function migratePlayer(p, role) {
   return { ...p, pos, keeper: pos === 'GK', age, attrs, rating, pot: Math.min(99, rating + potentialGap(rng, age)), xp: 0 }
 }
 
-/** Clean up a saved squad; fills any gap with a fresh player. */
-export function sanitizeSquad(input, seed = 'fix') {
-  const fresh = startingSquad(seed)
-  if (!isObj(input)) return fresh
-  return Object.fromEntries(CAP_ROLES.map((role) => {
-    const raw = input[role]
-    if (!isObj(raw) || typeof raw.name !== 'string' || (!Number.isFinite(raw.rating) && !isObj(raw.attrs))) return [role, fresh[role]]
+/** Clean up one saved player (or null if he isn't one). `role` decides his position if he has none. */
+export function sanitizePlayer(raw, role) {
+    if (!isObj(raw) || typeof raw.name !== 'string' || (!Number.isFinite(raw.rating) && !isObj(raw.attrs))) return null
     const p = migratePlayer(raw, role)
     const n = (v) => (Number.isFinite(v) && v >= 0 ? v : 0)
     const attrs = Object.fromEntries(ATTRS.map((k) => [k, clamp99(Number.isFinite(p.attrs?.[k]) ? p.attrs[k] : 50)]))
     const pos = ['GK', 'DEF', 'MID', 'ATK'].includes(p.pos) ? p.pos : POS_OF[role]
     const rating = ovrOf(attrs, pos)
-    return [role, {
+    return {
       id: String(p.id || role).slice(0, 16),
       name: p.name.slice(0, 24),
       pos,
@@ -487,6 +558,23 @@ export function sanitizeSquad(input, seed = 'fix') {
       apps: Math.floor(n(p.apps)), goals: Math.floor(n(p.goals)), ratingSum: n(p.ratingSum),
       form: Array.isArray(p.form) ? p.form.filter((x) => Number.isFinite(x) && x >= 0 && x <= 10).slice(-5) : [],
       xp: Number.isFinite(p.xp) ? Math.max(-3, Math.min(5, p.xp)) : 0,
-    }]
-  }))
+    }
+}
+
+/** Clean up a saved squad; fills any gap with a fresh player. */
+export function sanitizeSquad(input, seed = 'fix') {
+  const fresh = startingSquad(seed)
+  if (!isObj(input)) return fresh
+  return Object.fromEntries(CAP_ROLES.map((role) => [role, sanitizePlayer(input[role], role) || fresh[role]]))
+}
+
+/** Clean up a saved bench (four players); careers from before the bench get one. */
+export function sanitizeBench(input, seed = 'fix', level = 0) {
+  const fresh = startingBench(seed, level)
+  if (!Array.isArray(input)) return fresh
+  return BENCH_POS.map((pos, i) => {
+    const raw = input[i]
+    const role = ROLE_FOR_POS[raw?.pos] || ROLE_FOR_POS[pos]
+    return sanitizePlayer(raw, role) || fresh[i]
+  })
 }

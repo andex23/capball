@@ -18,6 +18,8 @@ import Icon from './Icon'
 import MatchScoreboard from './MatchScoreboard'
 import CameraStick from './CameraStick'
 import Modal from './Modal'
+import SubsSheet, { SubsButton, useSubsShortcut, canSub } from './SubsSheet'
+import { MAX_SUBS } from '../game/squad'
 import SettingsPanel from './SettingsPanel'
 import RulesPanel from './RulesPanel'
 import { displayColor } from './color'
@@ -163,7 +165,10 @@ function PowerMeter() {
 }
 
 function PauseMenu({ onClose }) {
-  const [view, setView] = useState('main')
+  // Opened by the Subs button: straight to substitutions, and back to the match after
+  const [fromSubsButton] = useState(() => useSubsShortcut.getState().open)
+  const [view, setView] = useState(() => (useSubsShortcut.getState().open ? 'subs' : 'main'))
+  const playingT = useTournamentStore((s) => s.playing)
   const gameMode = useMatchStore((s) => s.gameMode)
   const authority = useMatchStore((s) => isAuthority(s))
   const shootout = useMatchStore((s) => s.penaltyShootout)
@@ -197,12 +202,20 @@ function PauseMenu({ onClose }) {
     useMatchStore.getState().quitMatch(SCREEN.MENU)
   }
 
+  if (view === 'subs') {
+    return <SubsSheet onClose={() => { useSubsShortcut.setState({ open: false }); if (fromSubsButton) onClose(); else setView('main') }} />
+  }
   if (view === 'settings') return <Modal title="Sound" onClose={() => setView('main')}><SettingsPanel /></Modal>
   if (view === 'rules') return <Modal title="How to play" onClose={() => setView('main')}><RulesPanel /></Modal>
 
   return (
     <Modal title="Paused" onClose={onClose}>
       <button className="btn btn-primary btn-lg btn-block" onClick={onClose}><Icon name="play" size={18} /> Resume</button>
+      {canSub(playingT) && (
+        <button className="btn btn-gold btn-block" onClick={() => { playButtonSelect(); setView('subs') }}>
+          <Icon name="users" size={18} /> Substitutions · {MAX_SUBS - (playingT.subs?.length || 0)} left
+        </button>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('settings') }}><Icon name="volume" size={18} /> Sound</button>
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('rules') }}><Icon name="help" size={18} /> Rules</button>
@@ -368,6 +381,7 @@ export default function HUD() {
 
       <div className="hud-corner br">
         <VoiceChat compact />
+        {!paused && <SubsButton />}
         {camLabel && <span className="chip" style={{ cursor: 'default', background: 'var(--surface)' }}>{camLabel}</span>}
         <CameraStick />
         {canFullscreen() && (

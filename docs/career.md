@@ -40,3 +40,10 @@ Board target from your OVR vs the division (win the league / top 2 / top half / 
 
 ## Match rating (out of 10)
 Start 6; win +0.5, draw +0.1, loss −0.4; goal +1.3, own goal −1.2; shot on target +0.3; save +0.7; block +0.5; keeper/defenders +1 clean sheet (−0.25 per goal after the first). Range 3–10.
+
+## Squad of ten and substitutes
+- Six starters (GK, 2 DEF, MID, 2 ATK) and a bench of four (GK, DEF, MID, ATK).
+- Before a match: Start a bench player in place of a starter (keepers only for keepers; outfield players anywhere outfield, at that position's OVR).
+- In a match: up to 3 substitutions (pause menu, or the Subs button). The cap takes the new player's name, OVR, attributes and weight at once. A player taken off can't return.
+- Ratings: each player is rated for his own time on the pitch; goals count for whoever was on. Subs who come on get an appearance and experience. Players with no games all season slide a little (−1 form) over the summer.
+- Transfers can replace a starter or a bench player. Computer clubs play their six.

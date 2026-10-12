@@ -8,7 +8,7 @@
  * Pure functions over plain JSON, built on the league engine in tournament.js.
  */
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
-import { START_COINS, startingSquad, sanitizeSquad, coinsForResult, seasonBonus, developSeason, openWindow, marketFor, signPlayer, squadRatings, clubRatings, averageRating } from './squad'
+import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, coinsForResult, seasonBonus, developSeason, openWindow, marketFor, signPlayer, squadRatings, clubRatings, averageRating } from './squad'
 
 export const CAREER_VERSION = 1
 // Each season: everyone plays everyone home and away
@@ -201,6 +201,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     promotions: 0,
     titles: 0,         // top-division wins
     squad: sq,
+    bench: startingBench(now, 0),
     coins: START_COINS,
     signed: { key: '', ids: [] }, // players already bought in the current window
     lastEarned: 0,
@@ -227,10 +228,16 @@ export function buyPlayer(career, playerId, role) {
   const w = transferWindow(career)
   const player = w?.market.find((p) => p.id === playerId)
   if (!player) return null
-  const deal = signPlayer(career.squad, career.coins, player, role)
+  const deal = signPlayer(career.squad, career.coins, player, role, career.bench)
   if (!deal) return null
   const ids = career.signed?.key === w.key ? career.signed.ids : []
   return { ...career, ...deal, signed: { key: w.key, ids: [...ids, playerId] } }
+}
+
+/** Swap a bench player into the starting six (before a match). Returns the new career, or null. */
+export function swapLineup(career, benchIndex, role) {
+  const r = swapIn(career.squad, career.bench, benchIndex, role)
+  return r ? { ...career, ...r } : null
 }
 
 /** Has every fixture of the season been played? */
@@ -313,6 +320,9 @@ export function finishSeason(career, now = Date.now()) {
     record: me ? { w: me.w, d: me.d, l: me.l, gf: me.gf, ga: me.ga, pts: me.pts } : null,
   }
   const summer = developSeason(career.squad || startingSquad(career.season), `${career.league.id}:${career.season}`, level)
+  // The bench develops too (and players who never got a game slide a little)
+  const benchSummer = developSeason(Object.fromEntries((career.bench || []).map((p, i) => [String(i), p])), `${career.league.id}:${career.season}:bench`, level)
+  const bench = (career.bench || []).map((_, i) => benchSummer.squad[String(i)])
   return {
     ...career,
     level,
@@ -326,7 +336,8 @@ export function finishSeason(career, now = Date.now()) {
     cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
     coins: (career.coins ?? 0) + bonus,
     squad: summer.squad,
-    lastSummer: { season: career.season + 1, retired: summer.retired, changes: summer.changes },
+    bench,
+    lastSummer: { season: career.season + 1, retired: [...summer.retired, ...benchSummer.retired], changes: [...summer.changes, ...benchSummer.changes] },
     signed: { key: '', ids: [] },
     lastEarned: 0,
   }
@@ -351,6 +362,7 @@ export function sanitizeCareer(input) {
     titles: n(input.titles),
     // Careers from before the squad existed get a starting squad and purse
     squad: sanitizeSquad(input.squad, league.id),
+    bench: sanitizeBench(input.bench, league.id, level),
     coins: Number.isInteger(input.coins) && input.coins >= 0 ? input.coins : START_COINS,
     signed: isObj(input.signed) && typeof input.signed.key === 'string' && Array.isArray(input.signed.ids)
       ? { key: input.signed.key.slice(0, 20), ids: input.signed.ids.filter((x) => typeof x === 'string').slice(0, 20) }
@@ -379,14 +391,21 @@ function sanitizeCup(c) {
 
 /** The last match's player ratings (kept for the career screen). */
 function sanitizeReport(r) {
-  if (!isObj(r) || !isObj(r.ratings)) return null
+  if (!isObj(r)) return null
   const ratings = {}
-  for (const [k, v] of Object.entries(r.ratings)) if (Number.isFinite(v) && v >= 0 && v <= 10) ratings[k] = v
+  if (isObj(r.ratings)) for (const [k, v] of Object.entries(r.ratings)) if (Number.isFinite(v) && v >= 0 && v <= 10) ratings[k] = v
+  // Who played (with substitutes): [{ id, rating, goals, role, on, off }]
+  const players = Array.isArray(r.players) ? r.players.filter((p) => isObj(p) && typeof p.id === 'string' && Number.isFinite(p.rating)).slice(0, 10).map((p) => ({
+    id: p.id.slice(0, 16), rating: Math.max(0, Math.min(10, p.rating)), goals: Number.isInteger(p.goals) && p.goals >= 0 ? p.goals : 0,
+    role: typeof p.role === 'string' ? p.role.slice(0, 6) : '', sub: p.sub === 'on' || p.sub === 'off' ? p.sub : null,
+  })) : null
+  if (!players && !Object.keys(ratings).length) return null
   return {
     fixtureId: String(r.fixtureId || '').slice(0, 12),
     ratings,
+    ...(players ? { players, motmId: typeof r.motmId === 'string' ? r.motmId.slice(0, 16) : null } : {}),
     motm: typeof r.motm === 'string' ? r.motm.slice(0, 8) : null,
-    changes: Array.isArray(r.changes) ? r.changes.filter(isObj).slice(0, 6) : [],
+    changes: Array.isArray(r.changes) ? r.changes.filter(isObj).slice(0, 10) : [],
     goals: isObj(r.goals) ? r.goals : {},
   }
 }
