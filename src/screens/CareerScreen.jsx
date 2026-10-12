@@ -20,6 +20,7 @@ import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money } from '../game/squad'
 import LeagueClubs from '../ui/LeagueClubs'
+import { inboxOffers, seasonAwards, repLabel, REP_START } from '../game/clubLife'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel from '../ui/ClubPanel'
 
@@ -47,6 +48,64 @@ function ModePicker({ mode, onPick }) {
       </div>
       <p className="muted t-note">{MODE_INFO[mode].line}</p>
     </>
+  )
+}
+
+/** Clubs bidding for your players while a window is open. */
+function OfferInbox({ career }) {
+  const rows = inboxOffers(career)
+  if (!rows.length) return null
+  const store = useCareerStore.getState()
+  return (
+    <section className="card card-pad" aria-label="Offers for your players">
+      <h2 className="saved-h">Offers for your players</h2>
+      <ul className="squad-list career-inbox">
+        {rows.map(({ slot, player: p, offer }) => (
+          <li key={p.id}>
+            <span className="squad-name">
+              <span className="squad-name-main">{offer.club} want {p.name}</span>
+              <small className="squad-stats">{DIVISIONS[offer.level].name} · {money(offer.fee)}{p.wantsAway ? ' · he wants to go' : ''}</small>
+            </span>
+            <button className="btn btn-gold squad-buy" onClick={() => { if (store.sell(slot, offer.clubId) === true) playConfirm() }}>Accept</button>
+            <button className="btn btn-ghost squad-buy" onClick={() => { playButtonSelect(); store.rejectOffer(p.id) }}>Reject</button>
+          </li>
+        ))}
+      </ul>
+      <p className="muted t-note">Selling a starter brings your best reserve into his place. If there’s nobody to replace him, the sale can’t go through.</p>
+    </section>
+  )
+}
+
+/** The club's awards for a season. */
+function Awards({ awards }) {
+  if (!awards || !Object.keys(awards).length) return null
+  return (
+    <ul className="career-awards">
+      {awards.pots && <li>🏅 Player of the season: <b>{awards.pots.name}</b> ({awards.pots.avg})</li>}
+      {awards.boot && <li>👟 Top scorer: <b>{awards.boot.name}</b> ({awards.boot.goals} goal{awards.boot.goals === 1 ? '' : 's'})</li>}
+      {awards.young && <li>⭐ Young player of the season: <b>{awards.young.name}</b> ({awards.young.avg})</li>}
+    </ul>
+  )
+}
+
+/** Every career you've finished. */
+function HallOfFame() {
+  const hall = useCareerStore((s) => s.hall)
+  if (!hall?.length) return null
+  return (
+    <section className="card card-pad" aria-label="Hall of Fame">
+      <h2 className="saved-h">Hall of Fame</h2>
+      <ul className="saved-history">
+        {hall.slice(0, 10).map((h, i) => (
+          <li key={i}>
+            <span />
+            <span className="saved-score"><b>{h.club}</b> · {h.seasons} season{h.seasons === 1 ? '' : 's'} · reached the {DIVISIONS[h.best]?.name}</span>
+            <span />
+            <small className="muted saved-when">{h.promotions} promotion{h.promotions === 1 ? '' : 's'} · {h.titles} title{h.titles === 1 ? '' : 's'} · {h.cups} cup{h.cups === 1 ? '' : 's'} · {h.ended === 'sacked' ? 'Sacked' : 'Retired'} {h.at}</small>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -171,6 +230,7 @@ function SeasonEnd({ career }) {
       <p className="career-end-pos">Finished <b>{ordinal(pos)}</b> of {count}{row ? ` · ${row.w}W ${row.d}D ${row.l}L · ${row.pts} pts` : ''}</p>
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
       {career.target && <p className="career-target-line" data-met={met ? 'true' : undefined}>Board target: {TARGETS[career.target]} · <b>{met ? 'Met' : 'Missed'}</b></p>}
+      <Awards awards={seasonAwards(career)} />
       {cup && <p className="career-target-line">{CUP_NAME}: <b>{cup === 'won' ? 'Winners!' : cup === 'final' ? 'Runners-up' : cup === 'semi' ? 'Semi-finals' : 'Quarter-finals'}</b></p>}
       {warned && <p className="t-note career-warning"><b>Final warning.</b> The board isn’t happy. Miss next season’s target too and you’re sacked.</p>}
       {doomed
@@ -291,7 +351,7 @@ export default function CareerScreen() {
               <h1 className="display shell-title">Start your career</h1>
             </div>
           </header>
-          <main className="shell-body"><StartCareer /></main>
+          <main className="shell-body"><StartCareer /><HallOfFame /></main>
           <footer className="shell-foot"><div className="shell-foot-inner">
             <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Menu</button>
           </div></footer>
@@ -341,7 +401,7 @@ export default function CareerScreen() {
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow shell-eyebrow">Career · Season {career.season} · {division.name}</div>
+            <div className="eyebrow shell-eyebrow">Career · Season {career.season} · {division.name} · Manager: {repLabel(career.rep ?? REP_START)} ({career.rep ?? REP_START})</div>
             <h1 className="display shell-title">{career.club.name}</h1>
           </div>
           <span className="career-kit">
@@ -428,7 +488,7 @@ export default function CareerScreen() {
             </p>
           )}
 
-          {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0 || career.lastSummer.youthIn?.length > 0 || career.lastSummer.world?.length > 0) && (
+          {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0 || career.lastSummer.youthIn?.length > 0 || career.lastSummer.world?.length > 0 || career.lastSummer.left?.length > 0) && (
             <section className="card card-pad" aria-label="Summer news">
               <h2 className="saved-h">Over the summer</h2>
               <ul className="career-summer">
@@ -437,6 +497,8 @@ export default function CareerScreen() {
                 {(career.lastSummer.loansBack || []).map((p) => <li key={`l${p.name}`}><b>{p.name}</b> is back from loan, now {p.rating}.</li>)}
                 {(career.lastSummer.youthIn || []).map((p) => <li key={`y${p.name}`} data-up="true">Academy: <b>{p.name}</b> ({p.pos}, {p.rating}) joins the youth team.</li>)}
                 {(career.lastSummer.youthOut || []).map((p) => <li key={`o${p.name}`}><b>{p.name}</b> turned 19 and left the youth team.</li>)}
+                {(career.lastSummer.left || []).map((n) => <li key={`x${n}`}><b>{n}</b>’s contract ran out; he has left on a free.</li>)}
+                {(career.lastSummer.unhappy || []).map((n) => <li key={`u${n}`}><b>{n}</b> is unhappy and wants to leave.</li>)}
               </ul>
               {(career.lastSummer.world || []).length > 0 && <h3 className="squad-sub-h">Around the leagues</h3>}
               <ul className="career-summer">
@@ -450,6 +512,7 @@ export default function CareerScreen() {
           )}
 
           {played > 0 && <PlayerRatings career={career} />}
+          <OfferInbox career={career} />
           <SquadPanel career={career} />
           <ClubPanel career={career} />
           </div>

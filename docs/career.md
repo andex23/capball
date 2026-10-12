@@ -66,6 +66,15 @@ Every computer club has a real squad, kept in `career.world` ({ clubs, free, nex
 - Release (`releasePlayer`, any time): pay five matches' wages; he becomes a free agent.
 - Loan out (`loanOut`, window only): to the best club no higher than your division where he'd be within 5 of their weakest starter. No wages, no squad place; back in the summer, developed as a 7.0-average season.
 
+## Club life (src/game/clubLife.js)
+- Contracts: new careers 1–3 seasons each; signings 4 (≤23) / 3 (≤29) / 2; promoted youth 3. Each summer −1; at 0 he leaves on a free (to the free agents). Gaps in the matchday ten are filled from the reserves, then the youth team, then a one-season trialist. Renew (`renewContract`) when ≤2 left: new length by age, wages ×1.15 (×1.3 for one of your best). Unhappy players refuse.
+- Fitness (no injuries): playing −14 (min 40), not playing +20, reset in summer. In matches PWR and PHY ×(0.85 + 0.15 × fitness).
+- Morale (`unhappyAfterSeason`): a non-starter with < 3 games, aged 20–31, within 1 of the weakest starter; or a player 14+ above the division (below the top) with < 8 games → `wantsAway`. Shown, refuses renewal, offers come in for him.
+- Offers (`inboxOffers`): in a window, best buyer for players 3+ above your OVR (≥ 85% of value) or unhappy (any), top 3; reject until next window.
+- Reputation (`rep`, 0–100, start 10): promoted +15, champions +25, cup +10, target met +5, missed −10. Drop-down premium × (1 − rep/150) on the part above 1.
+- Scouting: potential shown as a 12-point guess (`roughPotential`) until scouted for ₦50k/100k/200k/400k by division.
+- Awards per season (player of the season ≥3 apps, top scorer, young ≤21) in `past[].awards`; Hall of Fame (`capball:career-hof:v1`) on retiring or after the sack.
+
 ## Season, Cap Cup, board target
 Board target (shown as a card before matchday 1): promotion (top 2) in every division below the top, then the title in the Premier Cap League. A miss gives a final warning (`career.warning`); a second miss while warned sacks you (`career.sacked`): the season is recorded, the career ends with a summary, and you start a new one. Meeting a target clears the warning. Starting squad ~54 OVR (upper half of the Sunday League) with ₦8m.
 Transfer windows (`WINDOWS`): pre-season open until matchday 3 is played (0–2 played), mid-season after matchday 5 until matchday 7 (5–6 played). Bids, offers and loans hold for the whole window.

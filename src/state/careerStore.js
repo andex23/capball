@@ -6,6 +6,7 @@
 import { create } from 'zustand'
 import { CAREER_MODES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
 import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
+import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY } from '../game/clubLife'
 import { TRAINING } from '../game/club'
 import { allFixtures } from '../game/tournament'
 import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
@@ -21,6 +22,20 @@ function load() {
     const raw = storage()?.getItem(CAREER_KEY)
     return raw ? sanitizeCareer(JSON.parse(raw)) : null
   } catch { return null }
+}
+
+function loadHall() {
+  try { return sanitizeHall(JSON.parse(storage()?.getItem(HOF_KEY) || '[]')) } catch { return [] }
+}
+
+function saveHall(hall) {
+  try { storage()?.setItem(HOF_KEY, JSON.stringify(hall)) } catch { /* storage full or blocked */ }
+}
+
+/** Everyone who played: tired; everyone who didn't: rested. */
+function withFitness(career, before, perf) {
+  const ids = perf?.byPlayer ? Object.keys(perf.byPlayer) : Object.values(before.squad || {}).map((p) => p.id)
+  return afterMatch(career, ids)
 }
 
 function save(career) {
@@ -64,6 +79,7 @@ export const useCareerStore = create((set, get) => ({
     if (!career) return
     let next = recordCareerResult(career, fixtureId, result)
     next = withPerformance(next, perf, `${career.league.id}:${fixtureId}`, fixtureId)
+    next = withFitness(next, career, perf)
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -75,6 +91,7 @@ export const useCareerStore = create((set, get) => ({
     if (!career?.cup) return
     let next = recordCupResult(career, fixtureId, result)
     next = withPerformance(next, perf, `${career.cup.tournament.id}:${fixtureId}`, fixtureId)
+    next = withFitness(next, career, perf)
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -168,13 +185,27 @@ export const useCareerStore = create((set, get) => ({
   release(slot) { return get()._move(releasePlayer, slot) },
   loan(slot) { return get()._move(loanOut, slot) },
   promoteYouth(index) { return get()._move(promoteYouth, index) },
+  renew(slot) { return get()._move(renewContract, slot) },
+  scout(playerId) { return get()._move(scoutPlayer, playerId) },
+  rejectOffer(playerId) { return get()._move(rejectOffer, playerId) },
   releaseYouth(index) { return get()._move(releaseYouth, index) },
   build(kind) { return get()._apply(buildFacility, kind) },
   tickets(level) { return get()._apply(setTickets, level) },
   promote(reserveIndex, slot) { return get()._apply(promoteReserve, reserveIndex, slot) },
 
+  /** Every career you've finished (retired or sacked), newest first. */
+  hall: loadHall(),
+
+  /** End this career (retire, or start again after the sack); it goes into the Hall of Fame. */
   retire() {
+    const { career, hall } = get()
+    if (career && ((career.past || []).length > 0 || career.sacked)) {
+      const next = [hallEntry(career, career.sacked ? 'sacked' : 'retired'), ...hall].slice(0, 20)
+      saveHall(next)
+      set({ hall: next })
+    }
     save(null)
     set({ career: null })
+    useAccountStore.getState().save({ force: true })
   },
 }))

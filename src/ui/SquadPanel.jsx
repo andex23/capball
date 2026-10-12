@@ -5,6 +5,7 @@ import {
   transferWindow, playedThisSeason, squadSize, MAX_SQUAD, YOUTH_MAX, inSlot, offersFor, loanClub, releaseCost, valueOf,
 } from '../game/transfers'
 import { wageOf } from '../game/club'
+import { fitnessOf, contractOf, renewTerms } from '../game/clubLife'
 import { formOf, ROLE_LABEL, squadRatings, averageRating, WINDOW_AFTER, windowDeadline, potentialRange, ovrAt, migratePlayer, money } from '../game/squad'
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
@@ -42,6 +43,7 @@ export default function SquadPanel({ career }) {
       <span className="squad-name">
         <span className="squad-name-main">{p.name}</span>
         <small className="squad-stats">{p.pos !== label && label !== 'BENCH' && label !== 'RES' ? `${p.pos} playing ${label} · ` : ''}Age {p.age} · POT {potentialRange(p)}{p.apps > 0 ? ` · ${p.goals || 0} goal${p.goals === 1 ? '' : 's'} · form ${formOf(p)}` : ''}</small>
+        <PlayerTags p={p} />
         <Attrs attrs={p.attrs} />
       </span>
       <Rating value={CAP_ROLES.includes(slot) ? ovrAt(p, slot) : p.rating} />
@@ -140,6 +142,20 @@ export default function SquadPanel({ career }) {
   )
 }
 
+/** Contract, fitness and morale, when there's something to say. */
+function PlayerTags({ p }) {
+  const fit = fitnessOf(p)
+  const last = contractOf(p) <= 1
+  if (fit >= 100 && !last && !p.wantsAway) return null
+  return (
+    <span className="squad-tags">
+      {fit < 100 && <span data-tone={fit < 70 ? 'bad' : 'warn'}>Fit {fit}%</span>}
+      {last && <span data-tone="warn">Contract ends this season</span>}
+      {p.wantsAway && <span data-tone="bad">Wants to leave</span>}
+    </span>
+  )
+}
+
 /** Bring a bench player into the starting six in place of someone. */
 function StartFromBench({ career, index, onDone }) {
   const p = career.bench[index]
@@ -190,8 +206,21 @@ function PlayerSheet({ career, slot, onDone }) {
           <p className="player-card-line"><b>{p.pos}</b> · Age {p.age} · POT {potentialRange(p)} · {where}</p>
           <Attrs attrs={p.attrs} />
           <p className="muted t-note">Value {money(valueOf(p))} · Wages {money(wageOf(p))} a match{p.apps ? ` · ${p.apps} app${p.apps === 1 ? '' : 's'}, ${p.goals || 0} goal${p.goals === 1 ? '' : 's'}` : ''}</p>
+          <p className="muted t-note">Fitness {fitnessOf(p)}%{fitnessOf(p) < 100 ? ' (a tired player flicks softer; rest him a match to recover)' : ''} · Contract: {contractOf(p) <= 1 ? 'ends this season' : `${contractOf(p)} seasons left`}</p>
+          {p.wantsAway && <p className="t-note career-warning">{p.name} is unhappy and wants to leave. He won’t sign a new deal; clubs know he’s available.</p>}
         </div>
       </div>
+
+      {contractOf(p) <= 2 && !p.wantsAway && (() => {
+        const t = renewTerms(career, p)
+        return (
+          <>
+            <h3 className="squad-sub-h">New contract</h3>
+            <p className="muted t-note">{t.years} seasons at {money(Math.round(wageOf(p) / (p.wageX || 1) * t.wageX))} a match (a {Math.round((t.rise - 1) * 100)}% rise). {contractOf(p) <= 1 ? 'If you don’t renew, he leaves on a free in the summer.' : ''}</p>
+            <button className="btn btn-gold btn-block" onClick={() => run(store.renew(slot))}>Offer {t.years}-season deal</button>
+          </>
+        )
+      })()}
 
       {swaps.length > 0 && (
         <>
