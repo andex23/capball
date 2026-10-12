@@ -2271,3 +2271,13 @@ button { cursor: pointer; background: none; border: 0; }
 .band-dot { width: 30px; height: 30px; border-radius: 50%; border: 7px solid var(--band, #888); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.35); display: grid; place-items: center; color: #fff; }
 .band-none { border-color: rgba(255, 255, 255, 0.18); border-style: dashed; }
 .band-swatch[data-locked='true'] .band-dot { filter: brightness(0.7); }
+
+/* Kit editor tabs: each tab as wide as its word (no overlapping labels);
+   on narrow phones the row scrolls sideways instead of squashing */
+.kit-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.kit-tabs::-webkit-scrollbar { display: none; }
+.kit-tabs { gap: 0; }
+.kit-tabs button { flex: 1 0 auto; padding: 0 6px; white-space: nowrap; letter-spacing: 0; }
+@media (max-width: 420px) {
+  .kit-tabs button { font-size: 10px; padding: 0 4px; }
+}
