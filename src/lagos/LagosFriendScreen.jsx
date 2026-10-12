@@ -35,8 +35,12 @@ export default function LagosFriendScreen() {
   const linking = useRef(null)
 
   // Both players in: open the room on the host's phone, connect from the other
+  // Sandbox: the test bot takes the other seat; it can't connect phone to phone
+  const opponentNow = match ? opponentOf(match, me) : null
+  const testBot = lagos.mode === 'test' && !!opponentNow && /bot/i.test(`${opponentNow.id} ${opponentNow.name}`)
+
   useEffect(() => {
-    if (!match || match.status !== 'playing' || !me || linking.current === match.id) return
+    if (!match || match.status !== 'playing' || !me || testBot || linking.current === match.id) return
     linking.current = match.id
     const code = roomCodeFor(match.id)
     setError(null)
@@ -58,7 +62,7 @@ export default function LagosFriendScreen() {
         if (linking.current === match.id) setError('Couldn’t connect to your friend. Check your connection and try again.')
       }
     })()
-  }, [match, me])
+  }, [match, me, testBot])
 
   // Leaving the screen (into the match, or back) closes this match for the lobby
   useEffect(() => () => { if (linking.current) used.add(linking.current) }, [])
@@ -188,7 +192,14 @@ export default function LagosFriendScreen() {
 
           {playing && bet > 0 && <p className="lagos-pot" role="status">Winner takes {naira(potFor(bet))}</p>}
 
-          {playing && !error && (
+          {playing && lagos.mode === 'test' && (testBot || error) && (
+            <>
+              <p className="muted t-note">{testBot ? 'This is the sandbox’s test opponent. Play its seat against the computer here; the result is reported to Lagos Life as a real match.' : 'Testing in the sandbox? Play the other seat against the computer here instead.'}</p>
+              <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useLagosStore.getState().playTestOpponent() }}>Play the test opponent here</button>
+            </>
+          )}
+
+          {playing && !error && !testBot && (
             <div role="status" className="chip online-status" style={{ justifyContent: 'center', cursor: 'default', borderColor: status.status === 'connected' ? 'var(--good)' : undefined, color: status.status === 'connected' ? 'var(--good)' : undefined }}>
               {status.status === 'connected' ? <Icon name="check" size={16} /> : <Spinner />}
               {status.status === 'connected' ? 'Connected!' : `Connecting to ${opponent?.name || 'your friend'}…`}
