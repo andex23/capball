@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useAccountStore } from '../state/accountStore'
+import { autoTeamNames } from '../game/teamNames'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText, CLEAR_TO } from '../data/TeamOptions'
 import CapDesigns from '../ui/CapDesigns'
@@ -62,7 +64,9 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
   const commitName = () => {
     if (draftName === null) return
     const name = draftName.trim()
-    if (name) onUpdate({ name })
+    // Typed by the player: theirs to keep. Cleared: back to the automatic name.
+    if (name && name !== config.name) onUpdate({ name, customName: true })
+    else if (!name) onUpdate({ customName: false })
     setDraftName(null)
   }
 
@@ -164,6 +168,14 @@ export default function TeamSelectScreen() {
     // The guest asks the host to apply its edits; the host's copy comes back via sync
     if (isGuest && team === 'team2') sendTeamConfig(config)
   }
+
+  // Your side carries your username, the computer's says CPU (unless you named them yourself)
+  const username = useAccountStore((s) => s.username)
+  useEffect(() => {
+    const names = autoTeamNames({ gameMode, aiTeam, onlineMyTeam: myTeam, teamConfig: useMatchStore.getState().teamConfig, username })
+    for (const [team, patch] of Object.entries(names)) update(team, patch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameMode, aiTeam, myTeam, username, teamConfig.team1?.customName, teamConfig.team2?.customName])
 
   const tagFor = (team) => {
     if (isOnline) return team === myTeam ? 'You' : 'Opponent'
