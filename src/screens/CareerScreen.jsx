@@ -18,7 +18,7 @@ import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
-import { seasonBonus, startingSquad, squadSurnames, squadRatings, clubRatings, averageRating, matchupOf } from '../game/squad'
+import { seasonBonus, startingSquad, squadSurnames, squadRatings, clubRatings, averageRating, matchupOf, money } from '../game/squad'
 import RatingsGuide from '../ui/RatingsGuide'
 
 const OUTCOME = {
@@ -134,7 +134,7 @@ function SeasonEnd({ career }) {
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
       {career.target && <p className="career-target-line" data-met={met ? 'true' : undefined}>Board target: {TARGETS[career.target]} · <b>{met ? 'Met' : 'Missed'}</b></p>}
       {cup && <p className="career-target-line">{CUP_NAME}: <b>{cup === 'won' ? 'Winners!' : cup === 'final' ? 'Runners-up' : cup === 'semi' ? 'Semi-finals' : 'Quarter-finals'}</b></p>}
-      <p className="muted">Season bonus: <b>{bonus} coins</b>. Over the summer young players improve, older ones slow down, and veterans may retire. The transfer window opens before the new season.</p>
+      <p className="muted">Season bonus: <b>{money(bonus)}</b>. Over the summer young players improve, older ones slow down, and veterans may retire. The transfer window opens before the new season.</p>
       {waitingCup ? (
         <p className="t-note" role="status">Play your {CUP_NAME} tie first; the season ends once you’re out or it’s won.</p>
       ) : (

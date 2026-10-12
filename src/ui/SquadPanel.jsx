@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
 import { transferWindow, playedThisSeason, DIVISIONS } from '../game/career'
-import { formOf, ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER, ATTRS, ATTR_LABEL, potentialRange, ovrAt, migratePlayer } from '../game/squad'
+import { formOf, ROLE_LABEL, priceOf, sellValue, squadRatings, clubRatings, averageRating, WINDOW_AFTER, ATTRS, ATTR_LABEL, potentialRange, ovrAt, migratePlayer, money } from '../game/squad'
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
@@ -22,11 +22,12 @@ function Attrs({ attrs }) {
   )
 }
 
+/** Club money, in naira. */
 function Coins({ n }) {
-  return <span className="squad-coins"><i aria-hidden="true" />{n.toLocaleString()}</span>
+  return <span className="squad-coins squad-naira">{money(n)}</span>
 }
 
-/** Your six players, your coins and the transfer window. */
+/** Your six players, your club budget and the transfer window. */
 export default function SquadPanel({ career }) {
   const [marketOpen, setMarketOpen] = useState(false)
   const win = transferWindow(career)
@@ -74,7 +75,7 @@ export default function SquadPanel({ career }) {
       ) : (
         <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>
       )}
-      {career.lastEarned > 0 && <p className="muted t-note">Last match earned <Coins n={career.lastEarned} />. Wins pay 60, draws 25, losses 10, plus 5 a goal; each division up pays half as much again.</p>}
+      {career.lastEarned > 0 && <p className="muted t-note">Last match earned <Coins n={career.lastEarned} />. A win pays {money(60)}, a draw {money(25)}, a loss {money(10)}, plus {money(5)} a goal; each division up pays half as much again.</p>}
       {marketOpen && win && <TransferMarket career={career} market={win.market} onClose={() => setMarketOpen(false)} />}
     </section>
   )
@@ -84,7 +85,7 @@ function TransferMarket({ career, market, onClose }) {
   const [buying, setBuying] = useState(null)
   return (
     <Modal title="Transfer market" onClose={onClose}>
-      <div className="squad-head"><span className="muted">You have</span><Coins n={career.coins} /></div>
+      <div className="squad-head"><span className="muted">Club budget</span><Coins n={career.coins} /></div>
       {market.length === 0 && <p className="muted">You’ve signed everyone on offer this window.</p>}
       <ul className="squad-list squad-market">
         {market.map((p) => {
@@ -116,7 +117,7 @@ function SignFor({ career, player, onDone }) {
   const [error, setError] = useState(null)
   const sign = (role) => {
     if (useCareerStore.getState().buy(player.id, role)) { playConfirm(); onDone() }
-    else setError('Not enough coins for that deal.')
+    else setError('Not enough in the club budget for that deal.')
   }
   return (
     <div className="squad-sign" role="group" aria-label={`Sign ${player.name}`}>
@@ -131,7 +132,7 @@ function SignFor({ career, player, onDone }) {
               <span className="squad-role">{ROLE_LABEL[role]}</span>
               <span className="squad-name">{out.name} <Rating value={ovrAt(out, role)} /> → <b>{ovrAt(player, role)}</b> here</span>
               <button className="btn btn-gold squad-buy" disabled={!afford} onClick={() => sign(role)}>
-                {cost <= 0 ? `+${-cost}` : `−${cost}`}
+                {cost <= 0 ? `+${money(-cost)}` : `−${money(cost)}`}
               </button>
             </li>
           )
