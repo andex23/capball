@@ -2292,3 +2292,6 @@ button { cursor: pointer; background: none; border: 0; }
 .shop-price { font-family: var(--font-pixel); font-size: 11px; color: var(--accent); }
 .shop-owned { font-size: 11px; font-weight: 700; color: var(--good, #5fe08a); }
 .shop-band { width: 52px; height: 52px; border-width: 11px; margin: 6px 0; }
+.purchase-toast { border-color: var(--good, #34d27b); z-index: 300; }
+.purchase-toast .unlock-toast-title { color: var(--good, #34d27b); display: flex; align-items: center; gap: 6px; }
+.purchase-toast .band-dot { flex: none; }
