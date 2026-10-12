@@ -24,31 +24,6 @@ function ring(ctx, r, w, color) {
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.lineWidth = w; ctx.strokeStyle = color; ctx.stroke()
 }
 
-/** Text along a circle. `at` is the angle of the middle of the text (−π/2 = top). `under` reads along the bottom. */
-function arcText(ctx, text, r, { at = -Math.PI / 2, size = 11, font = SANS, weight = 700, color = PAPER, spacing = 0.06, under = false } = {}) {
-  ctx.save()
-  ctx.font = `${weight} ${size}px ${font}`
-  ctx.fillStyle = color
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  const chars = [...text]
-  const widths = chars.map((c) => ctx.measureText(c).width + size * spacing)
-  const total = widths.reduce((a, b) => a + b, 0)
-  let a = at + (under ? 1 : -1) * (total / 2) / r
-  for (let i = 0; i < chars.length; i++) {
-    const half = widths[i] / 2 / r
-    a += (under ? -1 : 1) * half
-    ctx.save()
-    ctx.rotate(a)
-    ctx.translate(r, 0)
-    ctx.rotate(under ? -Math.PI / 2 : Math.PI / 2)
-    ctx.fillText(chars[i], 0, 0)
-    ctx.restore()
-    a += (under ? -1 : 1) * half
-  }
-  ctx.restore()
-}
-
 function text(ctx, str, x, y, { size = 30, font = COND, weight = 800, color = PAPER, italic = false, spacing = 0, stroke = null, strokeW = 0, align = 'center', maxW = null } = {}) {
   ctx.save()
   ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${font}`
@@ -139,8 +114,6 @@ const ART = {
     ctx.lineTo(110, 22); ctx.bezierCurveTo(10, 80, -55, 0, -110, 46); ctx.closePath()
     ctx.fillStyle = PAPER; ctx.fill(); ctx.restore()
     text(ctx, 'Cola', -2, -22, { size: 64, italic: true, color: PAPER, stroke: '#8E0C20', strokeW: 6 })
-    arcText(ctx, 'ICE COLD · SINCE 1979', 84, { size: 10, color: PAPER, spacing: 0.25 })
-    arcText(ctx, 'DRINK IT COLD', 84, { at: Math.PI / 2, under: true, size: 10, color: '#8E0C20', spacing: 0.25 })
     ring(ctx, 95, 2, PAPER)
   },
 
@@ -154,7 +127,6 @@ const ART = {
     starPath(ctx, 0, -14, 30, 12); ctx.fillStyle = '#E8C766'; ctx.fill()
     starPath(ctx, 0, -14, 30, 12); ctx.lineWidth = 2; ctx.strokeStyle = '#0E5E36'; ctx.stroke()
     banner(ctx, 30, 108, 24, '#E8C766', '#B8963E', 'LAGER', '#0E5E36')
-    arcText(ctx, 'PREMIUM · BREWED IN LAGOS', 77, { size: 9, color: '#E8C766', spacing: 0.2 })
   },
 
   redlager(ctx) {
@@ -164,8 +136,6 @@ const ART = {
     disc(ctx, 58, '#B3121B')
     starPath(ctx, 0, -14, 36, 15); ctx.fillStyle = '#F2C14E'; ctx.fill()
     banner(ctx, 30, 84, 20, '#F2C14E', '#B88A2A', 'EXTRA', '#B3121B')
-    arcText(ctx, 'FINEST LAGER BEER', 76, { size: 10, color: '#F2C14E', spacing: 0.25 })
-    arcText(ctx, '★ PREMIUM ★', 76, { at: Math.PI / 2, under: true, size: 10, color: '#F2C14E', spacing: 0.25 })
   },
 
   stout(ctx) {
@@ -175,10 +145,8 @@ const ART = {
     ctx.save(); ctx.beginPath(); ctx.ellipse(0, -2, 52, 62, 0, 0, Math.PI * 2); ctx.fillStyle = '#EADFC8'; ctx.fill()
     ctx.lineWidth = 3; ctx.strokeStyle = '#C9A35A'; ctx.stroke(); ctx.restore()
     text(ctx, 'STOUT', 0, -8, { size: 40, color: '#111111', spacing: 1 })
-    text(ctx, 'FOREIGN EXTRA', 0, 22, { size: 9, font: SANS, weight: 700, color: '#7A5A28', spacing: 1, maxW: 80 })
     // three small bars, like a tasting mark
     ctx.fillStyle = '#111111'; for (let i = -1; i <= 1; i++) ctx.fillRect(i * 10 - 3, 34, 6, 6)
-    arcText(ctx, 'BREWED STRONG', 76, { size: 10, color: '#C9A35A', spacing: 0.3 })
   },
 
   malta(ctx) {
@@ -194,7 +162,6 @@ const ART = {
     }
     ctx.restore()
     banner(ctx, 18, 112, 26, '#E8B84A', '#B5862E', 'MALTA', '#4A2610')
-    arcText(ctx, 'NON-ALCOHOLIC · MALT DRINK', 79, { size: 9, color: '#E8B84A', spacing: 0.2 })
   },
 
   orange(ctx) {
@@ -207,7 +174,6 @@ const ART = {
     for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; const r = i % 2 ? 46 : 58; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r * 1.15, Math.sin(a) * r * 0.62 + 6) }
     ctx.closePath(); ctx.fillStyle = '#0B3D91'; ctx.fill(); ctx.restore()
     text(ctx, 'ORANGE', 0, 6, { size: 34, italic: true, color: '#FFB300', stroke: '#06235A', strokeW: 4, spacing: 1 })
-    arcText(ctx, 'SPARKLING · FIZZY', 82, { size: 10, color: PAPER, spacing: 0.3 })
   },
 
   lemon(ctx) {
@@ -216,7 +182,7 @@ const ART = {
     ctx.save(); ctx.beginPath(); ctx.arc(0, 0, 100, 0, Math.PI * 2); ctx.clip()
     ctx.beginPath(); ctx.moveTo(-100, 100); ctx.lineTo(100, -40); ctx.lineTo(100, 100); ctx.closePath(); ctx.fillStyle = '#FFE14D'; ctx.fill(); ctx.restore()
     // lemon slice
-    ctx.save(); ctx.translate(30, 34)
+    ctx.save(); ctx.translate(-36, 44)
     ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fillStyle = '#FFF6B0'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#E6C200'; ctx.stroke()
     ctx.fillStyle = '#FFE14D'; for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 24, a + 0.08, a + Math.PI / 4 - 0.08); ctx.closePath(); ctx.fill() }
     ctx.restore()
@@ -234,8 +200,7 @@ const ART = {
     ctx.fillStyle = '#F2D21B'; for (let i = 0; i < 5; i++) { const a = Math.PI + (i / 5) * Math.PI; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 28, a + 0.08, a + Math.PI / 5 - 0.08); ctx.closePath(); ctx.fill() }
     ctx.restore()
     text(ctx, 'BITTER', 0, 14, { size: 30, color: '#1E5E2E', spacing: 2 })
-    text(ctx, 'LEMON', 0, 40, { size: 22, color: '#1E5E2E', spacing: 6 })
-    arcText(ctx, 'WITH QUININE', 80, { at: Math.PI / 2, under: true, size: 9, color: '#1E5E2E', spacing: 0.3 })
+    text(ctx, 'LEMON', -8, 38, { size: 20, color: '#1E5E2E', spacing: 4 })
   },
 
   ginger(ctx) {
@@ -248,7 +213,6 @@ const ART = {
     ctx.restore()
     text(ctx, 'GINGER', 0, 24, { size: 28, color: '#E8C766', spacing: 2 })
     text(ctx, 'ALE', 0, 46, { size: 16, color: '#E8C766', spacing: 6 })
-    arcText(ctx, 'DRY · CRISP · HOT', 84, { size: 10, color: '#E8C766', spacing: 0.3 })
   },
 
   tonic(ctx) {
@@ -269,7 +233,6 @@ const ART = {
     laurel(ctx, 56, '#C9D3DE', 8, 8)
     text(ctx, '10', 0, -6, { size: 58, color: '#F4F7FA' })
     text(ctx, 'WINS', 0, 30, { size: 13, font: SANS, weight: 800, color: '#C9D3DE', spacing: 4 })
-    arcText(ctx, 'TEN UP', 90, { size: 11, color: '#C9D3DE', spacing: 0.5 })
   },
 
   wall(ctx) {
@@ -280,7 +243,6 @@ const ART = {
     // padlock
     ctx.save(); ctx.lineWidth = 7; ctx.strokeStyle = '#151A1E'; ctx.beginPath(); ctx.arc(0, -10, 14, Math.PI, 0); ctx.stroke()
     ctx.fillStyle = '#151A1E'; ctx.fillRect(-21, -10, 42, 34); ctx.fillStyle = '#C9D0D6'; ctx.beginPath(); ctx.arc(0, 4, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(-2, 4, 4, 11); ctx.restore()
-    arcText(ctx, 'NO ENTRY', 84, { at: Math.PI / 2, under: true, size: 12, font: COND, weight: 800, color: '#DDE3E8', spacing: 0.4 })
   },
 
   lucky(ctx) {
@@ -294,7 +256,6 @@ const ART = {
       ctx.save(); ctx.translate(x, y); ctx.lineWidth = 2.5; ctx.strokeStyle = '#0B6B3A'; ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(-1, 3.5); ctx.lineTo(4.5, -3.5); ctx.stroke(); ctx.restore()
     }
     text(ctx, '7', 0, 6, { size: 96, italic: true, color: '#F2C14E', stroke: '#063F22', strokeW: 6 })
-    arcText(ctx, 'SEVEN STRAIGHT', 74, { at: Math.PI / 2, under: true, size: 11, font: COND, weight: 800, color: PAPER, spacing: 0.4 })
   },
 
   boot(ctx) {
@@ -308,7 +269,6 @@ const ART = {
     ctx.lineTo(100, 100); ctx.closePath(); ctx.fillStyle = '#FFC107'; ctx.fill(); ctx.restore()
     text(ctx, '50', 0, -18, { size: 76, color: '#FFD54F', stroke: '#141414', strokeW: 6 })
     text(ctx, 'GOALS', 0, 26, { size: 14, font: SANS, weight: 800, color: '#FFFFFF', spacing: 5 })
-    arcText(ctx, 'FIFTY BURNER', 86, { size: 11, color: '#FFD54F', font: COND, weight: 800, spacing: 0.4 })
   },
 
   cup(ctx) {
@@ -321,7 +281,6 @@ const ART = {
     for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * 36, -30, 13, s > 0 ? -Math.PI / 2 : Math.PI / 2, s > 0 ? Math.PI / 2 : Math.PI * 1.5); ctx.stroke() }
     ctx.fillRect(-6, 6, 12, 18); ctx.fillRect(-24, 24, 48, 10); ctx.fillRect(-30, 34, 60, 8)
     ctx.restore()
-    text(ctx, 'SILVERWARE', 0, 62, { size: 16, color: '#FFE58A', spacing: 2 })
     dotRing(ctx, 90, 30, 2, '#D4AF37')
   },
 
@@ -332,7 +291,6 @@ const ART = {
     ctx.save(); ctx.fillStyle = g
     for (let i = 0; i < 3; i++) { const y = 30 - i * 30; ctx.beginPath(); ctx.moveTo(-46, y + 18); ctx.lineTo(0, y - 16); ctx.lineTo(46, y + 18); ctx.lineTo(46, y + 4); ctx.lineTo(0, y - 30); ctx.lineTo(-46, y + 4); ctx.closePath(); ctx.fill() }
     ctx.restore()
-    arcText(ctx, 'MOVING UP', 84, { at: Math.PI / 2, under: true, size: 13, font: COND, weight: 800, color: '#FFE58A', spacing: 0.4 })
     ring(ctx, 94, 2, '#D4AF37')
   },
 
@@ -349,7 +307,6 @@ const ART = {
     for (const [x, y, c] of [[0, -40, '#E53935'], [-44, -26, '#1E88E5'], [44, -26, '#1E88E5']]) { ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill() }
     ctx.restore()
     for (let i = -1; i <= 1; i++) { starPath(ctx, i * 22, 48, 7, 3); ctx.fillStyle = '#FFE58A'; ctx.fill() }
-    arcText(ctx, 'CHAMPION OF CHAMPIONS', 88, { size: 9.5, font: SANS, weight: 800, color: '#FFE58A', spacing: 0.2 })
   },
 
   /* ── Lagos Life exclusives ── */
@@ -361,14 +318,10 @@ const ART = {
     ctx.fillStyle = '#121212'; ctx.fillRect(-100, -20, 200, 8); ctx.fillRect(-100, 30, 200, 8)
     ctx.fillStyle = '#2A3540'; for (let i = -3; i <= 2; i++) ctx.fillRect(i * 30 + 3, -50, 24, 24)
     ctx.fillStyle = 'rgba(255,255,255,0.35)'; for (let i = -3; i <= 2; i++) ctx.fillRect(i * 30 + 5, -48, 6, 20)
+    // headlights and grille
+    for (const x of [-52, 52]) { ctx.beginPath(); ctx.arc(x, 5, 11, 0, Math.PI * 2); ctx.fillStyle = '#121212'; ctx.fill(); ctx.beginPath(); ctx.arc(x, 5, 6.5, 0, Math.PI * 2); ctx.fillStyle = PAPER; ctx.fill() }
+    ctx.fillStyle = '#121212'; for (let i = -2; i <= 2; i++) ctx.fillRect(i * 9 - 2, -6, 4, 22)
     ctx.restore()
-    // route board
-    ctx.fillStyle = '#121212'; ctx.fillRect(-58, -4, 116, 26)
-    text(ctx, 'OSHODI–OBALENDE', 0, 9, { size: 15, color: '#FFC400', spacing: 0.5, maxW: 106 })
-    // number plate
-    ctx.fillStyle = PAPER; ctx.fillRect(-30, 48, 60, 20); ctx.lineWidth = 2; ctx.strokeStyle = '#121212'; ctx.strokeRect(-30, 48, 60, 20)
-    text(ctx, 'EKO 1', 0, 58, { size: 14, color: '#1B5E20', spacing: 1 })
-    arcText(ctx, 'YELLOW FEVER', 88, { size: 11, font: COND, weight: 800, color: '#121212', spacing: 0.4 })
   },
 
   jollof(ctx) {
@@ -388,8 +341,6 @@ const ART = {
     ctx.save(); ctx.strokeStyle = 'rgba(255,236,200,0.75)'; ctx.lineWidth = 3; ctx.lineCap = 'round'
     for (const x of [-20, 0, 20]) { ctx.beginPath(); ctx.moveTo(x, -18); ctx.bezierCurveTo(x - 10, -32, x + 10, -42, x, -58); ctx.stroke() }
     ctx.restore()
-    text(ctx, 'PARTY JOLLOF', 0, 74, { size: 15, color: '#FFB74D', spacing: 1 })
-    arcText(ctx, 'SMOKY · BOTTOM POT', 86, { size: 9.5, font: SANS, weight: 800, color: '#FFB74D', spacing: 0.3 })
   },
 
   ankara(ctx) {
@@ -410,9 +361,6 @@ const ART = {
       }
     }
     ctx.restore()
-    // gele-style band with the name
-    ctx.fillStyle = '#3E1F0E'; ctx.fillRect(-100, 50, 200, 26)
-    text(ctx, 'OWAMBE', 0, 63, { size: 20, color: '#FFD54F', spacing: 5 })
   },
 
   eko(ctx) {
@@ -433,7 +381,6 @@ const ART = {
     ctx.strokeStyle = 'rgba(255,46,136,0.55)'; ctx.lineWidth = 2
     for (let i = 0; i < 6; i++) { const y = 40 + i * 9; ctx.beginPath(); ctx.moveTo(-60 + i * 7, y); ctx.lineTo(60 - i * 9, y); ctx.stroke() }
     ctx.restore()
-    arcText(ctx, 'THIRD MAINLAND', 86, { size: 11, font: COND, weight: 800, color: '#FF7BB8', spacing: 0.4 })
   },
 
   naija(ctx) {
@@ -445,7 +392,6 @@ const ART = {
     const g = metal(ctx, 40, ['#FFF3B0', '#D4AF37', '#FFE58A', '#A27C1B'])
     ctx.save(); ctx.beginPath(); ctx.moveTo(-30, -26); ctx.lineTo(-33, -58); ctx.lineTo(-15, -42); ctx.lineTo(0, -66); ctx.lineTo(15, -42); ctx.lineTo(33, -58); ctx.lineTo(30, -26); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#6E5410'; ctx.stroke(); ctx.restore()
     text(ctx, 'OGA', 0, 8, { size: 58, color: '#0B3B24', stroke: '#D4AF37', strokeW: 4, spacing: 1 })
-    text(ctx, 'AT THE TOP', 0, 44, { size: 13, font: SANS, weight: 900, color: '#0B3B24', spacing: 2.5 })
     ring(ctx, 95, 3, '#D4AF37')
   },
 }
@@ -494,7 +440,7 @@ export function drawNumberSticker(ctx, number, cx, cy, r) {
 }
 
 /** Where the sticker sits on a top of radius r: low and to the right, clear of the main art. */
-export const stickerSpot = (r) => ({ x: r * 0.52, y: r * 0.5, r: r * 0.24 })
+export const stickerSpot = (r) => ({ x: r * 0.6, y: r * 0.56, r: r * 0.2 })
 
 const urls = new Map()
 /** A PNG of the artwork (plus number), cached, for the flat kit previews. */
