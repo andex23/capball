@@ -155,7 +155,9 @@ describe('ball stuck in a corner', () => {
   it('spots the four corners and nothing else', () => {
     expect(ballInCorner(PITCH.halfW - 0.5, PITCH.halfH - 0.5)).toEqual({ ex: 1, ey: 1 })
     expect(ballInCorner(-PITCH.halfW + 0.5, -PITCH.halfH + 0.5)).toEqual({ ex: -1, ey: -1 })
-    expect(ballInCorner(PITCH.halfW - 1.5, PITCH.halfH - 1.5)).toBeNull() // near the corner but still playable
+    expect(ballInCorner(PITCH.halfW - 1.5, PITCH.halfH - 1.5)).toEqual({ ex: 1, ey: 1 }) // stopped in the corner: no room for a cap behind it
+    expect(ballInCorner(PITCH.halfW - 2.5, PITCH.halfH - 1)).toBeNull() // room behind it along the end line: still playable
+    expect(ballInCorner(PITCH.halfW - 1, PITCH.halfH - 2.5)).toBeNull()
     expect(ballInCorner(PITCH.halfW - 1, 0)).toBeNull() // by the goal, not the corner
     expect(ballInCorner(0, PITCH.halfH - 0.5)).toBeNull() // along the side wall
     expect(ballInCorner(NaN, 0)).toBeNull()
