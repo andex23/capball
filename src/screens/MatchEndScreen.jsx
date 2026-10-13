@@ -59,6 +59,7 @@ function RecordNote() {
 export default function MatchEndScreen() {
   const [dismissedResult, setDismissedResult] = useState(null)
   const matchResult = useMatchStore((s) => s.matchResult)
+  const matchKey = useMatchStore((s) => s.matchKey)
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const gameMode = useMatchStore((s) => s.gameMode)
   const authority = useMatchStore((s) => isAuthority(s))
@@ -91,10 +92,13 @@ export default function MatchEndScreen() {
   if (gameMode === 'ai' && !isDraw) headline = winner === useMatchStore.getState().aiTeam ? 'You lost' : 'You win!'
   if (online && !isDraw) headline = winner === useMatchStore.getState().onlineMyTeam ? 'You win!' : 'You lost'
 
-  if (dismissedResult !== matchResult) return <MatchResultSplash
+  // Which result the splash was dismissed for, by content: an online guest
+  // gets a fresh copy of the same result with every sync from the host
+  const resultKey = `${matchKey}:${JSON.stringify(matchResult)}`
+  if (dismissedResult !== resultKey) return <MatchResultSplash
     teams={teamConfig} score={score} winner={winner} penaltyScore={penaltyScore}
     myTeam={gameMode === 'ai' ? (useMatchStore.getState().aiTeam === 'team1' ? 'team2' : 'team1') : online ? useMatchStore.getState().onlineMyTeam : null}
-    onContinue={() => { playConfirm(); setDismissedResult(matchResult) }} />
+    onContinue={() => { playConfirm(); setDismissedResult(resultKey) }} />
 
   return (
     <div className="screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
