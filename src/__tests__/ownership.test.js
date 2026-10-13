@@ -13,11 +13,12 @@ describe('only the player who bought or earned it can use it', () => {
     expect(canUseArt('silver', { owned: [], progress: none })).toBe(false)
     expect(canUseArt('stout', { owned: [], progress: none })).toBe(true)
     expect(canUseBand('gold', { owned: [], progress: none })).toBe(false)
-    expect(canUseBand('red', { owned: [], progress: none })).toBe(true)
+    expect(canUseBand('red', { owned: [], progress: none })).toBe(false) // every band is earned now
+    expect(canUseBand('red', { owned: [], progress: { ...none, won: 1 } })).toBe(true)
   })
   it('takes off a cap and bands the player does not own, keeps what they do', () => {
     const kit = { ...fallback, art: 'eko', primary: '#1A0B3B', bands: { gk: 'gold', atk1: 'red', mid: 'pink' } }
-    const fixed = ownKit(kit, fallback, { owned: ['band_pink'], progress: none })
+    const fixed = ownKit(kit, fallback, { owned: ['band_pink'], progress: { ...none, won: 1 } })
     expect(fixed.art).toBe('')
     expect(fixed.primary).toBe(fallback.primary)
     expect(fixed.bands).toEqual({ atk1: 'red', mid: 'pink' })
