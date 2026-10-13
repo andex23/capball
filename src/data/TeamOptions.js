@@ -67,6 +67,8 @@ export const CAP_DESIGNS = [
   { key: 'lemon', name: 'Lemon Lime', primary: '#1E8E3E', edge: '#FFE14D', pattern: 'wave', badge: 'none', finish: 'gloss', capText: 'LEMON LIME' },
   { key: 'bitter', name: 'Bitter Lemon', primary: '#F2D21B', edge: '#1E5E2E', pattern: 'stripe', badge: 'none', finish: 'satin', capText: 'BITTER LEMON' },
   { key: 'ginger', name: 'Ginger Ale', primary: '#0B4D2C', edge: '#E8C766', pattern: 'stripe', badge: 'none', finish: 'satin', capText: 'GINGER ALE' },
+  { key: 'harmattan', name: 'Harmattan', primary: '#C9771E', edge: '#F6E7C4', pattern: 'rays', badge: 'none', finish: 'gloss', capText: 'HARMATTAN' },
+  { key: 'lagoon', name: 'Lagoon Lager', primary: '#3F1A4E', edge: '#E8B84A', pattern: 'wave', badge: 'none', finish: 'gloss', capText: 'LAGOON' },
   { key: 'tonic', name: 'Tonic', primary: '#00838F', edge: '#FFFFFF', pattern: 'cross', badge: 'none', finish: 'satin', capText: 'TONIC' },
 ]
 

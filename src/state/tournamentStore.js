@@ -22,19 +22,31 @@ import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '..
 import { nextMatch, cupTie, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
-import { STADIUMS } from '../data/StadiumData'
+import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import { useCareerStore } from './careerStore'
 import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
 import { applyCapMasses } from '../physics/PhysicsWorld'
 import { playerOf } from '../game/commentary'
 import { useAchievementStore } from './achievementStore'
 
+/**
+ * Career: home matches are at your club's venue, away ones at theirs. At Cap
+ * Arena the table is the home club's chosen finish (yours, or theirs).
+ */
+function careerVenue(career, home, away, levelOf) {
+  const mine = home.id === 'T1'
+  const other = mine ? away : home
+  const stadium = matchVenue(career.biz, mine, levelOf(other), other.name)
+  if (stadium !== 'capArena') return { stadium, tableFinish: null }
+  return { stadium, tableFinish: mine ? (isFinish(career.biz?.finish) ? career.biz.finish : DEFAULT_FINISH) : finishForName(other.name) }
+}
+
 const STORAGE_KEY = 'capball:tournaments:v1'
 const HISTORY_MAX = 30
 const RECENT_MAX = 10
 
 // Prefs a tournament fixture borrows, given back afterwards
-const BORROWED = ['stadium', 'teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'goalTarget', 'chosenTeam1Side', 'team1Side']
+const BORROWED = ['stadium', 'tableFinish', 'teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'goalTarget', 'chosenTeam1Side', 'team1Side']
 
 const storage = () => {
   try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null }
@@ -351,7 +363,7 @@ export const useTournamentStore = create((set, get) => ({
       team1Side: 'left',
       formations: { team1: 'default', team2: 'default' },
       // Career: home matches are at your club's venue, away ones at theirs
-      ...(career ? { stadium: matchVenue(career.biz, home.id === 'T1', levelOf(home.id === 'T1' ? away : home), (home.id === 'T1' ? away : home).name) } : {}),
+      ...(career ? careerVenue(career, home, away, levelOf) : {}),
     })
     useMatchStore.getState().goToScreen(SCREEN.FORMATION)
   },

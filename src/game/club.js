@@ -9,12 +9,14 @@
  */
 import { seededRng } from './tournament'
 import { priceOf } from './squad'
+import { isFinish } from '../data/StadiumData'
 
 /* ── Facilities: five levels each (0–4) ── */
 
 // Counterball is a tabletop game, so the "stadium" is where your table is: a
 // better table in a bigger room, with space for more people to watch. Each
 // level is a real venue your home matches are played in.
+
 export const VENUE = [
   { name: 'Street corner', venue: 'street', table: 'Folding table on the pavement', seats: 150 },
   { name: 'Garden', venue: 'gravel', table: 'Picnic table in the compound', seats: 400 },
@@ -230,6 +232,8 @@ export function sanitizeClub(input, level = 0, seed = 'club') {
     sponsor: offer(input.sponsor),
     offers: Array.isArray(input.offers) ? input.offers.map(offer).filter(Boolean).slice(0, 3) : [],
     ledger,
+    // Top division: the pro table finish at Cap Arena
+    ...(isFinish(input.finish) ? { finish: input.finish } : {}),
     lastMatch: isObj(input.lastMatch) ? {
       home: !!input.lastMatch.home, attendance: Math.max(0, num(input.lastMatch.attendance)), gate: Math.max(0, num(input.lastMatch.gate)),
       sponsor: Math.max(0, num(input.lastMatch.sponsor)), prize: Math.max(0, num(input.lastMatch.prize)), wages: Math.max(0, num(input.lastMatch.wages)),

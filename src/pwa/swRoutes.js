@@ -9,5 +9,8 @@ export function isMediaRequest(url, origin, method = 'GET') {
   return method === 'GET' && url.origin === origin && MEDIA_PATHS.includes(url.pathname)
 }
 
+/** The admin page is its own page, never the game's shell. */
+export const ADMIN_NAVIGATION = /^\/admin(\/|\?|$)/
+
 /** Navigations to real files (e.g. /sw.js, /icons/x.png) must not get the SPA shell. */
 export const FILE_NAVIGATION = /\/[^/?]+\.[^/?]+(\?.*)?$/

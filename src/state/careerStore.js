@@ -4,7 +4,7 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
+import { CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
 import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
@@ -240,6 +240,7 @@ export const useCareerStore = create((set, get) => ({
   releaseYouth(index) { return get()._move(releaseYouth, index) },
   build(kind) { return get()._apply(buildFacility, kind) },
   tickets(level) { return get()._apply(setTickets, level) },
+  tableFinish(id) { return get()._apply(setTableFinish, id) },
   promote(reserveIndex, slot) { return get()._apply(promoteReserve, reserveIndex, slot) },
 
   /** Every career you've finished (retired or sacked), newest first. */

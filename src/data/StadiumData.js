@@ -259,10 +259,11 @@ export const STADIUMS = {
   capArena: {
     id: 'capArena',
     careerOnly: true,
-    top: { surface: 'laminate', c1: '#eef1f7', c2: '#f6f8fc', line: 'rgba(11,29,107,0.85)', note: 'Pro table, navy lines' },
+    // The default finish; a top-division club picks its own (TABLE_FINISHES)
+    top: { surface: 'felt', c1: '#1c6a3c', c2: '#227a45', line: 'rgba(255,255,255,0.9)', note: 'Tournament baize, white lines' },
     name: 'Cap Arena',
-    tableColor: '#f4f6fb',
-    label: 'Pro table, packed stands',
+    tableColor: '#1c6a3c',
+    label: 'Pro table, packed arena',
     surface: 'grass',
     floodIntensity: 0.7,
     grass1: '#2a8f34',
@@ -271,16 +272,16 @@ export const STADIUMS = {
     lineColor: 'rgba(255,255,255,0.95)',
     lineWidth: 3,
     woodColor: '#0b1d6b',
-    trimColor: '#ffd23f',
-    trimGlow: 0.4,
-    baseColor: '#0b1d6b',
+    trimColor: '#c9a35a',
+    trimGlow: 0.08,
+    baseColor: '#1a120b',
     baseTrimColor: '#ffd23f',
-    bgColor: '#070a1c',
-    fogColor: '#070a1c',
-    fogDensity: 0.003,
-    groundGlow: '#1a2350',
-    ambientColor: '#f4f6ff',
-    ambientIntensity: 0.55,
+    bgColor: '#07080d',
+    fogColor: '#0b0d14',
+    fogDensity: 0.0022,
+    groundGlow: '#151826',
+    ambientColor: '#ffeedd',
+    ambientIntensity: 0.38,
     keyLightColor: '#ffffff',
     keyLightIntensity: 2,
     fillLightColor: '#d6e2ff',
@@ -291,6 +292,62 @@ export const STADIUMS = {
     crowdColors: ['#1e5bff', '#ffd23f', '#ffffff'],
     postColor: '#ffffff',
   },
+}
+
+/**
+ * Pro table finishes: a club in the top division chooses the table its home
+ * matches at Cap Arena are played on. Each sets the playing surface, its
+ * lines, the board's rails and the table's rim and body.
+ */
+export const TABLE_FINISHES = [
+  { id: 'baize', label: 'Tournament baize', note: 'Green felt, white lines', surface: 'felt', c1: '#1c6a3c', c2: '#227a45', line: 'rgba(255,255,255,0.9)', rail: '#24160d', body: '#160e08', frame: '#2a1a10', trim: '#c9a35a', base: '#1a120b' },
+  { id: 'midnight', label: 'Midnight', note: 'Navy laminate, gold lines', surface: 'laminate', c1: '#17224a', c2: '#1c2a58', line: 'rgba(242,193,78,0.92)', rail: '#0c1230', body: '#0a0f26', frame: '#0e1638', trim: '#f2c14e', base: '#0a0f26' },
+  { id: 'gloss', label: 'Black gloss', note: 'Black lacquer, white lines', surface: 'laminate', c1: '#16171b', c2: '#1d1f24', line: 'rgba(255,255,255,0.88)', rail: '#0d0e10', body: '#0b0c0e', frame: '#111215', trim: '#c7ccd4', base: '#0b0c0e' },
+  { id: 'walnut', label: 'Walnut', note: 'Oiled wood, cream lines', surface: 'wood', c1: '#5b3920', c2: '#6b4528', line: 'rgba(250,236,205,0.9)', rail: '#2b1a0e', body: '#22150b', frame: '#2b1a0e', trim: '#c9a35a', base: '#1d1209' },
+  { id: 'clay', label: 'Red clay', note: 'Terracotta felt, white lines', surface: 'felt', c1: '#8a3b24', c2: '#9a452b', line: 'rgba(255,248,240,0.9)', rail: '#2a1712', body: '#1e110d', frame: '#2a1712', trim: '#e0b070', base: '#1e110d' },
+  { id: 'club', label: 'Club colours', note: 'Your colour, your lines', surface: 'laminate', club: true },
+  { id: 'ivory', label: 'Classic ivory', note: 'White laminate, navy lines', surface: 'laminate', c1: '#e6e8ee', c2: '#eef0f5', line: 'rgba(11,29,107,0.85)', rail: '#0b1d6b', body: '#0b1d6b', frame: '#0b1d6b', trim: '#ffd23f', base: '#0b1d6b' },
+]
+export const DEFAULT_FINISH = 'baize'
+const FINISH_IDS = new Set(TABLE_FINISHES.map((f) => f.id))
+export const isFinish = (id) => typeof id === 'string' && FINISH_IDS.has(id)
+
+const HEX = /^#[0-9a-f]{6}$/i
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16)
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))))
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * A finish ready to paint: `club` takes the club's own colours (`kit`:
+ * { primary, edge }), toned down so the caps still stand out on it.
+ */
+export function resolveFinish(id, kit = null) {
+  const f = TABLE_FINISHES.find((x) => x.id === id) || TABLE_FINISHES[0]
+  if (!f.club) return f
+  const p = HEX.test(kit?.primary || '') ? kit.primary : '#1d4ed8'
+  const e = HEX.test(kit?.edge || '') ? kit.edge : '#ffffff'
+  const dark = shade(p, -0.55)
+  return { ...f, c1: dark, c2: shade(p, -0.48), line: e.toLowerCase() === p.toLowerCase() ? 'rgba(255,255,255,0.9)' : e, rail: shade(p, -0.75), body: shade(p, -0.8), frame: shade(p, -0.7), trim: e, base: shade(p, -0.8) }
+}
+
+/** The same finish every time for a club that isn't yours (its away table). */
+export function finishForName(name = '') {
+  let h = 0
+  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  const pool = TABLE_FINISHES.filter((f) => !f.club && f.id !== 'ivory')
+  return pool[h % pool.length].id
+}
+
+/** A venue painted with a pro finish (Cap Arena only). */
+export function withFinish(stadiumConfig, finish) {
+  if (!finish || !stadiumConfig?.top) return stadiumConfig
+  return {
+    ...stadiumConfig,
+    top: { ...stadiumConfig.top, surface: finish.surface, c1: finish.c1, c2: finish.c2, line: finish.line, note: finish.note },
+    tableColor: finish.c1, woodColor: finish.frame, trimColor: finish.trim, baseColor: finish.base, baseTrimColor: finish.trim,
+  }
 }
 
 export const STADIUM_KEYS = Object.keys(STADIUMS).filter((k) => !STADIUMS[k].careerOnly)

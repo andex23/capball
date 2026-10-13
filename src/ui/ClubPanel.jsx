@@ -1,5 +1,6 @@
 import { useCareerStore } from '../state/careerStore'
-import { spendingFrozen, DIVISIONS } from '../game/career'
+import { spendingFrozen, DIVISIONS, TOP } from '../game/career'
+import { TABLE_FINISHES, resolveFinish, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import {
   VENUE, TRAINING, ACADEMY, UPGRADE_COST, TICKETS, ticketPrice, attendance, wageBill, ledgerTotals,
   INCOME, COSTS, LEDGER_LABEL, clubValue, TV_MONEY,
@@ -88,6 +89,8 @@ export default function ClubPanel({ career }) {
       </div>
       <p className="muted t-note">Your home venue: <b>{VENUE[biz.stadium].name}</b>, {VENUE[biz.stadium].table.toLowerCase()}, with room for {people(seats)} to watch. Cheaper tickets bring more people in, and more come as you win.</p>
 
+      <ProTable career={career} />
+
       <h3 className="squad-sub-h">Sponsor</h3>
       {biz.sponsor ? (
         <p className="t-note"><b>{biz.sponsor.name}</b> · {SPONSOR_KIND[biz.sponsor.kind](biz.sponsor.amount)}. New offers come in next summer.</p>
@@ -127,5 +130,37 @@ export default function ClubPanel({ career }) {
       </ul>
 
     </section>
+  )
+}
+
+/** Top division: choose the table your home matches at Cap Arena are played on. */
+function ProTable({ career }) {
+  const pro = career.level === TOP
+  const current = isFinish(career.biz.finish) ? career.biz.finish : DEFAULT_FINISH
+  const atArena = VENUE[career.biz.stadium]?.venue === 'capArena'
+  return (
+    <>
+      <h3 className="squad-sub-h">Pro table</h3>
+      {!pro ? (
+        <p className="muted t-note">Reach the {DIVISIONS[TOP].name} to choose the finish of your pro table at Cap Arena.</p>
+      ) : (
+        <>
+          <div className="finish-grid" role="radiogroup" aria-label="Pro table finish">
+            {TABLE_FINISHES.map((x) => {
+              const f = resolveFinish(x.id, career.club)
+              return (
+                <button key={x.id} role="radio" aria-checked={current === x.id} className="finish-pick" data-on={current === x.id ? 'true' : undefined}
+                  onClick={() => { playButtonSelect(); useCareerStore.getState().tableFinish(x.id) }}>
+                  <span className="finish-swatch" aria-hidden="true" style={{ '--c1': f.c1, '--c2': f.c2, '--fline': f.line, '--rail': f.rail, '--trim': f.trim }} />
+                  <b>{x.label}</b>
+                  <small>{x.note}</small>
+                </button>
+              )
+            })}
+          </div>
+          <p className="muted t-note">{atArena ? 'Your home matches are played on this table.' : 'Your home matches use it once you build Cap Arena.'} Away teams bring their own.</p>
+        </>
+      )}
+    </>
   )
 }

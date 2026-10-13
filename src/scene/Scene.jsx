@@ -408,7 +408,7 @@ export default function Scene() {
         position: [0, 30, 5],
         fov: 55,
         near: 0.1,
-        far: 200,
+        far: 400,
       }}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
       style={{ width: '100%', height: '100%' }}
