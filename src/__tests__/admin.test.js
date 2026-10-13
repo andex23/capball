@@ -1,6 +1,7 @@
 import { beforeAll, afterAll, describe, expect, it } from 'vitest'
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
+import { cleanAds, DEFAULT_ADS } from '../game/arenaAds'
 
 // The admin console's functions against a real PostgreSQL (PGlite). PGlite
 // lacks pgcrypto, so the password and token helpers are swapped for built-ins.
@@ -30,6 +31,8 @@ beforeAll(async () => {
     .replace("select encode(extensions.gen_random_bytes(32), 'hex')", "select md5(random()::text) || md5(random()::text)")
   await db.exec(sql)
   await db.exec(sql) // safe to run again
+  await db.exec(read('arena-ads.sql'))
+  await db.exec(read('arena-ads.sql'))
   for (const name of ['pat', 'sam']) {
     const r = await db.query("insert into cb_accounts(username,display_name,pass_hash,save_data,saved_at) values($1,$1,'x',$2,now()) returning id", [name, JSON.stringify({ v: 1, items: { k: 'v' } })])
     ids[name] = r.rows[0].id
@@ -113,5 +116,21 @@ describe('admin console', () => {
     await admin(boss, 'delete-tournament', { id: t.rows[0].id })
     expect((await admin(boss, 'tournaments')).total).toBe(0)
     expect((await admin(boss, 'matches')).missing).toBe(true)
+  })
+
+  it('sets the Cap Arena boards; anyone can read them, only an admin can change them', async () => {
+    const ads = (token, action, data = {}) => q1('select cb_admin_ads($1,$2,$3) r', [token, action, JSON.stringify(data)])
+    expect(await q1('select cb_arena_ads() r')).toBeNull()
+    await expect(ads('pat'.repeat(20), 'set', { boards: ['X'], ribbon: ['Y'] })).rejects.toThrow('signed-out')
+    await expect(ads(boss, 'set', { boards: ['A'.repeat(25)], ribbon: ['Y'] })).rejects.toThrow('ad-too-long')
+    await expect(ads(boss, 'set', { boards: [], ribbon: ['Y'] })).rejects.toThrow('bad-ads')
+    await ads(boss, 'set', { boards: ['  drink   naija fizz ', '', 'Cap Cup'], ribbon: ['live'] })
+    const live = await q1('select cb_arena_ads() r')
+    expect(live).toEqual({ boards: ['DRINK NAIJA FIZZ', 'CAP CUP'], ribbon: ['LIVE'] })
+    expect(cleanAds(live).boards).toEqual(['DRINK NAIJA FIZZ', 'CAP CUP'])
+    expect((await ads(boss, 'get')).ads.ribbon).toEqual(['LIVE'])
+    await ads(boss, 'reset')
+    expect(await q1('select cb_arena_ads() r')).toBeNull()
+    expect(cleanAds(null)).toEqual(DEFAULT_ADS)
   })
 })

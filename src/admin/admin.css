@@ -127,3 +127,11 @@ input[type='search'] { width: 220px; }
 }
 .adm-card .adm-list + h2 { margin-top: 18px; }
 .adm-row + .adm-row, .adm-card form.adm-row { margin-top: 4px; }
+
+/* Arena boards */
+.adm-ads-input { display: block; width: 100%; resize: vertical; background: var(--bg); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px; font: 600 15px/1.6 var(--ui); text-transform: uppercase; letter-spacing: 0.02em; }
+.adm-led { margin-top: 12px; display: flex; overflow-x: auto; background: #05070d; border-radius: 6px; padding: 8px 4px;
+  background-image: linear-gradient(rgba(0,0,0,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.35) 1px, transparent 1px); background-size: 4px 4px; }
+.adm-led span { flex: none; padding: 0 16px; font: italic 900 24px/1 var(--display); white-space: nowrap; }
+.adm-led[data-tone='gold'] span:nth-child(odd), .adm-led[data-tone='white'] span:nth-child(even) { color: #f2c14e; }
+.adm-led[data-tone='gold'] span:nth-child(even), .adm-led[data-tone='white'] span:nth-child(odd) { color: #ffffff; }
