@@ -32,6 +32,17 @@ function saveHall(hall) {
   try { storage()?.setItem(HOF_KEY, JSON.stringify(hall)) } catch { /* storage full or blocked */ }
 }
 
+/** The matchday report to show next: your result, the written commentary, and the round it was in. */
+function withReport(career, fixtureId, result, perf, competition) {
+  const t = competition === 'cup' ? career.cup?.tournament : career.league
+  const f = t ? allFixtures(t).find((x) => x.id === fixtureId) : null
+  if (!f) return career
+  return {
+    ...career,
+    lastMatch: { fixtureId, competition, round: f.round, home: f.home, away: f.away, result, story: perf?.story || [], seen: false, season: career.season },
+  }
+}
+
 /** Everyone who played: tired; everyone who didn't: rested. */
 function withFitness(career, before, perf) {
   const ids = perf?.byPlayer ? Object.keys(perf.byPlayer) : Object.values(before.squad || {}).map((p) => p.id)
@@ -80,9 +91,19 @@ export const useCareerStore = create((set, get) => ({
     let next = recordCareerResult(career, fixtureId, result)
     next = withPerformance(next, perf, `${career.league.id}:${fixtureId}`, fixtureId)
     next = withFitness(next, career, perf)
+    next = withReport(next, fixtureId, result, perf, 'league')
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
+  },
+
+  /** You've read the matchday report. */
+  reportSeen() {
+    const { career } = get()
+    if (!career?.lastMatch || career.lastMatch.seen) return
+    const next = { ...career, lastMatch: { ...career.lastMatch, seen: true } }
+    save(next)
+    set({ career: next })
   },
 
   /** Your result for a Cap Cup tie (penalties included when it went that far). */
@@ -92,6 +113,7 @@ export const useCareerStore = create((set, get) => ({
     let next = recordCupResult(career, fixtureId, result)
     next = withPerformance(next, perf, `${career.cup.tournament.id}:${fixtureId}`, fixtureId)
     next = withFitness(next, career, perf)
+    next = withReport(next, fixtureId, result, perf, 'cup')
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })

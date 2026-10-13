@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
@@ -20,12 +20,13 @@ import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money } from '../game/squad'
 import LeagueClubs from '../ui/LeagueClubs'
+import MatchReport from '../ui/MatchReport'
 import { inboxOffers, seasonAwards, repLabel, REP_START } from '../game/clubLife'
 import { squadSize, transferWindow, MAX_SQUAD } from '../game/transfers'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel from '../ui/ClubPanel'
 
-const PAGE_TITLE = { squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
+const PAGE_TITLE = { report: 'Match report', squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -318,6 +319,9 @@ export default function CareerScreen() {
   // Career mode is a set of pages: a home with the next match and a menu, then Squad, Transfers...
   const [page, setPage] = useState('home')
   const mainRef = useRef(null)
+  // After a match: open its report first
+  const reportId = career?.lastMatch && !career.lastMatch.seen ? career.lastMatch.fixtureId : null
+  useEffect(() => { if (reportId) setPage('report') }, [reportId])
   // Each page opens at its top: reset every scrolling box up from the page
   const go = (next) => {
     playButtonSelect()
@@ -499,6 +503,7 @@ export default function CareerScreen() {
               { key: 'league', icon: 'trophy', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
               { key: 'history', icon: 'restart', title: 'History', line: `${career.past.length} season${career.past.length === 1 ? '' : 's'} · ${career.promotions} promotion${career.promotions === 1 ? '' : 's'}` },
               { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, help, retire' },
+              ...(career.lastMatch ? [{ key: 'report', icon: 'ball', title: 'Last match', line: `${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.home)?.name || ''} ${career.lastMatch.result.home}–${career.lastMatch.result.away} ${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.away)?.name || ''}` }] : []),
             ].map((t) => (
               <button key={t.key} className="career-tile" onClick={() => go(t.key)}>
                 <Icon name={t.icon} size={22} />
@@ -537,9 +542,10 @@ export default function CareerScreen() {
           ) : (
             <div className="career-col career-page">
               <div className="career-page-head">
-                <button className="btn btn-ghost career-back" onClick={() => go('home')}><Icon name="back" size={16} /> Career</button>
+                <button className="btn btn-ghost career-back" onClick={() => { if (page === 'report') useCareerStore.getState().reportSeen(); go('home') }}><Icon name="back" size={16} /> Career</button>
                 <h2 className="display career-page-title">{PAGE_TITLE[page]}</h2>
               </div>
+              {page === 'report' && <MatchReport career={career} onDone={() => { useCareerStore.getState().reportSeen(); go('home') }} />}
               {page === 'squad' && <>
                 {played > 0 && <PlayerRatings career={career} />}
                 <SquadPanel career={career} show="squad" />
@@ -605,7 +611,7 @@ export default function CareerScreen() {
         <footer className="shell-foot"><div className="shell-foot-inner">
           {page === 'home'
             ? <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Menu</button>
-            : <button className="btn btn-secondary" onClick={() => go('home')}><Icon name="back" size={18} /> Career home</button>}
+            : <button className="btn btn-secondary" onClick={() => { if (page === 'report') useCareerStore.getState().reportSeen(); go('home') }}><Icon name="back" size={18} /> Career home</button>}
         </div></footer>
       </div>
 

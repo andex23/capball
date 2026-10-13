@@ -1,18 +1,18 @@
 import { useEffect, useRef } from 'react'
 import { useMatchStore } from '../state/MatchStore'
 import { sendReady, getIsHost } from '../multiplayer/MultiplayerManager'
-import { endChoiceOutcome, canChoosePenalties } from '../multiplayer/protocol'
+import { endChoiceOutcome, canChoosePenalties, canChooseExtraTime } from '../multiplayer/protocol'
 import { playConfirm, playButtonSelect } from '../audio/SoundManager'
 import Icon from './Icon'
 
-const WANTS = { rematch: 'wants a rematch', penalties: 'wants penalties' }
+const WANTS = { rematch: 'wants a rematch', penalties: 'wants penalties', extraTime: 'wants extra time' }
 
 /**
  * Full-time buttons for an online match. Each player picks Rematch (or
  * Penalty shootout after a draw) using the ready channel; once both pick the
  * same thing, the host starts it and the guest follows via sync.
  */
-export default function OnlineEndChoice({ onRematch, onPenalties }) {
+export default function OnlineEndChoice({ onRematch, onPenalties, onExtraTime }) {
   const myTeam = useMatchStore((s) => s.onlineMyTeam)
   const onlineReady = useMatchStore((s) => s.onlineReady)
   const teamConfig = useMatchStore((s) => s.teamConfig)
@@ -21,11 +21,12 @@ export default function OnlineEndChoice({ onRematch, onPenalties }) {
   const mine = onlineReady[myTeam]
   const theirs = onlineReady[opponent]
   const penaltiesOffered = canChoosePenalties(matchResult)
+  const extraOffered = canChooseExtraTime(matchResult) && !!onExtraTime
   const outcome = endChoiceOutcome(onlineReady, matchResult)
   const opponentName = teamConfig[opponent]?.name || 'Opponent'
   // Latest callbacks, so a re-render doesn't restart the start timer
-  const start = useRef({ onRematch, onPenalties })
-  useEffect(() => { start.current = { onRematch, onPenalties } })
+  const start = useRef({ onRematch, onPenalties, onExtraTime })
+  useEffect(() => { start.current = { onRematch, onPenalties, onExtraTime } })
 
   useEffect(() => {
     if (!outcome || !getIsHost()) return
@@ -33,6 +34,7 @@ export default function OnlineEndChoice({ onRematch, onPenalties }) {
       useMatchStore.getState().resetOnlineReady()
       sendReady(false)
       if (outcome === 'penalties') start.current.onPenalties()
+      else if (outcome === 'extraTime') start.current.onExtraTime?.()
       else start.current.onRematch()
     }, 600)
     return () => clearTimeout(timer)
@@ -49,7 +51,7 @@ export default function OnlineEndChoice({ onRematch, onPenalties }) {
   const label = (choice, text) => {
     if (outcome === choice) return 'Starting…'
     if (mine === choice) return <><Icon name="check" size={18} /> {text} · waiting</>
-    if (theirs === choice) return <>Accept {choice === 'penalties' ? 'penalties' : 'rematch'}</>
+    if (theirs === choice) return <>Accept {choice === 'penalties' ? 'penalties' : choice === 'extraTime' ? 'extra time' : 'rematch'}</>
     return text
   }
 
@@ -59,6 +61,16 @@ export default function OnlineEndChoice({ onRematch, onPenalties }) {
         <span className="team-dot" style={{ '--team': theirs ? 'var(--good)' : 'var(--text-3)' }} />
         {opponentName} · {WANTS[theirs] || 'deciding…'}
       </span>
+      {extraOffered && (
+        <button
+          className={`btn btn-lg btn-block ${mine === 'extraTime' ? 'btn-secondary' : 'btn-gold'}`}
+          onClick={() => choose('extraTime')}
+          aria-pressed={mine === 'extraTime'}
+          disabled={!!outcome}
+        >
+          <Icon name="play" size={18} /> {label('extraTime', 'Extra time')}
+        </button>
+      )}
       {penaltiesOffered && (
         <button
           className={`btn btn-lg btn-block ${mine === 'penalties' ? 'btn-secondary' : 'btn-orange'}`}
@@ -66,7 +78,7 @@ export default function OnlineEndChoice({ onRematch, onPenalties }) {
           aria-pressed={mine === 'penalties'}
           disabled={!!outcome}
         >
-          <Icon name="ball" size={18} /> {label('penalties', 'Penalty shootout')}
+          <Icon name="ball" size={18} /> {label('penalties', extraOffered ? 'Straight to penalties' : 'Penalty shootout')}
         </button>
       )}
       <button

@@ -60,7 +60,7 @@ function ScoreBug() {
   const clock = shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : formatClock(timeRemaining)
   const detail = phase === PHASE.MATCH_OVER ? 'FULL TIME' : shootout
     ? round > SHOOTOUT_ROUNDS ? 'SUDDEN DEATH' : `ROUND ${round}/${SHOOTOUT_ROUNDS}`
-    : goalTarget ? 'VS' : half === 1 ? '1ST HALF' : '2ND HALF'
+    : goalTarget ? 'VS' : half === 1 ? '1ST HALF' : half === 3 ? 'EXTRA TIME' : '2ND HALF'
   return <MatchScoreboard teams={teamConfig} score={shootout ? pens : score}
     active={phase === PHASE.MATCH_OVER ? null : activeTeam}
     myTeam={gameMode === 'online' ? onlineMyTeam : gameMode === 'ai' ? otherTeam(aiTeam) : null}

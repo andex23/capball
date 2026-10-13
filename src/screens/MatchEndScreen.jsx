@@ -76,6 +76,10 @@ export default function MatchEndScreen() {
   const backToTournament = () => { playConfirm(); stopAllBodies(); useTournamentStore.getState().backToHub() }
   const rematch = () => { playConfirm(); playWhistle(); stopAllBodies(); useMatchStore.getState().startGame() }
   const penalties = () => { playConfirm(); playWhistle(); stopAllBodies(); useMatchStore.getState().startPenaltyShootout() }
+  const extraTime = () => { playConfirm(); playWhistle(); stopAllBodies(); useMatchStore.getState().startExtraTime() }
+  // Level at full time in a cup tie or a friendly: extra time first (unless you pick penalties),
+  // then penalties. League matches stay a draw.
+  const afterExtra = !!matchResult.afterExtraTime
   const menu = () => {
     playButtonSelect()
     stopAllBodies()
@@ -96,7 +100,7 @@ export default function MatchEndScreen() {
     <div className="screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>
       <div className="card" style={{ width: 'min(560px, 100%)', animation: 'pop-in 0.3s ease' }}>
         <div className="card-pad" style={{ textAlign: 'center', paddingBottom: 8 }}>
-          <div className="eyebrow">{penaltyScore ? 'After penalties' : 'Full time'}</div>
+          <div className="eyebrow">{penaltyScore ? 'After penalties' : matchResult.afterExtraTime ? 'After extra time' : 'Full time'}</div>
           <h1 className="display" style={{ fontSize: 'clamp(40px, 8vw, 60px)', color: isDraw ? 'var(--text)' : 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             {!isDraw && headline !== 'You lost' && <Icon name="trophy" size={36} />}{headline}
           </h1>
@@ -143,8 +147,13 @@ export default function MatchEndScreen() {
               )}
               {tournament.knockout && isDraw && !penaltyScore ? (
                 authority
-                  ? <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>
-                  : <p className="muted" style={{ textAlign: 'center' }}>Level — the cup tie goes to penalties…</p>
+                  ? (afterExtra
+                    ? <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>
+                    : <>
+                      <button className="btn btn-gold btn-lg btn-block" onClick={extraTime}><Icon name="play" size={18} /> Extra time</button>
+                      <button className="btn btn-orange btn-block" onClick={penalties}><Icon name="ball" size={18} /> Straight to penalties</button>
+                    </>)
+                  : <p className="muted" style={{ textAlign: 'center' }}>Level — {afterExtra ? 'the cup tie goes to penalties…' : 'extra time or penalties next…'}</p>
               ) : (
                 <button className="btn btn-primary btn-lg btn-block" onClick={backToTournament}>
                   <Icon name="trophy" size={18} /> {tournament.kind === 'lanGuest' ? 'View competition results' : tournament.kind === 'career' || tournament.kind === 'careerCup' ? 'Back to your career' : `Back to the ${tournament.knockout ? 'cup' : 'league'}`}
@@ -152,11 +161,14 @@ export default function MatchEndScreen() {
               )}
             </>
           ) : online ? (
-            <OnlineEndChoice onRematch={rematch} onPenalties={penalties} />
+            <OnlineEndChoice onRematch={rematch} onPenalties={penalties} onExtraTime={extraTime} />
           ) : authority ? (
             <>
+              {isDraw && !penaltyScore && !afterExtra && (
+                <button className="btn btn-gold btn-lg btn-block" onClick={extraTime}><Icon name="play" size={18} /> Extra time</button>
+              )}
               {isDraw && !penaltyScore && (
-                <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalty shootout</button>
+                <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> {afterExtra ? 'Penalty shootout' : 'Straight to penalties'}</button>
               )}
               <button className={`btn btn-lg btn-block ${isDraw && !penaltyScore ? 'btn-blue' : 'btn-primary'}`} onClick={rematch}>
                 <Icon name="restart" size={18} /> Rematch

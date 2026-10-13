@@ -12,6 +12,7 @@ import { createTournament, recordResult, standings, allFixtures, sanitizeTournam
 import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, TICKETS } from './club'
 import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
 import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withContracts, REP_START, sanitizeAwards } from './clubLife'
+import { sanitizeStory } from './matchStory'
 import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
 import {
   playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, squadSummer, youthIntake,
@@ -209,6 +210,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     deals: [],         // your recent transfers
     lastEarned: 0,
     lastReport: null,
+    lastMatch: null,   // the matchday report: result, commentary, the round
     warning: false,    // missed a target: the next miss is the sack
     rep: REP_START,    // your name as a manager (0–100)
     scouted: [],       // players whose potential your scouts have checked
@@ -446,6 +448,7 @@ export function sanitizeCareer(input) {
     lastEarned: Number.isInteger(input.lastEarned) ? input.lastEarned : 0,
     biz: sanitizeClub(input.biz, level, league.id),
     lastReport: sanitizeReport(input.lastReport),
+    lastMatch: sanitizeLastMatch(input.lastMatch),
     warning: input.warning === true,
     rep: Number.isInteger(input.rep) ? Math.max(0, Math.min(100, input.rep)) : REP_START,
     scouted: Array.isArray(input.scouted) ? input.scouted.filter((x) => typeof x === 'string').map((x) => x.slice(0, 16)).slice(-400) : [],
@@ -479,6 +482,23 @@ function sanitizeCup(c) {
   const levels = {}
   if (isObj(c.levels)) for (const [k, v] of Object.entries(c.levels)) if (/^T\d$/.test(k) && Number.isInteger(v) && v >= 0 && v <= TOP) levels[k] = v
   return { tournament, levels }
+}
+
+/** The last matchday report (result, written commentary, which round). */
+function sanitizeLastMatch(m) {
+  if (!isObj(m) || typeof m.fixtureId !== 'string' || !isObj(m.result)) return null
+  const goals = (v) => (Number.isInteger(v) && v >= 0 ? Math.min(v, 99) : 0)
+  return {
+    fixtureId: m.fixtureId.slice(0, 12),
+    competition: m.competition === 'cup' ? 'cup' : 'league',
+    round: Number.isInteger(m.round) ? m.round : 0,
+    home: String(m.home || '').slice(0, 4),
+    away: String(m.away || '').slice(0, 4),
+    result: { home: goals(m.result.home), away: goals(m.result.away), ...(isObj(m.result.pens) ? { pens: { home: goals(m.result.pens.home), away: goals(m.result.pens.away) } } : {}) },
+    story: sanitizeStory(m.story),
+    seen: m.seen === true,
+    season: Number.isInteger(m.season) ? m.season : 1,
+  }
 }
 
 /** The last match's player ratings (kept for the career screen). */
