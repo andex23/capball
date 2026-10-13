@@ -1519,8 +1519,8 @@ button { cursor: pointer; background: none; border: 0; }
 .iss-foot {
   position: fixed; left: 0; right: 0; bottom: calc(var(--safe-bottom) + 16px); z-index: 5;
   height: 48px; align-items: center; pointer-events: none;
-  padding: 0 calc(var(--safe-right) + 80px) 0 calc(var(--safe-left) + 80px);
-  display: flex; gap: 18px; justify-content: center; flex-wrap: wrap;
+  padding: 0 calc(var(--safe-right) + 16px) 0 calc(var(--safe-left) + 80px);
+  display: flex; gap: 18px; justify-content: flex-start; flex-wrap: wrap;
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
   color: rgba(255,255,255,0.7); text-shadow: 2px 2px 0 var(--iss-ink);
 }
