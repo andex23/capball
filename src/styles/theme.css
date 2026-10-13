@@ -2461,3 +2461,18 @@ button { cursor: pointer; background: none; border: 0; }
 .career-back { min-height: 36px; padding: 0 12px; }
 .career-page-title { margin: 0; font-size: 28px; color: var(--iss-yellow, #ffd23f); }
 .saved-history .career-awards { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; }
+
+/* Career: matchday report */
+.match-report { display: grid; gap: 16px; }
+.match-report-score { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 12px 0; }
+.match-report-score > :last-child { justify-self: end; }
+.match-report-score > :first-child { justify-self: start; }
+.match-report-goals { font-family: var(--font-pixel); font-size: 24px; color: #fff; white-space: nowrap; }
+.match-story { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.match-story li { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 8px; padding: 6px 8px; background: rgba(5, 10, 46, 0.45); border-left: 3px solid var(--line); }
+.match-story li[data-kind='goal'] { border-left-color: var(--iss-yellow, #ffd23f); font-weight: 700; }
+.match-story li[data-kind='goal'][data-mine='true'] { border-left-color: var(--good, #34d27b); }
+.match-story li[data-kind='fulltime'], .match-story li[data-kind='pens'] { border-left-color: #fff; font-weight: 800; }
+.match-story-min { font-variant-numeric: tabular-nums; color: var(--text-2); font-weight: 800; }
+.match-others li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
+.match-others-away { text-align: right; }

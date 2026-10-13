@@ -21,7 +21,7 @@ const HISTORY_MAX = 20
 // Everything about the match set-up and its progress that a save brings back
 const MATCH_FIELDS = [
   'gameMode', 'aiTeam', 'aiDifficulty', 'teamConfig', 'ballColor', 'stadium', 'formations',
-  'matchDuration', 'goalTarget', 'shotClock', 'timeRemaining', 'half', 'firstHalfKicker',
+  'matchDuration', 'goalTarget', 'shotClock', 'timeRemaining', 'half', 'extraTime', 'firstHalfKicker',
   'team1Side', 'chosenTeam1Side', 'score', 'stats', 'activeTeam', 'lastScorer',
 ]
 
@@ -45,7 +45,7 @@ export function describeSave(save) {
   if (!save?.match) return ''
   const m = save.match
   const names = `${m.teamConfig?.team1?.name || 'Home'} ${m.score?.team1 ?? 0}–${m.score?.team2 ?? 0} ${m.teamConfig?.team2?.name || 'Away'}`
-  const when = m.goalTarget ? `first to ${m.goalTarget}` : `${m.half === 2 ? '2nd' : '1st'} half ${formatClock(Math.max(0, Math.round(m.timeRemaining || 0)))}`
+  const when = m.goalTarget ? `first to ${m.goalTarget}` : `${m.half === 3 ? 'extra time' : m.half === 2 ? '2nd half' : '1st half'} ${formatClock(Math.max(0, Math.round(m.timeRemaining || 0)))}`
   return `${names} · ${when}`
 }
 

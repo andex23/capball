@@ -285,6 +285,7 @@ export const useMatchStore = create((set, get) => ({
       timerRunning: false,
       paused: false,
       half: 1,
+      extraTime: false,
       matchResult: null,
       penaltyShootout: false,
       penaltyKicks: { team1: 0, team2: 0 },
@@ -338,9 +339,32 @@ export const useMatchStore = create((set, get) => ({
     later(() => get().beginPlay(), TIMING.kickoff)
   },
 
+  /** Level at full time: one period of extra time (two-thirds of a half), same score, ends straight after. */
+  extraTime: false,
+  startExtraTime: () => {
+    clearMatchTimers()
+    const { matchDuration, team1Side, firstHalfKicker } = get()
+    set({
+      ...clearTurn,
+      screen: SCREEN.PLAYING,
+      matchKey: get().matchKey + 1,
+      matchResult: null,
+      extraTime: true,
+      team1Side: team1Side === 'left' ? 'right' : 'left',
+      half: 3,
+      timeRemaining: Math.max(30, Math.round((matchDuration * 2) / 3)),
+      timerRunning: false,
+      paused: false,
+      phase: PHASE.KICKOFF,
+      kickoffGuard: true,
+      activeTeam: firstHalfKicker || 'team1',
+    })
+    later(() => get().beginPlay(), TIMING.kickoff)
+  },
+
   endMatch: () => {
     clearMatchTimers()
-    const { score, teamConfig, stats } = get()
+    const { score, teamConfig, stats, extraTime } = get()
     const winner = matchWinner(score)
     set({
       ...clearTurn,
@@ -349,6 +373,7 @@ export const useMatchStore = create((set, get) => ({
       matchResult: {
         winner,
         isDraw: !winner,
+        afterExtraTime: !!extraTime,
         score: { ...score },
         stats,
         team1Name: teamConfig.team1.name,

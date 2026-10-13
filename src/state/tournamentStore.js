@@ -21,6 +21,8 @@ import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
 import { nextMatch, cupTie, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
+import { buildStory } from '../game/matchStory'
+import { STADIUMS } from '../data/StadiumData'
 import { useCareerStore } from './careerStore'
 import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
 import { applyCapMasses } from '../physics/PhysicsWorld'
@@ -532,7 +534,13 @@ export const useTournamentStore = create((set, get) => ({
       for (const g of ms.goalLog || []) if (!g.own && !g.shootout && g.cap?.startsWith(`${side}_`)) goalsByRole[g.cap.slice(6)] = (goalsByRole[g.cap.slice(6)] || 0) + 1
       // Each player rated for his own time on the pitch (substitutes split a role)
       const byPlayer = p.startLineup && !p.lan ? performanceByPlayer({ side, startLineup: p.startLineup, subs: p.subs || [], goalLog: ms.goalLog || [], matchEvents: ms.matchEvents || [], score: matchResult.score }) : null
-      const perf = { ratings, goalsByRole, ...(byPlayer ? { byPlayer } : {}) }
+      // The written match report (text commentary, no audio)
+      const story = buildStory({
+        goalLog: ms.goalLog || [], matchEvents: ms.matchEvents || [], teamConfig: ms.teamConfig, score: matchResult.score,
+        matchDuration: ms.matchDuration, seed: `${p.fixture.id}:${(ms.goalLog || []).length}`, venue: STADIUMS[ms.stadium]?.name || 'table',
+        pens: matchResult.penaltyScore || null, extraTime: !!matchResult.afterExtraTime,
+      })
+      const perf = { ratings, goalsByRole, story, ...(byPlayer ? { byPlayer } : {}) }
       if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, perf)
       else useCareerStore.getState().record(p.fixture.id, result, perf)
       return

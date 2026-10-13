@@ -104,7 +104,7 @@ export function validateGuestMessage(msg, state) {
       // On the full-time screen "ready" means "I want this": a rematch or penalties
       if (ready && state.screen === 'MATCH_END') {
         const choice = END_CHOICES.includes(data.choice) ? data.choice : null
-        if (!choice || (choice === 'penalties' && !canChoosePenalties(state.matchResult))) return null
+        if (!choice || (choice === 'penalties' && !canChoosePenalties(state.matchResult)) || (choice === 'extraTime' && !canChooseExtraTime(state.matchResult))) return null
         return { type: 'ready', ready, choice }
       }
       return { type: 'ready', ready }
@@ -158,11 +158,16 @@ export function filterSynced(snap) {
 /* ── Rematch / penalties after full time (online) ── */
 
 /** What a player can ask for on the full-time screen. */
-export const END_CHOICES = ['rematch', 'penalties']
+export const END_CHOICES = ['rematch', 'penalties', 'extraTime']
 
 /** Penalties are only on offer after a drawn match that didn't already have a shootout. */
 export function canChoosePenalties(matchResult) {
   return !!matchResult?.isDraw && !matchResult.penaltyScore
+}
+
+/** Extra time: after a draw at full time (not after extra time or a shootout). */
+export function canChooseExtraTime(matchResult) {
+  return canChoosePenalties(matchResult) && !matchResult.afterExtraTime
 }
 
 /** Guest-side: the host's ready message → the value stored in onlineReady. */
@@ -173,13 +178,14 @@ export function readyValue(data) {
 
 /**
  * Both players agree? `ready` is onlineReady: { team1, team2 } with values
- * false | true | 'rematch' | 'penalties'. Returns 'rematch', 'penalties' or null.
+ * false | true | 'rematch' | 'penalties' | 'extraTime'. Returns one of those choices or null.
  */
 export function endChoiceOutcome(ready, matchResult) {
   const a = ready?.team1
   const b = ready?.team2
   if (!END_CHOICES.includes(a) || a !== b) return null
   if (a === 'penalties' && !canChoosePenalties(matchResult)) return null
+  if (a === 'extraTime' && !canChooseExtraTime(matchResult)) return null
   return a
 }
 
