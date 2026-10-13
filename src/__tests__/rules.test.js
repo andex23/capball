@@ -4,7 +4,7 @@ import {
   isInPenaltyArea, shootoutStatus, nextShooter, matchWinner, formatClock,
 } from '../game/rules'
 import { BALL_RADIUS, PITCH } from '../data/TeamData'
-import { ballInCorner, cornerRestart } from '../game/rules'
+import { ballInCorner, cornerRestart, isOwnGoal } from '../game/rules'
 
 const inLeftGoal = { x: -PITCH.halfW - 0.5, y: 0 }
 const inRightGoal = { x: PITCH.halfW + 0.5, y: 0 }
@@ -171,5 +171,24 @@ describe('ball stuck in a corner', () => {
     // After the change of ends
     expect(cornerRestart(-1, 'team2', 'right')).toEqual({ kind: 'corner', team: 'team1' })
     expect(cornerRestart(1, 'team2', 'left')).toEqual({ kind: 'corner', team: 'team1' })
+  })
+})
+
+describe('own goals', () => {
+  it('a shot deflected in off a defender is the shooter’s goal', () => {
+    expect(isOwnGoal('team1', 'team1_atk1', 'team2')).toBe(false)
+  })
+  it('a side that knocks the ball into its own net scores an own goal', () => {
+    expect(isOwnGoal('team1', 'team2_def1', 'team2')).toBe(true)
+    // ...even when it comes off an attacker on the way in
+    expect(isOwnGoal('team1', 'team2_def1', 'team1')).toBe(true)
+  })
+  it('a straight goal is not an own goal', () => {
+    expect(isOwnGoal('team2', 'team2_mid', 'team2')).toBe(false)
+  })
+  it('with no flicked cap, the last touch decides', () => {
+    expect(isOwnGoal('team1', null, 'team2')).toBe(true)
+    expect(isOwnGoal('team1', null, 'team1')).toBe(false)
+    expect(isOwnGoal('team1', null, null)).toBe(false)
   })
 })

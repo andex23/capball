@@ -6,7 +6,7 @@ import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
   stopAllBodies, getLastBallTeam, getGoalEvidence, clearKeeperDive,
 } from './PhysicsWorld'
-import { ballInCorner, cornerRestart, otherTeam } from '../game/rules'
+import { ballInCorner, cornerRestart, otherTeam, isOwnGoal } from '../game/rules'
 import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 import { PHYSICS } from '../data/TeamData'
@@ -156,8 +156,7 @@ export function usePhysicsSync(meshRefs) {
       } else if (verdict.outcome === 'goal') {
         stopBall()
         playGoal()
-        const touched = getLastBallTeam()
-        s.scoreGoal(verdict.scorer, { decision, ownGoal: !s.penaltyShootout && !!touched && touched !== verdict.scorer })
+        s.scoreGoal(verdict.scorer, { decision, ownGoal: isOwnGoal(verdict.scorer, s.lastFlickedCapId, getLastBallTeam()) })
       } else if (verdict.outcome === 'bank_shot') {
         // In off the wall: no goal, the defending side restarts with a goal kick
         stopAllBodies()

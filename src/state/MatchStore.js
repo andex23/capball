@@ -512,7 +512,7 @@ export const useMatchStore = create((set, get) => ({
     set({ ...clearTurn, activeTeam: otherTeam(activeTeam), phase: PHASE.SELECT, kickoffGuard: false, shotClockRemaining: get().shotClock })
   },
 
-  // ownGoal: the last cap to touch the ball was the conceding side's
+  // ownGoal: the flick that put the ball in was the conceding side's (rules.isOwnGoal)
   scoreGoal: (scoringTeam, { ownGoal = false, decision = null } = {}) => {
     const { score } = get()
     const replayDecision = decision || { outcome: 'goal' }
