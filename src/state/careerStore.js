@@ -4,7 +4,7 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { CAREER_MODES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
+import { CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
 import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY } from '../game/clubLife'
 import { TRAINING } from '../game/club'
@@ -138,6 +138,18 @@ export const useCareerStore = create((set, get) => ({
     const { career } = get()
     if (!career || !CAREER_MODES.includes(mode)) return
     const next = { ...career, mode }
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+  },
+
+  /** Career settings: time per half and the computer's level (any time; applies from the next match). */
+  setSettings(patch) {
+    const { career } = get()
+    if (!career) return
+    const next = { ...career }
+    if ([60, 90, 120, 150, 180].includes(patch.matchDuration)) next.matchDuration = patch.matchDuration
+    if (CAREER_DIFFICULTIES.includes(patch.difficulty)) next.difficulty = patch.difficulty
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })

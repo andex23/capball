@@ -2476,3 +2476,38 @@ button { cursor: pointer; background: none; border: 0; }
 .match-story-min { font-variant-numeric: tabular-nums; color: var(--text-2); font-weight: 800; }
 .match-others li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
 .match-others-away { text-align: right; }
+
+/* Career header: cap and club name on one line */
+.career-head { min-width: 0; }
+.career-title-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.career-title-row .shell-title { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.career-title-row > svg { flex: none; }
+.career-rep { display: block; margin-top: 4px; font-size: 12px; color: var(--text-2); }
+/* The save note floats over the page for a moment instead of pushing it down */
+.career-save { position: fixed; z-index: 40; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); animation: fade-in 0.2s ease; }
+.career-save[data-error='true'] { background: rgba(120, 20, 20, 0.9); border-color: #ff6b6b; }
+/* The Cap Cup */
+.career-cup-link { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.career-cup-link > span:nth-of-type(1) { flex: 1; min-width: 0; }
+.career-cup-more { display: inline-flex; align-items: center; gap: 2px; font-weight: 800; color: var(--iss-yellow, #ffd23f); white-space: nowrap; }
+.career-cup-link:hover { border-color: var(--iss-yellow, #ffd23f); }
+.cup-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.cup-page > * { min-width: 0; }
+.cup-page .tb-scroll { max-width: 100%; overflow-x: auto; }
+.cup-hero { border-color: #b388ff; }
+.cup-hero[data-state='won'] { border-color: var(--iss-yellow, #ffd23f); }
+.cup-title { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; font-size: 32px; color: var(--iss-yellow, #ffd23f); }
+.cup-hero .t-note { margin: 0 0 10px; }
+.cup-prizes { font-size: 14px; }
+/* Board objectives (Club page) */
+.board-card { display: grid; gap: 10px; }
+.board-card .t-note { margin: 0; }
+.board-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.board-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; background: rgba(5, 10, 46, 0.45); border: 2px solid var(--line); border-left-width: 4px; }
+.board-list li[data-tone='good'] { border-left-color: var(--good, #34d27b); }
+.board-list li[data-tone='bad'] { border-left-color: #ff6b6b; }
+.board-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.board-what small { color: var(--text-2); font-size: 12px; }
+.board-status { font-weight: 800; font-size: 13px; white-space: nowrap; }
+.board-list li[data-tone='good'] .board-status { color: var(--good, #34d27b); }
+.board-list li[data-tone='bad'] .board-status { color: #ff6b6b; }

@@ -128,7 +128,7 @@ const COL_GAP = 46
 const HEAD_H = 28
 const TROPHY_W = 120
 
-function Bracket({ t, nextId, actionFor, onAct }) {
+export function Bracket({ t, nextId, actionFor, onAct }) {
   const count = t.rounds.length
   const first = t.rounds[0].length
   const slot = TIE_H + ROW_GAP

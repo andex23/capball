@@ -21,12 +21,14 @@ import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money } from '../game/squad'
 import LeagueClubs from '../ui/LeagueClubs'
 import MatchReport from '../ui/MatchReport'
+import CupPage from '../ui/CupPage'
+import BoardObjectives from '../ui/BoardObjectives'
 import { inboxOffers, seasonAwards, repLabel, REP_START } from '../game/clubLife'
 import { squadSize, transferWindow, MAX_SQUAD } from '../game/transfers'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel from '../ui/ClubPanel'
 
-const PAGE_TITLE = { report: 'Match report', squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
+const PAGE_TITLE = { cup: 'Cap Cup', report: 'Match report', squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -187,11 +189,21 @@ function timeAgo(iso) {
 /** Where the career is saved, and a button to save right now. */
 function SaveBar() {
   const { username, savedAt, saving, error } = useAccountStore()
+  // Shown while saving and for a few seconds after; an error stays until it's sorted
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    if (saving || error) { setVisible(true); return undefined }
+    if (!savedAt) return undefined
+    setVisible(true)
+    const timer = setTimeout(() => setVisible(false), 3500)
+    return () => clearTimeout(timer)
+  }, [savedAt, saving, error])
+  if (!visible) return null
   return (
-    <div className="career-save" role="status">
+    <div className="career-save" role="status" data-error={error ? 'true' : undefined}>
       <Icon name="check" size={16} />
       <span>{saving ? 'Saving…' : `Saved to ${username}${savedAt ? ` · ${timeAgo(savedAt)}` : ''}`}{error ? ` — ${error}` : ''}</span>
-      <button className="btn btn-ghost" onClick={() => { playButtonSelect(); useAccountStore.getState().save({ force: true }) }} disabled={saving}>Save now</button>
+      {error && <button className="btn btn-ghost" onClick={() => { playButtonSelect(); useAccountStore.getState().save({ force: true }) }} disabled={saving}>Try again</button>}
     </div>
   )
 }
@@ -419,13 +431,14 @@ export default function CareerScreen() {
     <div className="screen">
       <div className="shell">
         <header className="shell-head">
-          <div>
-            <div className="eyebrow shell-eyebrow">{MODE_INFO[career.mode || 'solo'].label} career · Season {career.season} · {division.name} · Manager: {repLabel(career.rep ?? REP_START)} ({career.rep ?? REP_START})</div>
-            <h1 className="display shell-title">{career.club.name}</h1>
+          <div className="career-head">
+            <div className="eyebrow shell-eyebrow">{MODE_INFO[career.mode || 'solo'].label} career · Season {career.season} · {division.name}</div>
+            <div className="career-title-row">
+              <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={46} />
+              <h1 className="display shell-title">{career.club.name}</h1>
+            </div>
+            <small className="career-rep">Manager: {repLabel(career.rep ?? REP_START)} · {career.rep ?? REP_START}</small>
           </div>
-          <span className="career-kit">
-            <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={52} />
-          </span>
         </header>
 
         <main className="shell-body career-body" ref={mainRef}>
@@ -460,7 +473,7 @@ export default function CareerScreen() {
               </button>
               <p className="muted t-note">{career.mode === 'online' || career.mode === 'lan'
                 ? 'Your friend plays the opposition and joins from their phone. The result saves to your career on this device.'
-                : `Computer level: ${division.difficulty}.`} Other clubs’ games play out by themselves.</p>
+                : `Computer level: ${career.difficulty && career.difficulty !== 'auto' ? career.difficulty : division.difficulty}.`} Other clubs’ games play out by themselves.</p>
             </section>
           )}
 
@@ -483,9 +496,13 @@ export default function CareerScreen() {
           )}
 
           {!tie && cupT && (
-            <p className="career-strip" role="status">
-              <Icon name="trophy" size={14} /> {CUP_NAME}: {cupT.championId === ME ? 'Winners this season!' : cupOut ? `Out in the ${cupOut === 'final' ? 'final' : cupOut === 'semi' ? 'semi-finals' : 'quarter-finals'}` : cupUpcoming ? `${cupRoundName(cupUpcoming.tie)} after league match ${cupUpcoming.opensAfter}` : 'waiting for the draw'}
-            </p>
+            <button className="career-strip career-cup-link" onClick={() => go('cup')}>
+              <Icon name="trophy" size={14} />
+              <span>{CUP_NAME}: {cupT.championId === ME ? 'Winners this season!' : cupOut ? `out in the ${cupOut === 'final' ? 'final' : cupOut === 'semi' ? 'semi-finals' : 'quarter-finals'}` : cupUpcoming
+                ? <>{cupRoundName(cupUpcoming.tie)} v <b>{teamById(cupT, cupUpcoming.tie.home === ME ? cupUpcoming.tie.away : cupUpcoming.tie.home)?.name || 'TBD'}</b> · after league matchday {cupUpcoming.opensAfter}</>
+                : 'waiting for the draw'}</span>
+              <span className="career-cup-more">View cup <Icon name="next" size={14} /></span>
+            </button>
           )}
 
           {career.target && !done && played > 0 && (
@@ -500,9 +517,10 @@ export default function CareerScreen() {
               { key: 'transfers', icon: 'next', title: 'Transfers', line: `${transferWindow(career) ? 'Window open' : 'Window shut'}${inboxOffers(career).length ? ` · ${inboxOffers(career).length} offer${inboxOffers(career).length === 1 ? '' : 's'}` : ''}` },
               { key: 'youth', icon: 'ball', title: 'Youth team', line: `${(career.youthTeam || []).length} player${(career.youthTeam || []).length === 1 ? '' : 's'}` },
               { key: 'club', icon: 'cpu', title: 'Club', line: `${money(career.coins)} · ${(career.biz?.fans ?? 0).toLocaleString('en-NG')} fans` },
-              { key: 'league', icon: 'trophy', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
+              { key: 'cup', icon: 'trophy', title: CUP_NAME, line: cupT?.championId === ME ? 'Winners!' : cupOut ? 'Knocked out' : tie ? `${cupRoundName(tie)} · ready to play` : cupUpcoming ? `${cupRoundName(cupUpcoming.tie)} · after matchday ${cupUpcoming.opensAfter}` : 'The draw' },
+              { key: 'league', icon: 'menu', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
               { key: 'history', icon: 'restart', title: 'History', line: `${career.past.length} season${career.past.length === 1 ? '' : 's'} · ${career.promotions} promotion${career.promotions === 1 ? '' : 's'}` },
-              { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, help, retire' },
+              { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, match time, difficulty' },
               ...(career.lastMatch ? [{ key: 'report', icon: 'ball', title: 'Last match', line: `${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.home)?.name || ''} ${career.lastMatch.result.home}–${career.lastMatch.result.away} ${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.away)?.name || ''}` }] : []),
             ].map((t) => (
               <button key={t.key} className="career-tile" onClick={() => go(t.key)}>
@@ -555,7 +573,8 @@ export default function CareerScreen() {
                 <SquadPanel career={career} show="transfers" />
               </>}
               {page === 'youth' && <SquadPanel career={career} show="youth" />}
-              {page === 'club' && <ClubPanel career={career} />}
+              {page === 'cup' && <CupPage career={career} myOvr={myOvr} onPlay={(t) => playCareerFixture(career, 'careerCup', t)} />}
+              {page === 'club' && <><BoardObjectives career={career} /><ClubPanel career={career} /></>}
               {page === 'league' && <>
           <section className="card card-pad">
             <h2 className="saved-h">{division.name} table</h2>
@@ -601,6 +620,24 @@ export default function CareerScreen() {
             </div>
             {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit team</button>}
           </section>
+                <section className="card card-pad" aria-label="Match settings">
+                  <h2 className="saved-h">Match settings</h2>
+                  <div className="eyebrow" style={{ margin: '8px 0' }}>Time per half</div>
+                  <div className="segmented stretch" role="group" aria-label="Time per half">
+                    {MATCH_DURATIONS.map((d) => (
+                      <button key={d} aria-pressed={career.matchDuration === d} onClick={() => { playButtonSelect(); useCareerStore.getState().setSettings({ matchDuration: d }) }}>{formatClock(d)}</button>
+                    ))}
+                  </div>
+                  <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Computer difficulty</div>
+                  <div className="segmented stretch" role="group" aria-label="Computer difficulty">
+                    {[['auto', 'By division'], ['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']].map(([k, label]) => (
+                      <button key={k} aria-pressed={(career.difficulty || 'auto') === k} onClick={() => { playButtonSelect(); useCareerStore.getState().setSettings({ difficulty: k }) }}>{label}</button>
+                    ))}
+                  </div>
+                  <p className="muted t-note">{(career.difficulty || 'auto') === 'auto'
+                    ? `By division: the computer gets harder as you climb (${division.difficulty} in the ${division.name}).`
+                    : `Every computer club plays at ${career.difficulty} level.`} Changes apply from your next match.</p>
+                </section>
                 <button className="btn btn-secondary btn-block" onClick={() => { playButtonSelect(); setGuide(true) }}><Icon name="help" size={16} /> How career mode works</button>
                 <button className="btn btn-ghost btn-block" onClick={() => { playButtonSelect(); setConfirmRetire(true) }}>Retire and start again</button>
               </>}
