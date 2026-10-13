@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { call, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
+import { call, callAds, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
 import { DIVISIONS } from '../game/divisions'
+import { DEFAULT_ADS, AD_MAX, ADS_MAX, cleanAds } from '../game/arenaAds'
 
 const SECTIONS = [
   { key: 'overview', label: 'Overview' },
@@ -8,6 +9,7 @@ const SECTIONS = [
   { key: 'tournaments', label: 'Tournaments' },
   { key: 'board', label: 'Leaderboard' },
   { key: 'matches', label: 'Play anytime' },
+  { key: 'ads', label: 'Arena boards' },
   { key: 'admins', label: 'Admins' },
 ]
 
@@ -79,6 +81,7 @@ export default function AdminApp() {
         {section === 'tournaments' && <Tournaments api={api} />}
         {section === 'board' && <Board api={api} />}
         {section === 'matches' && <Matches api={api} />}
+        {section === 'ads' && <ArenaBoards token={session.token} />}
         {section === 'admins' && <Admins api={api} me={me} />}
       </main>
     </div>
@@ -514,6 +517,73 @@ function Admins({ api, me }) {
               {!data.log.length && <li className="adm-muted">Nothing yet.</li>}
             </ul>
           </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+/* ── Arena boards ── */
+
+const toLines = (list) => list.join('\n')
+const fromLines = (text) => text.split('\n').map((x) => x.replace(/\s+/g, ' ').trim().toUpperCase()).filter(Boolean)
+
+/** One list of messages: a line each, checked as you type, with a preview strip. */
+function AdList({ label, hint, value, onChange, tone }) {
+  const lines = fromLines(value)
+  const long = lines.filter((x) => x.length > AD_MAX)
+  const tooMany = lines.length > ADS_MAX
+  return (
+    <div className="adm-card">
+      <h2>{label}</h2>
+      <p className="adm-muted">{hint} One message per line, up to {ADS_MAX} lines, {AD_MAX} characters each.</p>
+      <textarea className="adm-ads-input" rows={ADS_MAX} value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} spellCheck={false} />
+      {long.length > 0 && <p className="adm-error">Too long: {long.join(', ')}</p>}
+      {tooMany && <p className="adm-error">That’s {lines.length} lines; the most is {ADS_MAX}.</p>}
+      <div className="adm-led" data-tone={tone} aria-label={`${label} preview`}>
+        {(lines.length ? lines : ['—']).slice(0, ADS_MAX).map((x, i) => <span key={i}>{x.slice(0, AD_MAX)}</span>)}
+      </div>
+    </div>
+  )
+}
+
+function ArenaBoards({ token }) {
+  const { data, error, loading, reload } = useLoad(() => callAds(token, 'get'), [token])
+  const [boards, setBoards] = useState('')
+  const [ribbon, setRibbon] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (!data) return
+    const ads = cleanAds(data.ads)
+    setBoards(toLines(ads.boards))
+    setRibbon(toLines(ads.ribbon))
+  }, [data])
+  const b = fromLines(boards)
+  const r = fromLines(ribbon)
+  const valid = (l) => l.length >= 1 && l.length <= ADS_MAX && l.every((x) => x.length <= AD_MAX)
+  const run = async (action, payload, done) => {
+    setBusy(true)
+    setNote('')
+    try { await callAds(token, action, payload); setNote(done); reload() } catch (e) { setNote(messageFor(e)) } finally { setBusy(false) }
+  }
+  return (
+    <section aria-label="Arena boards">
+      <div className="adm-head">
+        <h1>Arena boards</h1>
+        <div className="adm-tools">
+          <button className="adm-btn" disabled={busy || !data?.ads} onClick={() => run('reset', {}, 'Back to the built-in boards.')}>Use built-in text</button>
+          <button className="adm-btn adm-btn-gold" disabled={busy || !valid(b) || !valid(r)} onClick={() => run('set', { boards: b, ribbon: r }, 'Saved. Players see it next time they open the game.')}>Save</button>
+        </div>
+      </div>
+      <p className="adm-muted">The text on the screens in Cap Arena, the top-division stadium. {data?.updatedAt ? `Last changed ${when(data.updatedAt)}.` : 'Showing the built-in text.'}</p>
+      {note && <p className="adm-note" role="status">{note}</p>}
+      <Status loading={loading && !data} error={error} reload={reload} />
+      {data && (
+        <>
+          <AdList label="Boards round the table" hint="The LED boards right next to the table, seen in every view." value={boards} onChange={setBoards} tone="gold" />
+          <AdList label="Balcony ribbon" hint="The long screen that runs round the stands between the two tiers." value={ribbon} onChange={setRibbon} tone="white" />
+          <p className="adm-muted">Built-in boards: {DEFAULT_ADS.boards.join(' · ')}</p>
         </>
       )}
     </section>

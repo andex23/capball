@@ -21,6 +21,9 @@ export const MESSAGES = {
   'not-yourself': 'You can’t remove your own login.',
   'player-in-matches': 'This player is in Play anytime matches, so the account can’t be deleted. Sign them out instead.',
   'tournament-in-use': 'This tournament has Play anytime matches. Close it instead.',
+  'ad-too-long': 'Each board message can be at most 24 characters.',
+  'bad-ads': 'Each list needs 1 to 8 messages.',
+  'ads-missing': 'The ad boards aren’t set up yet. Run supabase/arena-ads.sql in Supabase, then reload.',
   'bad-action': 'The admin database is out of date. Run supabase/admin.sql again.',
   missing: 'The admin database isn’t set up yet. Run supabase/admin.sql in Supabase, then reload.',
   offline: 'You’re offline. Check your connection.',
@@ -29,6 +32,7 @@ export const MESSAGES = {
 export function messageFor(error) {
   const code = error?.code || ''
   if (MESSAGES[code]) return MESSAGES[code]
+  if (/cb_admin_ads|cb_arena_ads/i.test(`${code} ${error?.message}`)) return MESSAGES['ads-missing']
   if (/cb_admin|PGRST202|http-404|schema cache/i.test(`${code} ${error?.message}`)) return MESSAGES.missing
   return error?.message || 'Something went wrong.'
 }
@@ -54,6 +58,7 @@ export const setup = (email, password) => rpc('cb_admin_setup', { p_email: email
 export const login = (email, password) => rpc('cb_admin_login', { p_email: email, p_password: password }).then(fail)
 export const logout = (token) => rpc('cb_admin_logout', { p_token: token }).catch(() => null)
 export const call = (token, action, data = {}) => rpc('cb_admin', { p_token: token, p_action: action, p_data: data })
+export const callAds = (token, action, data = {}) => rpc('cb_admin_ads', { p_token: token, p_action: action, p_data: data })
 
 /** What a player's save says about them (their game's own localStorage, copied up). */
 export function summariseSave(save) {

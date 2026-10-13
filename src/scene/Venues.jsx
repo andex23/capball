@@ -9,10 +9,11 @@
  * Simple geometry and small canvas textures made once per venue, with
  * repeated pieces instanced, so it stays light enough for phones.
  */
-import { useMemo, useLayoutEffect, useRef, useEffect } from 'react'
+import { useMemo, useLayoutEffect, useRef, useEffect, useState } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useMatchStore, PHASE } from '../state/MatchStore'
 import { resolveFinish, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
+import { cachedAds, fetchAds } from '../game/arenaAds'
 import * as THREE from 'three'
 
 /* ── Small helpers ───────────────────────────────────── */
@@ -1739,8 +1740,12 @@ function CapArenaRoom() {
   const crowd = useMemo(() => arenaCrowd({ home, away, homeEnd }), [home, away, homeEnd])
   const rows = useMemo(arenaRows, [])
   const stands = useMemo(() => arenaStands(rows), [rows])
-  const boards = useMemo(() => ledTexture(['COUNTERBALL', 'CAP CUP', 'FLICK IT', 'NAIJA FIZZ', 'EKO MOBILE', 'JOLLOF KINGS']), [])
-  const ribbon = useMemo(() => ledTexture(['PREMIER CAP LEAGUE', 'CAP ARENA', 'LIVE ON CAPTV', 'NAIJA FIZZ', 'COUNTERBALL', 'EKO MOBILE'], { fg: '#ffffff', alt: ARENA_ACCENT, w: 2048, h: 64 }), [])
+  // The ad text is set from the admin console; the last copy seen is used until it loads
+  const [ads, setAds] = useState(cachedAds)
+  useEffect(() => { let live = true; fetchAds().then((a) => { if (live) setAds(a) }); return () => { live = false } }, [])
+  const boards = useMemo(() => ledTexture(ads.boards), [ads.boards])
+  const ribbon = useMemo(() => ledTexture(ads.ribbon, { fg: '#ffffff', alt: ARENA_ACCENT, w: 2048, h: 64 }), [ads.ribbon])
+  useEffect(() => () => { boards.dispose(); ribbon.dispose() }, [boards, ribbon])
   const homeBanner = useMemo(() => bannerTexture(home), [home])
   const awayBanner = useMemo(() => bannerTexture(away), [away])
   const screen = useScoreScreen(home, away)
