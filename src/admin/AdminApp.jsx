@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { call, callAds, callHelp, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
+import { call, callAds, callCaps, callHelp, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
 import { DIVISIONS } from '../game/divisions'
 import { DEFAULT_ADS, AD_MAX, ADS_MAX, cleanAds } from '../game/arenaAds'
+import { CAP_DESIGNS } from '../data/TeamOptions'
+import { cleanCapOverrides } from '../game/capOverrides'
+import { capArtUrl, setCapLabels, loadArtFonts } from '../game/capArt'
 
 const SECTIONS = [
   { key: 'overview', label: 'Overview' },
@@ -10,6 +13,7 @@ const SECTIONS = [
   { key: 'tournaments', label: 'Tournaments' },
   { key: 'board', label: 'Leaderboard' },
   { key: 'matches', label: 'Play anytime' },
+  { key: 'caps', label: 'Ready-made caps' },
   { key: 'ads', label: 'Arena boards' },
   { key: 'admins', label: 'Admins' },
 ]
@@ -85,6 +89,7 @@ export default function AdminApp() {
         {section === 'tournaments' && <Tournaments api={api} />}
         {section === 'board' && <Board api={api} />}
         {section === 'matches' && <Matches api={api} />}
+        {section === 'caps' && <ReadyCaps token={session.token} />}
         {section === 'ads' && <ArenaBoards token={session.token} />}
         {section === 'admins' && <Admins api={api} me={me} />}
       </main>
@@ -655,6 +660,66 @@ function HelpRequests({ token, api }) {
         </ul>
       )}
       {open && <PlayerSheet api={api} id={open} onClose={() => setOpen(null)} onChanged={reload} />}
+    </section>
+  )
+}
+
+/* ── Ready-made caps ── */
+
+// The built-in words on each cap's artwork: the big word and (some caps) a small line
+const BUILT_IN_WORDS = {
+  cola: ['Cola'], greenlager: ['LAGER'], redlager: ['EXTRA'], stout: ['STOUT'], malta: ['MALTA'], orange: ['ORANGE'],
+  lemon: ['Lemon', '+ LIME'], bitter: ['BITTER', 'LEMON'], ginger: ['GINGER', 'ALE'], tonic: ['TONIC', 'WATER'],
+  harmattan: ['HARMATTAN', 'DRY SEASON LAGER'], lagoon: ['Suncity'],
+}
+
+function ReadyCaps({ token }) {
+  const { data, error, loading, reload } = useLoad(() => callCaps(token, 'get'), [token])
+  const [draft, setDraft] = useState({})
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [, setFonts] = useState(0)
+  useEffect(() => { loadArtFonts().then(() => setFonts((n) => n + 1)) }, [])
+  useEffect(() => { if (data) setDraft(cleanCapOverrides(data.caps)) }, [data])
+  // Draw the previews with the words as typed
+  setCapLabels(Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, { main: v.main, sub: v.sub }])))
+  const edit = (key, field, value) => setDraft((d) => ({ ...d, [key]: { ...d[key], [field]: value } }))
+  const save = async () => {
+    setBusy(true)
+    setNote('')
+    try { await callCaps(token, 'set', { caps: draft }); setNote('Saved. Players see the changes next time they open the game.'); reload() } catch (e) { setNote(messageFor(e)) } finally { setBusy(false) }
+  }
+  return (
+    <section aria-label="Ready-made caps">
+      <div className="adm-head">
+        <h1>Ready-made caps</h1>
+        <div className="adm-tools">
+          <button className="adm-btn" disabled={busy || !Object.keys(draft).length} onClick={() => setDraft({})}>Clear all changes</button>
+          <button className="adm-btn adm-btn-gold" disabled={busy || !data} onClick={save}>Save</button>
+        </div>
+      </div>
+      <p className="adm-muted">Rename any ready-made cap, change the words printed on it, or hide it from the list. Leave a box empty to keep the built-in text. {data?.updatedAt ? `Last saved ${when(data.updatedAt)}.` : ''}</p>
+      {note && <p className="adm-note" role="status">{note}</p>}
+      <Status loading={loading && !data} error={error} reload={reload} />
+      {data && (
+        <ul className="adm-caps">
+          {CAP_DESIGNS.map((d) => {
+            const o = draft[d.key] || {}
+            const words = BUILT_IN_WORDS[d.key] || []
+            return (
+              <li key={d.key} className="adm-card" data-hidden={o.hidden ? 'true' : undefined}>
+                <img src={capArtUrl(d.key, null, 160) || ''} alt="" width={80} height={80} className="adm-cap-art" />
+                <div className="adm-cap-fields">
+                  <label>Name in the list<input value={o.name || ''} placeholder={d.name} maxLength={20} onChange={(e) => edit(d.key, 'name', e.target.value)} /></label>
+                  {words[0] && <label>Big word on the cap<input value={o.main || ''} placeholder={words[0]} maxLength={16} onChange={(e) => edit(d.key, 'main', e.target.value)} /></label>}
+                  {words[1] && <label>Small line<input value={o.sub || ''} placeholder={words[1]} maxLength={22} onChange={(e) => edit(d.key, 'sub', e.target.value)} /></label>}
+                  <label className="adm-check"><input type="checkbox" checked={!!o.hidden} onChange={(e) => edit(d.key, 'hidden', e.target.checked)} /> Hide from players</label>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }
