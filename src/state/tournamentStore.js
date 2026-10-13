@@ -473,8 +473,13 @@ export const useTournamentStore = create((set, get) => ({
    * posts its code; the away side joins it from the hub.
    */
   async hostLiveFixture(fixture) {
+    if (!get().online) return
+    // The opponent may have changed their kit since this hub last loaded:
+    // play with the latest teams (or what we have, if that fails)
+    set({ busy: true })
+    try { await get().openOnline(get().online.code, { quiet: true }) } catch { /* keep the copy we have */ }
     const { online } = get()
-    if (!online) return
+    if (!online?.tournament) { set({ busy: false }); return }
     const t = online.tournament
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
