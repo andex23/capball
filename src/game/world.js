@@ -287,7 +287,7 @@ export function settleClub(world, clubId, rng) {
  * close) and who can afford him. Up to three offers, best first, the same for
  * the whole window.
  */
-export function buyersFor(world, p, seed) {
+export function buyersFor(world, p, seed, { listed = false } = {}) {
   const hp = hydrate(p)
   const value = priceOf(hp)
   const rng = seededRng(`offers:${seed}:${p.id}`)
@@ -297,7 +297,8 @@ export function buyersFor(world, p, seed) {
     const six = bestSix(c.players)
     const same = CAP_ROLES.filter((r) => (r === 'gk') === keeper && six[r]).map((r) => ovrAt(six[r], r))
     const weakest = same.length ? Math.min(...same) : 0
-    return hp.rating >= weakest - 2 && budgetOf(c) >= value * 0.7
+    // A transfer-listed player draws interest from clubs he'd only be a squad player at
+    return hp.rating >= weakest - (listed ? 7 : 2) && budgetOf(c) >= value * (listed ? 0.5 : 0.7)
   })
   const shuffled = fits.map((c) => ({ c, k: rng() })).sort((a, b) => a.k - b.k).map((x) => x.c)
   return shuffled.slice(0, 3)

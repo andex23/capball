@@ -132,3 +132,48 @@ describe('scouting and awards', () => {
 it('contracts tick on players you keep', () => {
   expect(contractOf({})).toBe(2)
 })
+
+describe('managing a player: contract talks, training, transfer list', () => {
+  it('a low offer is turned down with what he wants; a fair one signs; three tries a season', async () => {
+    const { negotiateContract, contractDemand } = await import('../game/clubLife')
+    const c = newCareer(club, { now: 20 })
+    const p = c.squad.mid
+    const d = contractDemand(c, p, 3)
+    const low = negotiateContract(c, 'mid', 3, 1)
+    expect(low.error).toBeTruthy()
+    expect(low.wants).toBe(d.wageX)
+    let x = low.career
+    x = negotiateContract(x, 'mid', 3, 1).career
+    const third = negotiateContract(x, 'mid', 3, 1)
+    expect(third.error).toMatch(/enough/)
+    expect(negotiateContract(third.career, 'mid', 3, d.wageX).error).toMatch(/until the summer/)
+    const ok = negotiateContract(c, 'mid', 3, d.wageX)
+    expect(ok.squad.mid.contract).toBe(3)
+    expect(ok.squad.mid.wageX).toBe(d.wageX)
+    // A length he doesn't want costs more
+    const best = renewTerms(c, p).years
+    expect(contractDemand(c, p, best === 5 ? 1 : 5).wageX).toBeGreaterThan(contractDemand(c, p, best).wageX)
+  })
+
+  it('training focus steers growth; rest speeds recovery; listing brings more offers', async () => {
+    const { setTraining, setListed, afterMatch, fitnessOf } = await import('../game/clubLife')
+    const { shiftOvr } = await import('../game/squad')
+    const { offersFor } = await import('../game/transfers')
+    const { seededRng } = await import('../game/tournament')
+    let c = newCareer(club, { now: 21 })
+    c = setTraining(c, 'atk1', 'phy')
+    expect(c.squad.atk1.focus).toBe('phy')
+    const grown = shiftOvr(c.squad.atk1, 4, seededRng('g'))
+    expect(grown.attrs.phy - c.squad.atk1.attrs.phy).toBeGreaterThan(0)
+    c = setTraining(c, 'bench:0', 'rest')
+    const tired = { ...c, bench: c.bench.map((p, i) => (i === 0 ? { ...p, fit: 50 } : i === 1 ? { ...p, fit: 50 } : p)) }
+    const after = afterMatch(tired, [])
+    expect(fitnessOf(after.bench[0])).toBeGreaterThan(fitnessOf(after.bench[1]))
+    const before = offersFor(c, 'reserve:0').length
+    void before
+    const listed = setListed(c, 'atk1', true)
+    expect(listed.squad.atk1.listed).toBe(true)
+    expect(offersFor(listed, 'atk1').length).toBeGreaterThanOrEqual(offersFor(c, 'atk1').length)
+    expect(sanitizeCareer(JSON.parse(JSON.stringify(listed))).squad.atk1).toMatchObject({ listed: true, focus: 'phy' })
+  })
+})

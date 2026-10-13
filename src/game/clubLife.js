@@ -67,6 +67,63 @@ export function renewContract(career, slot) {
   return putInSlot(career, slot, { ...p, contract: t.years, ...(t.wageX > 1 ? { wageX: t.wageX } : {}) })
 }
 
+/**
+ * Negotiate a contract: you offer `years` and a wage (× his base wage). He
+ * wants his asking rise for his preferred length (renewTerms); every season
+ * off that length adds 5% to what he wants. Three offers a season, then he
+ * stops talking until the summer. Returns the career (deal done) or
+ * { error, wants } with the wage he would take for those years.
+ */
+export const MAX_CONTRACT_TALKS = 3
+export function contractDemand(career, p, years) {
+  const t = renewTerms(career, p)
+  if (!t.ok) return t
+  const off = Math.abs(years - t.years)
+  return { ok: true, years, wageX: Math.round(t.wageX * (1 + 0.05 * off) * 100) / 100 }
+}
+
+export function negotiateContract(career, slot, years, wageX) {
+  const p = inSlot(career, slot)
+  if (!p) return { error: 'No one there.' }
+  if (!Number.isInteger(years) || years < 1 || years > 5) return { error: 'Offer between one and five seasons.' }
+  const tries = p.talks?.season === career.season ? p.talks.tries : 0
+  if (tries >= MAX_CONTRACT_TALKS) return { error: `${p.name} won’t talk about a new deal again until the summer.` }
+  const d = contractDemand(career, p, years)
+  if (!d.ok) return { error: d.why }
+  const offered = Math.round(Math.max(1, wageX) * 100) / 100
+  if (offered + 0.001 < d.wageX) {
+    const next = putInSlot(career, slot, { ...p, talks: { season: career.season, tries: tries + 1 } })
+    return { error: tries + 1 >= MAX_CONTRACT_TALKS ? `${p.name} has had enough of talking; try again after the summer.` : `${p.name} wants more for ${years} season${years === 1 ? '' : 's'}.`, wants: d.wageX, career: next }
+  }
+  const signed = { ...p, contract: years, ...(offered > 1 ? { wageX: offered } : {}) }
+  delete signed.talks
+  return putInSlot(career, slot, signed)
+}
+
+/* ── Training ── */
+
+/** What a player works on in training: growth goes there first; Rest helps a tired player recover. */
+export const TRAINING_FOCUS = ['balanced', 'pwr', 'sht', 'pas', 'phy', 'rest']
+export const FOCUS_LABEL = { balanced: 'Balanced', pwr: 'Power', sht: 'Shooting', pas: 'Passing', phy: 'Physical', rest: 'Rest' }
+export function setTraining(career, slot, focus) {
+  const p = inSlot(career, slot)
+  if (!p || !TRAINING_FOCUS.includes(focus)) return { error: 'That can’t be done.' }
+  const q = { ...p, focus }
+  if (focus === 'balanced') delete q.focus
+  return putInSlot(career, slot, q)
+}
+
+/* ── The transfer list ── */
+
+/** Put a player on (or take him off) the transfer list: clubs come in for him more readily. */
+export function setListed(career, slot, listed) {
+  const p = inSlot(career, slot)
+  if (!p) return { error: 'No one there.' }
+  const q = { ...p, listed: !!listed }
+  if (!listed) delete q.listed
+  return putInSlot(career, slot, q)
+}
+
 /* ── Fitness ── */
 
 export const fitnessOf = (p) => (Number.isFinite(p?.fit) ? p.fit : 100)
@@ -82,7 +139,7 @@ export function matchAttrs(p) {
 export function afterMatch(career, playedIds) {
   const played = new Set(playedIds)
   return mapPlayers(career, (p) => {
-    const q = { ...p, fit: played.has(p.id) ? Math.max(40, fitnessOf(p) - 14) : Math.min(100, fitnessOf(p) + 20) }
+    const q = { ...p, fit: played.has(p.id) ? Math.max(40, fitnessOf(p) - 14) : Math.min(100, fitnessOf(p) + (p.focus === 'rest' ? 35 : 20)) }
     if (q.fit >= 100) delete q.fit
     return q
   })
@@ -170,10 +227,10 @@ export function inboxOffers(career) {
   const rows = []
   for (const { slot, player: p } of allSlots(career)) {
     if (turned.includes(p.id)) continue
-    if (!p.wantsAway && p.rating < ten + 3) continue
+    if (!p.wantsAway && !p.listed && p.rating < ten + 3) continue
     const best = offersFor(career, slot)[0]
     if (!best) continue
-    if (!p.wantsAway && best.fee < priceOf(p) * 0.85) continue
+    if (!p.wantsAway && !p.listed && best.fee < priceOf(p) * 0.85) continue
     rows.push({ slot, player: p, offer: best })
   }
   return rows.sort((a, b) => b.offer.fee - a.offer.fee).slice(0, 3)

@@ -185,7 +185,7 @@ export function offersFor(career, slot) {
   const win = transferWindow(career)
   const p = inSlot(career, slot)
   if (!win || !p) return []
-  return buyersFor(career.world, compact(p), `${career.league.id}:${win.key}`)
+  return buyersFor(career.world, compact(p), `${career.league.id}:${win.key}`, { listed: !!p.listed })
 }
 
 /** Accept a club's offer (from offersFor). Returns the new career, or { error }. */

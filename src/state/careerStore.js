@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets } from '../game/career'
 import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
-import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY } from '../game/clubLife'
+import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
 import { allFixtures } from '../game/tournament'
 import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
@@ -220,6 +220,21 @@ export const useCareerStore = create((set, get) => ({
   loan(slot) { return get()._move(loanOut, slot) },
   promoteYouth(index) { return get()._move(promoteYouth, index) },
   renew(slot) { return get()._move(renewContract, slot) },
+  train(slot, focus) { return get()._move(setTraining, slot, focus) },
+  list(slot, listed) { return get()._move(setListed, slot, listed) },
+  /** Offer a contract: true when he signs, else { error, wants } (the tries still count). */
+  negotiate(slot, years, wageX) {
+    const { career } = get()
+    if (!career) return { error: 'No career.' }
+    const r = negotiateContract(career, slot, years, wageX)
+    const next = r && !r.error ? r : r?.career
+    if (next) {
+      save(next)
+      set({ career: next })
+      useAccountStore.getState().save({ force: true })
+    }
+    return r && !r.error ? true : { error: r?.error || 'That can’t be done.', wants: r?.wants }
+  },
   scout(playerId) { return get()._move(scoutPlayer, playerId) },
   rejectOffer(playerId) { return get()._move(rejectOffer, playerId) },
   releaseYouth(index) { return get()._move(releaseYouth, index) },

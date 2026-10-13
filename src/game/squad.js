@@ -303,6 +303,8 @@ export function shiftOvr(p, steps, rng = Math.random, declining = false) {
   const w = WEIGHTS[p.pos] || WEIGHTS.MID
   // Growth goes where the position needs it; old age takes physique and power first
   const order = declining ? ['phy', 'pwr', 'sht', 'pas'] : [...ATTRS].sort((a, b) => w[b] - w[a])
+  // Training focus: growth goes into the chosen attribute first
+  if (!declining && ATTRS.includes(p.focus)) order.splice(order.indexOf(p.focus), 1), order.unshift(p.focus)
   const attrs = { ...p.attrs }
   const target = clamp99(ovrOf(attrs, p.pos) + steps)
   for (let i = 0; i < 60 && ovrOf(attrs, p.pos) !== target; i++) {
@@ -528,11 +530,14 @@ export function sanitizePlayer(raw, role) {
       apps: Math.floor(n(p.apps)), goals: Math.floor(n(p.goals)), ratingSum: n(p.ratingSum),
       form: Array.isArray(p.form) ? p.form.filter((x) => Number.isFinite(x) && x >= 0 && x <= 10).slice(-5) : [],
       xp: Number.isFinite(p.xp) ? Math.max(-3, Math.min(5, p.xp)) : 0,
-      ...(Number.isFinite(p.wageX) && p.wageX > 1 ? { wageX: Math.min(10, Math.round(p.wageX * 10) / 10) } : {}),
+      ...(Number.isFinite(p.wageX) && p.wageX > 1 ? { wageX: Math.min(10, Math.round(p.wageX * 100) / 100) } : {}),
       // Your players only: seasons left on his contract, fitness, unhappiness
       ...(Number.isInteger(p.contract) ? { contract: Math.max(0, Math.min(6, p.contract)) } : {}),
       ...(Number.isFinite(p.fit) && p.fit < 100 ? { fit: Math.max(30, Math.round(p.fit)) } : {}),
       ...(p.wantsAway === true ? { wantsAway: true } : {}),
+      ...(['pwr', 'sht', 'pas', 'phy', 'rest'].includes(p.focus) ? { focus: p.focus } : {}),
+      ...(p.listed === true ? { listed: true } : {}),
+      ...(p.talks && Number.isInteger(p.talks.season) && Number.isInteger(p.talks.tries) ? { talks: { season: p.talks.season, tries: Math.max(0, Math.min(3, p.talks.tries)) } } : {}),
     }
 }
 
