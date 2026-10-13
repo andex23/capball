@@ -111,10 +111,10 @@ export const book = (club, entries) => {
 
 /** A player's wage per match (units), rising with his value like real wages (a season's wages ≈ two-thirds of his fee). */
 // `wageX`: a player who dropped divisions to join you is on higher wages
-export const wageOf = (p) => Math.max(1, Math.round((priceOf(p) / 20) * (p?.wageX > 1 ? p.wageX : 1)))
+export const wageOf = (p) => Math.max(1, Math.round((priceOf(p) / 20) * (p?.wageX > 1 ? p.wageX : 1) * 10) / 10)
 
 /** The whole squad's wage bill per match (starters, bench and reserves). */
-export const wageBill = (squad, bench = [], reserves = []) => [...Object.values(squad || {}), ...(bench || []), ...(reserves || [])].reduce((a, p) => a + (p ? wageOf(p) : 0), 0)
+export const wageBill = (squad, bench = [], reserves = []) => Math.round([...Object.values(squad || {}), ...(bench || []), ...(reserves || [])].reduce((a, p) => a + (p ? wageOf(p) : 0), 0))
 
 /* ── Match day ── */
 
