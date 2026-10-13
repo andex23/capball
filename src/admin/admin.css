@@ -1,0 +1,125 @@
+/* Counterball admin: the game's navy and gold, as a plain back office. */
+:root {
+  --bg: #060913;
+  --panel: #0d1325;
+  --panel-2: #141c33;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.18);
+  --text: #eef2fa;
+  --text-2: #a8b2cc;
+  --text-3: #6f7a98;
+  --gold: #ffc83d;
+  --gold-ink: #1b1400;
+  --good: #34d27b;
+  --bad: #ff5468;
+  --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--ui); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.adm { min-height: 100vh; display: grid; grid-template-columns: 200px minmax(0, 1fr); grid-template-rows: auto 1fr; }
+.adm-top { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.adm-brand { display: flex; align-items: center; gap: 10px; font: 800 22px/1 var(--display); letter-spacing: 0.01em; }
+.adm-brand span:last-child { color: var(--gold); font-weight: 700; }
+/* A bottle cap, seen from above */
+.adm-mark { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, var(--gold) 0 46%, #b8891c 47% 60%, transparent 61%), repeating-conic-gradient(#b8891c 0 10deg, transparent 10deg 20deg); }
+.adm-who { display: flex; align-items: center; gap: 14px; color: var(--text-2); }
+.adm-link { background: none; border: 0; padding: 0; color: var(--gold); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+.adm-nav { display: flex; flex-direction: column; gap: 2px; padding: 16px 12px; border-right: 1px solid var(--line); }
+.adm-nav button { text-align: left; background: none; border: 0; border-radius: 8px; padding: 9px 12px; color: var(--text-2); cursor: pointer; }
+.adm-nav button:hover { background: var(--panel-2); color: var(--text); }
+.adm-nav button[aria-current='page'] { background: var(--panel-2); color: var(--text); box-shadow: inset 3px 0 0 var(--gold); }
+
+.adm-main { padding: 24px; min-width: 0; max-width: 1180px; }
+.adm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.adm-head h1, .adm-head h2 { margin: 0; font: 800 30px/1.05 var(--display); }
+.adm-head h2 { font-size: 26px; }
+.adm-count { margin-left: 6px; color: var(--text-3); font-weight: 700; }
+.adm-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.adm-card h2, .adm-sheet h3 { margin: 0 0 10px; font: 700 19px/1.2 var(--display); }
+.adm-sheet h3 { margin-top: 22px; }
+
+input, select { background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+input[type='search'] { width: 220px; }
+
+.adm-btn { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+.adm-btn:hover:not(:disabled) { border-color: var(--text-2); }
+.adm-btn:disabled { opacity: 0.45; cursor: default; }
+.adm-btn-gold { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); font-weight: 600; }
+.adm-btn-bad { border-color: var(--bad); color: var(--bad); }
+
+.adm-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.adm-muted { color: var(--text-3); }
+.adm-error { color: var(--bad); margin: 8px 0; }
+.adm-note { color: var(--good); margin: 8px 0; }
+.adm-tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 600; background: rgba(255, 200, 61, 0.14); color: var(--gold); vertical-align: 1px; }
+.adm-tag-dim, .adm-tag[data-tone='complete'] { background: rgba(255, 255, 255, 0.08); color: var(--text-2); }
+.adm-tag[data-tone='active'] { background: rgba(52, 210, 123, 0.14); color: var(--good); }
+
+/* Overview: scoreboard-style numbers */
+.adm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.adm-tile { display: grid; gap: 2px; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; cursor: pointer; }
+.adm-tile:disabled { cursor: default; }
+.adm-tile:hover:not(:disabled) { border-color: var(--line-2); }
+.adm-tile-n { font: 800 40px/1 var(--display); font-variant-numeric: tabular-nums; }
+.adm-tile-l { color: var(--text-2); }
+.adm-tile small { color: var(--text-3); }
+.adm-bars { display: grid; grid-template-columns: repeat(14, 1fr); gap: 6px; align-items: end; height: 160px; }
+.adm-bar { display: grid; grid-template-rows: auto 1fr auto; height: 100%; text-align: center; gap: 4px; }
+.adm-bar-n { font-size: 11px; color: var(--text-2); min-height: 14px; }
+.adm-bar-fill { align-self: end; background: var(--gold); border-radius: 4px 4px 0 0; min-height: 2px; }
+.adm-bar-d { font-size: 11px; color: var(--text-3); }
+
+/* Tables */
+.adm-table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.adm-table { width: 100%; border-collapse: collapse; }
+.adm-table th { text-align: left; font-weight: 600; color: var(--text-3); font-size: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.adm-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.adm-table tr:last-child td { border-bottom: 0; }
+.adm-table tbody tr[tabindex] { cursor: pointer; }
+.adm-table tbody tr[tabindex]:hover { background: var(--panel-2); }
+.adm-table code { font-weight: 600; letter-spacing: 0.06em; }
+.adm-actions { text-align: right; }
+.adm-actions .adm-btn + .adm-btn { margin-left: 6px; }
+.adm-pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; color: var(--text-2); }
+
+/* Player sheet */
+.adm-sheet-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; justify-content: flex-end; z-index: 10; }
+.adm-sheet { width: min(520px, 100%); height: 100%; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line-2); padding: 20px; }
+.adm-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.adm-facts dt { color: var(--text-3); }
+.adm-facts dd { margin: 0; }
+.adm-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.adm-row input { flex: 1 1 180px; }
+.adm-raw { margin-top: 22px; color: var(--text-2); }
+.adm-raw pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; background: var(--bg); padding: 10px; border-radius: 8px; }
+
+.adm-list, .adm-log { list-style: none; margin: 0 0 12px; padding: 0; }
+.adm-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.adm-log li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+
+/* Sign in */
+.adm-signin { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.adm-signin-card { width: min(380px, 100%); display: grid; gap: 12px; }
+.adm-signin-card label { display: grid; gap: 4px; color: var(--text-2); }
+.adm-signin-card .adm-btn { padding: 10px; }
+
+@media (max-width: 760px) {
+  .adm { grid-template-columns: minmax(0, 1fr); }
+  .adm-top { padding: 12px 16px; }
+  .adm-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px 16px; }
+  .adm-nav button { white-space: nowrap; }
+  .adm-nav button[aria-current='page'] { box-shadow: inset 0 -3px 0 var(--gold); }
+  .adm-main { padding: 16px; }
+  .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adm-tile-n { font-size: 32px; }
+  input[type='search'] { width: 100%; }
+  .adm-tools { width: 100%; }
+  .adm-tools input { flex: 1; }
+  .adm-who span { display: none; }
+}

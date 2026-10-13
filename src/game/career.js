@@ -7,6 +7,7 @@
  *
  * Pure functions over plain JSON, built on the league engine in tournament.js.
  */
+import { isFinish } from '../data/StadiumData'
 import { DIVISIONS } from './divisions'
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
 import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, TICKETS } from './club'
@@ -268,6 +269,12 @@ export function buildFacility(career, kind) {
 export function setTickets(career, ticket) {
   if (!Object.hasOwn(TICKETS, ticket)) return null
   return { ...career, biz: { ...career.biz, ticket } }
+}
+
+/** Top division only: pick the pro table your home matches at Cap Arena are played on. */
+export function setTableFinish(career, finish) {
+  if (career.level !== TOP || !isFinish(finish)) return null
+  return { ...career, biz: { ...career.biz, finish } }
 }
 
 /** Your club's next match, or null when your season is done. */

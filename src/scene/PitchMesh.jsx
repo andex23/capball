@@ -2,7 +2,7 @@ import { useMemo, useEffect } from 'react'
 import * as THREE from 'three'
 import { PITCH } from '../data/TeamData'
 import { useMatchStore } from '../state/MatchStore'
-import { STADIUMS, surfaceFor } from '../data/StadiumData'
+import { STADIUMS, surfaceFor, withFinish, resolveFinish, isFinish } from '../data/StadiumData'
 
 // A cylinder connecting two 3D points (for sloped goal bars)
 function SlopeBar({ from, to, radius, matProps }) {
@@ -346,8 +346,14 @@ function createPitchTexture(stadiumConfig) {
 export default function PitchMesh() {
   const stadiumId = useMatchStore((s) => s.stadium)
   const pitchStyle = useMatchStore((s) => s.pitchStyle)
+  const finishId = useMatchStore((s) => s.tableFinish)
+  const homeKit = useMatchStore((s) => s.teamConfig?.team1)
   const venue = STADIUMS[stadiumId] || STADIUMS.arena
-  const sc = useMemo(() => surfaceFor(venue, pitchStyle), [venue, pitchStyle])
+  const sc = useMemo(() => {
+    // Cap Arena: the home club's pro table finish
+    const finish = stadiumId === 'capArena' && isFinish(finishId) ? resolveFinish(finishId, homeKit) : null
+    return surfaceFor(withFinish(venue, finish), pitchStyle)
+  }, [venue, pitchStyle, stadiumId, finishId, homeKit])
   const texture = useMemo(() => createPitchTexture(sc), [sc])
   useEffect(() => () => texture.dispose(), [texture])
 

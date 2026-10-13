@@ -12,13 +12,13 @@ import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from
 import { registerRoute, NavigationRoute } from 'workbox-routing'
 import { createPartialResponse } from 'workbox-range-requests'
 import { clientsClaim } from 'workbox-core'
-import { MEDIA_CACHE, MEDIA_PATHS, FILE_NAVIGATION, isMediaRequest } from './pwa/swRoutes'
+import { MEDIA_CACHE, MEDIA_PATHS, FILE_NAVIGATION, ADMIN_NAVIGATION, isMediaRequest } from './pwa/swRoutes'
 
 precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
 
 // SPA: in-app navigations (including invite links like /?room=ABC123) get the cached shell
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [FILE_NAVIGATION] }))
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [FILE_NAVIGATION, ADMIN_NAVIGATION] }))
 
 /**
  * Cache-first for the menu media. <audio> asks for byte ranges and a 206 can't be

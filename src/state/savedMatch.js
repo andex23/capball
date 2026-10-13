@@ -20,7 +20,7 @@ const HISTORY_MAX = 20
 
 // Everything about the match set-up and its progress that a save brings back
 const MATCH_FIELDS = [
-  'gameMode', 'aiTeam', 'aiDifficulty', 'teamConfig', 'ballColor', 'stadium', 'formations',
+  'gameMode', 'aiTeam', 'aiDifficulty', 'teamConfig', 'ballColor', 'stadium', 'tableFinish', 'formations',
   'matchDuration', 'goalTarget', 'shotClock', 'timeRemaining', 'half', 'extraTime', 'firstHalfKicker',
   'team1Side', 'chosenTeam1Side', 'score', 'stats', 'activeTeam', 'lastScorer',
 ]

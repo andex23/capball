@@ -10,7 +10,9 @@
  * repeated pieces instanced, so it stays light enough for phones.
  */
 import { useMemo, useLayoutEffect, useRef, useEffect } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useThree, useFrame } from '@react-three/fiber'
+import { useMatchStore, PHASE } from '../state/MatchStore'
+import { resolveFinish, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import * as THREE from 'three'
 
 /* ── Small helpers ───────────────────────────────────── */
@@ -1402,119 +1404,500 @@ function BeachTowel() {
 
 
 /* ── Cap Arena: the career top tier ───────────────── */
+// A televised final, like a darts or snooker arena: the pro table alone in a
+// pool of light on a low stage, LED boards and TV cameras round it, and a
+// two-tier bowl of fans in the dark all round. Home fans fill the end behind
+// their goal, away fans the other end, and they jump when their team scores.
+// Built in metres; every repeated piece is one instanced mesh.
 
-// Tiered stands all round a pro table, full of fans
-const STAND = { x0: 2.4, z0: 2.0, tiers: 7, depth: 0.6, rise: 0.26, seat: 0.36 }
+const ARENA = {
+  side: 2.7, // first row of the long stands (z)
+  end: 3.4, // first row of the end stands (x)
+  lower: 5,
+  upper: 4,
+  depth: 0.85, rise: 0.36, // lower bowl step
+  uDepth: 0.8, uRise: 0.5, // upper bowl step
+  gap: 0.75, // the balcony: how much higher the upper bowl starts
+  seat: 0.52,
+  aisleEvery: 8,
+}
+const ARENA_ACCENT = '#f2c14e'
+const SEAT_COLOR = '#2a3142'
+const STEP_COLOR = '#1b1e26'
+const SKINS = ['#3a2316', '#4a2c1c', '#58361f', '#6b4329', '#7a4a2e', '#8d5a3a', '#a36c45', '#c48d63']
+const HAIR = ['#0e0c0b', '#151110', '#1b1512', '#0e0c0b', '#2a1e16', '#3b2b20']
+// What people wear when they're not in the colours
+const CLOTHES = ['#1d1f24', '#e6e2da', '#2c3a57', '#5b4636', '#3f4b3b', '#c9b9a2', '#494f5c', '#7a2f2f', '#8a6d3b', '#2f5f73', '#d8d2c4', '#26282e']
 
-function arenaCrowd() {
-  const rnd = rand(77)
-  const shirts = ['#1e5bff', '#ffd23f', '#ffffff', '#e53935', '#1e5bff', '#ffd23f', '#43a047', '#111827']
-  const skins = ['#3b2417', '#5a3825', '#7a4a2e', '#8d5a3a', '#a86b45', '#c68b5e']
-  const bodies = []
-  const heads = []
-  for (let t = 0; t < STAND.tiers; t++) {
-    const hx = STAND.x0 + t * STAND.depth + STAND.depth * 0.55
-    const hz = STAND.z0 + t * STAND.depth + STAND.depth * 0.55
-    const y = (t + 1) * STAND.rise
-    const add = (x, z, ry) => {
-      if (rnd() < 0.08) return // the odd empty seat
-      const lean = (rnd() - 0.5) * 0.08
-      const tall = 0.9 + rnd() * 0.2
-      bodies.push({ x, y: y + 0.2 * tall, z, sy: tall, ry: ry + lean, color: shirts[Math.floor(rnd() * shirts.length)] })
-      heads.push({ x, y: y + 0.45 * tall, z, color: skins[Math.floor(rnd() * skins.length)] })
-    }
-    for (let x = -hx + 0.3; x <= hx - 0.3; x += STAND.seat) { add(x, -hz, 0); add(x, hz, Math.PI) }
-    for (let z = -hz + 0.3; z <= hz - 0.3; z += STAND.seat) { add(-hx, z, Math.PI / 2); add(hx, z, -Math.PI / 2) }
+/** The rows of a stand, front to back: distance back from its front, step top, depth. */
+function arenaRows() {
+  const rows = []
+  let d = 0
+  let y = 0
+  for (let t = 0; t < ARENA.lower + ARENA.upper; t++) {
+    const upper = t >= ARENA.lower
+    if (t === ARENA.lower) y += ARENA.gap
+    y += upper ? ARENA.uRise : ARENA.rise
+    const depth = upper ? ARENA.uDepth : ARENA.depth
+    rows.push({ t, d, y, depth, upper })
+    d += depth
   }
-  return { bodies, heads }
+  return rows
 }
 
-function adBoardTexture() {
-  return canvasTexture(1024, 64, (ctx, w, h) => {
-    const words = ['COUNTERBALL', 'CAP CUP', 'FLICK IT', 'NAIJA FIZZ', 'EKO MOBILE', 'JOLLOF KINGS']
+/** The four stands: where each row's front is, which way it faces, how long it is. */
+function arenaStands(rows) {
+  const out = []
+  for (const s of [-1, 1]) {
+    // Long sides (along x), then the ends behind each goal (along z)
+    out.push({ key: `z${s}`, axis: 'x', sign: s, front: ARENA.side, face: s > 0 ? Math.PI : 0, half: (r) => ARENA.end + r.d - 0.55, end: false })
+    out.push({ key: `x${s}`, axis: 'z', sign: s, front: ARENA.end, face: s > 0 ? -Math.PI / 2 : Math.PI / 2, half: (r) => ARENA.side + r.d - 0.55, end: true })
+  }
+  return out.map((st) => ({ ...st, rows }))
+}
+
+const _q = new THREE.Quaternion()
+const _e = new THREE.Euler()
+const _v = new THREE.Vector3()
+const _s = new THREE.Vector3()
+function mat(x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
+  return new THREE.Matrix4().compose(_v.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.set(sx, sy, sz))
+}
+
+function mixHex(a, b, k) {
+  return `#${new THREE.Color(a).lerp(new THREE.Color(b), k).getHexString()}`
+}
+
+/**
+ * Seat everyone. `home` and `away` are the two kits; `homeEnd` is -1 or +1
+ * (the x side the home fans fill). Returns instanced parts:
+ * { seats, backs, legs, torsos, heads, hair, arms, scarves }, each a list of
+ * { m, color, phase, side } (side: 1 home fan, -1 away, 0 neutral).
+ */
+function arenaCrowd({ home, away, homeEnd }) {
+  const rnd = rand(1977)
+  const pick = (a) => a[Math.floor(rnd() * a.length)]
+  const parts = { seats: [], backs: [], legs: [], torsos: [], heads: [], hair: [], arms: [], scarves: [] }
+  const rows = arenaRows()
+  const kit = (k) => [k?.primary || '#1d4ed8', k?.primary || '#1d4ed8', k?.primary || '#1d4ed8', k?.edge || '#ffffff']
+  const homeKit = kit(home)
+  const awayKit = kit(away)
+  for (const st of arenaStands(rows)) {
+    for (const r of rows) {
+      const half = st.half(r)
+      const n = Math.floor((2 * half) / ARENA.seat)
+      const start = -((n - 1) * ARENA.seat) / 2
+      const across = st.sign * (st.front + r.d + r.depth * 0.58)
+      for (let i = 0; i < n; i++) {
+        if ((i + 3) % ARENA.aisleEvery === 0) continue // the stairs
+        const along = start + i * ARENA.seat
+        const x = st.axis === 'x' ? along : across
+        const z = st.axis === 'x' ? across : along
+        const base = mat(x, r.y, z, 0, st.face)
+        const at = (lx, ly, lz, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => base.clone().multiply(mat(lx, ly, lz, rx, ry, rz, sx, sy, sz))
+        parts.seats.push({ m: at(0, 0.42, 0), color: SEAT_COLOR })
+        parts.backs.push({ m: at(0, 0.64, -0.2), color: SEAT_COLOR })
+        if (rnd() < (r.upper ? 0.1 : 0.05)) continue // an empty seat
+        // Who sits here: the ends are the two sets of fans, the sides a mix
+        let side = 0
+        if (st.end) side = st.sign === homeEnd ? 1 : -1
+        else if (rnd() < 0.55) side = (x * homeEnd > 0 ? rnd() < 0.75 : rnd() < 0.3) ? 1 : -1
+        const colours = side === 1 ? homeKit : side === -1 ? awayKit : null
+        const inKit = colours && rnd() < (st.end ? 0.85 : 0.7)
+        const shirt = mixHex(inKit ? pick(colours) : pick(CLOTHES), '#000000', 0.12 + rnd() * 0.12)
+        const phase = rnd()
+        const p = { phase, side }
+        const tall = 0.94 + rnd() * 0.12
+        const wide = 0.92 + rnd() * 0.18
+        const lean = (rnd() - 0.5) * 0.12
+        parts.legs.push({ m: at(0, 0.5, 0.12, 0, 0, 0, wide, 1, 1), color: mixHex(pick(['#1f2633', '#2b2f38', '#3a3f4a', '#4a3b2c', '#2c3e5c']), '#000000', 0.2), ...p })
+        parts.legs.push({ m: at(0, 0.23, 0.33, 0, 0, 0, wide * 0.9, 1, 1), color: '#1a1c22', ...p })
+        parts.torsos.push({ m: at(0, 0.47 + 0.3 * tall, -0.05, lean * 0.5, 0, lean, 1.35 * wide, tall, 0.8), color: shirt, ...p })
+        const headY = 0.47 + 0.6 * tall + 0.13
+        parts.heads.push({ m: at(lean * 0.3, headY, -0.03), color: pick(SKINS), ...p })
+        const hat = inKit && rnd() < 0.18
+        if (rnd() < 0.85 || hat) parts.hair.push({ m: at(lean * 0.3, headY + 0.045, -0.045, 0, 0, 0, 1, hat ? 0.75 : 0.6, 1), color: hat ? pick(colours) : pick(HAIR), ...p })
+        // Arms: resting, one up, both up, clapping, or a scarf held high
+        const shoulder = 0.47 + 0.5 * tall
+        const sleeve = mixHex(shirt, '#000000', 0.08)
+        const pose = rnd()
+        const fan = side !== 0
+        if (fan && st.end && pose < 0.16) {
+          for (const s of [-1, 1]) parts.arms.push({ m: at(s * 0.17, shoulder + 0.28, -0.02, 0, 0, -s * 0.12), color: sleeve, ...p })
+          parts.scarves.push({ m: at(0, shoulder + 0.55, -0.02), color: pick(colours), ...p })
+        } else if (fan && pose < 0.26) {
+          for (const s of [-1, 1]) parts.arms.push({ m: at(s * 0.25, shoulder + 0.24, -0.02, 0, 0, -s * 0.38), color: sleeve, ...p })
+        } else if (pose < 0.36) {
+          const s = rnd() < 0.5 ? -1 : 1
+          parts.arms.push({ m: at(s * 0.24, shoulder + 0.25, -0.02, 0, 0, -s * 0.3), color: sleeve, ...p })
+          parts.arms.push({ m: at(-s * 0.22, shoulder - 0.2, 0.06, -0.35, 0, 0), color: sleeve, ...p })
+        } else if (pose < 0.46) {
+          for (const s of [-1, 1]) parts.arms.push({ m: at(s * 0.12, shoulder - 0.06, 0.18, -1.15, 0, s * 0.45), color: sleeve, ...p })
+        } else {
+          for (const s of [-1, 1]) parts.arms.push({ m: at(s * 0.22, shoulder - 0.2, 0.06, -0.35, 0, s * 0.05), color: sleeve, ...p })
+        }
+      }
+    }
+  }
+  return parts
+}
+
+/**
+ * A crowd material: lit plainly, and in the vertex shader each fan bobs a
+ * little in their seat and jumps when their side scores (all on the GPU).
+ */
+function crowdMaterial(uniforms, { animate = true, roughness = 0.9 } = {}) {
+  const m = new THREE.MeshStandardMaterial({ roughness, metalness: 0 })
+  if (!animate) return m
+  m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms)
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float aPhase;
+attribute float aSide;
+uniform float uTime;
+uniform float uExcite;
+uniform float uScorer;`)
+      .replace('#include <project_vertex>', `
+float ph = aPhase * 6.2831;
+float mine = aSide == 0.0 ? 0.45 : (aSide == uScorer ? 1.0 : 0.0);
+float lift = 0.012 * sin(uTime * 1.7 + ph)
+  + uExcite * mine * (0.16 + 0.14 * max(0.0, sin(uTime * 9.0 + ph * 3.0)));
+vec4 mvPosition = vec4(transformed, 1.0);
+#ifdef USE_INSTANCING
+  mvPosition = instanceMatrix * mvPosition;
+#endif
+mvPosition.y += lift;
+mvPosition = modelViewMatrix * mvPosition;
+gl_Position = projectionMatrix * mvPosition;`)
+  }
+  m.customProgramCacheKey = () => 'cap-arena-crowd'
+  return m
+}
+
+/** One instanced crowd part (seats, heads, arms …). */
+function CrowdPart({ items, geometry, uniforms, animate = true }) {
+  const mesh = useMemo(() => {
+    const geo = geometry()
+    const mat = crowdMaterial(uniforms, { animate })
+    const im = new THREE.InstancedMesh(geo, mat, Math.max(1, items.length))
+    const c = new THREE.Color()
+    const phase = new Float32Array(items.length)
+    const side = new Float32Array(items.length)
+    items.forEach((it, i) => {
+      im.setMatrixAt(i, it.m)
+      im.setColorAt(i, c.set(it.color))
+      phase[i] = it.phase || 0
+      side[i] = it.side || 0
+    })
+    im.count = items.length
+    geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phase, 1))
+    geo.setAttribute('aSide', new THREE.InstancedBufferAttribute(side, 1))
+    im.instanceMatrix.needsUpdate = true
+    if (im.instanceColor) im.instanceColor.needsUpdate = true
+    im.frustumCulled = false
+    return im
+  }, [items, geometry, uniforms, animate])
+  useEffect(() => () => { mesh.geometry.dispose(); mesh.material.dispose() }, [mesh])
+  return <primitive object={mesh} />
+}
+
+const CROWD_GEOMETRY = {
+  seats: () => new THREE.BoxGeometry(0.46, 0.06, 0.42),
+  backs: () => new THREE.BoxGeometry(0.46, 0.4, 0.05),
+  legs: () => new THREE.BoxGeometry(0.34, 0.14, 0.44),
+  torsos: () => new THREE.CapsuleGeometry(0.15, 0.3, 4, 10),
+  heads: () => new THREE.SphereGeometry(0.1, 12, 10),
+  hair: () => new THREE.SphereGeometry(0.106, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+  arms: () => new THREE.CapsuleGeometry(0.042, 0.42, 3, 6),
+  scarves: () => new THREE.BoxGeometry(0.85, 0.11, 0.02),
+}
+
+/** Text that scrolls round the LED boards and the balcony ribbon. */
+function ledTexture(words, { bg = '#05070d', fg = ARENA_ACCENT, alt = '#ffffff', w: cw = 1024, h = 80 } = {}) {
+  return canvasTexture(cw, h, (ctx, w) => {
+    ctx.fillStyle = bg
+    ctx.fillRect(0, 0, w, h)
     const seg = w / words.length
     words.forEach((word, i) => {
-      ctx.fillStyle = i % 2 ? '#0b1d6b' : '#ffd23f'
-      ctx.fillRect(i * seg, 0, seg, h)
-      ctx.fillStyle = i % 2 ? '#ffd23f' : '#0b1d6b'
-      ctx.font = `italic 900 ${Math.round(h * 0.6)}px "Barlow Condensed", "Arial Narrow", sans-serif`
+      ctx.fillStyle = i % 2 ? alt : fg
+      ctx.font = `italic 900 ${Math.round(h * 0.62)}px "Barlow Condensed", "Arial Narrow", sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(word, i * seg + seg / 2, h / 2, seg - 12)
+      ctx.fillText(word, i * seg + seg / 2, h / 2 + 1, seg - 20)
     })
-  }, { repeat: [2, 1] })
+    // LED pixels
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'
+    for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1)
+    for (let x = 0; x < w; x += 4) ctx.fillRect(x, 0, 1, h)
+  }, { repeat: [1.0001, 1] })
+}
+
+/** A hanging banner in a team's colours with its name on. */
+function bannerTexture(kit) {
+  const p = kit?.primary || '#1d4ed8'
+  const e = kit?.edge || '#ffffff'
+  const name = String(kit?.name || 'Home').toUpperCase().slice(0, 16)
+  return canvasTexture(512, 160, (ctx, w, h) => {
+    ctx.fillStyle = p
+    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = e
+    ctx.fillRect(0, 10, w, 10)
+    ctx.fillRect(0, h - 20, w, 10)
+    ctx.font = `italic 900 ${Math.round(h * 0.5)}px "Barlow Condensed", "Arial Narrow", sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.lineWidth = 8
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'
+    ctx.strokeText(name, w / 2, h / 2 + 2, w - 40)
+    ctx.fillStyle = e.toLowerCase() === p.toLowerCase() ? '#ffffff' : e
+    ctx.fillText(name, w / 2, h / 2 + 2, w - 40)
+  })
+}
+
+/** The big screens at the back of each end: the score, live. */
+function useScoreScreen(home, away) {
+  const canvas = useMemo(() => {
+    const c = document.createElement('canvas')
+    c.width = 1024
+    c.height = 320
+    return c
+  }, [])
+  const texture = useMemo(() => {
+    const t = new THREE.CanvasTexture(canvas)
+    t.colorSpace = THREE.SRGBColorSpace
+    return t
+  }, [canvas])
+  useEffect(() => {
+    const draw = ({ score }) => {
+      const ctx = canvas.getContext('2d')
+      const w = canvas.width
+      const h = canvas.height
+      ctx.fillStyle = '#04060b'
+      ctx.fillRect(0, 0, w, h)
+      const g = ctx.createLinearGradient(0, 0, 0, h)
+      g.addColorStop(0, 'rgba(255,255,255,0.06)')
+      g.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = g
+      ctx.fillRect(0, 0, w, h)
+      ctx.fillStyle = ARENA_ACCENT
+      ctx.font = '800 34px "Barlow Condensed", "Arial Narrow", sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('CAP ARENA', w / 2, 40)
+      const team = (kit, x, align) => {
+        ctx.fillStyle = kit?.primary || '#1d4ed8'
+        ctx.fillRect(align === 'left' ? 40 : w - 52, 110, 12, 120)
+        ctx.fillStyle = '#ffffff'
+        ctx.textAlign = align
+        ctx.font = 'italic 900 64px "Barlow Condensed", "Arial Narrow", sans-serif'
+        ctx.fillText(String(kit?.name || '').toUpperCase().slice(0, 14), x, 170, 330)
+      }
+      team(home, 70, 'left')
+      team(away, w - 70, 'right')
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '900 150px "Barlow Condensed", "Arial Narrow", sans-serif'
+      ctx.fillText(`${score?.team1 ?? 0}–${score?.team2 ?? 0}`, w / 2, 182)
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'
+      for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1)
+      texture.needsUpdate = true
+    }
+    draw(useMatchStore.getState())
+    return useMatchStore.subscribe((s, prev) => { if (s.score !== prev.score) draw(s) })
+  }, [canvas, texture, home, away])
+  useEffect(() => () => texture.dispose(), [texture])
+  return texture
+}
+
+/** A TV camera on a tripod, with its operator standing behind. */
+function TvCamera({ position, ry }) {
+  return (
+    <group position={position} rotation-y={ry}>
+      {[0, 2.1, 4.2].map((a) => (
+        <mesh key={a} position={[Math.sin(a) * 0.18, 0.6, Math.cos(a) * 0.18]} rotation={[Math.cos(a) * 0.28, 0, -Math.sin(a) * 0.28]}><cylinderGeometry args={[0.015, 0.015, 1.25, 6]} /><meshStandardMaterial color="#1a1a1a" /></mesh>
+      ))}
+      <mesh position={[0, 1.32, 0.05]}><boxGeometry args={[0.22, 0.24, 0.5]} /><meshStandardMaterial color="#2a2c31" roughness={0.5} /></mesh>
+      <mesh position={[0, 1.34, 0.36]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.07, 0.09, 0.22, 16]} /><meshStandardMaterial color="#0c0c0e" roughness={0.3} /></mesh>
+      <mesh position={[0.13, 1.42, -0.1]}><boxGeometry args={[0.03, 0.14, 0.2]} /><meshBasicMaterial color="#3a6ea5" toneMapped={false} /></mesh>
+      <mesh position={[0, 1.37, 0.25]}><sphereGeometry args={[0.012, 6, 6]} /><meshBasicMaterial color="#ff2a2a" toneMapped={false} /></mesh>
+      {/* Operator */}
+      <mesh position={[0, 0.45, -0.45]}><boxGeometry args={[0.3, 0.9, 0.2]} /><meshStandardMaterial color="#14161b" /></mesh>
+      <mesh position={[0, 1.2, -0.45]} scale={[1.3, 1, 0.8]}><capsuleGeometry args={[0.15, 0.36, 4, 10]} /><meshStandardMaterial color="#111317" /></mesh>
+      <mesh position={[0, 1.62, -0.43]}><sphereGeometry args={[0.1, 12, 10]} /><meshStandardMaterial color="#5a3825" /></mesh>
+      <mesh position={[0, 1.66, -0.44]} scale={[1, 0.7, 1]}><sphereGeometry args={[0.105, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#111" /></mesh>
+    </group>
+  )
 }
 
 function CapArenaRoom() {
-  const crowd = useMemo(arenaCrowd, [])
-  const ads = useMemo(adBoardTexture, [])
-  const screen = useMemo(() => neonTexture('CAP ARENA', '#ffd23f'), [])
-  const W = 2 * (STAND.x0 + STAND.tiers * STAND.depth) + 1
-  const D = 2 * (STAND.z0 + STAND.tiers * STAND.depth) + 1
-  const H = (STAND.tiers + 3) * STAND.rise + 2.5
+  const teamConfig = useMatchStore((s) => s.teamConfig)
+  const homeEnd = useMatchStore.getState().chosenTeam1Side === 'right' ? 1 : -1
+  const home = teamConfig?.team1
+  const away = teamConfig?.team2
+  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uExcite: { value: 0 }, uScorer: { value: 1 } }), [])
+  const crowd = useMemo(() => arenaCrowd({ home, away, homeEnd }), [home, away, homeEnd])
+  const rows = useMemo(arenaRows, [])
+  const stands = useMemo(() => arenaStands(rows), [rows])
+  const boards = useMemo(() => ledTexture(['COUNTERBALL', 'CAP CUP', 'FLICK IT', 'NAIJA FIZZ', 'EKO MOBILE', 'JOLLOF KINGS']), [])
+  const ribbon = useMemo(() => ledTexture(['PREMIER CAP LEAGUE', 'CAP ARENA', 'LIVE ON CAPTV', 'NAIJA FIZZ', 'COUNTERBALL', 'EKO MOBILE'], { fg: '#ffffff', alt: ARENA_ACCENT, w: 2048, h: 64 }), [])
+  const homeBanner = useMemo(() => bannerTexture(home), [home])
+  const awayBanner = useMemo(() => bannerTexture(away), [away])
+  const screen = useScoreScreen(home, away)
+  const excite = useRef(0)
+
+  useEffect(() => useMatchStore.subscribe((s, prev) => {
+    if (s.phase === PHASE.GOAL && prev.phase !== PHASE.GOAL) {
+      excite.current = 1
+      uniforms.uScorer.value = s.lastScorer === 'team2' ? -1 : 1
+    }
+  }), [uniforms])
+  useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.1)
+    uniforms.uTime.value = state.clock.elapsedTime
+    excite.current = Math.max(0, excite.current - dt * 0.22)
+    uniforms.uExcite.value = Math.min(1, excite.current * 1.6)
+    boards.offset.x = (boards.offset.x + dt * 0.04) % 1
+    ribbon.offset.x = (ribbon.offset.x - dt * 0.025) % 1
+  })
+
+  const last = rows[rows.length - 1]
+  const reachX = ARENA.end + last.d + last.depth
+  const reachZ = ARENA.side + last.d + last.depth
+  const W = 2 * reachX + 1
+  const D = 2 * reachZ + 1
+  const H = last.y + 3.2
+  const balcony = rows[ARENA.lower]
+  const below = rows[ARENA.lower - 1]
+  const ribbonY = below.y + 0.45
+  const parts = Object.keys(CROWD_GEOMETRY)
+
   return (
     <InMetres>
+      {/* Floor and the low stage the table stands on */}
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[W, D]} />
-        <meshStandardMaterial color="#10183a" roughness={0.85} />
+        <meshStandardMaterial color="#0c0d12" roughness={0.6} />
       </mesh>
-      {/* Gold ring on the floor round the table */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]}>
-        <ringGeometry args={[1.45, 1.52, 64]} />
-        <meshBasicMaterial color="#ffd23f" toneMapped={false} />
+      <mesh position={[0, 0.04, 0]} receiveShadow>
+        <boxGeometry args={[4.4, 0.08, 3.4]} />
+        <meshStandardMaterial color="#111319" roughness={0.25} metalness={0.3} />
       </mesh>
-      {/* Stepped stands */}
-      {Array.from({ length: STAND.tiers }, (_, t) => {
-        const x = STAND.x0 + t * STAND.depth
-        const z = STAND.z0 + t * STAND.depth
-        const y = (t + 1) * STAND.rise
-        const c = t % 2 ? '#1a2350' : '#202b60'
+      {[[0, 1.7, 4.4, 0.02], [0, -1.7, 4.4, 0.02], [2.2, 0, 0.02, 3.4], [-2.2, 0, 0.02, 3.4]].map(([x, z, w, d], i) => (
+        <mesh key={`edge${i}`} position={[x, 0.085, z]}><boxGeometry args={[w, 0.012, d]} /><meshBasicMaterial color={ARENA_ACCENT} toneMapped={false} /></mesh>
+      ))}
+
+      {/* Stands: concrete steps, then seats and people */}
+      {stands.map((st) => st.rows.map((r) => {
+        const half = st.half(r) + 0.25
+        const mid = st.sign * (st.front + r.d + r.depth / 2)
+        const args = st.axis === 'x' ? [2 * half, r.y, r.depth] : [r.depth, r.y, 2 * half]
+        const pos = st.axis === 'x' ? [0, r.y / 2, mid] : [mid, r.y / 2, 0]
         return (
-          <group key={t}>
-            <mesh position={[0, y / 2, -(z + STAND.depth / 2)]}><boxGeometry args={[2 * (x + STAND.depth), y, STAND.depth]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
-            <mesh position={[0, y / 2, z + STAND.depth / 2]}><boxGeometry args={[2 * (x + STAND.depth), y, STAND.depth]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
-            <mesh position={[-(x + STAND.depth / 2), y / 2, 0]}><boxGeometry args={[STAND.depth, y, 2 * z]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
-            <mesh position={[x + STAND.depth / 2, y / 2, 0]}><boxGeometry args={[STAND.depth, y, 2 * z]} /><meshStandardMaterial color={c} roughness={0.9} /></mesh>
-          </group>
+          <mesh key={`${st.key}${r.t}`} position={pos}>
+            <boxGeometry args={args} />
+            <meshStandardMaterial color={r.t % 2 ? STEP_COLOR : '#20232c'} roughness={0.95} />
+          </mesh>
+        )
+      }))}
+      {parts.map((k) => (
+        <CrowdPart key={k} items={crowd[k]} geometry={CROWD_GEOMETRY[k]} uniforms={uniforms} animate={k !== 'seats' && k !== 'backs'} />
+      ))}
+
+      {/* The balcony: an LED ribbon right round, and the fans' banners over it */}
+      {stands.map((st) => {
+        const half = st.half(balcony)
+        const front = st.sign * (st.front + balcony.d - 0.01)
+        const pos = st.axis === 'x' ? [0, ribbonY, front] : [front, ribbonY, 0]
+        return (
+          <mesh key={`rib${st.key}`} position={pos} rotation-y={st.face}>
+            <planeGeometry args={[2 * half, 0.42]} />
+            <meshBasicMaterial map={ribbon} toneMapped={false} />
+          </mesh>
         )
       })}
-      {/* Fans */}
-      <Instances items={crowd.bodies}><boxGeometry args={[0.26, 0.34, 0.2]} /><meshStandardMaterial roughness={0.8} /></Instances>
-      <Instances items={crowd.heads}><sphereGeometry args={[0.085, 10, 8]} /><meshStandardMaterial roughness={0.7} /></Instances>
-      {/* LED ad boards in front of the first row */}
-      {[[0, -STAND.z0 + 0.05, 2 * STAND.x0, 0], [0, STAND.z0 - 0.05, 2 * STAND.x0, Math.PI]].map(([x, z, l, ry], i) => (
-        <mesh key={`a${i}`} position={[x, 0.22, z]} rotation-y={ry}><planeGeometry args={[l, 0.36]} /><meshBasicMaterial map={ads} toneMapped={false} /></mesh>
+      {[[homeEnd, homeBanner], [-homeEnd, awayBanner]].map(([s, map]) => [-1.3, 1.3].map((z) => (
+        <mesh key={`ban${s}${z}`} position={[s * (ARENA.end + balcony.d - 0.03), ribbonY - 0.05, z]} rotation-y={s > 0 ? -Math.PI / 2 : Math.PI / 2}>
+          <planeGeometry args={[1.9, 0.6]} />
+          <meshStandardMaterial map={map} roughness={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      )))}
+
+      {/* LED boards round the stage, facing the table */}
+      {[[0, -2.25, 5.2, 0], [0, 2.25, 5.2, Math.PI]].map(([x, z, l, ry], i) => (
+        <group key={`b${i}`} position={[x, 0, z]} rotation-y={ry}>
+          <mesh position={[0, 0.25, 0]}><planeGeometry args={[l, 0.42]} /><meshBasicMaterial map={boards} toneMapped={false} /></mesh>
+          <mesh position={[0, 0.25, -0.06]}><boxGeometry args={[l, 0.5, 0.1]} /><meshStandardMaterial color="#090a0e" /></mesh>
+        </group>
       ))}
-      {[[-STAND.x0 + 0.05, Math.PI / 2], [STAND.x0 - 0.05, -Math.PI / 2]].map(([x, ry], i) => (
-        <mesh key={`s${i}`} position={[x, 0.22, 0]} rotation-y={ry}><planeGeometry args={[2 * STAND.z0, 0.36]} /><meshBasicMaterial map={ads} toneMapped={false} /></mesh>
+      {[[-2.9, Math.PI / 2], [2.9, -Math.PI / 2]].map(([x, ry], i) => (
+        <group key={`e${i}`} position={[x, 0, 0]} rotation-y={ry}>
+          <mesh position={[0, 0.25, 0]}><planeGeometry args={[4.0, 0.42]} /><meshBasicMaterial map={boards} toneMapped={false} /></mesh>
+          <mesh position={[0, 0.25, -0.06]}><boxGeometry args={[4.0, 0.5, 0.1]} /><meshStandardMaterial color="#090a0e" /></mesh>
+        </group>
       ))}
-      {/* Big screen over the far stand */}
-      <mesh position={[0, H - 1.4, -D / 2 + 0.2]}><boxGeometry args={[4.2, 1.5, 0.15]} /><meshStandardMaterial color="#05060d" /></mesh>
-      <mesh position={[0, H - 1.4, -D / 2 + 0.29]}><planeGeometry args={[3.9, 1.1]} /><meshBasicMaterial map={screen} transparent toneMapped={false} /></mesh>
-      {/* Floodlight rigs in the corners */}
+
+      {/* TV cameras at two corners of the stage */}
+      <TvCamera position={[-2.35, 0, -1.6]} ry={Math.PI * 0.3} />
+      <TvCamera position={[2.35, 0, 1.6]} ry={-Math.PI * 0.7} />
+
+      {/* Score screens over each end */}
+      {[-1, 1].map((s) => (
+        <group key={`scr${s}`} position={[s * (reachX - 0.4), last.y + 1.5, 0]} rotation-y={s > 0 ? -Math.PI / 2 : Math.PI / 2}>
+          <mesh position={[0, 0, -0.1]}><boxGeometry args={[4.4, 1.55, 0.2]} /><meshStandardMaterial color="#05060a" /></mesh>
+          <mesh><planeGeometry args={[4.2, 1.31]} /><meshBasicMaterial map={screen} toneMapped={false} /></mesh>
+        </group>
+      ))}
+
+      {/* Lighting rig over the stage */}
+      <group position={[0, 5.4, 0]}>
+        {[[0, -1.6, 4.6, 0.22], [0, 1.6, 4.6, 0.22], [-2.3, 0, 0.22, 3.4], [2.3, 0, 0.22, 3.4]].map(([x, z, w, d], i) => (
+          <mesh key={`tr${i}`} position={[x, 0, z]}><boxGeometry args={[w, 0.22, d]} /><meshStandardMaterial color="#2a2c33" metalness={0.6} roughness={0.4} wireframe={false} /></mesh>
+        ))}
+        {[-1.6, -0.55, 0.55, 1.6].flatMap((x) => [-1.6, 1.6].map((z) => [x, z])).map(([x, z]) => (
+          <group key={`lamp${x}${z}`} position={[x, -0.2, z]}>
+            <mesh><cylinderGeometry args={[0.12, 0.16, 0.26, 12]} /><meshStandardMaterial color="#141519" /></mesh>
+            <mesh position={[0, -0.14, 0]} rotation-x={Math.PI / 2}><circleGeometry args={[0.13, 16]} /><meshBasicMaterial color="#fff6e6" toneMapped={false} side={THREE.DoubleSide} /></mesh>
+          </group>
+        ))}
+      </group>
+      {/* Tunnels out of each corner, with an exit sign over */}
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-        <Glow key={`${sx}${sz}`} position={[sx * (W / 2 - 1), H - 0.6, sz * (D / 2 - 1)]} size={0.18} halo={0.9} opacity={0.22} color="#eef3ff" />
+        <group key={`tun${sx}${sz}`} position={[sx * (ARENA.end + 0.45), 0, sz * (ARENA.side + 0.45)]} rotation-y={Math.atan2(-sx, -sz)}>
+          <mesh position={[0, 1.0, -0.6]}><planeGeometry args={[1.1, 2.0]} /><meshBasicMaterial color="#010102" /></mesh>
+          {[-0.6, 0.6].map((x) => <mesh key={x} position={[x, 1.05, -0.3]}><boxGeometry args={[0.12, 2.1, 0.7]} /><meshStandardMaterial color="#262a33" roughness={0.9} /></mesh>)}
+          <mesh position={[0, 2.15, -0.3]}><boxGeometry args={[1.32, 0.2, 0.7]} /><meshStandardMaterial color="#262a33" roughness={0.9} /></mesh>
+          <mesh position={[0, 2.38, 0.06]}><planeGeometry args={[0.36, 0.14]} /><meshBasicMaterial color="#1fbf5a" toneMapped={false} /></mesh>
+        </group>
       ))}
-      {/* Roof */}
-      <mesh position={[0, H, 0]} rotation-x={Math.PI / 2}><planeGeometry args={[W, D]} /><meshStandardMaterial color="#070a1c" side={THREE.DoubleSide} /></mesh>
-      <Walls w={W} d={D} h={H} color="#0a0f2a" />
+      <mesh position={[0, H, 0]} rotation-x={Math.PI / 2}><planeGeometry args={[W, D]} /><meshStandardMaterial color="#050608" side={THREE.DoubleSide} /></mesh>
+      <Walls w={W} d={D} h={H} color="#07080b" />
     </InMetres>
   )
 }
 
 function CapArenaTable() {
+  const finishId = useMatchStore((s) => s.tableFinish)
+  const homeKit = useMatchStore((s) => s.teamConfig?.team1)
+  const f = resolveFinish(isFinish(finishId) ? finishId : DEFAULT_FINISH, homeKit)
   return (
     <group>
-      <TableTop color="#f4f6fb" roughness={0.12} metalness={0.15} thick={1.6} />
-      {/* Gold trim round the lip */}
-      {[[0, TOP_D / 2 + 0.05, TOP_W, 0], [0, -TOP_D / 2 - 0.05, TOP_W, 0]].map(([x, z, l], i) => (
-        <mesh key={i} position={[x, TABLE_TOP - 1.4, z]}><boxGeometry args={[l, 0.3, 0.12]} /><meshBasicMaterial color="#ffd23f" toneMapped={false} /></mesh>
+      {/* The rail round the board, then a brass band, then the table body */}
+      <TableTop color={f.rail} roughness={0.3} metalness={0.1} thick={1.6} />
+      {[[0, TOP_D / 2 + 0.06, TOP_W + 0.24, 0.12], [0, -TOP_D / 2 - 0.06, TOP_W + 0.24, 0.12]].map(([x, z, l, d], i) => (
+        <mesh key={i} position={[x, TABLE_TOP - 1.0, z]}><boxGeometry args={[l, 0.28, d]} /><meshStandardMaterial color={f.trim} metalness={0.8} roughness={0.3} /></mesh>
       ))}
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * (TOP_W / 2 + 0.05), TABLE_TOP - 1.4, 0]}><boxGeometry args={[0.12, 0.3, TOP_D]} /><meshBasicMaterial color="#ffd23f" toneMapped={false} /></mesh>
+        <mesh key={s} position={[s * (TOP_W / 2 + 0.06), TABLE_TOP - 1.0, 0]}><boxGeometry args={[0.12, 0.28, TOP_D]} /><meshStandardMaterial color={f.trim} metalness={0.8} roughness={0.3} /></mesh>
       ))}
-      <mesh position={[0, FLOOR + TABLE_H / 2, 0]}><boxGeometry args={[TOP_W - 10, TABLE_H - 1.6, TOP_D - 10]} /><meshStandardMaterial color="#0b1d6b" roughness={0.35} metalness={0.5} /></mesh>
-      <Trophy position={[-19.5, TABLE_TOP, -13]} s={M * 0.36} />
+      {/* Apron under the top, and six turned legs */}
+      <mesh position={[0, TABLE_TOP - 1.6 - 1.6, 0]}><boxGeometry args={[TOP_W - 3, 3.2, TOP_D - 3]} /><meshStandardMaterial color={f.body} roughness={0.35} metalness={0.15} /></mesh>
+      {[-1, 0, 1].flatMap((ix) => [-1, 1].map((iz) => [ix * (TOP_W / 2 - 4), iz * (TOP_D / 2 - 4)])).map(([x, z]) => (
+        <group key={`${x}${z}`} position={[x, FLOOR, z]}>
+          <mesh position={[0, (TABLE_H - 4.8) / 2, 0]}><cylinderGeometry args={[1.3, 1.7, TABLE_H - 4.8, 14]} /><meshStandardMaterial color={f.body} roughness={0.35} metalness={0.15} /></mesh>
+          <mesh position={[0, TABLE_H - 5.5, 0]}><cylinderGeometry args={[1.9, 1.9, 0.5, 14]} /><meshStandardMaterial color={f.trim} metalness={0.8} roughness={0.3} /></mesh>
+        </group>
+      ))}
       <CapArenaRoom />
     </group>
   )

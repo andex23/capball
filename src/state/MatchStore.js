@@ -187,6 +187,8 @@ export const useMatchStore = create((set, get) => ({
   setBallColor: (color) => set({ ballColor: color }),
 
   stadium: 'arena',
+  // Career, top division: the pro table finish at Cap Arena (an id from TABLE_FINISHES)
+  tableFinish: null,
   setStadium: (id) => set({ stadium: id }),
   // 'table': lines chalked on the table itself (default) · 'grass': a green pitch
   pitchStyle: 'table',

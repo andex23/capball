@@ -224,6 +224,46 @@ const ART = {
     ring(ctx, 92, 1.5, '#BFF3F0'); ring(ctx, 87, 1.5, '#BFF3F0')
   },
 
+  harmattan(ctx) {
+    // Dry-season haze: a pale sun low over the dunes, ochre sky
+    disc(ctx, 100, '#C9771E')
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, 100, 0, Math.PI * 2); ctx.clip()
+    const haze = ctx.createLinearGradient(0, -100, 0, 40)
+    haze.addColorStop(0, '#B8661A'); haze.addColorStop(1, '#E29A3C')
+    ctx.fillStyle = haze; ctx.fillRect(-100, -100, 200, 140)
+    ctx.beginPath(); ctx.arc(0, 2, 34, Math.PI, 0); ctx.fillStyle = '#F6E7C4'; ctx.fill()
+    ctx.fillStyle = '#5A2E12'
+    ctx.beginPath(); ctx.moveTo(-100, 14); ctx.quadraticCurveTo(-40, -6, 10, 14); ctx.quadraticCurveTo(60, 30, 100, 8); ctx.lineTo(100, 100); ctx.lineTo(-100, 100); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#3E1F0B'
+    ctx.beginPath(); ctx.moveTo(-100, 40); ctx.quadraticCurveTo(-20, 20, 40, 38); ctx.quadraticCurveTo(80, 48, 100, 36); ctx.lineTo(100, 100); ctx.lineTo(-100, 100); ctx.closePath(); ctx.fill()
+    ctx.restore()
+    text(ctx, 'HARMATTAN', 0, -52, { size: 30, color: '#F6E7C4', spacing: 2, stroke: '#7A3E10', strokeW: 4, maxW: 150 })
+    text(ctx, 'DRY SEASON LAGER', 0, 60, { size: 11, font: SANS, weight: 800, color: '#F6E7C4', spacing: 2, maxW: 118 })
+    ring(ctx, 94, 2.5, '#F6E7C4')
+  },
+
+  lagoon(ctx) {
+    // Night on the water: a palm against a gold moon, ripples below
+    disc(ctx, 100, '#3F1A4E')
+    dotRing(ctx, 91, 44, 1.6, '#E8B84A')
+    ctx.beginPath(); ctx.arc(26, -26, 24, 0, Math.PI * 2); ctx.fillStyle = '#E8B84A'; ctx.fill()
+    // palm: a curved trunk and five fronds
+    ctx.save(); ctx.strokeStyle = '#1C0A24'; ctx.lineCap = 'round'
+    ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(-18, 34); ctx.quadraticCurveTo(-30, 0, -10, -34); ctx.stroke()
+    ctx.fillStyle = '#1C0A24'
+    for (const a of [-2.7, -2.1, -1.5, -0.9, -0.3]) {
+      ctx.save(); ctx.translate(-10, -34); ctx.rotate(a)
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(22, -12, 42, 6); ctx.quadraticCurveTo(22, -2, 0, 4); ctx.closePath(); ctx.fill()
+      ctx.restore()
+    }
+    ctx.restore()
+    // ripples
+    ctx.save(); ctx.strokeStyle = 'rgba(232,184,74,0.75)'; ctx.lineWidth = 2
+    for (let i = 0; i < 3; i++) { const y = 42 + i * 8; ctx.beginPath(); ctx.moveTo(-50 + i * 10, y); ctx.bezierCurveTo(-20, y - 4, 20, y + 4, 50 - i * 10, y); ctx.stroke() }
+    ctx.restore()
+    text(ctx, 'Lagoon', 4, 12, { size: 46, italic: true, color: '#F3EBD8', stroke: '#1C0A24', strokeW: 5 })
+  },
+
   /* ── Rare caps: enamel medals ── */
 
   silver(ctx) {
