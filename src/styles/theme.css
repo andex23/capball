@@ -1625,6 +1625,13 @@ button { cursor: pointer; background: none; border: 0; }
 .account-who b { font-size: 18px; }
 .account-avatar { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-weight: 800; font-size: 24px; }
 .account-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.account-forgot { align-self: center; font-size: 13px; }
+.account-recovery { display: grid; gap: 6px; justify-items: start; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--line-strong); }
+.account-recovery[data-tone='warn'] { border-color: var(--accent); background: rgba(255, 200, 61, 0.08); }
+.account-recovery p { margin: 0; }
+.recovery-code { display: flex; justify-content: center; gap: 10px; margin: 6px 0; font: 800 clamp(26px, 8vw, 34px)/1 var(--font-display); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+.recovery-code span { padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-3); border: 1px solid var(--line-strong); color: var(--accent); }
+.recovery-input { letter-spacing: 0.12em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
 
 /* Ready-made drink-cap designs */
 .kit-note { font-size: 13px; margin: 0; }
@@ -2542,3 +2549,4 @@ button { cursor: pointer; background: none; border: 0; }
     linear-gradient(90deg, transparent calc(50% - 1px), var(--fline) calc(50% - 1px), var(--fline) calc(50% + 1px), transparent calc(50% + 1px)),
     radial-gradient(circle at 50% 50%, transparent 9px, var(--fline) 9px, var(--fline) 11px, transparent 11px),
     linear-gradient(90deg, var(--c1), var(--c2) 50%, var(--c1)); }
+textarea.field { font: inherit; resize: vertical; }

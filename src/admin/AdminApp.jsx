@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { call, callAds, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
+import { call, callAds, callHelp, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
 import { DIVISIONS } from '../game/divisions'
 import { DEFAULT_ADS, AD_MAX, ADS_MAX, cleanAds } from '../game/arenaAds'
 
 const SECTIONS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'help', label: 'Help requests' },
   { key: 'players', label: 'Players' },
   { key: 'tournaments', label: 'Tournaments' },
   { key: 'board', label: 'Leaderboard' },
@@ -21,7 +22,7 @@ const when = (iso) => {
   if (mins < 1) return 'just now'
   if (mins < 60) return `${mins} min ago`
   if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`
-  if (mins < 60 * 24 * 14) return `${Math.round(mins / 1440)} days ago`
+  if (mins < 60 * 24 * 14) { const d = Math.round(mins / 1440); return d === 1 ? 'yesterday' : `${d} days ago` }
   return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 const kb = (b) => (b > 1024 ? `${Math.round(b / 1024)} KB` : `${b || 0} B`)
@@ -72,11 +73,14 @@ export default function AdminApp() {
       </header>
       <nav className="adm-nav" aria-label="Admin sections">
         {SECTIONS.map((s) => (
-          <button key={s.key} aria-current={section === s.key ? 'page' : undefined} onClick={() => go(s.key)}>{s.label}</button>
+          <button key={s.key} aria-current={section === s.key ? 'page' : undefined} onClick={() => go(s.key)}>
+            {s.label}{s.key === 'help' && <HelpBadge token={session.token} section={section} />}
+          </button>
         ))}
       </nav>
       <main className="adm-main">
         {section === 'overview' && <Overview api={api} go={go} />}
+        {section === 'help' && <HelpRequests token={session.token} api={api} />}
         {section === 'players' && <Players api={api} />}
         {section === 'tournaments' && <Tournaments api={api} />}
         {section === 'board' && <Board api={api} />}
@@ -586,6 +590,71 @@ function ArenaBoards({ token }) {
           <p className="adm-muted">Built-in boards: {DEFAULT_ADS.boards.join(' · ')}</p>
         </>
       )}
+    </section>
+  )
+}
+
+/* ── Help requests (forgotten passwords) ── */
+
+/** How many requests are waiting, next to the menu item. */
+function HelpBadge({ token, section }) {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    let live = true
+    callHelp(token, 'list').then((r) => { if (live) setN(r?.open || 0) }, () => {})
+    return () => { live = false }
+  }, [token, section])
+  return n > 0 ? <span className="adm-badge" aria-label={`${n} waiting`}>{n}</span> : null
+}
+
+function HelpRequests({ token, api }) {
+  const [status, setStatus] = useState('open')
+  const [open, setOpen] = useState(null)
+  const [note, setNote] = useState('')
+  const { data, error, loading, reload } = useLoad(() => callHelp(token, 'list', { status }), [token, status])
+  const act = async (action, id, done) => {
+    try { await callHelp(token, action, { id }); setNote(done); reload() } catch (e) { setNote(messageFor(e)) }
+  }
+  return (
+    <section aria-label="Help requests">
+      <div className="adm-head">
+        <h1>Help requests {data && data.open > 0 && <span className="adm-count">{data.open} waiting</span>}</h1>
+        <div className="adm-tools">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Which requests">
+            <option value="open">Waiting</option>
+            <option value="done">Done</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+      </div>
+      <p className="adm-muted">Players who forgot their password and have no recovery code. Open the player, check the details they gave match (club, team name, when they joined), then reset their password and send it to them. They get a recovery code when they next sign in.</p>
+      {note && <p className="adm-note" role="status">{note}</p>}
+      <Status loading={loading && !data} error={error} reload={reload} />
+      {data && (
+        <ul className="adm-help">
+          {data.rows.map((h) => (
+            <li key={h.id} className="adm-card" data-done={h.status === 'done' ? 'true' : undefined}>
+              <div className="adm-help-top">
+                <b>{h.accountName || h.username}</b>
+                {!h.accountId && <span className="adm-tag adm-tag-bad">no such player</span>}
+                {h.status === 'done' && <span className="adm-tag adm-tag-dim">done{h.doneBy ? ` by ${h.doneBy}` : ''}</span>}
+                <small className="adm-muted">{when(h.createdAt)}</small>
+              </div>
+              <dl className="adm-facts">
+                <dt>Reach them at</dt><dd className="adm-contact">{h.contact}</dd>
+                {h.note && <><dt>They say</dt><dd>{h.note}</dd></>}
+              </dl>
+              <div className="adm-row">
+                {h.accountId && <button className="adm-btn adm-btn-gold" onClick={() => setOpen(h.accountId)}>Open player</button>}
+                {h.status === 'open' && <button className="adm-btn" onClick={() => act('done', h.id, `Marked ${h.username} as done.`)}>Mark done</button>}
+                <button className="adm-btn" onClick={() => act('delete', h.id, 'Request deleted.')}>Delete</button>
+              </div>
+            </li>
+          ))}
+          {!data.rows.length && <li className="adm-muted">{status === 'open' ? 'Nobody is waiting for help.' : 'Nothing here.'}</li>}
+        </ul>
+      )}
+      {open && <PlayerSheet api={api} id={open} onClose={() => setOpen(null)} onChanged={reload} />}
     </section>
   )
 }

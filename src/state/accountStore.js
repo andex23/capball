@@ -23,6 +23,12 @@ export const PROGRESS_KEYS = ['capball:tournaments:v1', 'capball.device', 'capba
 /** Is a player signed in on this phone? (Stats, streaks and rewards only count when they are.) */
 export const isSignedIn = () => !!useAccountStore.getState().username
 const AUTOSAVE_MS = 45_000
+const RECOVERY_KEY = 'capball:new-recovery-code'
+function readRecoveryCode() {
+  try { const v = sessionStorage.getItem(RECOVERY_KEY); return /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(v || '') ? v : null } catch { return null }
+}
+/** Recovery calls on a database that hasn't had recovery.sql yet get a plain message. */
+const recoveryError = (e) => (/cb_account_recover|cb_help_request|cb_account_recovery|PGRST202|http-404/i.test(`${e?.code} ${e?.message}`) ? new ApiError('recovery-unavailable').message : e?.message)
 
 const storage = () => {
   try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null }
@@ -101,29 +107,99 @@ export const useAccountStore = create((set, get) => ({
     try {
       const res = await rpc(fn, { p_username: username, p_password: password })
       if (res?.error) throw new ApiError(res.error)
-      if (typeof res?.token !== 'string' || !res.token || typeof res?.username !== 'string') throw new Error('The server did not return an account session.')
-      const cloud = await rpc('cb_account_load', { p_token: res.token })
-      writeSession({ token: res.token, username: res.username })
-      lastSent = ''
-      set({ token: res.token, username: res.username, savedAt: null })
-      if (hasItems(cloud?.data)) {
-        // Their save is on the server: load it and restart from it
-        if (applySave(cloud.data) && typeof window !== 'undefined') {
-          window.location.reload()
-          return true
-        }
-        set({ savedAt: cloud.savedAt })
-      } else {
-        if (!await get().save({ force: true })) return false
+      // A new account gets its recovery code straight away (shown once)
+      if (fn === 'cb_account_signup' && typeof res?.token === 'string') {
+        try { const r = await rpc('cb_account_recovery_new', { p_token: res.token }); if (r?.code) get().showRecoveryCode(r.code) } catch { /* not switched on yet */ }
       }
-      get().startAutosave()
-      return true
+      return await get().begin(res)
     } catch (e) {
       set({ error: e.message })
       return false
     } finally {
       set({ busy: false })
     }
+  },
+
+  /** Forgot password: username + recovery code + a new password. Signs in and issues a fresh code. */
+  async recover(username, code, password) {
+    set({ busy: true, error: null })
+    try {
+      const res = await rpc('cb_account_recover', { p_username: username, p_code: code, p_password: password })
+      if (res?.error) throw new ApiError(res.error)
+      if (res?.code) get().showRecoveryCode(res.code)
+      return await get().begin(res)
+    } catch (e) {
+      set({ error: recoveryError(e) })
+      return false
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  /** Forgot password, no code: ask an admin for help. */
+  async askHelp(username, contact, note) {
+    set({ busy: true, error: null })
+    try {
+      await rpc('cb_help_request', { p_username: username, p_contact: contact, p_note: note || '' })
+      return true
+    } catch (e) {
+      set({ error: recoveryError(e) })
+      return false
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  /** The recovery code to show (once), kept through a reload until the player says it's saved. */
+  recoveryCode: readRecoveryCode(),
+  /** Does the signed-in account have a recovery code? (null: not checked) */
+  hasRecovery: null,
+  showRecoveryCode(code) {
+    try { sessionStorage.setItem(RECOVERY_KEY, code) } catch { /* fine */ }
+    set({ recoveryCode: code, hasRecovery: true })
+  },
+  recoverySaved() {
+    try { sessionStorage.removeItem(RECOVERY_KEY) } catch { /* fine */ }
+    set({ recoveryCode: null })
+  },
+  async checkRecovery() {
+    const { token } = get()
+    if (!token) return
+    try { const r = await rpc('cb_account_recovery_status', { p_token: token }); set({ hasRecovery: !!r?.has }) } catch { /* not switched on yet: say nothing */ }
+  },
+  async newRecoveryCode() {
+    const { token } = get()
+    if (!token) return false
+    try {
+      const r = await rpc('cb_account_recovery_new', { p_token: token })
+      if (!r?.code) return false
+      get().showRecoveryCode(r.code)
+      return true
+    } catch (e) {
+      set({ error: recoveryError(e) })
+      return false
+    }
+  },
+
+  /** Signed in (by password or recovery code): bring the save across, or upload this phone's. */
+  async begin(res) {
+    if (typeof res?.token !== 'string' || !res.token || typeof res?.username !== 'string') throw new Error('The server did not return an account session.')
+    const cloud = await rpc('cb_account_load', { p_token: res.token })
+    writeSession({ token: res.token, username: res.username })
+    lastSent = ''
+    set({ token: res.token, username: res.username, savedAt: null })
+    if (hasItems(cloud?.data)) {
+      // Their save is on the server: load it and restart from it
+      if (applySave(cloud.data) && typeof window !== 'undefined') {
+        window.location.reload()
+        return true
+      }
+      set({ savedAt: cloud.savedAt })
+    } else {
+      if (!await get().save({ force: true })) return false
+    }
+    get().startAutosave()
+    return true
   },
 
   /** Upload this phone's save (skipped when nothing changed since the last upload). */
@@ -179,7 +255,7 @@ export const useAccountStore = create((set, get) => ({
     writeSession(null)
     lastSent = ''
     if (timer) { clearInterval(timer); timer = null }
-    set({ token: null, username: null, savedAt: null })
+    set({ token: null, username: null, savedAt: null, hasRecovery: null })
   },
 
   /** Keep the server copy fresh: every so often, and when the game is put away. */

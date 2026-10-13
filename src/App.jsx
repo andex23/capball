@@ -27,6 +27,7 @@ import Tutorial from './ui/Tutorial'
 import Modal from './ui/Modal'
 import Icon from './ui/Icon'
 import PwaUpdateToast from './pwa/PwaUpdateToast'
+import RecoveryCodePrompt from './ui/RecoveryCode'
 import OnlineReconnect from './ui/OnlineReconnect'
 import PurchaseToast, { BetToast } from './lagos/PurchaseToast'
 import BetBar from './lagos/BetBar'
@@ -158,6 +159,7 @@ export default function App() {
         <ConnectionLost />
         {/* No service worker inside Lagos Life */}
         {!isLagos() && <PwaUpdateToast />}
+        {!isLagos() && <RecoveryCodePrompt />}
         <UnlockToast />
         {isLagos() && <><PurchaseToast /><BetToast /><BetBar /></>}
         <AchievementToast />
