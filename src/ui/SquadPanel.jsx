@@ -22,7 +22,9 @@ const DEAL_LINE = {
 }
 
 /** Your squad of up to fifteen, the youth team, players out on loan and the transfer market. */
-export default function SquadPanel({ career }) {
+/** `show`: 'squad' (six, bench, reserves, loans), 'youth' or 'transfers'; all three when omitted. */
+export default function SquadPanel({ career, show = null }) {
+  const has = (part) => !show || show === part
   const [marketOpen, setMarketOpen] = useState(false)
   const [starting, setStarting] = useState(null) // bench index being brought into the six
   const [manage, setManage] = useState(null)     // slot of the player being managed
@@ -57,11 +59,12 @@ export default function SquadPanel({ career }) {
   )
 
   return (
-    <section className="card card-pad squad-card" aria-label="Squad">
+    <section className="card card-pad squad-card" aria-label={show === 'youth' ? 'Youth team' : show === 'transfers' ? 'Transfers' : 'Squad'}>
       <div className="squad-head">
-        <h2 className="saved-h">Squad <small className="squad-count" data-full={size >= MAX_SQUAD ? 'true' : undefined}>{size} of {MAX_SQUAD}</small></h2>
+        <h2 className="saved-h">{show === 'youth' ? 'Youth team' : show === 'transfers' ? 'Transfers' : 'Squad'} <small className="squad-count" data-full={size >= MAX_SQUAD ? 'true' : undefined}>{size} of {MAX_SQUAD}</small></h2>
         <Coins n={career.coins} />
       </div>
+      {has('squad') && <>
       <p className="muted t-note">Six start and four sit on the bench; up to five more are reserves. PWR: how hard he flicks · SHT: how straight a hard flick goes · PAS: how straight a soft one goes · PHY: how hard he is to knock aside. Your OVR is <b>{mine}</b>{leagueAvg ? <>; the {DIVISIONS[career.level].name} averages <b>{leagueAvg}</b></> : null}.</p>
 
       <h3 className="squad-sub-h">Starting six</h3>
@@ -71,10 +74,9 @@ export default function SquadPanel({ career }) {
 
       <h3 className="squad-sub-h">Bench</h3>
       <ul className="squad-list squad-rows">
-        {(career.bench || []).map((p, i) => row(`bench:${i}`, p, p.pos,
-          <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setStarting(i) }}>Start</button>))}
+        {(career.bench || []).map((p, i) => row(`bench:${i}`, p, p.pos))}
       </ul>
-      <p className="muted t-note">Make up to three substitutions in a match from the pause menu. Players who never get a game slide a little over the summer.</p>
+      <p className="muted t-note">Tap a player to bring him into the starting six, sell, loan or renew him. Make up to three substitutions in a match from the pause menu. Players who never get a game slide a little over the summer.</p>
 
       <h3 className="squad-sub-h">Reserves</h3>
       {(career.reserves || []).length > 0
@@ -97,6 +99,9 @@ export default function SquadPanel({ career }) {
         </>
       )}
 
+      </>}
+
+      {has('youth') && <>
       <h3 className="squad-sub-h">Youth team · {(career.youthTeam || []).length} of {YOUTH_MAX}</h3>
       {(career.youthTeam || []).length > 0 ? (
         <ul className="squad-list squad-rows">
@@ -119,7 +124,9 @@ export default function SquadPanel({ career }) {
         </ul>
       ) : <p className="muted t-note">The youth team is empty. Your academy sends up new players every summer.</p>}
       <p className="muted t-note">Youth players don’t count towards the {MAX_SQUAD} and aren’t paid. They grow fast; promote them when they’re ready. At 19 they must move up or leave.</p>
+      </>}
 
+      {has('transfers') && <>
       {win
         ? <p className="t-note squad-window">The {win.index === 0 ? 'pre-season' : 'mid-season'} transfer window is open. It shuts when you play matchday {windowDeadline(win.index)} ({windowDeadline(win.index) - played} match{windowDeadline(win.index) - played === 1 ? '' : 'es'} left).</p>
         : <p className="muted t-note"><Icon name="lock" size={13} /> {shutLine}</p>}
@@ -132,7 +139,8 @@ export default function SquadPanel({ career }) {
           {career.deals.slice(0, 4).map((d, i) => <li key={i}><span>{DEAL_LINE[d.type]?.(d)}</span></li>)}
         </ul>
       )}
-      {career.biz?.lastMatch && <p className="muted t-note">Last match: <Coins n={career.lastEarned} /> after wages. The full books are under Club business.</p>}
+      </>}
+      {has('squad') && career.biz?.lastMatch && <p className="muted t-note">Last match: <Coins n={career.lastEarned} /> after wages. The full books are under Club.</p>}
 
       {starting != null && career.bench?.[starting] && <StartFromBench career={career} index={starting} onDone={() => setStarting(null)} />}
       {manage && inSlot(career, manage) && <PlayerSheet career={career} slot={manage} onDone={() => setManage(null)} />}
@@ -194,6 +202,8 @@ function PlayerSheet({ career, slot, onDone }) {
   const run = (r) => { if (r === true) { playConfirm(); onDone() } else setError(r?.error || 'That can’t be done.') }
   // A reserve can come into the ten in place of a starter or bench player (keeper for keeper)
   const keeper = p.pos === 'GK'
+  const isBench = slot.startsWith('bench:')
+  const benchSwaps = isBench ? CAP_ROLES.filter((r) => (r === 'gk') === keeper).map((role) => ({ to: role, label: ROLE_LABEL[role], out: migratePlayer(career.squad[role], role), here: ovrAt(p, role), was: ovrAt(migratePlayer(career.squad[role], role), role) })) : []
   const swaps = isReserve ? [
     ...CAP_ROLES.filter((r) => (r === 'gk') === keeper).map((role) => ({ to: role, label: ROLE_LABEL[role], out: migratePlayer(career.squad[role], role), here: ovrAt(p, role), was: ovrAt(migratePlayer(career.squad[role], role), role) })),
     ...(career.bench || []).map((out, i) => ({ to: `bench:${i}`, label: 'BENCH', out, here: p.rating, was: out.rating })).filter(({ out }) => (out.pos === 'GK') === keeper),
@@ -221,6 +231,21 @@ function PlayerSheet({ career, slot, onDone }) {
           </>
         )
       })()}
+
+      {benchSwaps.length > 0 && (
+        <>
+          <h3 className="squad-sub-h">Start him</h3>
+          <ul className="squad-list squad-simple">
+            {benchSwaps.map(({ to, label, out, here, was }) => (
+              <li key={to}>
+                <span className="squad-role">{label}</span>
+                <span className="squad-name">{out.name} <Rating value={was} /> → <b>{here}</b></span>
+                <button className="btn btn-gold squad-buy" onClick={() => { if (store.swap(Number(slot.split(':')[1]), to)) { playConfirm(); onDone() } }}>Swap</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       {swaps.length > 0 && (
         <>

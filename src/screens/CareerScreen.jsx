@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
@@ -21,8 +21,11 @@ import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money } from '../game/squad'
 import LeagueClubs from '../ui/LeagueClubs'
 import { inboxOffers, seasonAwards, repLabel, REP_START } from '../game/clubLife'
+import { squadSize, transferWindow, MAX_SQUAD } from '../game/transfers'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel from '../ui/ClubPanel'
+
+const PAGE_TITLE = { squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -312,6 +315,18 @@ export default function CareerScreen() {
   const [editing, setEditing] = useState(false)
   const [confirmRetire, setConfirmRetire] = useState(false)
   const [guide, setGuide] = useState(false)
+  // Career mode is a set of pages: a home with the next match and a menu, then Squad, Transfers...
+  const [page, setPage] = useState('home')
+  const mainRef = useRef(null)
+  // Each page opens at its top: reset every scrolling box up from the page
+  const go = (next) => {
+    playButtonSelect()
+    setPage(next)
+    requestAnimationFrame(() => {
+      for (let el = mainRef.current; el; el = el.parentElement) if (el.scrollTop) el.scrollTop = 0
+      document.scrollingElement && (document.scrollingElement.scrollTop = 0)
+    })
+  }
 
   const username = useAccountStore((s) => s.username)
   const back = () => { playButtonSelect(); goToScreen(SCREEN.MENU) }
@@ -409,23 +424,10 @@ export default function CareerScreen() {
           </span>
         </header>
 
-        <main className="shell-body career-body">
-          <div className="career-col">
+        <main className="shell-body career-body" ref={mainRef}>
+          {page === 'home' ? (
+            <div className="career-col career-home">
           <SaveBar />
-          <section className="card card-pad career-kit-card">
-            <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={64} number={career.club.numbers?.atk1 ?? 10} />
-            <div>
-              <h2 className="saved-h">Your team</h2>
-              {kitOpen
-                ? <p className="muted t-note">The new season hasn’t kicked off yet — you can change your name, kit and squad numbers now. They’re locked once matchday 1 is played.</p>
-                : <p className="muted t-note"><Icon name="lock" size={13} /> Name, kit and numbers are locked for this season. Change them before next season starts.</p>}
-            </div>
-            {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit team</button>}
-          </section>
-          <section className="card card-pad">
-            <h2 className="saved-h">How you play</h2>
-            <ModePicker mode={career.mode || 'solo'} onPick={(m) => useCareerStore.getState().setMode(m)} />
-          </section>
           {career.target && !done && played === 0 && (
             <section className="card card-pad career-board" aria-label="The board’s target">
               <div className="eyebrow">Season {career.season} · the board</div>
@@ -488,6 +490,24 @@ export default function CareerScreen() {
             </p>
           )}
 
+          <nav className="career-menu" aria-label="Career pages">
+            {[
+              { key: 'squad', icon: 'users', title: 'Squad', line: `${squadSize(career)}/${MAX_SQUAD} players · OVR ${myOvr}` },
+              { key: 'transfers', icon: 'next', title: 'Transfers', line: `${transferWindow(career) ? 'Window open' : 'Window shut'}${inboxOffers(career).length ? ` · ${inboxOffers(career).length} offer${inboxOffers(career).length === 1 ? '' : 's'}` : ''}` },
+              { key: 'youth', icon: 'ball', title: 'Youth team', line: `${(career.youthTeam || []).length} player${(career.youthTeam || []).length === 1 ? '' : 's'}` },
+              { key: 'club', icon: 'cpu', title: 'Club', line: `${money(career.coins)} · ${(career.biz?.fans ?? 0).toLocaleString('en-NG')} fans` },
+              { key: 'league', icon: 'trophy', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
+              { key: 'history', icon: 'restart', title: 'History', line: `${career.past.length} season${career.past.length === 1 ? '' : 's'} · ${career.promotions} promotion${career.promotions === 1 ? '' : 's'}` },
+              { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, how you play, help' },
+            ].map((t) => (
+              <button key={t.key} className="career-tile" onClick={() => go(t.key)}>
+                <Icon name={t.icon} size={22} />
+                <span className="career-tile-title">{t.title}</span>
+                <small>{t.line}</small>
+              </button>
+            ))}
+          </nav>
+
           {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0 || career.lastSummer.youthIn?.length > 0 || career.lastSummer.world?.length > 0 || career.lastSummer.left?.length > 0) && (
             <section className="card card-pad" aria-label="Summer news">
               <h2 className="saved-h">Over the summer</h2>
@@ -511,13 +531,26 @@ export default function CareerScreen() {
             </section>
           )}
 
-          {played > 0 && <PlayerRatings career={career} />}
           <OfferInbox career={career} />
-          <SquadPanel career={career} />
-          <ClubPanel career={career} />
-          </div>
 
-          <div className="career-col">
+            </div>
+          ) : (
+            <div className="career-col career-page">
+              <div className="career-page-head">
+                <button className="btn btn-ghost career-back" onClick={() => go('home')}><Icon name="back" size={16} /> Career</button>
+                <h2 className="display career-page-title">{PAGE_TITLE[page]}</h2>
+              </div>
+              {page === 'squad' && <>
+                {played > 0 && <PlayerRatings career={career} />}
+                <SquadPanel career={career} show="squad" />
+              </>}
+              {page === 'transfers' && <>
+                <OfferInbox career={career} />
+                <SquadPanel career={career} show="transfers" />
+              </>}
+              {page === 'youth' && <SquadPanel career={career} show="youth" />}
+              {page === 'club' && <ClubPanel career={career} />}
+              {page === 'league' && <>
           <section className="card card-pad">
             <h2 className="saved-h">{division.name} table</h2>
             <Table t={league} mine={[ME]} zoneOf={zoneOf} />
@@ -527,33 +560,56 @@ export default function CareerScreen() {
             </p>
           </section>
 
-          <LeagueClubs career={career} />
-
-          <Ladder level={career.level} promotions={career.promotions} titles={career.titles} cups={career.cups} />
-
+                <LeagueClubs career={career} />
+                <Ladder level={career.level} promotions={career.promotions} titles={career.titles} cups={career.cups} />
+              </>}
+              {page === 'history' && <>
           {career.past.length > 0 && (
             <section className="card card-pad">
               <h2 className="saved-h">Past seasons</h2>
               <ul className="saved-history">
-                {career.past.slice(0, 10).map((p) => (
+                {career.past.slice(0, 20).map((p) => (
                   <li key={p.season}>
                     <span />
                     <span className="saved-score">Season {p.season} · {p.division} · <b>{ordinal(p.position)}</b></span>
                     <span />
-                    <small className="muted saved-when">{OUTCOME[p.outcome]?.title || ''}{p.record ? ` · ${p.record.w}W ${p.record.d}D ${p.record.l}L` : ''}</small>
+                    <small className="muted saved-when">{p.sacked ? 'Sacked' : OUTCOME[p.outcome]?.title || ''}{p.record ? ` · ${p.record.w}W ${p.record.d}D ${p.record.l}L` : ''}{p.warned ? ' · final warning' : ''}</small>
+                    {p.awards && <Awards awards={p.awards} />}
                   </li>
                 ))}
               </ul>
             </section>
           )}
 
-          <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setGuide(true) }}><Icon name="help" size={16} /> How ratings work</button>
-          <button className="btn btn-ghost" onClick={() => { playButtonSelect(); setConfirmRetire(true) }}>Retire and start again</button>
-          </div>
+                {career.past.length === 0 && <p className="muted t-note">Your finished seasons, with each season’s awards, will be listed here.</p>}
+                <HallOfFame />
+              </>}
+              {page === 'settings' && <>
+          <section className="card card-pad career-kit-card">
+            <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={64} number={career.club.numbers?.atk1 ?? 10} />
+            <div>
+              <h2 className="saved-h">Your team</h2>
+              {kitOpen
+                ? <p className="muted t-note">The new season hasn’t kicked off yet — you can change your name, kit and squad numbers now. They’re locked once matchday 1 is played.</p>
+                : <p className="muted t-note"><Icon name="lock" size={13} /> Name, kit and numbers are locked for this season. Change them before next season starts.</p>}
+            </div>
+            {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit team</button>}
+          </section>
+          <section className="card card-pad">
+            <h2 className="saved-h">How you play</h2>
+            <ModePicker mode={career.mode || 'solo'} onPick={(m) => useCareerStore.getState().setMode(m)} />
+          </section>
+                <button className="btn btn-secondary btn-block" onClick={() => { playButtonSelect(); setGuide(true) }}><Icon name="help" size={16} /> How career mode works</button>
+                <button className="btn btn-ghost btn-block" onClick={() => { playButtonSelect(); setConfirmRetire(true) }}>Retire and start again</button>
+              </>}
+            </div>
+          )}
         </main>
 
         <footer className="shell-foot"><div className="shell-foot-inner">
-          <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Menu</button>
+          {page === 'home'
+            ? <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Menu</button>
+            : <button className="btn btn-secondary" onClick={() => go('home')}><Icon name="back" size={18} /> Career home</button>}
         </div></footer>
       </div>
 

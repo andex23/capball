@@ -106,6 +106,37 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2)) {
     const s = stickerSpot(size / 2)
     drawNumberSticker(ctx, number, size / 2 + s.x, size / 2 + s.y, s.r)
+    // The design keeps its own lettering; the player or team name goes round the bottom rim
+    const label = (capText || '').trim().toUpperCase()
+    if (label) {
+      const fontPx = size * Math.min(0.075, 0.8 / label.length)
+      ctx.save()
+      ctx.font = `italic 900 ${fontPx}px 'Barlow Condensed', 'Impact', 'Arial Narrow', sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.lineWidth = fontPx * 0.22
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)'
+      ctx.fillStyle = '#ffffff'
+      const R = size * 0.4
+      const widths = [...label].map((ch) => ctx.measureText(ch).width)
+      const total = widths.reduce((acc, w) => acc + w, 0)
+      const span = Math.min(Math.PI * 0.8, total / R)
+      const k2 = span / (total || 1)
+      // Left to right along the bottom: angles run from bottom-left to bottom-right
+      let a = Math.PI / 2 + span / 2
+      ;[...label].forEach((ch, i) => {
+        const w = widths[i] * k2
+        const mid = a - w / 2
+        ctx.save()
+        ctx.translate(size / 2 + Math.cos(mid) * R, size / 2 + Math.sin(mid) * R)
+        ctx.rotate(mid - Math.PI / 2)
+        ctx.strokeText(ch, 0, 0)
+        ctx.fillText(ch, 0, 0)
+        ctx.restore()
+        a -= w
+      })
+      ctx.restore()
+    }
     const t = new THREE.CanvasTexture(c)
     t.colorSpace = THREE.SRGBColorSpace
     t.anisotropy = 4

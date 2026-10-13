@@ -218,6 +218,8 @@ export default function CapPreview({ config, size = 120, number = null, role = '
           <rect x={cx} y={0} width={cx + 2} height={size} />
         </clipPath>
         <path id={`arc-${uid}`} d={`M ${cx - topR * 0.68} ${tc} A ${topR * 0.68} ${topR * 0.68} 0 0 1 ${cx + topR * 0.68} ${tc}`} />
+        {/* Along the bottom rim, for a name on a printed design */}
+        <path id={`arcLow-${uid}`} d={`M ${cx - topR * 0.8} ${tc} A ${topR * 0.8} ${topR * 0.8} 0 0 0 ${cx + topR * 0.8} ${tc}`} />
       </defs>
 
       {/* Shadow on the table */}
@@ -245,7 +247,15 @@ export default function CapPreview({ config, size = 120, number = null, role = '
       <g transform={`matrix(1 0 0 ${K} 0 ${(tc * (1 - K)).toFixed(3)})`}>
         <circle cx={cx} cy={tc} r={topR} fill={`url(#top-${uid})`} />
         {artUrl ? (
-          <image href={artUrl} x={cx - topR} y={tc - topR} width={topR * 2} height={topR * 2} clipPath={`url(#topClip-${uid})`} preserveAspectRatio="none" />
+          <>
+            <image href={artUrl} x={cx - topR} y={tc - topR} width={topR * 2} height={topR * 2} clipPath={`url(#topClip-${uid})`} preserveAspectRatio="none" />
+            {/* A printed design keeps its own lettering; the name goes round the bottom rim */}
+            {withText && (
+              <text fill="#ffffff" stroke="rgba(0,0,0,0.75)" strokeWidth={topR * 0.035} paintOrder="stroke" dominantBaseline="central" fontSize={topR * Math.min(0.15, 1.6 / capText.length)} fontWeight="900" fontStyle="italic" fontFamily="'Barlow Condensed', 'Impact', sans-serif" letterSpacing="0.04em">
+                <textPath href={`#arcLow-${uid}`} startOffset="50%" textAnchor="middle">{capText.toUpperCase()}</textPath>
+              </text>
+            )}
+          </>
         ) : (
           <>
         <g clipPath={`url(#topClip-${uid})`}>

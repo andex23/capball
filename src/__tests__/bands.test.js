@@ -9,7 +9,8 @@ const none = { won: 0, goalsFor: 0, cleanSheets: 0, promotions: 0, titles: 0, cu
 describe('rubber bands', () => {
   it('free bands are open, earned ones open at their goal, shop-only never by play', () => {
     const by = (k) => BANDS.find((b) => b.key === k)
-    expect(bandEarned(by('red'), none)).toBe(true)
+    expect(bandEarned(by('red'), none)).toBe(false) // no free bands
+    expect(bandEarned(by('red'), { ...none, won: 1 })).toBe(true)
     expect(bandEarned(by('blue'), none)).toBe(false)
     expect(bandEarned(by('blue'), { ...none, won: 3 })).toBe(true)
     expect(bandEarned(by('gold'), { ...none, won: 999, cups: 99 })).toBe(false)
