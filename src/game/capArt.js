@@ -106,18 +106,18 @@ function metal(ctx, r, stops) {
 /* ── Drink caps ── */
 
 const ART = {
-  cola(ctx) {
+  cola(ctx, w = {}) {
     disc(ctx, 100, '#C8102E')
     // the white sweep
     ctx.save(); ctx.beginPath()
     ctx.moveTo(-110, 18); ctx.bezierCurveTo(-55, -30, 10, 55, 110, -8)
     ctx.lineTo(110, 22); ctx.bezierCurveTo(10, 80, -55, 0, -110, 46); ctx.closePath()
     ctx.fillStyle = PAPER; ctx.fill(); ctx.restore()
-    text(ctx, 'Cola', -2, -22, { size: 64, italic: true, color: PAPER, stroke: '#8E0C20', strokeW: 6 })
+    text(ctx, (w.main || 'Cola'), -2, -22, { size: 64, italic: true, color: PAPER, stroke: '#8E0C20', strokeW: 6 })
     ring(ctx, 95, 2, PAPER)
   },
 
-  greenlager(ctx) {
+  greenlager(ctx, w = {}) {
     disc(ctx, 100, '#0E5E36')
     ring(ctx, 94, 3, '#E8C766'); ring(ctx, 88, 1, '#E8C766')
     // radiating fine lines behind the star
@@ -126,30 +126,30 @@ const ART = {
     ctx.restore()
     starPath(ctx, 0, -14, 30, 12); ctx.fillStyle = '#E8C766'; ctx.fill()
     starPath(ctx, 0, -14, 30, 12); ctx.lineWidth = 2; ctx.strokeStyle = '#0E5E36'; ctx.stroke()
-    banner(ctx, 30, 108, 24, '#E8C766', '#B8963E', 'LAGER', '#0E5E36')
+    banner(ctx, 30, 108, 24, '#E8C766', '#B8963E', (w.main || 'LAGER'), '#0E5E36')
   },
 
-  redlager(ctx) {
+  redlager(ctx, w = {}) {
     disc(ctx, 100, '#B3121B')
     dotRing(ctx, 92, 40, 1.8, '#F2C14E')
     disc(ctx, 64, '#F2C14E')
     disc(ctx, 58, '#B3121B')
     starPath(ctx, 0, -14, 36, 15); ctx.fillStyle = '#F2C14E'; ctx.fill()
-    banner(ctx, 30, 84, 20, '#F2C14E', '#B88A2A', 'EXTRA', '#B3121B')
+    banner(ctx, 30, 84, 20, '#F2C14E', '#B88A2A', (w.main || 'EXTRA'), '#B3121B')
   },
 
-  stout(ctx) {
+  stout(ctx, w = {}) {
     disc(ctx, 100, '#111111')
     ring(ctx, 93, 1.5, '#C9A35A'); ring(ctx, 89, 0.8, '#C9A35A')
     // cream oval medallion
     ctx.save(); ctx.beginPath(); ctx.ellipse(0, -2, 52, 62, 0, 0, Math.PI * 2); ctx.fillStyle = '#EADFC8'; ctx.fill()
     ctx.lineWidth = 3; ctx.strokeStyle = '#C9A35A'; ctx.stroke(); ctx.restore()
-    text(ctx, 'STOUT', 0, -8, { size: 40, color: '#111111', spacing: 1 })
+    text(ctx, (w.main || 'STOUT'), 0, -8, { size: 40, color: '#111111', spacing: 1 })
     // three small bars, like a tasting mark
     ctx.fillStyle = '#111111'; for (let i = -1; i <= 1; i++) ctx.fillRect(i * 10 - 3, 34, 6, 6)
   },
 
-  malta(ctx) {
+  malta(ctx, w = {}) {
     disc(ctx, 100, '#4A2610')
     ring(ctx, 94, 6, '#E8B84A')
     // two wheat ears
@@ -161,10 +161,10 @@ const ART = {
       ctx.restore()
     }
     ctx.restore()
-    banner(ctx, 18, 112, 26, '#E8B84A', '#B5862E', 'MALTA', '#4A2610')
+    banner(ctx, 18, 112, 26, '#E8B84A', '#B5862E', (w.main || 'MALTA'), '#4A2610')
   },
 
-  orange(ctx) {
+  orange(ctx, w = {}) {
     disc(ctx, 100, '#F57F17')
     // bubbles
     const b = [[-60, -40, 9], [-42, -62, 5], [55, -50, 7], [66, -22, 4], [-70, 20, 5], [62, 30, 8], [40, 62, 5], [-38, 60, 7], [-15, -72, 4], [20, -70, 6]]
@@ -173,10 +173,10 @@ const ART = {
     ctx.save(); ctx.beginPath()
     for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; const r = i % 2 ? 46 : 58; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r * 1.15, Math.sin(a) * r * 0.62 + 6) }
     ctx.closePath(); ctx.fillStyle = '#0B3D91'; ctx.fill(); ctx.restore()
-    text(ctx, 'ORANGE', 0, 6, { size: 34, italic: true, color: '#FFB300', stroke: '#06235A', strokeW: 4, spacing: 1 })
+    text(ctx, (w.main || 'ORANGE'), 0, 6, { size: 34, italic: true, color: '#FFB300', stroke: '#06235A', strokeW: 4, spacing: 1 })
   },
 
-  lemon(ctx) {
+  lemon(ctx, w = {}) {
     // diagonal two-tone
     disc(ctx, 100, '#1E8E3E')
     ctx.save(); ctx.beginPath(); ctx.arc(0, 0, 100, 0, Math.PI * 2); ctx.clip()
@@ -186,11 +186,11 @@ const ART = {
     ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fillStyle = '#FFF6B0'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#E6C200'; ctx.stroke()
     ctx.fillStyle = '#FFE14D'; for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 24, a + 0.08, a + Math.PI / 4 - 0.08); ctx.closePath(); ctx.fill() }
     ctx.restore()
-    text(ctx, 'Lemon', -22, -30, { size: 40, italic: true, color: PAPER, stroke: '#0F5A26', strokeW: 5 })
-    text(ctx, '+ LIME', -26, 0, { size: 20, color: '#FFE14D', spacing: 1 })
+    text(ctx, (w.main || 'Lemon'), -22, -30, { size: 40, italic: true, color: PAPER, stroke: '#0F5A26', strokeW: 5 })
+    text(ctx, (w.sub || '+ LIME'), -26, 0, { size: 20, color: '#FFE14D', spacing: 1 })
   },
 
-  bitter(ctx) {
+  bitter(ctx, w = {}) {
     disc(ctx, 100, '#F2D21B')
     ring(ctx, 93, 3, '#1E5E2E')
     // lemon wedge
@@ -199,11 +199,11 @@ const ART = {
     ctx.beginPath(); ctx.arc(0, 0, 33, Math.PI, 0); ctx.closePath(); ctx.fillStyle = '#FFF6B0'; ctx.fill()
     ctx.fillStyle = '#F2D21B'; for (let i = 0; i < 5; i++) { const a = Math.PI + (i / 5) * Math.PI; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 28, a + 0.08, a + Math.PI / 5 - 0.08); ctx.closePath(); ctx.fill() }
     ctx.restore()
-    text(ctx, 'BITTER', 0, 14, { size: 30, color: '#1E5E2E', spacing: 2 })
-    text(ctx, 'LEMON', -8, 38, { size: 20, color: '#1E5E2E', spacing: 4 })
+    text(ctx, (w.main || 'BITTER'), 0, 14, { size: 30, color: '#1E5E2E', spacing: 2 })
+    text(ctx, (w.sub || 'LEMON'), -8, 38, { size: 20, color: '#1E5E2E', spacing: 4 })
   },
 
-  ginger(ctx) {
+  ginger(ctx, w = {}) {
     disc(ctx, 100, '#0B4D2C')
     disc(ctx, 72, '#E8C766'); disc(ctx, 66, '#0B4D2C')
     // a knobbly ginger root
@@ -211,20 +211,20 @@ const ART = {
     const knobs = [[-28, -6, 15, 10], [-6, -12, 17, 11], [18, -4, 15, 10], [-14, 8, 11, 8], [10, 10, 10, 8], [32, -16, 9, 7]]
     for (const [x, y, rx, ry] of knobs) { ctx.beginPath(); ctx.ellipse(x, y - 14, rx, ry, 0.3, 0, Math.PI * 2); ctx.fill() }
     ctx.restore()
-    text(ctx, 'GINGER', 0, 24, { size: 28, color: '#E8C766', spacing: 2 })
-    text(ctx, 'ALE', 0, 46, { size: 16, color: '#E8C766', spacing: 6 })
+    text(ctx, (w.main || 'GINGER'), 0, 24, { size: 28, color: '#E8C766', spacing: 2 })
+    text(ctx, (w.sub || 'ALE'), 0, 46, { size: 16, color: '#E8C766', spacing: 6 })
   },
 
-  tonic(ctx) {
+  tonic(ctx, w = {}) {
     disc(ctx, 100, '#00737E')
     // rising bubbles in a column
     for (let i = 0; i < 18; i++) { const side = i % 2 ? 1 : -1; const x = side * (56 + Math.sin(i * 2.3) * 8); const y = 50 - i * 6; const r = 2 + (i % 4); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(220,255,255,0.8)'; ctx.stroke() }
-    text(ctx, 'TONIC', 0, -6, { size: 42, color: PAPER, spacing: 3, stroke: '#00525A', strokeW: 6 })
-    text(ctx, 'WATER', 0, 24, { size: 14, font: SANS, weight: 800, color: '#BFF3F0', spacing: 6 })
+    text(ctx, (w.main || 'TONIC'), 0, -6, { size: 42, color: PAPER, spacing: 3, stroke: '#00525A', strokeW: 6 })
+    text(ctx, (w.sub || 'WATER'), 0, 24, { size: 14, font: SANS, weight: 800, color: '#BFF3F0', spacing: 6 })
     ring(ctx, 92, 1.5, '#BFF3F0'); ring(ctx, 87, 1.5, '#BFF3F0')
   },
 
-  harmattan(ctx) {
+  harmattan(ctx, w = {}) {
     // Dry-season haze: a pale sun low over the dunes, ochre sky
     disc(ctx, 100, '#C9771E')
     ctx.save(); ctx.beginPath(); ctx.arc(0, 0, 100, 0, Math.PI * 2); ctx.clip()
@@ -237,12 +237,12 @@ const ART = {
     ctx.fillStyle = '#3E1F0B'
     ctx.beginPath(); ctx.moveTo(-100, 40); ctx.quadraticCurveTo(-20, 20, 40, 38); ctx.quadraticCurveTo(80, 48, 100, 36); ctx.lineTo(100, 100); ctx.lineTo(-100, 100); ctx.closePath(); ctx.fill()
     ctx.restore()
-    text(ctx, 'HARMATTAN', 0, -52, { size: 30, color: '#F6E7C4', spacing: 2, stroke: '#7A3E10', strokeW: 4, maxW: 150 })
-    text(ctx, 'DRY SEASON LAGER', 0, 60, { size: 11, font: SANS, weight: 800, color: '#F6E7C4', spacing: 2, maxW: 118 })
+    text(ctx, (w.main || 'HARMATTAN'), 0, -52, { size: 30, color: '#F6E7C4', spacing: 2, stroke: '#7A3E10', strokeW: 4, maxW: 150 })
+    text(ctx, (w.sub || 'DRY SEASON LAGER'), 0, 60, { size: 11, font: SANS, weight: 800, color: '#F6E7C4', spacing: 2, maxW: 118 })
     ring(ctx, 94, 2.5, '#F6E7C4')
   },
 
-  lagoon(ctx) {
+  lagoon(ctx, w = {}) {
     // Night on the water: a palm against a gold moon, ripples below
     disc(ctx, 100, '#3F1A4E')
     dotRing(ctx, 91, 44, 1.6, '#E8B84A')
@@ -261,7 +261,7 @@ const ART = {
     ctx.save(); ctx.strokeStyle = 'rgba(232,184,74,0.75)'; ctx.lineWidth = 2
     for (let i = 0; i < 3; i++) { const y = 42 + i * 8; ctx.beginPath(); ctx.moveTo(-50 + i * 10, y); ctx.bezierCurveTo(-20, y - 4, 20, y + 4, 50 - i * 10, y); ctx.stroke() }
     ctx.restore()
-    text(ctx, 'Lagoon', 4, 12, { size: 46, italic: true, color: '#F3EBD8', stroke: '#1C0A24', strokeW: 5 })
+    text(ctx, (w.main || 'Suncity'), 4, 12, { size: 46, italic: true, color: '#F3EBD8', stroke: '#1C0A24', strokeW: 5 })
   },
 
   /* ── Rare caps: enamel medals ── */
@@ -436,6 +436,18 @@ const ART = {
   },
 }
 
+/**
+ * Words printed on the ready-made caps, changeable from the admin console:
+ * { [designKey]: { main, sub } }. Anything not set keeps the built-in words.
+ */
+let LABELS = {}
+const urls = new Map()
+export function setCapLabels(map) {
+  LABELS = map && typeof map === 'object' ? map : {}
+  urls.clear()
+}
+const labelsFor = (key) => LABELS[key] || {}
+
 /** Does this design have printed artwork? */
 export const hasArt = (key) => typeof key === 'string' && Object.hasOwn(ART, key)
 
@@ -450,7 +462,7 @@ export function drawCapArt(ctx, key, cx, cy, r) {
   ctx.translate(cx, cy)
   ctx.scale(r / 100, r / 100)
   ctx.beginPath(); ctx.arc(0, 0, 100, 0, Math.PI * 2); ctx.clip()
-  draw(ctx)
+  draw(ctx, labelsFor(key))
   // embossed tin: two faint rings near the rim
   ring(ctx, 97, 1.2, 'rgba(0,0,0,0.25)')
   ring(ctx, 99, 1, 'rgba(255,255,255,0.12)')
@@ -482,7 +494,6 @@ export function drawNumberSticker(ctx, number, cx, cy, r) {
 /** Where the sticker sits on a top of radius r: low and to the right, clear of the main art. */
 export const stickerSpot = (r) => ({ x: r * 0.6, y: r * 0.56, r: r * 0.2 })
 
-const urls = new Map()
 /** A PNG of the artwork (plus number), cached, for the flat kit previews. */
 export function capArtUrl(key, number = null, px = 240) {
   if (!hasArt(key) || typeof document === 'undefined') return null

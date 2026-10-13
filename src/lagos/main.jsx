@@ -21,6 +21,7 @@ import { initTournamentWatch, useTournamentStore } from '../state/tournamentStor
 import { initAudioUnlock } from '../audio/SoundManager'
 import { initSavedMatches } from '../state/savedMatch'
 import { initClips } from '../game/clips'
+import { initCapOverrides } from '../game/capOverrides'
 import { useLagosStore, watchMatches } from './lagosStore'
 import { initIosAudio } from './iosAudio'
 
@@ -33,6 +34,7 @@ initAudioUnlock()
 initIosAudio()
 initSavedMatches()
 initClips()
+initCapOverrides()
 watchMatches()
 useLagosStore.getState().boot()
 

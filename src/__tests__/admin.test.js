@@ -2,6 +2,8 @@ import { beforeAll, afterAll, describe, expect, it } from 'vitest'
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 import { cleanAds, DEFAULT_ADS } from '../game/arenaAds'
+import { cleanCapOverrides, applyCapOverrides } from '../game/capOverrides'
+import { CAP_DESIGNS } from '../data/TeamOptions'
 
 // The admin console's functions against a real PostgreSQL (PGlite). PGlite
 // lacks pgcrypto, so the password and token helpers are swapped for built-ins.
@@ -33,6 +35,8 @@ beforeAll(async () => {
   await db.exec(sql) // safe to run again
   await db.exec(read('arena-ads.sql'))
   await db.exec(read('arena-ads.sql'))
+  await db.exec(read('cap-designs.sql'))
+  await db.exec(read('cap-designs.sql'))
   for (const name of ['pat', 'sam']) {
     const r = await db.query("insert into cb_accounts(username,display_name,pass_hash,save_data,saved_at) values($1,$1,'x',$2,now()) returning id", [name, JSON.stringify({ v: 1, items: { k: 'v' } })])
     ids[name] = r.rows[0].id
@@ -132,5 +136,21 @@ describe('admin console', () => {
     await ads(boss, 'reset')
     expect(await q1('select cb_arena_ads() r')).toBeNull()
     expect(cleanAds(null)).toEqual(DEFAULT_ADS)
+  })
+
+  it('renames, rewords and hides ready-made caps; anyone can read it, only an admin can change it', async () => {
+    const caps = (token, action, data = {}) => q1('select cb_admin_caps($1,$2,$3) r', [token, action, JSON.stringify(data)])
+    expect(await q1('select cb_cap_designs() r')).toBeNull()
+    await expect(caps('pat'.repeat(20), 'set', { caps: {} })).rejects.toThrow('signed-out')
+    await expect(caps(boss, 'set', { caps: { lagoon: { name: 'X'.repeat(21) } } })).rejects.toThrow('cap-name-long')
+    await expect(caps(boss, 'set', { caps: { 'Bad Key': { name: 'x' } } })).rejects.toThrow('bad-caps')
+    await caps(boss, 'set', { caps: { lagoon: { name: '  Sun   City ', main: 'Sun City' }, cola: { hidden: true }, stout: { name: '' } } })
+    const live = await q1('select cb_cap_designs() r')
+    expect(live).toEqual({ lagoon: { name: 'Sun City', main: 'Sun City' }, cola: { hidden: true } })
+    const shown = applyCapOverrides(cleanCapOverrides(live))
+    expect(shown.find((d) => d.key === 'cola')).toBeUndefined()
+    expect(shown.find((d) => d.key === 'lagoon')).toMatchObject({ name: 'Sun City', capText: 'SUN CITY' })
+    expect(applyCapOverrides({}, { all: true })).toHaveLength(CAP_DESIGNS.length)
+    expect(CAP_DESIGNS.find((d) => d.key === 'lagoon').name).toBe('Suncity')
   })
 })

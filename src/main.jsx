@@ -20,6 +20,7 @@ import { initSavedMatches } from './state/savedMatch'
 import { initClips } from './game/clips'
 import { initInstallPrompt } from './pwa/install'
 import { initAnalytics } from './analytics'
+import { initCapOverrides } from './game/capOverrides'
 
 // Restore saved teams, settings and records before the first render
 initPersistence()
@@ -32,6 +33,8 @@ initClips()
 // The install prompt can fire before the menu mounts, so catch it early
 initInstallPrompt()
 initAnalytics()
+// Ready-made cap names and wording set from the admin console
+initCapOverrides()
 
 // #dbcheck: a one-off live test of the online-tournament database
 if (location.hash === '#dbcheck') {

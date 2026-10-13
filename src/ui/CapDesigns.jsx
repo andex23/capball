@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { CAP_DESIGNS, RARE_DESIGNS, designPatch, isDesign, isUnlocked } from '../data/TeamOptions'
+import { RARE_DESIGNS, designPatch, isDesign, isUnlocked } from '../data/TeamOptions'
+import { useCapDesigns } from '../game/capOverrides'
 import { useProgress } from '../state/unlocks'
 import { useAccountStore } from '../state/accountStore'
 import { playButtonSelect } from '../audio/SoundManager'
@@ -20,6 +21,7 @@ const DEFAULT_KIT = { primary: '#D32F2F', edge: '#FFD700' }
  */
 export default function CapDesigns({ config, onPick, disabled = false, defaultKit = DEFAULT_KIT }) {
   const plain = { ...PLAIN, primary: defaultKit.primary, edge: defaultKit.edge }
+  const designs = useCapDesigns()
   const progress = useProgress()
   const signedIn = !!useAccountStore((s) => s.username)
   const [hint, setHint] = useState(null)
@@ -38,7 +40,7 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
           <CapPreview config={plain} size={58} />
           <span>Plain</span>
         </button>
-        {CAP_DESIGNS.map((d) => (
+        {designs.map((d) => (
           <button key={d.key} className="cap-design" aria-pressed={isDesign(config, d)} disabled={disabled} onClick={() => pick(d)}>
             <CapPreview config={d} size={58} />
             <span>{d.name}</span>
