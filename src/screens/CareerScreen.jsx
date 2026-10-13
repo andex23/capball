@@ -416,7 +416,7 @@ export default function CareerScreen() {
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow shell-eyebrow">Career · Season {career.season} · {division.name} · Manager: {repLabel(career.rep ?? REP_START)} ({career.rep ?? REP_START})</div>
+            <div className="eyebrow shell-eyebrow">{MODE_INFO[career.mode || 'solo'].label} career · Season {career.season} · {division.name} · Manager: {repLabel(career.rep ?? REP_START)} ({career.rep ?? REP_START})</div>
             <h1 className="display shell-title">{career.club.name}</h1>
           </div>
           <span className="career-kit">
@@ -498,7 +498,7 @@ export default function CareerScreen() {
               { key: 'club', icon: 'cpu', title: 'Club', line: `${money(career.coins)} · ${(career.biz?.fans ?? 0).toLocaleString('en-NG')} fans` },
               { key: 'league', icon: 'trophy', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
               { key: 'history', icon: 'restart', title: 'History', line: `${career.past.length} season${career.past.length === 1 ? '' : 's'} · ${career.promotions} promotion${career.promotions === 1 ? '' : 's'}` },
-              { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, how you play, help' },
+              { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, help, retire' },
             ].map((t) => (
               <button key={t.key} className="career-tile" onClick={() => go(t.key)}>
                 <Icon name={t.icon} size={22} />
@@ -594,10 +594,6 @@ export default function CareerScreen() {
                 : <p className="muted t-note"><Icon name="lock" size={13} /> Name, kit and numbers are locked for this season. Change them before next season starts.</p>}
             </div>
             {kitOpen && <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setEditing(true) }}>Edit team</button>}
-          </section>
-          <section className="card card-pad">
-            <h2 className="saved-h">How you play</h2>
-            <ModePicker mode={career.mode || 'solo'} onPick={(m) => useCareerStore.getState().setMode(m)} />
           </section>
                 <button className="btn btn-secondary btn-block" onClick={() => { playButtonSelect(); setGuide(true) }}><Icon name="help" size={16} /> How career mode works</button>
                 <button className="btn btn-ghost btn-block" onClick={() => { playButtonSelect(); setConfirmRetire(true) }}>Retire and start again</button>
