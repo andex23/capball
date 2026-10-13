@@ -1515,12 +1515,12 @@ button { cursor: pointer; background: none; border: 0; }
 .iss-opt .iss-item { font-size: clamp(12px, 3.4vw, 14px); padding: 8px 0; text-transform: uppercase; }
 .iss-window .install-btn { margin-top: 10px; width: 100%; }
 
-/* The copyright sits at the bottom, on the same line as the share button */
+/* The copyright sits bottom right, on the same line as the share button (bottom left) */
 .iss-foot {
   position: fixed; left: 0; right: 0; bottom: calc(var(--safe-bottom) + 16px); z-index: 5;
   height: 48px; align-items: center; pointer-events: none;
-  padding: 0 calc(var(--safe-right) + 16px) 0 calc(var(--safe-left) + 80px);
-  display: flex; gap: 18px; justify-content: flex-start; flex-wrap: wrap;
+  padding: 0 calc(var(--safe-right) + 18px) 0 calc(var(--safe-left) + 80px);
+  display: flex; gap: 18px; justify-content: flex-end; flex-wrap: wrap;
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
   color: rgba(255,255,255,0.7); text-shadow: 2px 2px 0 var(--iss-ink);
 }
