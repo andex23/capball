@@ -1734,8 +1734,12 @@ function TvCamera({ position, ry }) {
 function CapArenaRoom() {
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const homeEnd = useMatchStore.getState().chosenTeam1Side === 'right' ? 1 : -1
-  const home = teamConfig?.team1
-  const away = teamConfig?.team2
+  // Only the colours and names matter here: a substitution changes the team
+  // settings but mustn't rebuild the crowd or the banners
+  const t1 = teamConfig?.team1
+  const t2 = teamConfig?.team2
+  const home = useMemo(() => ({ name: t1?.name, primary: t1?.primary, edge: t1?.edge }), [t1?.name, t1?.primary, t1?.edge])
+  const away = useMemo(() => ({ name: t2?.name, primary: t2?.primary, edge: t2?.edge }), [t2?.name, t2?.primary, t2?.edge])
   const uniforms = useMemo(() => ({ uTime: { value: 0 }, uExcite: { value: 0 }, uScorer: { value: 1 } }), [])
   const crowd = useMemo(() => arenaCrowd({ home, away, homeEnd }), [home, away, homeEnd])
   const rows = useMemo(arenaRows, [])
@@ -1748,6 +1752,7 @@ function CapArenaRoom() {
   useEffect(() => () => { boards.dispose(); ribbon.dispose() }, [boards, ribbon])
   const homeBanner = useMemo(() => bannerTexture(home), [home])
   const awayBanner = useMemo(() => bannerTexture(away), [away])
+  useEffect(() => () => { homeBanner.dispose(); awayBanner.dispose() }, [homeBanner, awayBanner])
   const screen = useScoreScreen(home, away)
   const excite = useRef(0)
 
