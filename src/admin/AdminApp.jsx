@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { call, login, logout, messageFor, readSession, saveSession, summariseSave } from './adminApi'
+import { call, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
 import { DIVISIONS } from '../game/divisions'
 
 const SECTIONS = [
@@ -30,18 +30,17 @@ export default function AdminApp() {
   const [error, setError] = useState('')
   const [section, setSection] = useState(() => (SECTIONS.some((s) => `#${s.key}` === location.hash) ? location.hash.slice(1) : 'overview'))
 
-  // Check the session belongs to an admin
+  // Check the saved session is still good
   useEffect(() => {
     if (!session) return
     let live = true
     call(session.token, 'me')
-      .then((r) => { if (live) { setMe(r.username); setError('') } })
+      .then((r) => { if (live) { setMe(r.email); setError('') } })
       .catch((e) => {
         if (!live) return
         setMe(null)
-        if (session.fromGame && e.code === 'not-admin') setError(`You’re signed in to the game as ${session.username}, which isn’t an admin. Sign in with an admin account.`)
-        else setError(messageFor(e))
-        if (!session.fromGame || e.code === 'signed-out') { saveSession(null) }
+        setError(e.code === 'signed-out' ? '' : messageFor(e))
+        saveSession(null)
         setSession(null)
       })
     return () => { live = false }
@@ -49,7 +48,7 @@ export default function AdminApp() {
 
   const go = (key) => { setSection(key); history.replaceState(null, '', `#${key}`) }
   const signOut = async () => {
-    if (session && !session.fromGame) await logout(session.token)
+    if (session) await logout(session.token)
     saveSession(null)
     setSession(null)
     setMe(null)
@@ -66,7 +65,7 @@ export default function AdminApp() {
         <div className="adm-brand"><span className="adm-mark" aria-hidden="true" />Counterball <span>admin</span></div>
         <div className="adm-who">
           <span>{me}</span>
-          <button className="adm-link" onClick={signOut}>{session.fromGame ? 'Use another account' : 'Sign out'}</button>
+          <button className="adm-link" onClick={signOut}>Sign out</button>
         </div>
       </header>
       <nav className="adm-nav" aria-label="Admin sections">
@@ -86,20 +85,28 @@ export default function AdminApp() {
   )
 }
 
+/** Sign in, or, the very first time, create the admin login. */
 function SignIn({ error, checking, onSignedIn }) {
-  const [username, setUsername] = useState('')
+  const [mode, setMode] = useState(null) // 'setup' | 'login' | 'missing'
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [again, setAgain] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  useEffect(() => {
+    status().then((r) => setMode(r?.setup ? 'setup' : 'login'), (e) => { setMode('missing'); setErr(messageFor(e)) })
+  }, [])
+  const first = mode === 'setup'
   const submit = async (e) => {
     e.preventDefault()
+    if (first && password !== again) { setErr('The two passwords don’t match.'); return }
     setBusy(true)
     setErr('')
     try {
-      const r = await login(username.trim(), password)
-      if (r?.error) throw Object.assign(new Error(r.error), { code: r.error })
-      onSignedIn({ token: r.token, username: r.username })
+      const r = first ? await setup(email.trim(), password) : await login(email.trim(), password)
+      onSignedIn({ token: r.token, email: r.email })
     } catch (x) {
+      if (x.code === 'setup-done') setMode('login')
       setErr(messageFor(x))
     } finally {
       setBusy(false)
@@ -109,12 +116,22 @@ function SignIn({ error, checking, onSignedIn }) {
     <div className="adm-signin">
       <form className="adm-card adm-signin-card" onSubmit={submit}>
         <div className="adm-brand"><span className="adm-mark" aria-hidden="true" />Counterball <span>admin</span></div>
-        <p className="adm-muted">Sign in with your game account. Only admin accounts get in.</p>
-        {checking && !error && <p className="adm-muted">Checking your session…</p>}
-        <label>Username<input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required /></label>
-        <label>Password<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+        {mode === null && <p className="adm-muted">{checking ? 'Checking your session…' : 'Loading…'}</p>}
+        {first && <p className="adm-muted">Create your admin login. This only works once: after this, the page asks for this email and password.</p>}
+        {mode === 'login' && <p className="adm-muted">Sign in with your admin email and password.</p>}
+        {(mode === 'setup' || mode === 'login') && (
+          <>
+            <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+            <label>Password<input type="password" autoComplete={first ? 'new-password' : 'current-password'} minLength={first ? 10 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+            {first && <label>Password again<input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required /></label>}
+            {first && <small className="adm-muted">At least 10 characters.</small>}
+          </>
+        )}
         {(err || error) && <p className="adm-error" role="alert">{err || error}</p>}
-        <button className="adm-btn adm-btn-gold" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        {mode === 'missing' && <button type="button" className="adm-btn" onClick={() => location.reload()}>Reload</button>}
+        {(mode === 'setup' || mode === 'login') && (
+          <button className="adm-btn adm-btn-gold" disabled={busy}>{busy ? (first ? 'Creating…' : 'Signing in…') : (first ? 'Create login' : 'Sign in')}</button>
+        )}
       </form>
     </div>
   )
@@ -212,7 +229,7 @@ function Players({ api }) {
             <tbody>
               {data.rows.map((p) => (
                 <tr key={p.id} onClick={() => setOpen(p.id)} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpen(p.id) }}>
-                  <td><b>{p.name}</b>{p.admin && <span className="adm-tag">admin</span>}</td>
+                  <td><b>{p.name}</b></td>
                   <td>{when(p.createdAt)}</td>
                   <td>{when(p.lastSeen)}</td>
                   <td>{p.sessions}</td>
@@ -296,9 +313,8 @@ function PlayerSheet({ api, id, onClose, onChanged }) {
             <p className="adm-muted">Removes the account, its save and its leaderboard rows. This can’t be undone. Type <b>{p.name}</b> to confirm.</p>
             <div className="adm-row">
               <input value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="Type the username to confirm" />
-              <button className="adm-btn adm-btn-bad" disabled={busy || confirm !== p.name || p.admin} onClick={() => act('delete-player', {}, 'Deleted.')}>Delete</button>
+              <button className="adm-btn adm-btn-bad" disabled={busy || confirm !== p.name} onClick={() => act('delete-player', {}, 'Deleted.')}>Delete</button>
             </div>
-            {p.admin && <p className="adm-muted">Admins can’t be deleted. Remove them from Admins first.</p>}
             {note && <p className="adm-note" role="status">{note}</p>}
 
             <details className="adm-raw">
@@ -440,44 +456,60 @@ function Matches({ api }) {
 /* ── Admins ── */
 
 const ACTION_LABEL = {
-  'reset-password': 'reset a password', 'sign-out': 'signed a player out', 'delete-player': 'deleted a player',
-  'close-tournament': 'closed a tournament', 'delete-tournament': 'deleted a tournament', 'board-remove': 'removed a leaderboard row',
-  'grant-admin': 'added an admin', 'revoke-admin': 'removed an admin',
+  setup: 'created the first admin login', 'reset-password': 'reset a player’s password', 'sign-out': 'signed a player out',
+  'delete-player': 'deleted a player', 'close-tournament': 'closed a tournament', 'delete-tournament': 'deleted a tournament',
+  'board-remove': 'removed a leaderboard row', 'add-admin': 'added an admin', 'remove-admin': 'removed an admin',
+  'change-password': 'changed their password',
 }
 
 function Admins({ api, me }) {
   const { data, error, loading, reload } = useLoad(() => api('admins'), [])
-  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [pw, setPw] = useState('')
+  const [cur, setCur] = useState('')
+  const [next, setNext] = useState('')
   const [note, setNote] = useState('')
-  const act = async (action, d, done) => {
-    try { await api(action, d); setNote(done); setName(''); reload() } catch (e) { setNote(messageFor(e)) }
+  const act = async (action, d, done, clear) => {
+    setNote('')
+    try { await api(action, d); setNote(done); clear?.(); reload() } catch (e) { setNote(messageFor(e)) }
   }
   return (
     <section aria-label="Admins">
       <div className="adm-head"><h1>Admins</h1></div>
       <Status loading={loading && !data} error={error} reload={reload} />
+      {note && <p className="adm-note" role="status">{note}</p>}
       {data && (
         <>
           <div className="adm-card">
+            <h2>Who can sign in</h2>
             <ul className="adm-list">
               {data.rows.map((a) => (
                 <li key={a.id}>
-                  <span><b>{a.name}</b>{a.name === me && <span className="adm-tag">you</span>} <small className="adm-muted">since {when(a.addedAt)}</small></span>
-                  {a.name !== me && <button className="adm-btn" onClick={() => act('revoke-admin', { id: a.id }, `${a.name} is no longer an admin.`)}>Remove</button>}
+                  <span><b>{a.email}</b>{a.email === me && <span className="adm-tag">you</span>} <small className="adm-muted">added {when(a.addedAt)}{a.lastSeen ? `, last in ${when(a.lastSeen)}` : ''}</small></span>
+                  {a.email !== me && <button className="adm-btn" onClick={() => act('remove-admin', { id: a.id, email: a.email }, `${a.email} can no longer sign in.`)}>Remove</button>}
                 </li>
               ))}
             </ul>
-            <form className="adm-row" onSubmit={(e) => { e.preventDefault(); act('grant-admin', { username: name.trim() }, `${name.trim()} is now an admin.`) }}>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Game username" aria-label="Username to make admin" />
-              <button className="adm-btn adm-btn-gold" disabled={!name.trim()}>Make admin</button>
+            <h2>Add an admin</h2>
+            <form className="adm-row" onSubmit={(e) => { e.preventDefault(); act('add-admin', { email: email.trim(), password: pw }, `${email.trim()} can now sign in. Give them the password yourself.`, () => { setEmail(''); setPw('') }) }}>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Their email" aria-label="Their email" required />
+              <input type="text" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="A password for them (10+)" aria-label="Their password" minLength={10} required />
+              <button className="adm-btn adm-btn-gold">Add</button>
             </form>
-            {note && <p className="adm-note" role="status">{note}</p>}
+          </div>
+          <div className="adm-card">
+            <h2>Change your password</h2>
+            <form className="adm-row" onSubmit={(e) => { e.preventDefault(); act('change-password', { current: cur, password: next }, 'Password changed. Other devices are signed out.', () => { setCur(''); setNext('') }) }}>
+              <input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} placeholder="Current password" aria-label="Current password" required />
+              <input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="New password (10+)" aria-label="New password" minLength={10} required />
+              <button className="adm-btn">Change</button>
+            </form>
           </div>
           <div className="adm-card">
             <h2>Recent admin actions</h2>
             <ul className="adm-log">
               {data.log.map((l, i) => (
-                <li key={i}><b>{l.admin}</b> {ACTION_LABEL[l.action] || l.action}{l.detail?.username ? ` (${l.detail.username})` : ''} <small className="adm-muted">{when(l.at)}</small></li>
+                <li key={i}><b>{l.admin}</b> {ACTION_LABEL[l.action] || l.action}{l.detail?.email ? ` (${l.detail.email})` : ''} <small className="adm-muted">{when(l.at)}</small></li>
               ))}
               {!data.log.length && <li className="adm-muted">Nothing yet.</li>}
             </ul>

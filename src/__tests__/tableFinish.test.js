@@ -1,7 +1,7 @@
 import { it, expect } from 'vitest'
 import { newCareer, setTableFinish, sanitizeCareer, TOP } from '../game/career'
 import { TABLE_FINISHES, resolveFinish, finishForName, withFinish, STADIUMS, isFinish } from '../data/StadiumData'
-import { ADMIN_NAVIGATION, FILE_NAVIGATION } from '../pwa/swRoutes'
+import { FILE_NAVIGATION } from '../pwa/swRoutes'
 
 it('only a top-division club picks its pro table, and the choice is saved', () => {
   const k = newCareer({ name: 'Yaba United', primary: '#1d4ed8', edge: '#ffffff' }, { now: 1 })
@@ -26,9 +26,6 @@ it('every finish paints a full table, club colours from the kit, away clubs alwa
   expect(painted.woodColor).toBe(resolveFinish('midnight').frame)
 })
 
-it('the admin page is never served the game shell', () => {
-  expect(ADMIN_NAVIGATION.test('/admin')).toBe(true)
-  expect(ADMIN_NAVIGATION.test('/admin?x=1')).toBe(true)
-  expect(ADMIN_NAVIGATION.test('/administrator')).toBe(false)
-  expect(FILE_NAVIGATION.test('/admin')).toBe(false)
+it('the admin console link is a real page, never the game shell', () => {
+  expect(FILE_NAVIGATION.test('/hq-dzutgl2qil.html')).toBe(true)
 })

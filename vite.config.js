@@ -16,8 +16,8 @@ const pwa = VitePWA({
     // App shell + every built chunk (incl. the lazy three.js/Scene chunks) + fonts + icons.
     // The big menu photo/music are runtime-cached by the worker instead.
     globPatterns: ['**/*.{js,css,html,woff2,png,svg}'], // + manifest.webmanifest, added by the plugin
-    // The admin page is its own little site and never needed offline
-    globIgnores: ['admin.html', 'assets/admin-*'],
+    // The admin console is its own page and never needed offline
+    globIgnores: ['hq-*.html', 'assets/console-*'],
     maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
   },
   manifest: {
@@ -56,8 +56,8 @@ export default defineConfig({
     // three.js is one big lazily-loaded chunk by design
     chunkSizeWarningLimit: 1000,
     rolldownOptions: {
-      // The website, the page Lagos Life loads in its Games app, and the admin page
-      input: { main: 'index.html', lagos: 'lagos.html', admin: 'admin.html' },
+      // The website, the page Lagos Life loads in its Games app, and the admin console
+      input: { main: 'index.html', lagos: 'lagos.html', console: 'hq-dzutgl2qil.html' },
       output: {
         // Keep the heavy 3D/physics libraries in their own cacheable chunks
         advancedChunks: {

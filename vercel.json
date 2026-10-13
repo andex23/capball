@@ -44,7 +44,7 @@
       ]
     },
     {
-      "source": "/admin(.*)",
+      "source": "/hq-(.*)",
       "headers": [
         {
           "key": "X-Robots-Tag",
@@ -63,12 +63,6 @@
           "value": "no-referrer"
         }
       ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/admin",
-      "destination": "/admin.html"
     }
   ]
 }
