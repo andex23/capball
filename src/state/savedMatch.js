@@ -100,6 +100,15 @@ export function saveCurrentMatch() {
     v: 1,
     savedAt: new Date().toISOString(),
     match: Object.fromEntries(MATCH_FIELDS.map((k) => [k, s[k]])),
+    // The rules of the flick about to be taken: a kick-off can't score
+    // straight in, only the taker may take a free kick or penalty
+    turn: {
+      kickoffGuard: s.phase === PHASE.KICKOFF || !!s.kickoffGuard,
+      goalKickGuard: !!s.goalKickGuard,
+      freeKickCapId: s.freeKickCapId || null,
+      penaltyKick: !!s.penaltyKick,
+      keeperDive: s.keeperDive ?? null,
+    },
     bodies: snapshotBodies(),
     tournament: ts.playing ? { playing: ts.playing, stash: ts.stash } : null,
   }
@@ -138,6 +147,10 @@ export function resumeSavedMatch() {
   }
   pendingBodies = save.bodies || null
   const s = useMatchStore.getState()
+  const turn = save.turn && typeof save.turn === 'object' ? save.turn : {}
+  const taker = typeof turn.freeKickCapId === 'string' && turn.freeKickCapId.startsWith(`${save.match.activeTeam}_`) ? turn.freeKickCapId : null
+  // A penalty needs its taker and the keeper's dive, or it's open play
+  const penalty = !!turn.penaltyKick && !!taker && (turn.keeperDive === 'auto' || [-1, 0, 1].includes(turn.keeperDive))
   useMatchStore.setState({
     ...save.match,
     screen: SCREEN.PLAYING,
@@ -145,11 +158,13 @@ export function resumeSavedMatch() {
     phase: PHASE.SELECT,
     selectedCapId: null,
     lastFlickedCapId: null,
-    freeKickCapId: null,
+    freeKickCapId: taker,
     foulData: null,
     restart: null,
-    kickoffGuard: false,
-    goalKickGuard: false,
+    kickoffGuard: !!turn.kickoffGuard,
+    goalKickGuard: !!turn.goalKickGuard,
+    penaltyKick: penalty,
+    keeperDive: penalty ? turn.keeperDive : null,
     timerRunning: !save.match.goalTarget,
     paused: false,
     matchResult: null,
