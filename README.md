@@ -74,7 +74,7 @@ If the link drops during setup or a match, the host keeps the room open and paus
 ## Rules at a glance
 
 - Teams alternate turns; a turn ends when everything stops moving.
-- No goal straight from a kick-off flick. Goalkeepers can't score, but an own goal off a keeper counts.
+- No goal straight from a kick-off flick, from a goal kick for the taker's side, or straight in off the wall. Goalkeepers can score in open play.
 - Hitting an opponent's cap before the ball is a foul (a cushion bounce first is fine): free kick, or a penalty if it's in the offender's own area.
 - A drawn match can go to a shootout: best of three each, then sudden death.
 
