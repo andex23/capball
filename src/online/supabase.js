@@ -56,6 +56,10 @@ const MESSAGES = {
   'wrong-login': 'Wrong username or password.',
   'too-many-tries': 'Too many wrong tries. Wait 15 minutes and try again.',
   'signed-out': 'You were signed out. Sign in again.',
+  'wrong-code': 'That recovery code doesn’t match that username.',
+  'bad-contact': 'Tell us how to reach you (a phone number, WhatsApp, Instagram or email).',
+  'too-many-requests': 'We already have your request. We’ll be in touch.',
+  'recovery-unavailable': 'Password recovery isn’t switched on yet. Try again later.',
   'bad-save': 'Your save is too big to upload.',
 }
 

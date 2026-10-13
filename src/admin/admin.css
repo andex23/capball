@@ -135,3 +135,13 @@ input[type='search'] { width: 220px; }
 .adm-led span { flex: none; padding: 0 16px; font: italic 900 24px/1 var(--display); white-space: nowrap; }
 .adm-led[data-tone='gold'] span:nth-child(odd), .adm-led[data-tone='white'] span:nth-child(even) { color: #f2c14e; }
 .adm-led[data-tone='gold'] span:nth-child(even), .adm-led[data-tone='white'] span:nth-child(odd) { color: #ffffff; }
+
+/* Help requests */
+.adm-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 8px; padding: 0 6px; border-radius: 99px; background: var(--gold); color: var(--gold-ink); font-size: 12px; font-weight: 700; vertical-align: 1px; }
+.adm-help { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.adm-help .adm-card { margin: 0; display: grid; gap: 10px; }
+.adm-help .adm-card[data-done='true'] { opacity: 0.65; }
+.adm-help-top { display: flex; align-items: baseline; gap: 4px 8px; flex-wrap: wrap; font-size: 16px; }
+.adm-help-top small { margin-left: auto; }
+.adm-contact { font-weight: 600; user-select: all; overflow-wrap: anywhere; }
+.adm-tag-bad { background: rgba(255, 84, 104, 0.14); color: var(--bad); }

@@ -24,6 +24,7 @@ export const MESSAGES = {
   'ad-too-long': 'Each board message can be at most 24 characters.',
   'bad-ads': 'Each list needs 1 to 8 messages.',
   'ads-missing': 'The ad boards aren’t set up yet. Run supabase/arena-ads.sql in Supabase, then reload.',
+  'help-missing': 'Help requests aren’t set up yet. Run supabase/recovery.sql in Supabase, then reload.',
   'bad-action': 'The admin database is out of date. Run supabase/admin.sql again.',
   missing: 'The admin database isn’t set up yet. Run supabase/admin.sql in Supabase, then reload.',
   offline: 'You’re offline. Check your connection.',
@@ -33,6 +34,7 @@ export function messageFor(error) {
   const code = error?.code || ''
   if (MESSAGES[code]) return MESSAGES[code]
   if (/cb_admin_ads|cb_arena_ads/i.test(`${code} ${error?.message}`)) return MESSAGES['ads-missing']
+  if (/cb_admin_help/i.test(`${code} ${error?.message}`)) return MESSAGES['help-missing']
   if (/cb_admin|PGRST202|http-404|schema cache/i.test(`${code} ${error?.message}`)) return MESSAGES.missing
   return error?.message || 'Something went wrong.'
 }
@@ -58,6 +60,7 @@ export const setup = (email, password) => rpc('cb_admin_setup', { p_email: email
 export const login = (email, password) => rpc('cb_admin_login', { p_email: email, p_password: password }).then(fail)
 export const logout = (token) => rpc('cb_admin_logout', { p_token: token }).catch(() => null)
 export const call = (token, action, data = {}) => rpc('cb_admin', { p_token: token, p_action: action, p_data: data })
+export const callHelp = (token, action, data = {}) => rpc('cb_admin_help', { p_token: token, p_action: action, p_data: data })
 export const callAds = (token, action, data = {}) => rpc('cb_admin_ads', { p_token: token, p_action: action, p_data: data })
 
 /** What a player's save says about them (their game's own localStorage, copied up). */
