@@ -344,8 +344,9 @@ export const useTournamentStore = create((set, get) => ({
       teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home), playersOf(home), attrsOf(home)), team2: kitFor(away, 'team2', ratingsOf(away), playersOf(away), attrsOf(away)) },
       gameMode: cpuSide ? 'ai' : 'local',
       aiTeam: cpuSide || ms.aiTeam,
-      aiDifficulty: cpuTeam?.difficulty || ms.aiDifficulty,
-      matchDuration: t.matchDuration || ms.matchDuration,
+      // Career settings can fix the computer's level and the time per half
+      aiDifficulty: (career && career.difficulty && career.difficulty !== 'auto' ? career.difficulty : null) || cpuTeam?.difficulty || ms.aiDifficulty,
+      matchDuration: (career?.matchDuration) || t.matchDuration || ms.matchDuration,
       chosenTeam1Side: 'left',
       team1Side: 'left',
       formations: { team1: 'default', team2: 'default' },

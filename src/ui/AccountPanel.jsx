@@ -73,7 +73,7 @@ function CounterballAccount({ formOnly = false }) {
           : 'Sign in to load your saved games, tournaments and results.'}
       </p>
       <label className="eyebrow" htmlFor="acc-name">Username</label>
-      <input id="acc-name" className="field" value={name} onChange={(e) => setName(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={20} placeholder="e.g. dru_10" required />
+      <input id="acc-name" className="field" value={name} onChange={(e) => setName(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={20} placeholder="e.g. capking_9" required />
       <label className="eyebrow" htmlFor="acc-pass">Password</label>
       <div className="account-pass">
         <input id="acc-pass" className="field" type={show ? 'text' : 'password'} value={pass} onChange={(e) => setPass(e.target.value)} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={6} maxLength={72} required />

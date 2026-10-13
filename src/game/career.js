@@ -88,7 +88,8 @@ export function createCup(club, level, matchDuration, season, now = Date.now(), 
   const tournament = createTournament({ format: 'knockout', teams, matchDuration, rng, now })
   const levels = { [ME]: level }
   entrants.forEach(({ lv }, i) => { levels[`T${i + 2}`] = lv })
-  return { tournament: settleCpu(tournament), levels }
+  // The other ties are played alongside yours (recordCupResult), not before the round opens
+  return { tournament, levels }
 }
 
 /** Your next cup tie if it's open to play now, else null. */
@@ -179,6 +180,8 @@ export function targetMet(target, pos, count = 6) {
 /** A brand-new career for `club` (a kit: name, colours, badge...). */
 /** How a career is played: on your own against the computer, or against a friend online or over LAN. */
 export const CAREER_MODES = ['solo', 'online', 'lan']
+/** The computer's level in career matches: by division (auto), or fixed. */
+export const CAREER_DIFFICULTIES = ['auto', 'easy', 'medium', 'hard']
 
 export function newCareer(club, { matchDuration = 120, now = Date.now(), squad = null, mode = 'solo' } = {}) {
   const sq = squad ? sanitizeSquad(squad, now) : startingSquad(now)
@@ -187,6 +190,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     v: CAREER_VERSION,
     club,
     mode: CAREER_MODES.includes(mode) ? mode : 'solo',
+    difficulty: 'auto', // the computer's level: 'auto' (harder each division up) or fixed
     level: 0,
     season: 1,
     matchDuration,
@@ -427,6 +431,7 @@ export function sanitizeCareer(input) {
     v: CAREER_VERSION,
     club: input.club,
     mode: CAREER_MODES.includes(input.mode) ? input.mode : 'solo',
+    difficulty: CAREER_DIFFICULTIES.includes(input.difficulty) ? input.difficulty : 'auto',
     level,
     season: Math.max(1, n(input.season)),
     matchDuration: [60, 90, 120, 150, 180].includes(input.matchDuration) ? input.matchDuration : 120,
