@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import QRCode from 'qrcode'
 import { PNG } from 'pngjs'
 import jsQR from 'jsqr'
-import { createLanPeer, encodeLanSignal, decodeLanSignal, isLanSignal } from '../multiplayer/lan'
+import { createLanPeer, encodeLanSignal, decodeLanSignal, isLanSignal, GATHER_IDLE_MS } from '../multiplayer/lan'
 
 const sdp = 'v=0\r\na=candidate:1 1 UDP 2122260223 192.168.1.2 50000 typ host\r\n'
 describe('offline LAN pairing', () => {
@@ -59,5 +59,45 @@ describe('offline LAN pairing', () => {
     const url = await QRCode.toDataURL(code, { scale: 6, margin: 4, errorCorrectionLevel: 'L' })
     const png = PNG.sync.read(Buffer.from(url.split(',')[1], 'base64'))
     expect(jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data).toBe(code)
+  })
+})
+
+/** A browser peer that finds its address at once but never says gathering is complete. */
+function stuckGatheringPeer(withCandidate = true) {
+  return vi.fn(function () {
+    const listeners = {}
+    this.iceGatheringState = 'new'
+    this.connectionState = 'new'
+    this.localDescription = null
+    this.addEventListener = (e, fn) => { (listeners[e] ||= new Set()).add(fn) }
+    this.removeEventListener = (e, fn) => { listeners[e]?.delete(fn) }
+    this.createDataChannel = () => ({ addEventListener() {}, readyState: 'connecting' })
+    this.createOffer = async () => ({ type: 'offer', sdp: 'v=0\r\n' })
+    this.setLocalDescription = async (d) => {
+      this.iceGatheringState = 'gathering'
+      this.localDescription = { type: d.type, sdp: withCandidate ? sdp : d.sdp }
+      if (withCandidate) setTimeout(() => listeners.icecandidate?.forEach((fn) => fn({ candidate: {} })), 5)
+    }
+    this.close = () => {}
+  })
+}
+
+describe('gathering that never reports complete', () => {
+  it('hands over the invite once the local address is found', async () => {
+    vi.useFakeTimers()
+    const peer = createLanPeer({ PeerConnection: stuckGatheringPeer(), onChannel() {} })
+    const offer = peer.offer()
+    await vi.advanceTimersByTimeAsync(GATHER_IDLE_MS + 10)
+    expect(decodeLanSignal(await offer, 'offer').sdp).toBe(sdp)
+    vi.useRealTimers()
+  })
+  it('still times out with no local address at all', async () => {
+    vi.useFakeTimers()
+    const peer = createLanPeer({ PeerConnection: stuckGatheringPeer(false), onChannel() {} })
+    const offer = peer.offer()
+    const failed = expect(offer).rejects.toThrow('timed out')
+    await vi.advanceTimersByTimeAsync(10001)
+    await failed
+    vi.useRealTimers()
   })
 })
