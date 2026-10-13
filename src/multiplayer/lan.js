@@ -59,22 +59,41 @@ export function decodeLanSignal(text, expected) {
   return { type: signal.type, sdp: signal.sdp }
 }
 
+// Once a local address has turned up and nothing new for this long, the code
+// is ready: some browsers find their addresses at once but never report
+// gathering as complete.
+export const GATHER_IDLE_MS = 1500
+
 function gather(pc) {
   return new Promise((resolve, reject) => {
+    const hasCandidate = () => !!pc.localDescription?.sdp.includes('a=candidate:')
+    let idle
+    let finished = false
     const done = error => {
+      if (finished) return
+      finished = true
       clearTimeout(timer)
+      clearTimeout(idle)
       pc.removeEventListener('icegatheringstatechange', change)
+      pc.removeEventListener('icecandidate', found)
       pc.removeEventListener('connectionstatechange', closed)
-      if (error) reject(error)
-      else if (!pc.localDescription?.sdp.includes('a=candidate:')) reject(new Error('No local connection is available. Join Wi-Fi or a hotspot and allow local-network access.'))
+      if (error && !(error.timeout && hasCandidate())) reject(error)
+      else if (!hasCandidate()) reject(new Error('No local connection is available. Join Wi-Fi or a hotspot and allow local-network access.'))
       else resolve(encodeLanSignal(pc.localDescription))
     }
     const change = () => { if (pc.iceGatheringState === 'complete') done() }
+    const found = () => {
+      clearTimeout(idle)
+      idle = setTimeout(() => { if (hasCandidate()) done() }, GATHER_IDLE_MS)
+    }
     const closed = () => { if (pc.connectionState === 'closed') done(new Error('Pairing cancelled.')) }
-    const timer = setTimeout(() => done(new Error('Local pairing timed out. Check your Wi-Fi or hotspot and try again.')), 10000)
+    const timer = setTimeout(() => done(Object.assign(new Error('Local pairing timed out. Check your Wi-Fi or hotspot and try again.'), { timeout: true })), 10000)
     pc.addEventListener('icegatheringstatechange', change)
+    pc.addEventListener('icecandidate', found)
     pc.addEventListener('connectionstatechange', closed)
     change()
+    // Candidates found before we started listening
+    if (hasCandidate()) found()
   })
 }
 
