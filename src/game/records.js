@@ -184,7 +184,8 @@ export function recordLine(records, state) {
   if (state.gameMode === 'ai' && AI_DIFFICULTIES.includes(state.aiDifficulty)) {
     return `Your record vs ${cap(state.aiDifficulty)} CPU: ${formatWdl(r.cpu[state.aiDifficulty])}`
   }
-  if (state.gameMode === 'online') return `Online: ${formatWdl(r.online, { hideZeroDraws: true })}`
+  // LAN matches count in the same record as online ones
+  if (state.gameMode === 'online') return `${state.onlineTransport === 'lan' ? 'Online & LAN' : 'Online'}: ${formatWdl(r.online, { hideZeroDraws: true })}`
   if (state.gameMode === 'local') return `Local matches played: ${r.local.played}`
   return null
 }
