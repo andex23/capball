@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useMatchStore, PHASE } from '../state/MatchStore'
-import { getCameraPose, setCameraPose, isStickActive, setFollowRelease } from './camera'
+import { getCameraPose, setCameraPose, isStickActive, setFollowRelease, returnHome, isCameraGliding } from './camera'
 
 // How far the view leans towards the ball (share of the ball's distance from
 // the centre spot), and the most it ever moves, in world units
@@ -9,6 +9,8 @@ const LEAN = 0.5
 const MAX_SHIFT = 6
 const FOLLOW_RATE = 3.5 // higher = keeps up faster
 const SETTLE_RATE = 2.2
+// Phases where a replay may still take the camera: go home after them
+const HOLD_HOME = [PHASE.GOAL, PHASE.NO_GOAL]
 
 /** Pure: the shift the camera wants for a ball at (x, z). */
 export function followShift(x, z, lean = LEAN, max = MAX_SHIFT) {
@@ -23,9 +25,11 @@ export function followShift(x, z, lean = LEAN, max = MAX_SHIFT) {
  * While the ball rolls, the camera glides with it (camera and the point it
  * looks at move together, so the angle never changes), then eases back when
  * play stops. Moving the view by hand, a replay or a camera change cancels it.
+ * Once a play is over the view always goes back to normal, even if it was
+ * dragged or zoomed by hand.
  */
 export function useBallFollow(meshRefs) {
-  const st = useRef({ base: null, off: [0, 0], last: null })
+  const st = useRef({ base: null, off: [0, 0], last: null, prevPhase: null, home: false })
   // When the view is about to turn round or change preset, snap back first
   useEffect(() => {
     setFollowRelease(() => {
@@ -40,6 +44,19 @@ export function useBallFollow(meshRefs) {
     const m = useMatchStore.getState()
     const ball = meshRefs.current?.ball
     const following = m.followBall && m.phase === PHASE.RESOLVE && !m.replaying && !m.paused && !!ball
+    // A play has just finished: glide straight back to the normal view (from
+    // wherever the follow or a drag left it) once nothing else is moving the
+    // camera. A goal waits for its replay and the kick-off.
+    if (s.prevPhase === PHASE.RESOLVE && m.phase !== PHASE.RESOLVE) {
+      s.home = true
+      s.base = null; s.off = [0, 0]; s.last = null
+    }
+    if (m.phase === PHASE.RESOLVE) s.home = false
+    s.prevPhase = m.phase
+    if (s.home && !HOLD_HOME.includes(m.phase) && !m.replaying && !m.paused && !isStickActive() && !isCameraGliding()) {
+      s.home = false
+      returnHome()
+    }
     if (m.replaying || isStickActive()) { s.base = null; s.off = [0, 0]; s.last = null; return }
     const pose = getCameraPose()
     if (!pose) return
