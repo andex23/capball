@@ -34,6 +34,33 @@ export default function SettingsPanel() {
 
   return (
     <>
+      {/* Controls first: it's what players come to change mid-match */}
+      <h3 className="eyebrow" style={{ margin: 0 }}>Controls</h3>
+      <div>
+        <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>How to flick</div>
+        <div className="segmented stretch" role="group" aria-label="How to aim a flick">
+          <button aria-pressed={!swipeAim} onClick={() => { if (swipeAim) toggleSwipeAim(); playButtonSelect() }}>Pull back</button>
+          <button aria-pressed={swipeAim} onClick={() => { if (!swipeAim) toggleSwipeAim(); playButtonSelect() }}>Swipe forward</button>
+        </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          {swipeAim ? 'Press a cap and swipe the way you want it to go.' : 'Press a cap and drag back like a slingshot; it shoots the other way.'}
+        </p>
+      </div>
+      {/* Only phones that can actually vibrate get the option */}
+      {canVibrate() && (
+        <button className="btn btn-secondary" aria-pressed={vibration} onClick={() => { toggleVibration(); playButtonSelect(); haptic('flick') }}>
+          <Icon name="vibrate" size={18} /> {vibration ? 'Vibration on' : 'Vibration off'}
+        </button>
+      )}
+      <h3 className="eyebrow" style={{ margin: '8px 0 0' }}>Camera</h3>
+      <button className="btn btn-secondary" aria-pressed={turnView} onClick={() => { toggleTurnView(); playButtonSelect() }}>
+        <Icon name="camera" size={18} /> {turnView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
+      </button>
+      <p className="muted" style={{ fontSize: 12, marginTop: -8 }}>Local matches on one device: the pitch swings round so whoever’s turn it is plays from their own end.</p>
+      <button className="btn btn-secondary" aria-pressed={followBall} onClick={() => { toggleFollowBall(); playButtonSelect() }}>
+        <Icon name="camera" size={18} /> {followBall ? 'Camera follows the ball: on' : 'Camera follows the ball: off'}
+      </button>
+      <h3 className="eyebrow" style={{ margin: '8px 0 0' }}>Sound</h3>
       <button className={`btn ${muted ? 'btn-danger' : 'btn-secondary'}`} aria-pressed={muted} onClick={() => { toggleMute(); playButtonSelect() }}>
         <Icon name={muted ? 'mute' : 'volume'} size={18} /> {muted ? 'Sound off' : 'Sound on'}
       </button>
@@ -59,29 +86,6 @@ export default function SettingsPanel() {
           ))}
         </div>
       </div>
-      <button className="btn btn-secondary" aria-pressed={turnView} onClick={() => { toggleTurnView(); playButtonSelect() }}>
-        <Icon name="camera" size={18} /> {turnView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
-      </button>
-      <p className="muted" style={{ fontSize: 12, marginTop: -8 }}>Local matches on one device: the pitch swings round so whoever’s turn it is plays from their own end.</p>
-      <button className="btn btn-secondary" aria-pressed={followBall} onClick={() => { toggleFollowBall(); playButtonSelect() }}>
-        <Icon name="camera" size={18} /> {followBall ? 'Camera follows the ball: on' : 'Camera follows the ball: off'}
-      </button>
-      <div>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>Aiming</div>
-        <div className="segmented stretch" role="group" aria-label="How to aim a flick">
-          <button aria-pressed={!swipeAim} onClick={() => { if (swipeAim) toggleSwipeAim(); playButtonSelect() }}>Pull back</button>
-          <button aria-pressed={swipeAim} onClick={() => { if (!swipeAim) toggleSwipeAim(); playButtonSelect() }}>Swipe forward</button>
-        </div>
-        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-          {swipeAim ? 'Press a cap and swipe the way you want it to go.' : 'Press a cap and drag back like a slingshot; it shoots the other way.'}
-        </p>
-      </div>
-      {/* Only phones that can actually vibrate get the option */}
-      {canVibrate() && (
-        <button className="btn btn-secondary" aria-pressed={vibration} onClick={() => { toggleVibration(); playButtonSelect(); haptic('flick') }}>
-          <Icon name="vibrate" size={18} /> {vibration ? 'Vibration on' : 'Vibration off'}
-        </button>
-      )}
     </>
   )
 }
