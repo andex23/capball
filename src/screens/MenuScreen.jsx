@@ -148,7 +148,7 @@ export default function MenuScreen() {
     options: [
       { key: 'records', title: 'Rankings', sub: 'Leaderboards and your records', action: () => openDialog('records') },
       { key: 'account', title: username ? `My games · ${username}` : 'My games', sub: username || lagos ? 'Saved match, career totals, results' : 'Save your games to an account', action: () => openDialog('account') },
-      { key: 'settings', title: 'Settings', sub: 'Sound, music, aiming', action: () => openDialog('settings') },
+      { key: 'settings', title: 'Settings', sub: 'Controls, camera, sound', action: () => openDialog('settings') },
       { key: 'rules', title: 'How to play', action: () => openDialog('rules') },
       back,
     ],

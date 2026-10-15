@@ -205,7 +205,7 @@ function PauseMenu({ onClose }) {
   if (view === 'subs') {
     return <SubsSheet onClose={() => { useSubsShortcut.setState({ open: false }); if (fromSubsButton) onClose(); else setView('main') }} />
   }
-  if (view === 'settings') return <Modal title="Sound" onClose={() => setView('main')}><SettingsPanel /></Modal>
+  if (view === 'settings') return <Modal title="Settings" onClose={() => setView('main')}><SettingsPanel /></Modal>
   if (view === 'rules') return <Modal title="How to play" onClose={() => setView('main')}><RulesPanel /></Modal>
 
   return (
@@ -217,7 +217,7 @@ function PauseMenu({ onClose }) {
         </button>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('settings') }}><Icon name="volume" size={18} /> Sound</button>
+        <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('settings') }}><Icon name="settings" size={18} /> Settings</button>
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('rules') }}><Icon name="help" size={18} /> Rules</button>
       </div>
       <VoiceChat />
