@@ -19,7 +19,7 @@ import {
 } from '../game/tournament'
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
-import { nextMatch, cupTie, opponentSix } from '../game/career'
+import { careerNext, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
 import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
@@ -328,6 +328,11 @@ export const useTournamentStore = create((set, get) => ({
     const cc = useCareerStore.getState().career
     const t = kind === 'local' ? get().local : kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().online?.tournament
     if (!t || (kind !== 'career' && !readyFixtures(t).some((f) => f.id === fixture.id))) return
+    // Career: only the match the calendar has next (a cup tie on its date before the league)
+    if (kind === 'career' || kind === 'careerCup') {
+      const due = careerNext(cc)
+      if (!due || due.kind !== (kind === 'career' ? 'league' : 'cup') || due.fixture.id !== fixture.id) return
+    }
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
     if (!home || !away) return
@@ -409,7 +414,9 @@ export const useTournamentStore = create((set, get) => ({
     const cc = useCareerStore.getState().career
     const t = kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().local
     if (!t) return false
-    const eligible = kind === 'career' ? nextMatch(t) : kind === 'careerCup' ? cupTie(cc) : readyFixtures(t).find(f => f.id === fixture?.id)
+    // Career: only the match due next in the calendar (a cup tie on its date comes before the league)
+    const due = kind === 'career' || kind === 'careerCup' ? careerNext(cc) : null
+    const eligible = kind === 'career' ? (due?.kind === 'league' ? due.fixture : null) : kind === 'careerCup' ? (due?.kind === 'cup' ? due.fixture : null) : readyFixtures(t).find(f => f.id === fixture?.id)
     if (!eligible || eligible.id !== fixture?.id) return false
     // Use the saved fixture, never home/away identifiers supplied by a caller.
     fixture = eligible
