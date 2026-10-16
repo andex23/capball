@@ -21,6 +21,15 @@ describe('the camera goes back to the normal view', () => {
     expect(near(getCameraPose().target, home.target)).toBe(true)
   })
 
+  it('leaning towards where the ball stopped, at the same angle', () => {
+    const home = homePose()
+    setCameraPose({ position: [3, 20, 9], target: [2, 0, 1] })
+    returnHome([4, -2])
+    const { position, target } = getCameraPose()
+    expect(near(position, [home.position[0] + 4, home.position[1], home.position[2] - 2])).toBe(true)
+    expect(near(target, [home.target[0] + 4, home.target[1], home.target[2] - 2])).toBe(true)
+  })
+
   it('turning round for the other player lands on the normal view from that end', () => {
     setFacing(-1, { animate: false })
     const before = homePose()

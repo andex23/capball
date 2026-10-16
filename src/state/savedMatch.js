@@ -11,6 +11,7 @@ import { formatClock } from '../game/rules'
 import { isSignedIn } from './accountStore'
 import { useAchievementStore } from './achievementStore'
 import { matchAchievements } from '../game/achievements'
+import { matchLevel } from '../game/records'
 
 export const SAVED_MATCH_KEY = 'capball:savedMatch:v1'
 export const HISTORY_KEY = 'capball:history:v1'
@@ -108,6 +109,8 @@ export function saveCurrentMatch() {
       freeKickCapId: s.freeKickCapId || null,
       penaltyKick: !!s.penaltyKick,
       keeperDive: s.keeperDive ?? null,
+      // The easiest computer level played so far, if it was changed mid-match
+      aiLevelFloor: s.gameMode === 'ai' ? matchLevel(s) : null,
     },
     bodies: snapshotBodies(),
     tournament: ts.playing ? { playing: ts.playing, stash: ts.stash } : null,
@@ -170,6 +173,7 @@ export function resumeSavedMatch() {
     matchResult: null,
     penaltyShootout: false,
     shotClockRemaining: save.match.shotClock,
+    aiLevelFloor: ['easy', 'medium', 'hard'].includes(turn.aiLevelFloor) ? { key: s.matchKey + 1, level: turn.aiLevelFloor } : null,
   })
   deleteSavedMatch()
   return true
@@ -216,7 +220,7 @@ export function recordHistory(result, mode) {
     const { winStreak, tables } = ach.noteMatch({ won, table: s.stadium })
     ach.award(matchAchievements({
       me, result, goalLog: s.goalLog, matchEvents: s.matchEvents, stats: s.stats, gameMode: s.gameMode,
-      aiDifficulty: s.aiDifficulty, goalTarget: s.goalTarget, streak: winStreak, tables, goalsTotal: career.goalsFor,
+      aiDifficulty: matchLevel(s), goalTarget: s.goalTarget, streak: winStreak, tables, goalsTotal: career.goalsFor,
     }))
   }
 }
