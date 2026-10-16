@@ -223,6 +223,30 @@ describe('set pieces', () => {
     }
   })
 
+  it('at a corner the box is defended and the attackers make runs, from every corner', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    for (const [ex, ey] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      resetToKickoff('team1')
+      const team = ex === 1 ? 'team1' : 'team2'
+      const def = team === 'team1' ? 'team2' : 'team1'
+      setupCorner(team, ex, ey)
+      const inBox = (id) => Math.abs(pos(id).y) < PITCH.penAreaH / 2 && ex * pos(id).x > PITCH.halfW - PITCH.penAreaW
+      const defending = capIds().filter((id) => id.startsWith(def) && inBox(id))
+      const attacking = capIds().filter((id) => id.startsWith(team) && id !== `${team}_atk1` && inBox(id))
+      expect(defending).toContain(`${def}_gk`)
+      expect(defending.length).toBeGreaterThanOrEqual(4)
+      expect(attacking.length).toBeGreaterThanOrEqual(1)
+      // The keeper on his line, between the posts
+      expect(PITCH.halfW - ex * pos(`${def}_gk`).x).toBeLessThan(2)
+      expect(Math.abs(pos(`${def}_gk`).y)).toBeLessThan(PITCH.goalWidth / 2)
+      // Someone stays back on each side
+      expect(capIds().some((id) => id.startsWith(team) && !id.endsWith('_gk') && ex * pos(id).x < 0)).toBe(true)
+      expect(capIds().some((id) => id.startsWith(def) && ex * pos(id).x < 2)).toBe(true)
+      expectNoOverlaps()
+      expectInsidePitch()
+    }
+  })
+
   it('goal kicks: the keeper takes it in his box, attackers stand off', () => {
     useMatchStore.setState({ team1Side: 'left' })
     for (const ey of [1, -1]) {
