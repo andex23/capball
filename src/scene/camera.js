@@ -157,18 +157,22 @@ function glideTo(to, { spin = false, duration = spin ? 700 : 600 } = {}) {
 
 /**
  * After a play: back to the normal view, even if it was dragged or zoomed by
- * hand. Does nothing when the camera is already there.
+ * hand, slid by `shift` ([x, z]) so it leans towards where the ball stopped.
+ * Does nothing when the camera is already there. Returns the pose it heads for.
  */
-export function returnHome() {
-  if (!_cameraRef || !_controlsRef) return
+export function returnHome(shift = [0, 0]) {
+  if (!_cameraRef || !_controlsRef) return null
   _releaseFollow?.()
-  const home = homePose()
-  if (!home) return
+  const base = homePose()
+  if (!base) return null
+  const slide = ([x, y, z]) => [x + shift[0], y, z + shift[1]]
+  const home = { position: slide(base.position), target: slide(base.target) }
   const now = { position: _cameraRef.position.toArray(), target: _controlsRef.target.toArray() }
   const off = Math.hypot(...now.position.map((v, i) => v - home.position[i])) + Math.hypot(...now.target.map((v, i) => v - home.target[i]))
-  if (off < 0.05) return
+  if (off < 0.05) return home
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
   glideTo(home, { duration: reduced ? 0 : 600 })
+  return home
 }
 
 export function fitCurrentPreset() {
