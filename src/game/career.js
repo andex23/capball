@@ -103,14 +103,50 @@ export function cupTie(career) {
   return playedThisSeason(career.league) >= CUP_AFTER[tie.round] || seasonOver(career.league) ? tie : null
 }
 
-/** A date as YYYY-MM-DD in the player's own time zone. */
-export function localDay(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+/* ── The season's calendar ──
+   Game dates, not real ones (as in FIFA or Football Manager): the league plays
+   on Saturdays from early August, one round a week, and each cup round on the
+   Wednesday after the league matchday that opens it. Playing your match moves
+   the calendar on to your next date, so no two of your matches share a day. */
+const FIRST_SEASON = 2026
+
+/** Saturday of league round 0 in this season (the first Saturday of August). */
+export function seasonStart(season = 1) {
+  const d = new Date(Date.UTC(FIRST_SEASON + Math.max(1, season | 0) - 1, 7, 1))
+  d.setUTCDate(1 + ((6 - d.getUTCDay() + 7) % 7))
+  return d
 }
 
-/** One career match a day (real dates): has today's already been played? */
-export function playedToday(career, today = localDay()) {
-  return !!career?.lastPlayedDay && career.lastPlayedDay === today
+const addDays = (d, n) => new Date(d.getTime() + n * 86400000)
+
+/** The date of a league fixture (by its round). */
+export function leagueDate(career, fixture) {
+  return addDays(seasonStart(career?.season), 7 * (fixture?.round || 0))
+}
+
+/** The date of a cup round: the Wednesday after the league matchday it waits for. */
+export function cupDate(career, round) {
+  const mine = allFixtures(career.league).filter((f) => f.home === ME || f.away === ME).sort((a, b) => a.round - b.round)
+  const after = CUP_AFTER[round] ?? CUP_AFTER[CUP_AFTER.length - 1]
+  const anchor = mine[Math.min(after, mine.length) - 1]
+  // Past the end of the league season: a week on for each matchday it's short
+  const extra = Math.max(0, after - mine.length)
+  return addDays(anchor ? leagueDate(career, anchor) : seasonStart(career.season), 4 + 7 * extra)
+}
+
+/** The date of your next match: the career's "today". null when nothing is left. */
+export function careerDate(career) {
+  const due = careerNext(career)
+  if (!due) return null
+  return due.kind === 'cup' ? cupDate(career, due.fixture.round) : leagueDate(career, due.fixture)
+}
+
+/** "Sat 4 Oct 2026" (or without the year). */
+export function formatGameDate(d, { year = true } = {}) {
+  if (!d) return ''
+  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()]
+  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]
+  return `${day} ${d.getUTCDate()} ${month}${year ? ` ${d.getUTCFullYear()}` : ''}`
 }
 
 /**
@@ -239,7 +275,6 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     lastEarned: 0,
     lastReport: null,
     lastMatch: null,   // the matchday report: result, commentary, the round
-    lastPlayedDay: null, // the real date of the last career match (one a day)
     warning: false,    // missed a target: the next miss is the sack
     rep: REP_START,    // your name as a manager (0–100)
     scouted: [],       // players whose potential your scouts have checked
@@ -487,7 +522,6 @@ export function sanitizeCareer(input) {
     lastMatch: sanitizeLastMatch(input.lastMatch),
     warning: input.warning === true,
     // The day the last career match was played (one a day)
-    lastPlayedDay: typeof input.lastPlayedDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.lastPlayedDay) ? input.lastPlayedDay : null,
     rep: Number.isInteger(input.rep) ? Math.max(0, Math.min(100, input.rep)) : REP_START,
     scouted: Array.isArray(input.scouted) ? input.scouted.filter((x) => typeof x === 'string').map((x) => x.slice(0, 16)).slice(-400) : [],
     rejected: isObj(input.rejected) && typeof input.rejected.key === 'string' && Array.isArray(input.rejected.ids)

@@ -1,4 +1,4 @@
-import { DIVISIONS, ME, CUP_NAME, CUP_PRIZE, CUP_AFTER, cupTie, cupNext, cupRun, playedThisSeason, playedToday, opponentOvr } from '../game/career'
+import { DIVISIONS, ME, CUP_NAME, CUP_PRIZE, CUP_AFTER, cupTie, cupNext, cupRun, playedThisSeason, opponentOvr, cupDate, formatGameDate } from '../game/career'
 import { teamById, roundName } from '../game/tournament'
 import { money, matchupOf } from '../game/squad'
 import { Bracket } from '../screens/TournamentHubScreen'
@@ -48,6 +48,7 @@ export default function CupPage({ career, myOvr, onPlay }) {
 
       {next && !out && (
         <section className="card card-pad career-next career-cup" aria-label="Your next cup tie">
+          <div className="career-date">{formatGameDate(cupDate(career, next.round))}</div>
           <div className="eyebrow">{roundName(next.round, rounds)} · {next.home === ME ? 'Home' : 'Away'}</div>
           <div className="career-vs">
             <TeamTag team={teamById(t, ME)} size={30} strong />
@@ -61,9 +62,7 @@ export default function CupPage({ career, myOvr, onPlay }) {
               <span><b>{oppOvr}</b><small>OVR</small></span>
             </div>
           )}
-          {tie && playedToday(career)
-            ? <p className="career-strip" role="status"><Icon name="lock" size={14} /> You’ve played today’s match · the cup tie is tomorrow</p>
-            : tie
+          {tie
             ? <button className="btn btn-purple btn-lg btn-block" onClick={() => onPlay(tie)}><Icon name="trophy" size={20} /> Play cup tie</button>
             : <p className="career-strip" role="status"><Icon name="lock" size={14} /> Opens after league matchday {CUP_AFTER[next.round]} · {Math.max(0, CUP_AFTER[next.round] - played)} league match{CUP_AFTER[next.round] - played === 1 ? '' : 'es'} to go</p>}
         </section>
@@ -74,10 +73,10 @@ export default function CupPage({ career, myOvr, onPlay }) {
         <Bracket
           t={t}
           nextId={next?.id}
-          actionFor={(f) => (tie && f.id === tie.id && !playedToday(career) ? { kind: 'play' } : null)}
+          actionFor={(f) => (tie && f.id === tie.id ? { kind: 'play' } : null)}
           onAct={() => tie && onPlay(tie)}
         />
-        <p className="muted t-note">Rounds open after league matchdays {CUP_AFTER.join(', ')}. Other ties play out alongside yours.</p>
+        <p className="muted t-note">Each round is played on the Wednesday after league matchday {CUP_AFTER.join(', ')}. Other ties play out alongside yours.</p>
       </section>
 
       <section className="card card-pad" aria-label="Clubs in the cup">

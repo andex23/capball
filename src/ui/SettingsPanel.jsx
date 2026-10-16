@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useTournamentStore } from '../state/tournamentStore'
+import { useCareerStore } from '../state/careerStore'
 import { updateMenuMusicVolume, changeMenuMusic, MUSIC_TRACKS, DEFAULT_MUSIC_TRACK } from '../audio/MusicManager'
 import { playButtonSelect } from '../audio/SoundManager'
 import { canVibrate, haptic } from '../input/haptics'
@@ -18,6 +20,32 @@ function Slider({ label, value, onChange, disabled }) {
   )
 }
 
+const LEVELS = [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']]
+
+/** In a match against the computer: change how well it plays, from its next flick. */
+function ComputerLevel() {
+  const level = useMatchStore((s) => s.aiDifficulty)
+  const playing = useTournamentStore((s) => s.playing)
+  const career = playing?.kind === 'career' || playing?.kind === 'careerCup'
+  const pick = (k) => {
+    playButtonSelect()
+    useMatchStore.getState().changeAiDifficulty(k)
+    // A career keeps its level for the matches after this one too
+    if (career) useCareerStore.getState().setSettings({ difficulty: k })
+  }
+  return (
+    <div>
+      <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>Computer difficulty</div>
+      <div className="segmented stretch" role="group" aria-label="Computer difficulty">
+        {LEVELS.map(([k, label]) => <button key={k} aria-pressed={level === k} onClick={() => pick(k)}>{label}</button>)}
+      </div>
+      <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+        Takes effect from the computer’s next flick{career ? ' and stays for the rest of your career' : ''}. Your record counts the match at the easiest level you played it on.
+      </p>
+    </div>
+  )
+}
+
 export default function SettingsPanel() {
   const masterVolume = useMatchStore((s) => s.masterVolume)
   const sfxVolume = useMatchStore((s) => s.sfxVolume)
@@ -28,14 +56,21 @@ export default function SettingsPanel() {
   const followBall = useMatchStore((s) => s.followBall)
   const swipeAim = useMatchStore((s) => s.swipeAim)
   const musicTrack = useMatchStore((s) => s.musicTrack)
+  const vsComputer = useMatchStore((s) => s.screen === SCREEN.PLAYING && s.gameMode === 'ai' && !s.challenge)
   const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView, toggleFollowBall, toggleSwipeAim } = useMatchStore.getState()
 
   useEffect(() => { updateMenuMusicVolume() }, [masterVolume, musicVolume, muted])
 
   return (
     <>
+      {vsComputer && (
+        <>
+          <h3 className="eyebrow" style={{ margin: 0 }}>Opponent</h3>
+          <ComputerLevel />
+        </>
+      )}
       {/* Controls first: it's what players come to change mid-match */}
-      <h3 className="eyebrow" style={{ margin: 0 }}>Controls</h3>
+      <h3 className="eyebrow" style={{ margin: vsComputer ? '8px 0 0' : 0 }}>Controls</h3>
       <div>
         <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>How to flick</div>
         <div className="segmented stretch" role="group" aria-label="How to aim a flick">

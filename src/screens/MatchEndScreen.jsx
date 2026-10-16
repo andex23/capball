@@ -45,8 +45,9 @@ function RecordNote() {
   const matchKey = useMatchStore((s) => s.matchKey)
   const gameMode = useMatchStore((s) => s.gameMode)
   const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
+  const aiLevelFloor = useMatchStore((s) => s.aiLevelFloor)
   const onlineTransport = useMatchStore((s) => s.onlineTransport)
-  const line = recordLine(records, { gameMode, aiDifficulty, onlineTransport })
+  const line = recordLine(records, { gameMode, aiDifficulty, aiLevelFloor, matchKey, onlineTransport })
   const bests = lastUpdate?.matchKey === matchKey ? lastUpdate.newBests : []
   if (!line) return null
   return (

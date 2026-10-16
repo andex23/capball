@@ -11,15 +11,23 @@ import { Rating } from './PlayerBits'
 import Modal from './Modal'
 
 /**
- * Career, right before kick-off: the time per half (saved for the rest of
- * the career) and who starts. Formations are picked below these.
+ * Career, right before kick-off: the time per half and the computer's
+ * level (both saved for the rest of the career) and who starts. Formations are picked below these.
  */
-export function CareerTimeCard({ disabled = false }) {
+export function CareerTimeCard({ disabled = false, withLevel = false }) {
   const matchDuration = useMatchStore((s) => s.matchDuration)
+  const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
+  const level = useCareerStore((s) => s.career?.difficulty || 'auto')
   const pick = (d) => {
     playButtonSelect()
     useMatchStore.getState().setMatchDuration(d)
     useCareerStore.getState().setSettings({ matchDuration: d })
+  }
+  const pickLevel = (k) => {
+    playButtonSelect()
+    useCareerStore.getState().setSettings({ difficulty: k })
+    // Rebuild this match with the new level (the formations and lineup stay)
+    useTournamentStore.getState().refreshCareerMatch()
   }
   return (
     <div className="card card-pad match-length-card">
@@ -29,10 +37,24 @@ export function CareerTimeCard({ disabled = false }) {
           <button key={d} aria-pressed={matchDuration === d} disabled={disabled} onClick={() => pick(d)}>{formatClock(d)}</button>
         ))}
       </div>
-      <p className="muted match-length-note">Two halves of {formatClock(matchDuration)}. Your career keeps this for the next matches too.</p>
+      {withLevel && (
+        <>
+          <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Computer difficulty</div>
+          <div className="segmented stretch" role="group" aria-label="Computer difficulty">
+            {LEVELS.map(([k, label]) => (
+              <button key={k} aria-pressed={level === k} disabled={disabled} onClick={() => pickLevel(k)}>{label}</button>
+            ))}
+          </div>
+        </>
+      )}
+      <p className="muted match-length-note">
+        Two halves of {formatClock(matchDuration)}{withLevel ? `, the computer on ${aiDifficulty}${level === 'auto' ? ' (set by the division)' : ''}` : ''}. Your career keeps these for the next matches too.
+      </p>
     </div>
   )
 }
+
+const LEVELS = [['auto', 'By division'], ['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']]
 
 /** Your starting six: Change brings someone in from the bench instead. */
 export function CareerLineupCard() {
