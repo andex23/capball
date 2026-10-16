@@ -34,27 +34,36 @@ describe('a cup tie on its date comes first', () => {
   })
 })
 
-describe('one career match a day', () => {
+describe('the career’s own calendar (game dates, not real ones)', () => {
   beforeEach(() => useTournamentStore.setState(initial, true))
 
-  it('after today’s match, the next one waits for tomorrow', async () => {
-    const { localDay, playedToday, sanitizeCareer } = await import('../game/career')
+  it('the next match can be played straight after the last one', () => {
     let c = newCareer(club, { now: 12 })
     useCareerStore.setState({ career: c })
     const f = nextMatch(c.league)
     useCareerStore.getState().record(f.id, f.home === ME ? { home: 1, away: 0 } : { home: 0, away: 1 })
     c = useCareerStore.getState().career
-    expect(c.lastPlayedDay).toBe(localDay())
-    expect(playedToday(c)).toBe(true)
-    useTournamentStore.getState().playFixture('career', nextMatch(c.league))
-    expect(useTournamentStore.getState().playing).toBe(null)
-    // The date is kept through a save and reload
-    expect(sanitizeCareer(JSON.parse(JSON.stringify(c))).lastPlayedDay).toBe(c.lastPlayedDay)
-    // Tomorrow it's open again
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
-    expect(playedToday(c, localDay(tomorrow))).toBe(false)
-    useCareerStore.setState({ career: { ...c, lastPlayedDay: '2000-01-01' } })
     useTournamentStore.getState().playFixture('career', nextMatch(c.league))
     expect(useTournamentStore.getState().playing?.kind).toBe('career')
+  })
+
+  it('league on Saturdays a week apart, the cup on the Wednesday after, never two on one day', async () => {
+    const { careerDate, leagueDate, formatGameDate, recordCupResult } = await import('../game/career')
+    let c = newCareer(club, { now: 13 })
+    const seen = []
+    for (let i = 0; i < 40; i++) {
+      const d = careerDate(c)
+      if (!d) break
+      const due = (await import('../game/career')).careerNext(c)
+      expect(d.getUTCDay()).toBe(due.kind === 'cup' ? 3 : 6)
+      // The calendar only moves forwards, one match a day
+      if (seen.length) expect(d.getTime()).toBeGreaterThan(seen[seen.length - 1])
+      seen.push(d.getTime())
+      const f = due.fixture
+      const win = f.home === ME ? { home: 1, away: 0 } : { home: 0, away: 1 }
+      c = due.kind === 'cup' ? recordCupResult(c, f.id, win) : recordCareerResult(c, f.id, win)
+    }
+    expect(seen.length).toBeGreaterThan(CUP_AFTER.length)
+    expect(formatGameDate(leagueDate(newCareer(club, { now: 1 }), { round: 0 }))).toBe('Sat 1 Aug 2026')
   })
 })
