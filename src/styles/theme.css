@@ -1844,8 +1844,12 @@ button { cursor: pointer; background: none; border: 0; }
 .career-club { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
 .career-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; max-width: 760px; margin: 0 auto; }
 .career-kit { padding: 0; background: none; border: 0; cursor: pointer; }
-.career-next .career-vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 14px 0; }
+.career-next .career-vs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 14px 0; }
 .career-next .career-vs > :last-child { justify-self: end; }
+/* Long club names wrap onto a second line instead of running under the VS badge */
+.career-next .career-vs .t-team { max-width: 100%; }
+.career-next .career-vs .t-team-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
+.career-date { font: 700 13px/1.2 var(--font-pixel); color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .career-end { text-align: center; display: flex; flex-direction: column; gap: 8px; }
 .career-end-title { font-size: clamp(40px, 10vw, 64px); color: var(--accent); }
 .career-end[data-tone='good'] .career-end-title { color: #5dff7a; }
