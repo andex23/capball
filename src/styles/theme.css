@@ -2386,6 +2386,7 @@ button { cursor: pointer; background: none; border: 0; }
 /* ===== Career: squad of fifteen, transfer market, league clubs ===== */
 .squad-rows li { grid-template-columns: 44px minmax(0, 1fr) auto auto; }
 .squad-simple li { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.lineup-list li { grid-template-columns: 40px minmax(0, 1fr) auto auto; }
 .squad-actions { display: inline-flex; gap: 4px; align-items: center; }
 .squad-actions .squad-buy { min-width: 34px; justify-content: center; }
 .squad-count { font-family: inherit; font-size: 12px; font-weight: 800; margin-left: 6px; padding: 2px 6px; border: 2px solid var(--line-strong); color: var(--text-2); letter-spacing: 0.02em; vertical-align: middle; }

@@ -7,6 +7,7 @@ import { fadeOutMenuMusic } from '../audio/MusicManager'
 import { sendFormation } from '../multiplayer/MultiplayerManager'
 import SetupShell from '../ui/SetupShell'
 import MatchLengthPicker from '../ui/MatchLengthPicker'
+import { CareerTimeCard, CareerLineupCard } from '../ui/CareerMatchPrep'
 import { displayColor } from '../ui/color'
 
 const FORMATION_KEYS = Object.keys(FORMATIONS)
@@ -97,6 +98,11 @@ export default function FormationScreen() {
   const aiTeam = useMatchStore((s) => s.aiTeam)
   const isOnline = gameMode === 'online'
   const inTournament = useTournamentStore((s) => !!s.playing)
+  // Career fixtures: set the time per half and pick the starting six here
+  const careerKind = useTournamentStore((s) => s.playing?.kind)
+  const inCareer = careerKind === 'career' || careerKind === 'careerCup'
+  // Lineups are picked on the career device for its own solo matches
+  const ownLineup = useTournamentStore((s) => inCareer && !s.playing?.lan)
   // Online, the host sets the length (it's synced to the guest)
   const canSetLength = !isOnline || myTeam === 'team1'
 
@@ -120,16 +126,23 @@ export default function FormationScreen() {
   return (
     <SetupShell
       step={2}
-      title="Pick formations"
-      subtitle="This is where your caps line up at every kick-off."
+      title={inCareer ? 'Pick your team' : 'Pick formations'}
+      subtitle={inCareer ? 'Time per half, your starting six and how they line up at every kick-off.' : 'This is where your caps line up at every kick-off.'}
       onBack={() => (inTournament ? useTournamentStore.getState().backToHub() : goToScreen(SCREEN.STADIUM_SELECT))}
       next={{ label: 'Kick off', icon: 'ball', color: 'orange', onClick: kickOff }}
       onBothReady={kickOff}
     >
-      <div className="card card-pad match-length-card">
-        <div className="eyebrow" style={{ marginBottom: 8 }}>How the match ends</div>
-        <MatchLengthPicker disabled={!canSetLength || inTournament} compact />
-      </div>
+      {inCareer ? (
+        <>
+          <CareerTimeCard disabled={!canSetLength} />
+          {ownLineup && <CareerLineupCard />}
+        </>
+      ) : (
+        <div className="card card-pad match-length-card">
+          <div className="eyebrow" style={{ marginBottom: 8 }}>How the match ends</div>
+          <MatchLengthPicker disabled={!canSetLength || inTournament} compact />
+        </div>
+      )}
       <div className="versus">
         <FormationCard team="team1" config={teamConfig.team1} formation={formations.team1} onSelect={(k) => choose('team1', k)} locked={isOnline && myTeam !== 'team1'} tag={tagFor('team1')} />
         <div className="vs-badge" aria-hidden>VS</div>
