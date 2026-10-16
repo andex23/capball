@@ -4,6 +4,7 @@ import { useMatchStore, SCREEN, PHASE, clearMatchTimers } from './MatchStore'
 import { deviceToken } from '../online/supabase'
 import { applyBodySnapshot } from '../physics/PhysicsWorld'
 import { playbackTime, playbackDuration } from '../game/replay'
+import { kitsApart } from '../game/kitClash'
 
 export async function anytimeRequest(action, data = {}) {
   const token = useAccountStore.getState().token
@@ -33,7 +34,7 @@ function ready(match) {
   const s = match.state
   useMatchStore.setState({
     phase: s.complete ? PHASE.MATCH_OVER : match.status === 'active' && !readPending(match.code) ? PHASE.SELECT : PHASE.KICKOFF,
-    teamConfig: match.config.teams, formations: match.config.formations,
+    teamConfig: kitsApart(match.config.teams), formations: match.config.formations,
     activeTeam: s.activeTeam, score: s.score, kickoffGuard: s.kickoffGuard, goalKickGuard: s.goalKickGuard,
     freeKickCapId: s.freeKickCapId, penaltyKick: s.penaltyKick, penaltyShootout: s.shootout,
     penaltyKicks: s.penaltyKicks, penaltyScores: s.penaltyScores,
@@ -78,7 +79,7 @@ export const useAnytimeStore = create((set, get) => ({
       stash = Object.fromEntries(['teamConfig', 'formations', 'gameMode', 'team1Side', 'onlineMyTeam', 'stadium'].map(k => [k, ms[k]]))
       clearMatchTimers()
       useMatchStore.setState({ gameMode: 'anytime', onlineMyTeam: match.myTeam, screen: SCREEN.PLAYING,
-        teamConfig: match.config.teams, formations: match.config.formations, team1Side: 'left',
+        teamConfig: kitsApart(match.config.teams), formations: match.config.formations, team1Side: 'left',
         paused: false, replaying: false, challenge: null, matchKey: ms.matchKey + 1, stadium: 'arena',
       })
       accept(match)

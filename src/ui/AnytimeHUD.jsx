@@ -9,6 +9,7 @@ import Modal from './Modal'
 import RulesPanel from './RulesPanel'
 import AnytimeScoreboard from './AnytimeScoreboard'
 import { useMatchStore } from '../state/MatchStore'
+import { kitsApart } from '../game/kitClash'
 
 export default function AnytimeHUD({ children }) {
   const { match, busy, pending, watching, error } = useAnytimeStore()
@@ -31,7 +32,7 @@ export default function AnytimeHUD({ children }) {
   const explanation = s.lastTurn?.decision ? decisionText(s.lastTurn.decision) : null
   return <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
     {s.complete && !watching && dismissedResult !== match.code && <MatchResultSplash
-      teams={match.config.teams} score={s.score} winner={s.winner}
+      teams={kitsApart(match.config.teams)} score={s.score} winner={s.winner}
       penaltyScore={s.shootout ? s.penaltyScores : null}
       myTeam={match.myTeam || null}
       onContinue={() => setDismissedResult(match.code)} />}

@@ -49,6 +49,10 @@ let lastBallTeam = null // 'team1' | 'team2' | null — last side to touch the b
 let ballBanked = false
 export const getBallBanked = () => ballBanked
 let goalEvidence = {}
+// A foul has been whistled and is about to be given: nothing else that
+// happens in the meantime (a goal, everything stopping) can decide the flick
+let foulPending = false
+export const getFoulPending = () => foulPending
 export const getGoalEvidence = () => ({ ...goalEvidence })
 
 
@@ -65,6 +69,7 @@ function getTeam1Side() {
 export function createPhysicsWorld() {
   layouts?.clearKeeperDive()
   goalEvidence = {}
+  foulPending = false
   lastBallTeam = null
   ballBanked = false
   // Destroy previous engine if exists
@@ -117,8 +122,10 @@ export function createPhysicsWorld() {
       const inPenaltyBox = isInPenaltyArea(foulSpot.x, foulSpot.y, getTeamDir(activeTeam))
 
       playFoulWhistle()
+      foulPending = true
       later(() => {
-        // The half may have ended (or a goal gone in) in the meantime.
+        foulPending = false
+        // The half may have ended in the meantime.
         const s = useMatchStore.getState()
         if (s.phase !== PHASE.RESOLVE || s.lastFlickedCapId !== lastFlickedCapId) return
         stopAllBodies()
@@ -275,6 +282,7 @@ export function applyFlick(capId, velocity, maxSpeed = PHYSICS.maxFlickVelocity)
   const body = bodies[capId]
   if (!body) return
   goalEvidence = {}
+  foulPending = false
   // Clamp to max flick velocity
   const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
   if (speed > maxSpeed) {
