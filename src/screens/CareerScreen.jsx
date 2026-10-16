@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
-import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, nextMatch, careerNext, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
+import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, nextMatch, careerNext, playedToday, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
 import { teamById, allFixtures, standings, roundName } from '../game/tournament'
 import { formatClock } from '../game/rules'
 import { TEAM_NAME_MAX } from '../data/TeamOptions'
@@ -400,6 +400,9 @@ export default function CareerScreen() {
   const leagueNext = nextMatch(league)
   const next = due?.kind === 'league' ? due.fixture : null
   const done = seasonOver(league)
+  // One career match a day, on real dates
+  const rested = playedToday(career)
+  const restNote = <p className="career-strip" role="status"><Icon name="lock" size={14} /> You’ve played today’s match · the next one is tomorrow</p>
   const fixtures = allFixtures(league).filter((f) => f.home === ME || f.away === ME)
   const played = fixtures.filter((f) => f.result).length
   const count = league.teams.length
@@ -471,9 +474,11 @@ export default function CareerScreen() {
                 <span className="career-ovr-word">{MATCHUP[matchupOf(myOvr, theirOvr)]}</span>
                 <span><b>{theirOvr}</b><small>OVR</small></span>
               </div>
-              <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}>
-                <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
-              </button>
+              {rested ? restNote : (
+                <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}>
+                  <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
+                </button>
+              )}
               <p className="muted t-note">{career.mode === 'online' || career.mode === 'lan'
                 ? 'Your friend plays the opposition and joins from their phone. The result saves to your career on this device.'
                 : `Computer level: ${career.difficulty && career.difficulty !== 'auto' ? career.difficulty : division.difficulty}.`} Other clubs’ games play out by themselves.</p>
@@ -493,7 +498,7 @@ export default function CareerScreen() {
                 <span className="career-ovr-word">{MATCHUP[matchupOf(myOvr, cupOppOvr)]}{(career.cup.levels?.[cupOpp?.id] ?? career.level) !== career.level ? ` · ${DIVISIONS[career.cup.levels[cupOpp.id]].name}` : ''}</span>
                 <span><b>{cupOppOvr}</b><small>OVR</small></span>
               </div>
-              <button className="btn btn-purple btn-lg btn-block" onClick={() => playCareerFixture(career, 'careerCup', tie)}><Icon name="trophy" size={20} /> {career.mode === 'solo' || !career.mode ? 'Play cup tie' : 'Play your friend in the cup'}</button>
+              {rested ? restNote : <button className="btn btn-purple btn-lg btn-block" onClick={() => playCareerFixture(career, 'careerCup', tie)}><Icon name="trophy" size={20} /> {career.mode === 'solo' || !career.mode ? 'Play cup tie' : 'Play your friend in the cup'}</button>}
               <p className="muted t-note">Knockout: a draw goes to penalties.</p>
               {leagueNext && !done && (
                 <p className="muted t-note">Next in the league, after this tie: matchday {played + 1} v <b>{teamById(league, leagueNext.home === ME ? leagueNext.away : leagueNext.home)?.name}</b>.</p>

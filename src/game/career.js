@@ -103,6 +103,16 @@ export function cupTie(career) {
   return playedThisSeason(career.league) >= CUP_AFTER[tie.round] || seasonOver(career.league) ? tie : null
 }
 
+/** A date as YYYY-MM-DD in the player's own time zone. */
+export function localDay(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+/** One career match a day (real dates): has today's already been played? */
+export function playedToday(career, today = localDay()) {
+  return !!career?.lastPlayedDay && career.lastPlayedDay === today
+}
+
 /**
  * Your next match in the season's calendar: a cup tie on its date comes
  * first (the league waits until it's played), otherwise the next league
@@ -229,6 +239,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     lastEarned: 0,
     lastReport: null,
     lastMatch: null,   // the matchday report: result, commentary, the round
+    lastPlayedDay: null, // the real date of the last career match (one a day)
     warning: false,    // missed a target: the next miss is the sack
     rep: REP_START,    // your name as a manager (0–100)
     scouted: [],       // players whose potential your scouts have checked
@@ -475,6 +486,8 @@ export function sanitizeCareer(input) {
     lastReport: sanitizeReport(input.lastReport),
     lastMatch: sanitizeLastMatch(input.lastMatch),
     warning: input.warning === true,
+    // The day the last career match was played (one a day)
+    lastPlayedDay: typeof input.lastPlayedDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.lastPlayedDay) ? input.lastPlayedDay : null,
     rep: Number.isInteger(input.rep) ? Math.max(0, Math.min(100, input.rep)) : REP_START,
     scouted: Array.isArray(input.scouted) ? input.scouted.filter((x) => typeof x === 'string').map((x) => x.slice(0, 16)).slice(-400) : [],
     rejected: isObj(input.rejected) && typeof input.rejected.key === 'string' && Array.isArray(input.rejected.ids)
