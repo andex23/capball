@@ -103,6 +103,19 @@ export function cupTie(career) {
   return playedThisSeason(career.league) >= CUP_AFTER[tie.round] || seasonOver(career.league) ? tie : null
 }
 
+/**
+ * Your next match in the season's calendar: a cup tie on its date comes
+ * first (the league waits until it's played), otherwise the next league
+ * match. { kind: 'cup' | 'league', fixture } or null when nothing is left.
+ */
+export function careerNext(career) {
+  if (!career?.league) return null
+  const tie = cupTie(career)
+  if (tie) return { kind: 'cup', fixture: tie }
+  const f = nextMatch(career.league)
+  return f ? { kind: 'league', fixture: f } : null
+}
+
 /** Your next cup tie whether or not it's open yet, plus after how many league matches it opens. */
 export function cupNext(career) {
   const cup = career.cup?.tournament

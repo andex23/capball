@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
-import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, nextMatch, seasonOver, myPosition, outcomeFor, cupTie, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
+import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, nextMatch, careerNext, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
 import { teamById, allFixtures, standings, roundName } from '../game/tournament'
 import { formatClock } from '../game/rules'
 import { TEAM_NAME_MAX } from '../data/TeamOptions'
@@ -395,7 +395,10 @@ export default function CareerScreen() {
 
   const league = career.league
   const division = DIVISIONS[career.level]
-  const next = nextMatch(league)
+  // One calendar: a cup tie on its date is played before the league carries on
+  const due = careerNext(career)
+  const leagueNext = nextMatch(league)
+  const next = due?.kind === 'league' ? due.fixture : null
   const done = seasonOver(league)
   const fixtures = allFixtures(league).filter((f) => f.home === ME || f.away === ME)
   const played = fixtures.filter((f) => f.result).length
@@ -416,7 +419,7 @@ export default function CareerScreen() {
   const theirOvr = ovrOf(opponent)
   const MATCHUP = { favourite: 'Favourites', even: 'Evenly matched', underdog: 'Underdogs' }
   // The Cap Cup
-  const tie = cupTie(career)
+  const tie = due?.kind === 'cup' ? due.fixture : null
   const cupT = career.cup?.tournament
   const cupUpcoming = cupNext(career)
   const cupOut = cupRun(cupT)
@@ -492,6 +495,9 @@ export default function CareerScreen() {
               </div>
               <button className="btn btn-purple btn-lg btn-block" onClick={() => playCareerFixture(career, 'careerCup', tie)}><Icon name="trophy" size={20} /> {career.mode === 'solo' || !career.mode ? 'Play cup tie' : 'Play your friend in the cup'}</button>
               <p className="muted t-note">Knockout: a draw goes to penalties.</p>
+              {leagueNext && !done && (
+                <p className="muted t-note">Next in the league, after this tie: matchday {played + 1} v <b>{teamById(league, leagueNext.home === ME ? leagueNext.away : leagueNext.home)?.name}</b>.</p>
+              )}
             </section>
           )}
 
