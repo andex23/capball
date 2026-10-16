@@ -27,3 +27,13 @@ it('online: extra time is on offer after a draw, not after extra time; penalties
   expect(endChoiceOutcome({ team1: 'extraTime', team2: 'extraTime' }, draw)).toBe('extraTime')
   expect(endChoiceOutcome({ team1: 'extraTime', team2: 'extraTime' }, { ...draw, afterExtraTime: true })).toBe(null)
 })
+
+it('near misses get their minute and sit in order among the goals', () => {
+  const story = buildStory({
+    goalLog: [{ team: 'team1', cap: 'team1_atk1', half: 2, t: 60 }],
+    matchEvents: [{ type: 'post', cap: 'team2_atk1', half: 2, t: 10 }, { type: 'save', cap: 'team1_mid', half: 1, t: 90 }, { type: 'wide', cap: 'team1_mid' }],
+    teamConfig, score: { team1: 1, team2: 0 }, matchDuration: 120, seed: 's',
+  })
+  expect(story.map((x) => x.min)).toEqual([1, 11, 68, 86, null, 90])
+  expect(story.at(-1).kind).toBe('fulltime')
+})
