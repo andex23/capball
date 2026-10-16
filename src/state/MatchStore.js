@@ -40,6 +40,9 @@ export const PHASE = {
   MATCH_OVER: 'MATCH_OVER',
 }
 
+// The computer's levels, easiest first
+const AI_LEVELS = ['easy', 'medium', 'hard']
+
 /** Phases where a player may pick up and flick a cap. */
 export const INPUT_PHASES = [PHASE.SELECT, PHASE.AIM]
 /** Phases where the match clock runs. */
@@ -165,6 +168,16 @@ export const useMatchStore = create((set, get) => ({
   aiDifficulty: 'medium', // 'easy', 'medium', 'hard'
   setGameMode: (mode) => set({ gameMode: mode }),
   setAiDifficulty: (d) => set({ aiDifficulty: d }),
+  // The easiest level this match has been played on, so dropping to Easy and
+  // back to Hard near the end still counts as an Easy win. Belongs to one match.
+  aiLevelFloor: null, // { key: matchKey, level }
+  /** Change the computer's level during a match: it plays the new way from its next flick. */
+  changeAiDifficulty: (d) => set((s) => {
+    if (!AI_LEVELS.includes(d)) return {}
+    const was = s.aiLevelFloor?.key === s.matchKey && AI_LEVELS.includes(s.aiLevelFloor.level) ? s.aiLevelFloor.level : s.aiDifficulty
+    const floor = AI_LEVELS.includes(was) && AI_LEVELS.indexOf(was) < AI_LEVELS.indexOf(d) ? was : d
+    return { aiDifficulty: d, aiLevelFloor: { key: s.matchKey, level: floor } }
+  }),
 
   // --- Online (local-only, never synced) ---
   onlineMyTeam: null, // 'team1' (host) or 'team2' (guest)

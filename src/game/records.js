@@ -72,8 +72,9 @@ export function matchEntry(state, idFor) {
   let bucket
   let me = null
   if (state.gameMode === 'ai') {
-    if (!AI_DIFFICULTIES.includes(state.aiDifficulty)) return null
-    bucket = `cpu:${state.aiDifficulty}`
+    const level = matchLevel(state)
+    if (!AI_DIFFICULTIES.includes(level)) return null
+    bucket = `cpu:${level}`
     me = state.aiTeam === 'team1' ? 'team2' : 'team1'
   } else if (state.gameMode === 'online') {
     if (state.onlineMyTeam !== 'team1' && state.onlineMyTeam !== 'team2') return null
@@ -178,11 +179,21 @@ export function formatWdl({ w, d, l }, { hideZeroDraws = false } = {}) {
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 
+/**
+ * The level a match against the computer counts at: the easiest it was played
+ * on, if the level was changed during the match.
+ */
+export function matchLevel(state) {
+  const f = state.aiLevelFloor
+  return f && f.key === state.matchKey && AI_DIFFICULTIES.includes(f.level) ? f.level : state.aiDifficulty
+}
+
 /** One-line record for the match-end screen. */
 export function recordLine(records, state) {
   const r = sanitizeRecords(records)
-  if (state.gameMode === 'ai' && AI_DIFFICULTIES.includes(state.aiDifficulty)) {
-    return `Your record vs ${cap(state.aiDifficulty)} CPU: ${formatWdl(r.cpu[state.aiDifficulty])}`
+  const level = matchLevel(state)
+  if (state.gameMode === 'ai' && AI_DIFFICULTIES.includes(level)) {
+    return `Your record vs ${cap(level)} CPU: ${formatWdl(r.cpu[level])}`
   }
   // LAN matches count in the same record as online ones
   if (state.gameMode === 'online') return `${state.onlineTransport === 'lan' ? 'Online & LAN' : 'Online'}: ${formatWdl(r.online, { hideZeroDraws: true })}`
