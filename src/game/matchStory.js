@@ -36,8 +36,12 @@ export function buildStory({ goalLog = [], matchEvents = [], teamConfig, score, 
   const chances = matchEvents.filter((e) => ['save', 'post', 'block', 'wide'].includes(e.type)).slice(0, 3)
   chances.forEach((e, i) => {
     const team = String(e.cap || '').startsWith('team2') ? 'team2' : 'team1'
-    out.push({ min: null, kind: e.type, team, text: line(e.type, { teamConfig, team, cap: e.cap, by: e.by, seed: `${seed}:c${i}` }) })
+    const min = Number.isInteger(e.half) && Number.isFinite(e.t) ? footballMinute(e.half, e.t, matchDuration) : null
+    out.push({ min, kind: e.type, team, text: line(e.type, { teamConfig, team, cap: e.cap, by: e.by, seed: `${seed}:c${i}` }) })
   })
+  // In the order they happened (kick-off first; chances from older saves, with no minute, last)
+  const timeline = out.slice(1).sort((a, b) => (a.min ?? 999) - (b.min ?? 999))
+  out.splice(1, out.length - 1, ...timeline)
   const winnerTeam = score.team1 > score.team2 ? 'team1' : score.team2 > score.team1 ? 'team2' : null
   out.push({ min: extraTime ? 120 : 90, kind: 'fulltime', text: line(winnerTeam ? 'fullTimeWin' : 'fullTimeDraw', { teamConfig, winner: winnerTeam, score, seed }) })
   if (pens && pens.team1 !== pens.team2) {

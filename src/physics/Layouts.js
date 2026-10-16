@@ -281,9 +281,21 @@ function clearAround(bx, by, ids, radius) {
 }
 
 /**
+ * Where everyone lines up for a corner, as [x in from the goal line, y as a
+ * share of `ey` (+ = the corner's side)]. Defenders mark the box: the keeper
+ * on his line, a cap on each post, one at the penalty spot and one on the edge
+ * of the area, with a striker left upfield for the break. The attackers make
+ * runs to the far post and the edge, with one cap kept back as cover.
+ */
+const CORNER_DEFENCE = {
+  gk: [1.3, 0.4], def1: [1.6, 2.6], def2: [2.0, -2.2], mid: [4.4, 0.9], atk1: [7.5, -2.5], atk2: [16, 1],
+}
+const CORNER_ATTACK = { atk2: [3.6, -0.8], mid: [5.6, 2.2], def1: [9, -1], def2: [17, -2] }
+
+/**
  * CORNER KICK for `team`, from the corner at (ex, ey). The ball sits on the
  * end line a little up from the corner, the taker just behind it against the
- * side wall; opponents stand off, everyone else stays where they were.
+ * side wall, and both sides take up their corner positions (see above).
  */
 function setupCorner(team, ex, ey) {
   const { halfW, halfH } = PITCH
@@ -293,6 +305,12 @@ function setupCorner(team, ex, ey) {
   placeBallAt(bx, by)
   const taker = `${team}_atk1`
   safePlace(taker, bx, ey * (halfH - 1.25))
+  const def = otherTeam(team)
+  const at = ([d, s]) => [ex * (halfW - d), ey * s]
+  for (const [role, spot] of Object.entries(CORNER_DEFENCE)) safePlace(`${def}_${role}`, ...at(spot))
+  for (const [role, spot] of Object.entries(CORNER_ATTACK)) safePlace(`${team}_${role}`, ...at(spot))
+  // The attackers' keeper stays in his own goal
+  safePlace(`${team}_gk`, -ex * (halfW - 1.3), 0)
   const others = Object.keys(bodies).filter((id) => id !== 'ball' && id !== taker && !id.endsWith('_gk'))
   clearAround(bx, by, others.filter((id) => !id.startsWith(`${team}_`)), CORNER_CLEARANCE)
   clearAround(bx, by, others.filter((id) => id.startsWith(`${team}_`)), TEAMMATE_CLEARANCE - 1)
