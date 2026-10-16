@@ -69,6 +69,7 @@ function ConnectionLost() {
   const status = useMatchStore((s) => s.onlineStatus)
   const gameMode = useMatchStore((s) => s.gameMode)
   const screen = useMatchStore((s) => s.screen)
+  const inTournament = useTournamentStore((s) => !!s.playing)
   if (gameMode !== 'online' || status.status !== 'disconnected' || screen === SCREEN.ONLINE || screen === SCREEN.LAN || screen === SCREEN.MENU || screen === SCREEN.TOURNAMENT_HUB) return null
 
   const leave = () => {
@@ -78,7 +79,7 @@ function ConnectionLost() {
     useMatchStore.getState().setGameMode('local')
   }
   return (
-    <Modal title="Connection lost" footer={<button className="btn btn-primary btn-block" onClick={leave}><Icon name="exit" size={18} /> Back to menu</button>}>
+    <Modal title="Connection lost" footer={<button className="btn btn-primary btn-block" onClick={leave}><Icon name="exit" size={18} /> {inTournament ? 'Back to the tournament' : 'Back to menu'}</button>}>
       <p className="muted">{status.msg || 'The other player disconnected.'}</p>
     </Modal>
   )

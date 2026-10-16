@@ -104,23 +104,71 @@ export function setFacing(homeDir, { animate = true } = {}) {
   // Turn from the unshifted view, so the follow camera's lean doesn't stick
   _releaseFollow?.()
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  // Swing round the centre spot onto the normal view from this end, even if
+  // the view had been dragged or zoomed by hand
+  glideTo(homePose(), animate && !reduced ? { spin: true } : { duration: 0 })
+}
+
+/** The normal view right now: the current preset, fitted, facing the right end. */
+export function homePose() {
+  const preset = CAMERA_PRESETS[_presetIndex]
+  if (!preset || !_cameraRef) return null
+  const { h, top, bottom } = currentInsets()
+  const freeHeight = h > 0 ? (h - top - bottom) / h : 1
+  const aspect = _cameraRef.aspect || 1
+  let { position, target } = posePreset(preset, aspect, freeHeight)
+  if (needsFlip(preset, aspect, _facingHome)) { position = turnRound(position); target = turnRound(target) }
+  return { position, target }
+}
+
+/** Is the camera in the middle of turning round or gliding home? */
+export const isCameraGliding = () => !!_turnAnim
+
+const lerp3 = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k)
+
+/**
+ * Move the camera to `to`. With `spin`, it swings half a turn round the
+ * centre spot on the way (the view turning round for the other player).
+ */
+function glideTo(to, { spin = false, duration = spin ? 700 : 600 } = {}) {
+  cancelTurn()
+  if (!to || !_cameraRef || !_controlsRef) return
   const from = { position: _cameraRef.position.toArray(), target: _controlsRef.target.toArray() }
-  if (!animate || reduced || typeof requestAnimationFrame !== 'function') {
-    setCameraPose({ position: turnRound(from.position), target: turnRound(from.target) })
-    return
-  }
-  // Swing round the centre spot over ~0.7s, keeping height and distance
+  // When spinning, glide towards where the view must be before the half turn
+  const end = spin ? { position: turnRound(to.position), target: turnRound(to.target) } : to
+  const animate = typeof requestAnimationFrame === 'function' && typeof performance !== 'undefined' && duration > 0
+  if (!animate) { setCameraPose(to); return }
   const start = performance.now()
-  const DURATION = 700
-  const spin = (t) => {
-    const k = Math.min(1, (t - start) / DURATION)
+  const step = (t) => {
+    const k = Math.min(1, (t - start) / duration)
     const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2 // ease in-out
-    const a = Math.PI * e
-    const rot = ([x, y, z]) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)]
-    setCameraPose({ position: rot(from.position), target: rot(from.target) })
-    if (k < 1) _turnAnim = requestAnimationFrame(spin)
+    let position = lerp3(from.position, end.position, e)
+    let target = lerp3(from.target, end.target, e)
+    if (spin) {
+      const a = Math.PI * e
+      const rot = ([x, y, z]) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)]
+      position = rot(position); target = rot(target)
+    }
+    setCameraPose(k < 1 ? { position, target } : to)
+    _turnAnim = k < 1 ? requestAnimationFrame(step) : 0
   }
-  _turnAnim = requestAnimationFrame(spin)
+  _turnAnim = requestAnimationFrame(step)
+}
+
+/**
+ * After a play: back to the normal view, even if it was dragged or zoomed by
+ * hand. Does nothing when the camera is already there.
+ */
+export function returnHome() {
+  if (!_cameraRef || !_controlsRef) return
+  _releaseFollow?.()
+  const home = homePose()
+  if (!home) return
+  const now = { position: _cameraRef.position.toArray(), target: _controlsRef.target.toArray() }
+  const off = Math.hypot(...now.position.map((v, i) => v - home.position[i])) + Math.hypot(...now.target.map((v, i) => v - home.target[i]))
+  if (off < 0.05) return
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  glideTo(home, { duration: reduced ? 0 : 600 })
 }
 
 export function fitCurrentPreset() {

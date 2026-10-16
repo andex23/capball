@@ -4,9 +4,9 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
-  stopAllBodies, getLastBallTeam, getGoalEvidence, clearKeeperDive,
+  stopAllBodies, getLastBallTeam, getGoalEvidence, clearKeeperDive, getFoulPending,
 } from './PhysicsWorld'
-import { ballInCorner, cornerRestart, otherTeam } from '../game/rules'
+import { ballInCorner, cornerRestart, otherTeam, isOwnGoal } from '../game/rules'
 import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
 import { PHYSICS } from '../data/TeamData'
@@ -140,7 +140,8 @@ export function usePhysicsSync(meshRefs) {
     // Record this frame for goal replays — or, during one, redraw the past
     if (store.gameMode !== 'anytime') replayFrame(delta)
 
-    if (!authority || suspended || resolved.current) return
+    // A foul already whistled decides this flick, even if the ball goes in first
+    if (!authority || suspended || resolved.current || getFoulPending()) return
     const s = useMatchStore.getState()
     if (s.phase !== PHASE.RESOLVE) return
 
@@ -156,8 +157,7 @@ export function usePhysicsSync(meshRefs) {
       } else if (verdict.outcome === 'goal') {
         stopBall()
         playGoal()
-        const touched = getLastBallTeam()
-        s.scoreGoal(verdict.scorer, { decision, ownGoal: !s.penaltyShootout && !!touched && touched !== verdict.scorer })
+        s.scoreGoal(verdict.scorer, { decision, ownGoal: isOwnGoal(verdict.scorer, s.lastFlickedCapId, getLastBallTeam()) })
       } else if (verdict.outcome === 'bank_shot') {
         // In off the wall: no goal, the defending side restarts with a goal kick
         stopAllBodies()

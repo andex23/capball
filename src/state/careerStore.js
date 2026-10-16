@@ -4,7 +4,7 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
+import { CAREER_MODES, CAREER_DIFFICULTIES, localDay, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
 import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
@@ -92,6 +92,7 @@ export const useCareerStore = create((set, get) => ({
     next = withPerformance(next, perf, `${career.league.id}:${fixtureId}`, fixtureId)
     next = withFitness(next, career, perf)
     next = withReport(next, fixtureId, result, perf, 'league')
+    next = { ...next, lastPlayedDay: localDay() } // one career match a day
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -114,6 +115,7 @@ export const useCareerStore = create((set, get) => ({
     next = withPerformance(next, perf, `${career.cup.tournament.id}:${fixtureId}`, fixtureId)
     next = withFitness(next, career, perf)
     next = withReport(next, fixtureId, result, perf, 'cup')
+    next = { ...next, lastPlayedDay: localDay() } // one career match a day
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })

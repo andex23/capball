@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { kitsApart } from '../game/kitClash'
 import { useAnytimeStore } from '../state/anytimeStore'
 import { useAccountStore } from '../state/accountStore'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
@@ -34,7 +35,7 @@ export default function AnytimeScreen() {
         <div className="label-row"><h2 className="display">My matches</h2><button className="btn btn-secondary" disabled={loading} onClick={() => useAnytimeStore.getState().list()}>{loading ? 'Loading…' : 'Refresh'}</button></div>
         {!loading && !matches.length && <p className="muted">Your saved matches will appear here.</p>}
         {matches.map(m => <button key={m.code} className="btn btn-secondary" disabled={busy} style={{ display: 'grid', textAlign: 'left', gap: 6 }} onClick={() => open('get', { code: m.code })}>
-          <span>{m.config.teams.team1.name} {m.state.score.team1} – {m.state.score.team2} {m.config.teams.team2.name}</span>
+          <span>{m.config.teams.team1.name} {m.state.score.team1} – {m.state.score.team2} {kitsApart(m.config.teams).team2.name}</span>
           <small>{m.status === 'complete' ? 'Finished · view match' : m.status === 'waiting' ? 'Waiting for friend to join' : m.myTeam === m.state.activeTeam ? 'Your turn' : 'Waiting for opponent'} · {m.code}</small>
           {m.dueAt && <small>Turn due {new Date(m.dueAt).toLocaleString()}</small>}
         </button>)}

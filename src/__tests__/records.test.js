@@ -138,6 +138,7 @@ describe('sanitizeRecords / resetRecords / recordLine', () => {
     r.local.played = 7
     expect(recordLine(r, { gameMode: 'ai', aiDifficulty: 'hard' })).toBe('Your record vs Hard CPU: 4W 1D 2L')
     expect(recordLine(r, { gameMode: 'online' })).toBe('Online: 3W 2L')
+    expect(recordLine(r, { gameMode: 'online', onlineTransport: 'lan' })).toBe('Online & LAN: 3W 2L')
     expect(recordLine(r, { gameMode: 'local' })).toBe('Local matches played: 7')
   })
 })

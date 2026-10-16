@@ -65,6 +65,18 @@ export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, ban
 }
 
 /**
+ * Is this goal an own goal? The goal goes down to the cap whose flick put the
+ * ball in, so it's an own goal when that cap plays for the side that conceded.
+ * A shot deflected in off a defender is the shooter's goal. Without a flicked
+ * cap, the last side to touch the ball decides.
+ */
+export function isOwnGoal(scorer, flickedCapId, lastTouchTeam = null) {
+  const flicker = teamOf(flickedCapId)
+  if (flicker) return flicker !== scorer
+  return !!lastTouchTeam && lastTouchTeam !== scorer
+}
+
+/**
  * Classify the first thing the flicked cap touched.
  * 'ball' = legal, 'teammate' = wasted turn, 'foul' = opponent hit first,
  * 'wall' = cushion (doesn't count — the next contact decides).

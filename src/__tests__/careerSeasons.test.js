@@ -199,3 +199,21 @@ describe('club budget in naira', () => {
     expect(money(-25)).toBe('−₦250k')
   })
 })
+
+describe('one calendar: cup ties on their dates', () => {
+  it('a cup round that is due comes before the next league match', async () => {
+    const { careerNext } = await import('../game/career')
+    let c = newCareer(club, { now: 9 })
+    expect(careerNext(c).kind).toBe('league')
+    c = playLeague(c, CUP_AFTER[0])
+    // The quarter-final is due: the league waits
+    expect(careerNext(c).kind).toBe('cup')
+    expect(careerNext(c).fixture.id).toBe(cupTie(c).id)
+    const tie = cupTie(c)
+    c = recordCupResult(c, tie.id, tie.home === ME ? { home: 2, away: 0 } : { home: 0, away: 2 })
+    // ...then the league carries on until the semi-final's date
+    expect(careerNext(c).kind).toBe('league')
+    c = playLeague(c, CUP_AFTER[1] - CUP_AFTER[0])
+    expect(careerNext(c).kind).toBe('cup')
+  })
+})

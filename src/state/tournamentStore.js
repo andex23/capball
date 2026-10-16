@@ -19,7 +19,7 @@ import {
 } from '../game/tournament'
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
-import { nextMatch, cupTie, opponentSix } from '../game/career'
+import { careerNext, playedToday, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
 import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
@@ -328,6 +328,13 @@ export const useTournamentStore = create((set, get) => ({
     const cc = useCareerStore.getState().career
     const t = kind === 'local' ? get().local : kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().online?.tournament
     if (!t || (kind !== 'career' && !readyFixtures(t).some((f) => f.id === fixture.id))) return
+    // Career: only the match the calendar has next (a cup tie on its date before the league)
+    if (kind === 'career' || kind === 'careerCup') {
+      const due = careerNext(cc)
+      if (!due || due.kind !== (kind === 'career' ? 'league' : 'cup') || due.fixture.id !== fixture.id) return
+      // One career match a day, on real dates
+      if (playedToday(cc)) return
+    }
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
     if (!home || !away) return
@@ -366,6 +373,18 @@ export const useTournamentStore = create((set, get) => ({
       ...(career ? careerVenue(career, home, away, levelOf) : {}),
     })
     useMatchStore.getState().goToScreen(SCREEN.FORMATION)
+  },
+
+  /**
+   * Career, before kick-off: rebuild this match's teams after the lineup or
+   * time per half changed, keeping the formations already picked.
+   */
+  refreshCareerMatch() {
+    const p = get().playing
+    if (!p || p.lan || (p.kind !== 'career' && p.kind !== 'careerCup')) return
+    const { formations } = useMatchStore.getState()
+    get().playFixture(p.kind, p.fixture)
+    useMatchStore.setState({ formations })
   },
 
   /**
@@ -409,7 +428,9 @@ export const useTournamentStore = create((set, get) => ({
     const cc = useCareerStore.getState().career
     const t = kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().local
     if (!t) return false
-    const eligible = kind === 'career' ? nextMatch(t) : kind === 'careerCup' ? cupTie(cc) : readyFixtures(t).find(f => f.id === fixture?.id)
+    // Career: only the match due next in the calendar (a cup tie on its date comes before the league)
+    const due = kind === 'career' || kind === 'careerCup' ? careerNext(cc) : null
+    const eligible = kind === 'career' ? (due?.kind === 'league' ? due.fixture : null) : kind === 'careerCup' ? (due?.kind === 'cup' ? due.fixture : null) : readyFixtures(t).find(f => f.id === fixture?.id)
     if (!eligible || eligible.id !== fixture?.id) return false
     // Use the saved fixture, never home/away identifiers supplied by a caller.
     fixture = eligible
@@ -473,8 +494,13 @@ export const useTournamentStore = create((set, get) => ({
    * posts its code; the away side joins it from the hub.
    */
   async hostLiveFixture(fixture) {
+    if (!get().online) return
+    // The opponent may have changed their kit since this hub last loaded:
+    // play with the latest teams (or what we have, if that fails)
+    set({ busy: true })
+    try { await get().openOnline(get().online.code, { quiet: true }) } catch { /* keep the copy we have */ }
     const { online } = get()
-    if (!online) return
+    if (!online?.tournament) { set({ busy: false }); return }
     const t = online.tournament
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
