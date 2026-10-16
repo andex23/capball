@@ -430,7 +430,8 @@ export const useMatchStore = create((set, get) => ({
     const other = team === 'team1' ? 'team2' : 'team1'
     set({
       shotCalled: true,
-      matchEvents: [...(s.matchEvents || []), { type, cap, by }],
+      // When it happened, so the report can give its minute
+      matchEvents: [...(s.matchEvents || []), { type, cap, by, half: s.half, t: s.timeRemaining }],
       shotCall: { type, cap, by, key: (s.shotCall?.key || 0) + 1 },
     })
     if (team && (type === 'save' || type === 'post' || type === 'block')) get().bumpStat(team, 'onTarget')

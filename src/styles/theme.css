@@ -1846,9 +1846,9 @@ button { cursor: pointer; background: none; border: 0; }
 .career-kit { padding: 0; background: none; border: 0; cursor: pointer; }
 .career-next .career-vs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 14px 0; }
 .career-next .career-vs > :last-child { justify-self: end; }
-/* Long club names wrap onto a second line instead of running under the VS badge */
-.career-next .career-vs .t-team { max-width: 100%; }
-.career-next .career-vs .t-team-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
+/* Long club names wrap onto a second line instead of running under the VS badge or the score */
+.career-vs .t-team { max-width: 100%; }
+.career-vs .t-team-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
 .career-date { font: 700 13px/1.2 var(--font-pixel); color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .career-end { text-align: center; display: flex; flex-direction: column; gap: 8px; }
 .career-end-title { font-size: clamp(40px, 10vw, 64px); color: var(--accent); }
@@ -2557,3 +2557,7 @@ button { cursor: pointer; background: none; border: 0; }
     radial-gradient(circle at 50% 50%, transparent 9px, var(--fline) 9px, var(--fline) 11px, transparent 11px),
     linear-gradient(90deg, var(--c1), var(--c2) 50%, var(--c1)); }
 textarea.field { font: inherit; resize: vertical; }
+
+/* Phones with a notch: a solid strip behind the clock and battery, so a page
+   scrolled up doesn't run its text underneath them (0 tall everywhere else) */
+.screen::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: #02041a; z-index: 60; pointer-events: none; }

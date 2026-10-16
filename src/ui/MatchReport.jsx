@@ -1,4 +1,4 @@
-import { DIVISIONS, ME, CUP_NAME, myPosition } from '../game/career'
+import { DIVISIONS, ME, CUP_NAME, myPosition, leagueDate, cupDate, formatGameDate } from '../game/career'
 import { teamById, allFixtures, roundName } from '../game/tournament'
 import { TeamTag, scoreText } from './TournamentBits'
 import { PlayerRatings } from './SquadPanel'
@@ -31,6 +31,7 @@ export default function MatchReport({ career, onDone }) {
   const label = cup
     ? `${CUP_NAME} · ${roundName(m.round, t.rounds?.length || 3)}`
     : `Matchday ${m.round + 1} · ${DIVISIONS[career.level]?.name || ''}`
+  const date = formatGameDate(cup ? cupDate(career, m.round) : leagueDate(career, { round: m.round }))
   // The rest of the matchday
   const others = cup
     ? (t.rounds?.[m.round] || []).filter((x) => x.home !== ME && x.away !== ME)
@@ -40,6 +41,7 @@ export default function MatchReport({ career, onDone }) {
   return (
     <div className="match-report">
       <section className="card card-pad career-end match-report-head" data-tone={outcome === 'win' ? 'good' : outcome === 'loss' ? 'bad' : ''}>
+        <div className="career-date">{date}</div>
         <div className="eyebrow">{label}</div>
         <h2 className="display career-end-title">{title}</h2>
         <div className="career-vs match-report-score">
