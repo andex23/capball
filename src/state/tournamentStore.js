@@ -19,7 +19,7 @@ import {
 } from '../game/tournament'
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
-import { careerNext, opponentSix } from '../game/career'
+import { careerNext, playedToday, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
 import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
@@ -332,6 +332,8 @@ export const useTournamentStore = create((set, get) => ({
     if (kind === 'career' || kind === 'careerCup') {
       const due = careerNext(cc)
       if (!due || due.kind !== (kind === 'career' ? 'league' : 'cup') || due.fixture.id !== fixture.id) return
+      // One career match a day, on real dates
+      if (playedToday(cc)) return
     }
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
