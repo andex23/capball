@@ -2246,6 +2246,8 @@ button { cursor: pointer; background: none; border: 0; }
 @media (max-width: 700px) {
   .shell-foot-inner { flex-wrap: wrap; }
   .shell-foot-inner > .btn { flex: 1 1 120px; min-width: 0; white-space: normal; padding: 10px 12px; }
+  /* Long one-word labels ("Formations") must fit half a phone's width with room to spare */
+  .shell-foot-inner > .btn { font-size: clamp(12px, 3.6vw, 16px); gap: 6px; }
   .ready-group { flex-wrap: wrap; max-width: 100%; }
 }
 .online-screen { grid-template-columns: minmax(0, 1fr); }

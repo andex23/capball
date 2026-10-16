@@ -127,14 +127,14 @@ export default function FormationScreen() {
     <SetupShell
       step={2}
       title={inCareer ? 'Pick your team' : 'Pick formations'}
-      subtitle={inCareer ? 'Time per half, your starting six and how they line up at every kick-off.' : 'This is where your caps line up at every kick-off.'}
+      subtitle={inCareer ? 'Match settings, your starting six and how they line up at every kick-off.' : 'This is where your caps line up at every kick-off.'}
       onBack={() => (inTournament ? useTournamentStore.getState().backToHub() : goToScreen(SCREEN.STADIUM_SELECT))}
       next={{ label: 'Kick off', icon: 'ball', color: 'orange', onClick: kickOff }}
       onBothReady={kickOff}
     >
       {inCareer ? (
         <>
-          <CareerTimeCard disabled={!canSetLength} />
+          <CareerTimeCard disabled={!canSetLength} withLevel={ownLineup && gameMode === 'ai'} />
           {ownLineup && <CareerLineupCard />}
         </>
       ) : (
