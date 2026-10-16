@@ -374,6 +374,18 @@ export const useTournamentStore = create((set, get) => ({
   },
 
   /**
+   * Career, before kick-off: rebuild this match's teams after the lineup or
+   * time per half changed, keeping the formations already picked.
+   */
+  refreshCareerMatch() {
+    const p = get().playing
+    if (!p || p.lan || (p.kind !== 'career' && p.kind !== 'careerCup')) return
+    const { formations } = useMatchStore.getState()
+    get().playFixture(p.kind, p.fixture)
+    useMatchStore.setState({ formations })
+  },
+
+  /**
    * Career: bring a bench player on for the player in `role`. Up to three a
    * match; a player taken off can't come back. The cap takes on the new
    * player's name, OVR and attributes (and weight) at once.
