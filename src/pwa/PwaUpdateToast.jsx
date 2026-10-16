@@ -18,8 +18,12 @@ export default function PwaUpdateToast() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
-      // Installed apps can stay open for days — look for new versions now and then
-      if (registration) setInterval(() => { if (navigator.onLine) registration.update().catch(() => {}) }, UPDATE_CHECK_MS)
+      if (!registration) return
+      const check = () => { if (navigator.onLine) registration.update().catch(() => {}) }
+      // Installed apps can stay open for days — look for new versions now and then,
+      // and whenever the player comes back to the app (a phone rarely relaunches it)
+      setInterval(check, UPDATE_CHECK_MS)
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check() })
     },
   })
 
