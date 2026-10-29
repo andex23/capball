@@ -1,0 +1,8 @@
+# Build output and machine-local settings
+.gradle/
+build/
+app/build/
+local.properties
+# Signing keys never go in the repo
+*.keystore
+*.jks

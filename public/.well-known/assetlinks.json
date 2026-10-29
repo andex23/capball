@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fun.counterball.app",
+      "sha256_cert_fingerprints": [
+        "5B:DE:EC:6F:73:B4:B3:BD:EA:7A:19:12:1F:34:B8:10:D8:D4:C8:86:E4:89:23:F5:1D:8B:5F:15:29:F7:5A:78"
+      ]
+    }
+  }
+]
