@@ -103,6 +103,16 @@ describe('result server', () => {
     await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 'draw' }, fakeApi({ verifySession: async () => ({ status: 200, data: { playerId: 't_z' } }) }))).rejects.toThrow('not-in-match')
     await expect(handleLagos({ action: 'result', session: 's', matchId: 'm_1', winner: 'draw' }, fakeApi({ verifySession: async () => ({ status: 401, data: {} }) }))).rejects.toThrow('bad-session')
   })
+
+  it('logs a Lagos Life error to the server logs only, for a verified player', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await expect(handleLagos({ action: 'logError', session: 's', code: 'not_available', where: 'quick' }, fakeApi())).resolves.toEqual({ ok: true })
+    expect(JSON.parse(warn.mock.calls.at(-1)[0])).toMatchObject({ lagosError: 'not_available', where: 'quick', player: 't_a' })
+    await handleLagos({ action: 'logError', session: 's', code: '<script>', where: 'x y' }, fakeApi())
+    expect(JSON.parse(warn.mock.calls.at(-1)[0])).toMatchObject({ lagosError: 'unknown', where: 'unknown' })
+    await expect(handleLagos({ action: 'logError', code: 'error' }, fakeApi())).rejects.toThrow('bad-request')
+    warn.mockRestore()
+  })
   describe('bets (staked matches)', () => {
     const staked = { ...match, stake: 500 }
     const as = (id) => fakeApi({ verifySession: async () => ({ status: 200, data: { playerId: id } }), getMatch: async () => ({ status: 200, data: staked }) })
@@ -239,8 +249,10 @@ describe('cloud save', () => {
 describe('Lagos Life error messages', () => {
   it('a match that can’t start says why it usually happens, not just “something went wrong”', async () => {
     const { matchMessage, sdkMessage } = await import('../lagos/sdk')
-    expect(matchMessage({ code: 'error' })).toMatch(/aren’t switched on for this version/)
-    expect(matchMessage(new Error('no code'))).toMatch(/aren’t switched on/)
+    expect(matchMessage({ code: 'error' })).toMatch(/Couldn’t start a match/)
+    expect(matchMessage(new Error('no code'))).toMatch(/Couldn’t start a match/)
+    // players never see codes or internal detail
+    expect(matchMessage({ code: 'error' })).not.toMatch(/code|version|review/i)
     expect(matchMessage({ code: 'not_found' })).toBe(sdkMessage({ code: 'not_found' }))
     for (const code of ['off', 'too_soon', 'bad_request', 'payment_failed', 'not_for_sale', 'owned']) {
       expect(sdkMessage({ code })).not.toMatch(/Something went wrong/)
@@ -257,7 +269,7 @@ describe('the real Lagos Life error code', () => {
     await loadSdk({ win })
     listeners.forEach((fn) => fn({ source: parent, data: { ll: 1, t: 'reply', re: 3, ok: false, error: 'not_available' } }))
     expect(realErrorCode({ code: 'error' })).toBe('not_available')
-    expect(matchMessage({ code: realErrorCode({ code: 'error' }) })).toMatch(/aren’t switched on/)
+    expect(matchMessage({ code: realErrorCode({ code: 'error' }) })).toMatch(/aren’t open yet/)
     // a reply from anywhere but the host page is ignored
     listeners.forEach((fn) => fn({ source: {}, data: { ll: 1, t: 'reply', ok: false, error: 'busy' } }))
     expect(realErrorCode({ code: 'error' })).toBe('not_available')

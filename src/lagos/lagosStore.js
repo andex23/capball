@@ -347,6 +347,12 @@ export const useLagosStore = create((set, get) => ({
 
   /* ── Friend matches ── */
 
+  /** Send the exact Lagos Life code behind a failure to our server's logs. Players only see the friendly message. */
+  reportError(code, where) {
+    if (!sdk || !code) return
+    server({ action: 'logError', code, where }).catch(() => {})
+  },
+
   async findMatch(kind, code, stake = 0) {
     if (!sdk?.match) throw Object.assign(new Error('off'), { code: 'not_multiplayer' })
     const bet = stake > 0 ? cleanStake(stake) : 0

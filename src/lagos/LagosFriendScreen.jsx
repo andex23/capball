@@ -31,7 +31,6 @@ export default function LagosFriendScreen() {
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [errorCode, setErrorCode] = useState(null)
   const [madeCode, setMadeCode] = useState(false)
   const linking = useRef(null)
 
@@ -79,17 +78,17 @@ export default function LagosFriendScreen() {
     playConfirm()
     setBusy(true)
     setError(null)
-    setErrorCode(null)
     try {
       const old = useLagosStore.getState().match
       if (old && (used.has(old.id) || !['open', 'playing'].includes(old.status))) await useLagosStore.getState().leaveMatch()
       await useLagosStore.getState().findMatch(kind, code, kind === 'join' ? 0 : stake)
       setMadeCode(kind === 'create')
     } catch (e) {
-      // The SDK hides some of Lagos Life's codes behind "error": use the real one
+      // The SDK hides some of Lagos Life's codes behind "error": the real one picks
+      // the message and goes to our logs; players only see the message
       const code = realErrorCode(e)
       setError(matchMessage(code ? { code } : e))
-      setErrorCode(code)
+      useLagosStore.getState().reportError(code, kind)
     } finally {
       setBusy(false)
     }
@@ -213,7 +212,7 @@ export default function LagosFriendScreen() {
             </div>
           )}
 
-          {error && <p className="t-warn" role="alert">{error}{errorCode && <span className="muted t-note" style={{ display: 'block', marginTop: 6 }}>Lagos Life code: {errorCode}</span>}</p>}
+          {error && <p className="t-warn" role="alert">{error}</p>}
           {error && playing && <button className="btn btn-secondary btn-block" onClick={cancel}>Leave this match</button>}
 
           <button className="btn btn-secondary" onClick={back} style={{ alignSelf: 'flex-start' }}>
