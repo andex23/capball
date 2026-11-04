@@ -4,7 +4,7 @@ import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerMana
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import { useLagosStore, potFor } from './lagosStore'
 import { naira } from '../data/shop'
-import { matchMessage } from './sdk'
+import { matchMessage, realErrorCode } from './sdk'
 import { roomCodeFor, isHostFor, opponentOf } from './friendMatch'
 import Icon from '../ui/Icon'
 
@@ -86,8 +86,10 @@ export default function LagosFriendScreen() {
       await useLagosStore.getState().findMatch(kind, code, kind === 'join' ? 0 : stake)
       setMadeCode(kind === 'create')
     } catch (e) {
-      setError(matchMessage(e))
-      setErrorCode(e?.code || null)
+      // The SDK hides some of Lagos Life's codes behind "error": use the real one
+      const code = realErrorCode(e)
+      setError(matchMessage(code ? { code } : e))
+      setErrorCode(code)
     } finally {
       setBusy(false)
     }

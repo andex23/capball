@@ -247,3 +247,22 @@ describe('Lagos Life error messages', () => {
     }
   })
 })
+
+describe('the real Lagos Life error code', () => {
+  it('reads the code the host page sent when the SDK reports only "error"', async () => {
+    const { loadSdk, realErrorCode, matchMessage } = await import('../lagos/sdk')
+    const listeners = []
+    const parent = {}
+    const win = { parent, addEventListener: (t, fn) => listeners.push(fn), Vatar: { init() {}, session() {} } }
+    await loadSdk({ win })
+    listeners.forEach((fn) => fn({ source: parent, data: { ll: 1, t: 'reply', re: 3, ok: false, error: 'not_available' } }))
+    expect(realErrorCode({ code: 'error' })).toBe('not_available')
+    expect(matchMessage({ code: realErrorCode({ code: 'error' }) })).toMatch(/aren’t switched on/)
+    // a reply from anywhere but the host page is ignored
+    listeners.forEach((fn) => fn({ source: {}, data: { ll: 1, t: 'reply', ok: false, error: 'busy' } }))
+    expect(realErrorCode({ code: 'error' })).toBe('not_available')
+    // stale or specific codes pass through
+    expect(realErrorCode({ code: 'not_found' })).toBe('not_found')
+    expect(realErrorCode({ code: 'error' }, Date.now() + 60000)).toBe('error')
+  })
+})

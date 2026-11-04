@@ -11,7 +11,29 @@ const looksLikeSdk = (v) => !!v && typeof v.init === 'function' && typeof v.sess
 
 let loading = null
 
+// Lagos Life's SDK turns any reply code it doesn't know into a plain "error"
+// (not_available, for one). Note the code the host page actually sent, so the
+// game can say the real reason. Read-only: it never answers or acts on it.
+let lastReply = null
+let watching = false
+function watchReplies(win) {
+  if (watching || !win?.addEventListener) return
+  watching = true
+  win.addEventListener('message', (e) => {
+    const d = e.data
+    if (e.source !== win.parent || !d || d.ll !== 1 || d.t !== 'reply' || d.ok) return
+    if (typeof d.error === 'string' && /^[a-z_]{1,40}$/.test(d.error)) lastReply = { code: d.error, at: Date.now() }
+  })
+}
+
+/** The code Lagos Life really sent for a failure just now, when its SDK reported only "error". */
+export function realErrorCode(error, now = Date.now()) {
+  if (error?.code !== 'error' || !lastReply || now - lastReply.at > 5000) return error?.code || null
+  return lastReply.code
+}
+
 export function loadSdk({ win = globalThis.window, doc = globalThis.document, timeoutMs = 15000 } = {}) {
+  watchReplies(win)
   if (looksLikeSdk(win?.Vatar)) return Promise.resolve(win.Vatar)
   if (loading) return loading
   if (import.meta.env?.DEV && win?.self === win?.top && new URLSearchParams(win.location.search).has('mock')) {
