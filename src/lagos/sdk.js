@@ -48,6 +48,24 @@ export function sdkMessage(error) {
     case 'busy': return 'Lagos Life is busy with something else. Try again.'
     case 'cancelled': return 'Cancelled.'
     case 'sdk_load': return 'Couldn’t reach Lagos Life. Check your connection and try again.'
+    case 'off': return 'Counterball is switched off in Lagos Life right now. Try again later.'
+    case 'too_soon': return 'Wait a few seconds and try again.'
+    case 'bad_request': return 'Lagos Life didn’t understand that request. Update the game (close and reopen it) and try again.'
+    case 'payment_failed': return 'The payment didn’t go through. Nothing was taken.'
+    case 'not_for_sale': return 'That isn’t on sale yet.'
+    case 'owned': return 'You already own that.'
     default: return 'Something went wrong with Lagos Life. Try again.'
   }
+}
+
+/**
+ * For a match that couldn't start. Lagos Life's SDK turns codes it doesn't
+ * know (such as matches not being switched on for this game's reviewed
+ * version) into a plain "error", so say what that usually means.
+ */
+export function matchMessage(error) {
+  if (!error?.code || error.code === 'error') {
+    return 'Lagos Life couldn’t start a match. Try again in a moment. If it keeps happening, matches aren’t switched on for this version of Counterball yet (Lagos Life turns them on after review).'
+  }
+  return sdkMessage(error)
 }

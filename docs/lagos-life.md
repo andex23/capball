@@ -13,7 +13,7 @@ fitted to the frame.
 - **Leaderboard**: total wins against the computer and in friend matches.
   Matches with two players on one phone don't count. The count goes to the
   Lagos Life leaderboard (at most one update every 20 seconds).
-- **Friend matches**: "Play a Friend" uses Lagos Life matchmaking (find a
+- **Friend matches**: "Vs Lagos Players" (on the main menu and first in Quick Match) uses Lagos Life matchmaking (find a
   player, make a code, or join with a code). Stake is always 0. Once both
   players are in, the phones connect the same way the website's online
   matches do. When the match ends, both phones send the result to
