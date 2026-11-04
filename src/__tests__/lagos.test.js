@@ -235,3 +235,15 @@ describe('cloud save', () => {
     await expect(handleLagos({ action: 'putSave', session: 's', data: 'junk' }, api, null, saves)).rejects.toThrow('bad-request')
   })
 })
+
+describe('Lagos Life error messages', () => {
+  it('a match that can’t start says why it usually happens, not just “something went wrong”', async () => {
+    const { matchMessage, sdkMessage } = await import('../lagos/sdk')
+    expect(matchMessage({ code: 'error' })).toMatch(/aren’t switched on for this version/)
+    expect(matchMessage(new Error('no code'))).toMatch(/aren’t switched on/)
+    expect(matchMessage({ code: 'not_found' })).toBe(sdkMessage({ code: 'not_found' }))
+    for (const code of ['off', 'too_soon', 'bad_request', 'payment_failed', 'not_for_sale', 'owned']) {
+      expect(sdkMessage({ code })).not.toMatch(/Something went wrong/)
+    }
+  })
+})

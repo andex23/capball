@@ -4,7 +4,7 @@ import { createRoom, joinRoom, disconnect } from '../multiplayer/MultiplayerMana
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import { useLagosStore, potFor } from './lagosStore'
 import { naira } from '../data/shop'
-import { sdkMessage } from './sdk'
+import { matchMessage } from './sdk'
 import { roomCodeFor, isHostFor, opponentOf } from './friendMatch'
 import Icon from '../ui/Icon'
 
@@ -31,6 +31,7 @@ export default function LagosFriendScreen() {
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [errorCode, setErrorCode] = useState(null)
   const [madeCode, setMadeCode] = useState(false)
   const linking = useRef(null)
 
@@ -78,13 +79,15 @@ export default function LagosFriendScreen() {
     playConfirm()
     setBusy(true)
     setError(null)
+    setErrorCode(null)
     try {
       const old = useLagosStore.getState().match
       if (old && (used.has(old.id) || !['open', 'playing'].includes(old.status))) await useLagosStore.getState().leaveMatch()
       await useLagosStore.getState().findMatch(kind, code, kind === 'join' ? 0 : stake)
       setMadeCode(kind === 'create')
     } catch (e) {
-      setError(sdkMessage(e))
+      setError(matchMessage(e))
+      setErrorCode(e?.code || null)
     } finally {
       setBusy(false)
     }
@@ -107,6 +110,17 @@ export default function LagosFriendScreen() {
 
   const opponent = match ? opponentOf(match, me) : null
   const waiting = match?.status === 'open'
+  // How long we've been in the lobby
+  const [since, setSince] = useState(null)
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (!waiting) { setSince(null); return }
+    setSince((s) => s ?? Date.now())
+    const t = setInterval(() => tick((n) => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [waiting])
+  const waited = since ? Math.floor((Date.now() - since) / 1000) : 0
+  const clock = `${Math.floor(waited / 60)}:${String(waited % 60).padStart(2, '0')}`
   const playing = match?.status === 'playing'
   const ready = lagos.status === 'ready'
   const bet = match ? Number(match.stake) || 0 : 0
@@ -118,7 +132,7 @@ export default function LagosFriendScreen() {
           <div>
             <div className="eyebrow">{bet > 0 ? `Lagos Life · ${naira(bet)} bet` : 'Lagos Life · free match'}</div>
             <h1 className="display" style={{ fontSize: 40 }}>
-              {playing ? `Vs ${opponent?.name || 'your friend'}` : waiting ? (madeCode ? 'Waiting for a friend' : 'Finding a player') : view === 'join' ? 'Join a friend' : 'Lagos players'}
+              {playing ? `Vs ${opponent?.name || 'your friend'}` : waiting ? (madeCode ? 'Waiting for a friend' : 'In the lobby') : view === 'join' ? 'Join a friend' : 'Lagos players'}
             </h1>
           </div>
           <span className="mode-icon"><Icon name="globe" size={24} /></span>
@@ -135,6 +149,7 @@ export default function LagosFriendScreen() {
             <>
               <p className="muted">Play another Lagos Life player on their own phone. Once you’re matched, you can put a bet on it.</p>
               <button className="btn btn-gold btn-lg btn-block" onClick={() => find('quick')} disabled={busy}>{busy ? <><Spinner /> Searching…</> : 'Find a player'}</button>
+              <p className="muted t-note" style={{ marginTop: -6 }}>Joins a player who’s waiting, or opens a game in the lobby for the next one.</p>
               <button className="btn btn-purple btn-lg btn-block" onClick={() => find('create')} disabled={busy}>Make a code for a friend</button>
               <button className="btn btn-blue btn-lg btn-block" onClick={() => { playButtonSelect(); setView('join') }} disabled={busy}>I have a code</button>
             </>
@@ -171,8 +186,12 @@ export default function LagosFriendScreen() {
                   <p className="muted t-note">Tell your friend this code. They open Counterball in Lagos Life, tap Vs Lagos Players, then I have a code.{bet > 0 ? ` They’ll be asked to match your ${naira(bet)} bet.` : ''}</p>
                 </div>
               )}
-              <div role="status" className="chip online-status" style={{ justifyContent: 'center', cursor: 'default' }}><Spinner /> Waiting for the other player…</div>
-              <button className="btn btn-secondary btn-block" onClick={cancel}>Cancel</button>
+              {!madeCode && (
+                <p className="muted">You’re in the Counterball lobby. The next Lagos Life player who taps <b>Find a player</b> joins your game straight away. Keep this screen open.</p>
+              )}
+              <div role="status" className="chip online-status" style={{ justifyContent: 'center', cursor: 'default' }}><Spinner /> {madeCode ? 'Waiting for your friend' : 'Waiting for a player'} · {clock}</div>
+              <p className="muted t-note">If nobody joins within 15 minutes, Lagos Life closes the game{bet > 0 ? ' and gives your bet back' : ''}.</p>
+              <button className="btn btn-secondary btn-block" onClick={cancel}>Leave the lobby</button>
             </>
           )}
 
@@ -192,7 +211,7 @@ export default function LagosFriendScreen() {
             </div>
           )}
 
-          {error && <p className="t-warn" role="alert">{error}</p>}
+          {error && <p className="t-warn" role="alert">{error}{errorCode && <span className="muted t-note" style={{ display: 'block', marginTop: 6 }}>Lagos Life code: {errorCode}</span>}</p>}
           {error && playing && <button className="btn btn-secondary btn-block" onClick={cancel}>Leave this match</button>}
 
           <button className="btn btn-secondary" onClick={back} style={{ alignSelf: 'flex-start' }}>
