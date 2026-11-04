@@ -118,7 +118,7 @@ export default function LagosFriendScreen() {
           <div>
             <div className="eyebrow">{bet > 0 ? `Lagos Life · ${naira(bet)} bet` : 'Lagos Life · free match'}</div>
             <h1 className="display" style={{ fontSize: 40 }}>
-              {playing ? `Vs ${opponent?.name || 'your friend'}` : waiting ? (madeCode ? 'Waiting for a friend' : 'Finding a player') : view === 'join' ? 'Join a friend' : 'Play a friend'}
+              {playing ? `Vs ${opponent?.name || 'your friend'}` : waiting ? (madeCode ? 'Waiting for a friend' : 'Finding a player') : view === 'join' ? 'Join a friend' : 'Lagos players'}
             </h1>
           </div>
           <span className="mode-icon"><Icon name="globe" size={24} /></span>
@@ -168,7 +168,7 @@ export default function LagosFriendScreen() {
                 <div style={{ textAlign: 'center' }}>
                   <div className="eyebrow" style={{ marginBottom: 8 }}>Match code</div>
                   <div className="display tabular" aria-live="polite" style={{ fontSize: 56, letterSpacing: '0.12em', color: 'var(--accent)' }}>{match.code}</div>
-                  <p className="muted t-note">Tell your friend this code. They open Counterball in Lagos Life, tap Play a Friend, then I have a code.{bet > 0 ? ` They’ll be asked to match your ${naira(bet)} bet.` : ''}</p>
+                  <p className="muted t-note">Tell your friend this code. They open Counterball in Lagos Life, tap Vs Lagos Players, then I have a code.{bet > 0 ? ` They’ll be asked to match your ${naira(bet)} bet.` : ''}</p>
                 </div>
               )}
               <div role="status" className="chip online-status" style={{ justifyContent: 'center', cursor: 'default' }}><Spinner /> Waiting for the other player…</div>
