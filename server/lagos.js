@@ -223,6 +223,14 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
     await saves('put', mode, playerId, data)
     return { ok: true }
   }
+  // A Lagos Life error a player hit, for our logs only (never shown to players)
+  if (input?.action === 'logError') {
+    const code = typeof input.code === 'string' && /^[a-z_]{1,40}$/.test(input.code) ? input.code : 'unknown'
+    const where = typeof input.where === 'string' && /^[a-z_]{1,24}$/.test(input.where) ? input.where : 'unknown'
+    const { playerId, mode } = await whoIs(api, input.session)
+    console.warn(JSON.stringify({ lagosError: code, where, mode, player: playerId }))
+    return { ok: true }
+  }
   if (input?.action === 'claim') return claim(input, api, db)
   if (input?.action === 'owned') {
     if (!db) fail('shop-not-configured')

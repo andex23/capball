@@ -11,7 +11,29 @@ const looksLikeSdk = (v) => !!v && typeof v.init === 'function' && typeof v.sess
 
 let loading = null
 
+// Lagos Life's SDK turns any reply code it doesn't know into a plain "error"
+// (not_available, for one). Note the code the host page actually sent, so the
+// game can say the real reason. Read-only: it never answers or acts on it.
+let lastReply = null
+let watching = false
+function watchReplies(win) {
+  if (watching || !win?.addEventListener) return
+  watching = true
+  win.addEventListener('message', (e) => {
+    const d = e.data
+    if (e.source !== win.parent || !d || d.ll !== 1 || d.t !== 'reply' || d.ok) return
+    if (typeof d.error === 'string' && /^[a-z_]{1,40}$/.test(d.error)) lastReply = { code: d.error, at: Date.now() }
+  })
+}
+
+/** The code Lagos Life really sent for a failure just now, when its SDK reported only "error". */
+export function realErrorCode(error, now = Date.now()) {
+  if (error?.code !== 'error' || !lastReply || now - lastReply.at > 5000) return error?.code || null
+  return lastReply.code
+}
+
 export function loadSdk({ win = globalThis.window, doc = globalThis.document, timeoutMs = 15000 } = {}) {
+  watchReplies(win)
   if (looksLikeSdk(win?.Vatar)) return Promise.resolve(win.Vatar)
   if (loading) return loading
   if (import.meta.env?.DEV && win?.self === win?.top && new URLSearchParams(win.location.search).has('mock')) {
@@ -38,8 +60,8 @@ export function sdkMessage(error) {
     case 'signed_out': return 'Go back to Lagos Life and sign in, then open the game again.'
     case 'timeout': return 'Lagos Life took too long to answer. Try again.'
     case 'rate_limited': return 'Too many tries. Wait a moment and try again.'
-    case 'not_available': return 'Friend matches aren’t switched on for this game yet.'
-    case 'not_multiplayer': return 'Friend matches aren’t switched on for this game yet.'
+    case 'not_available': return 'Matches with other Lagos players aren’t open yet. Check back soon, or play the computer for now.'
+    case 'not_multiplayer': return 'Matches with other Lagos players aren’t open yet. Check back soon, or play the computer for now.'
     case 'not_found': return 'No match with that code. Check it and try again.'
     case 'not_open': return 'That match has already started or closed.'
     case 'limit': return 'That’s over a betting limit (₦100,000 a match, ₦500,000 a day, 10 bets a day with the same friend). Try a smaller bet or play free.'
@@ -65,7 +87,7 @@ export function sdkMessage(error) {
  */
 export function matchMessage(error) {
   if (!error?.code || error.code === 'error') {
-    return 'Lagos Life couldn’t start a match. Try again in a moment. If it keeps happening, matches aren’t switched on for this version of Counterball yet (Lagos Life turns them on after review).'
+    return 'Couldn’t start a match right now. Try again in a moment.'
   }
   return sdkMessage(error)
 }
