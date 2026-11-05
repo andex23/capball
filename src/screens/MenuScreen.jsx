@@ -32,7 +32,7 @@ import { useLagosStore } from '../lagos/lagosStore'
 
 // The menu is a few short pages, like an old console game: the main page,
 // and one page each for quick matches, tournaments and options
-const PAGE_TITLES = { main: 'Main menu', play: 'Quick match', tournament: 'Tournament', options: 'Options' }
+const PAGE_TITLES = { main: 'Main menu', play: 'Quick match', tournament: 'Tournament', options: 'Options', more: 'More' }
 const DIFFICULTIES = ['easy', 'medium', 'hard']
 
 // The title card shows once per visit; coming back from a match goes straight to the menu
@@ -111,7 +111,15 @@ export default function MenuScreen() {
 
   // Each item: key, title, optional sub (a line under it), right (a tag or picker), action
   const PAGES = {
-    main: [
+    // Inside Lagos Life: the five things people come for; the rest under More
+    main: lagos ? [
+      ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
+      { key: 'players', title: 'Vs Lagos Players', sub: 'Find a player · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
+      { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
+      { key: 'career', title: 'Career', sub: career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: '►', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
+      { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : 'Leagues and cups on this phone', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
+      { key: 'more', title: 'More', sub: 'Two players, daily challenge, shop, options', tag: '►', action: () => go('more') },
+    ] : [
       // Something saved shows on its own button; the choice to carry on or start again is one tap in
       { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? 'Lagos players, computer or one phone' : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
       ...(lagos ? [{ key: 'players', title: 'Vs Lagos Players', sub: 'Find a player now · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } }] : []),
@@ -146,12 +154,19 @@ export default function MenuScreen() {
       { key: 'cup', title: openT ? 'New cup' : 'Cup', sub: 'Knockout ties; lose and you’re out', action: () => tournament('knockout') },
       back,
     ],
+    more: [
+      { key: 'local', title: 'Two players', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
+      { key: 'daily', title: 'Daily Challenge', sub: doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: doneToday, action: () => openDialog('daily') },
+      { key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => openDialog('shop') },
+      { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
+      back,
+    ],
     options: [
       { key: 'records', title: 'Rankings', sub: 'Leaderboards and your records', action: () => openDialog('records') },
       { key: 'account', title: username ? `My games · ${username}` : 'My games', sub: username || lagos ? 'Saved match, career totals, results' : 'Save your games to an account', action: () => openDialog('account') },
       { key: 'settings', title: 'Settings', sub: 'Controls, camera, sound', action: () => openDialog('settings') },
       { key: 'rules', title: 'How to play', action: () => openDialog('rules') },
-      back,
+      lagos ? { ...back, action: () => go('more') } : back,
     ],
   }
   const items = PAGES[page]
@@ -192,40 +207,6 @@ export default function MenuScreen() {
           <button className="iss-press" onClick={(e) => { e.stopPropagation(); start() }}>
             Press start
           </button>
-        ) : lagos && page === 'main' ? (
-          // Inside Lagos Life: two ways to play up top, everything else in a small grid
-          <main className="lagos-hub" aria-label="Main menu">
-            {saved && <button className="btn btn-secondary btn-block lagos-hub-continue" onClick={() => { playConfirm(); resumeSavedMatch() }}><Icon name="play" size={18} /> Continue: {describeSave(saved)}</button>}
-            <button className="btn btn-gold btn-lg btn-block lagos-hub-play" onClick={() => { playConfirm(); goToScreen(SCREEN.ONLINE) }}>
-              <span className="lagos-hub-live">LIVE</span>Vs Lagos Players<small>Find a player · free or a bet</small>
-            </button>
-            <div className="lagos-hub-cpu">
-              <button className="btn btn-blue btn-lg lagos-hub-play" onClick={() => play('ai')}>Vs Computer</button>
-              <span className="iss-level" role="group" aria-label="Computer level">
-                <button className="iss-arrow" aria-label="Easier" onClick={() => shiftLevel(-1)}>◄</button>
-                <span className="iss-level-name" data-level={aiDifficulty}>{level}</span>
-                <button className="iss-arrow" aria-label="Harder" onClick={() => shiftLevel(1)}>►</button>
-              </span>
-            </div>
-            <button className="lagos-hub-link" onClick={() => play('local')}>Two players on one phone ›</button>
-            <nav className="lagos-hub-grid" aria-label="More">
-              {[
-                { key: 'career', icon: 'users', title: 'Career', line: career ? career.club.name : 'Run a club' },
-                { key: 'tournament', icon: 'trophy', title: 'Tournament', line: openT ? 'Carry on' : 'Leagues & cups' },
-                { key: 'daily', icon: 'ball', title: 'Daily', line: doneToday ? 'Beaten today' : streak ? `Streak x${streak}` : 'New puzzle' },
-                { key: 'shop', icon: 'check', title: 'Shop', line: 'Caps & bands', naira: true },
-              ].map((t) => {
-                const item = items.find((m) => m.key === t.key)
-                return (
-                  <button key={t.key} className="career-tile lagos-hub-tile" onClick={item?.action}>
-                    {t.naira ? <span className="lagos-hub-naira" aria-hidden>₦</span> : <Icon name={t.icon} size={22} />}
-                    <span className="career-tile-title">{t.title}</span>
-                    <small>{t.line}</small>
-                  </button>
-                )
-              })}
-            </nav>
-          </main>
         ) : (
           <main className="iss-window" aria-label={PAGE_TITLES[page]} key={page}>
             <div className="iss-window-tab">{PAGE_TITLES[page]}</div>
@@ -259,10 +240,6 @@ export default function MenuScreen() {
           </footer>
         )}
       </div>
-
-      {started && lagos && page === 'main' && <button className="icon-btn lagos-hub-gear" aria-label="Options" title="Options" onClick={() => go('options')}>
-        <Icon name="settings" size={22} />
-      </button>}
 
       {started && !lagos && <button className="icon-btn iss-share" aria-label="Share game" title="Share game" onClick={() => openDialog('share')}>
         <Icon name="share" size={22} />

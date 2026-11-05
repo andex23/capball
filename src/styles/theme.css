@@ -2561,19 +2561,3 @@ textarea.field { font: inherit; resize: vertical; }
 /* Phones with a notch: a solid strip behind the clock and battery, so a page
    scrolled up doesn't run its text underneath them (0 tall everywhere else) */
 .screen::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: #02041a; z-index: 60; pointer-events: none; }
-
-/* Lagos Life main menu: two ways to play up top, the rest in a small grid */
-.lagos-hub { width: min(440px, 100%); display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
-.lagos-hub-play { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 92px; font-size: 18px; }
-.lagos-hub-play small { font-family: var(--font-body, Inter, sans-serif); font-size: 13px; letter-spacing: 0; text-transform: none; opacity: 0.85; }
-.lagos-hub-live { position: absolute; top: 8px; right: 10px; font-size: 10px; padding: 3px 6px; background: #e8261f; color: #fff; letter-spacing: 0.1em; animation: lagos-live 1.4s ease-in-out infinite; }
-@keyframes lagos-live { 50% { opacity: 0.55; } }
-.lagos-hub-cpu { display: flex; align-items: stretch; gap: 10px; }
-.lagos-hub-cpu .lagos-hub-play { flex: 1; min-height: 64px; }
-.lagos-hub-cpu .iss-level { align-self: center; flex: none; }
-.lagos-hub-link { align-self: center; background: none; border: 0; color: #cfd8ff; font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 2px 8px; }
-.lagos-hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
-.lagos-hub-tile { min-height: 84px; }
-.lagos-hub-tile small { color: #cfd8ff; font-size: 12px; }
-.lagos-hub-naira { font-family: var(--font-pixel); font-size: 20px; line-height: 22px; color: var(--iss-yellow, #ffd23f); }
-.lagos-hub-gear { position: fixed; right: calc(var(--safe-right, 0px) + 16px); top: calc(var(--safe-top) + 16px); z-index: 10; }
