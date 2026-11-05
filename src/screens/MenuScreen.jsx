@@ -32,7 +32,7 @@ import { useLagosStore } from '../lagos/lagosStore'
 
 // The menu is a few short pages, like an old console game: the main page,
 // and one page each for quick matches, tournaments and options
-const PAGE_TITLES = { main: 'Main menu', play: 'Quick match', tournament: 'Tournament', options: 'Options', more: 'More' }
+const PAGE_TITLES = { main: 'Main menu', play: 'Quick match', tournament: 'Tournament', options: 'Options' }
 const DIFFICULTIES = ['easy', 'medium', 'hard']
 
 // The title card shows once per visit; coming back from a match goes straight to the menu
@@ -111,18 +111,9 @@ export default function MenuScreen() {
 
   // Each item: key, title, optional sub (a line under it), right (a tag or picker), action
   const PAGES = {
-    // Inside Lagos Life: the five things people come for; the rest under More
-    main: lagos ? [
-      ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
-      { key: 'players', title: 'Vs Lagos Players', sub: 'Find a player · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
-      { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
-      { key: 'career', title: 'Career', sub: career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: '►', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
-      { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : 'Leagues and cups on this phone', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
-      { key: 'more', title: 'More', sub: 'Two players, daily challenge, shop, options', tag: '►', action: () => go('more') },
-    ] : [
+    main: [
       // Something saved shows on its own button; the choice to carry on or start again is one tap in
       { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? 'Lagos players, computer or one phone' : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
-      ...(lagos ? [{ key: 'players', title: 'Vs Lagos Players', sub: 'Find a player now · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } }] : []),
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
@@ -154,19 +145,12 @@ export default function MenuScreen() {
       { key: 'cup', title: openT ? 'New cup' : 'Cup', sub: 'Knockout ties; lose and you’re out', action: () => tournament('knockout') },
       back,
     ],
-    more: [
-      { key: 'local', title: 'Two players', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
-      { key: 'daily', title: 'Daily Challenge', sub: doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: doneToday, action: () => openDialog('daily') },
-      { key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => openDialog('shop') },
-      { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
-      back,
-    ],
     options: [
       { key: 'records', title: 'Rankings', sub: 'Leaderboards and your records', action: () => openDialog('records') },
       { key: 'account', title: username ? `My games · ${username}` : 'My games', sub: username || lagos ? 'Saved match, career totals, results' : 'Save your games to an account', action: () => openDialog('account') },
       { key: 'settings', title: 'Settings', sub: 'Controls, camera, sound', action: () => openDialog('settings') },
       { key: 'rules', title: 'How to play', action: () => openDialog('rules') },
-      lagos ? { ...back, action: () => go('more') } : back,
+      back,
     ],
   }
   const items = PAGES[page]
