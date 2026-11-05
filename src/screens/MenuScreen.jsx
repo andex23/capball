@@ -114,7 +114,6 @@ export default function MenuScreen() {
     main: [
       // Something saved shows on its own button; the choice to carry on or start again is one tap in
       { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? 'Lagos players, computer or one phone' : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
-      ...(lagos ? [{ key: 'players', title: 'Vs Lagos Players', sub: 'Find a player now · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } }] : []),
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
