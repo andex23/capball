@@ -2660,38 +2660,18 @@ button.other-side { cursor: pointer; }
 .other-side-text small { font-size: 12px; color: #cfd8ff; }
 .other-side > svg { color: var(--iss-yellow, #ffd23f); flex: none; }
 
-/* ── Tournaments: trophy cabinet ── */
+/* ── Tournaments: cup-draw poster ── */
 .tour-top { flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 12px !important; }
 .tour-back { flex: none; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; color: #fff; background: rgba(5, 10, 46, 0.6); border: 2px solid #fff; cursor: pointer; }
 .tour-title { margin: 0; font-size: clamp(32px, 8vw, 46px); color: var(--iss-yellow, #ffd23f); }
 .tour-sub { font-size: 13px; color: #c4cbe4; }
 .tour-home { display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
-.tour-shelf { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 14px 10px 10px; font: inherit; color: inherit; cursor: pointer; background: linear-gradient(#5a3418, #3a200c); border: 3px solid #fff; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); }
-.tour-shelf-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; padding-bottom: 4px; border-bottom: 8px solid #8a5a2b; }
-.tour-trophy { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
-.tour-trophy svg { fill: #ffc83d; stroke: #ffc83d; filter: drop-shadow(0 3px 0 #7a5200); }
-.tour-trophy small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 9px/1.3 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: #ffdca8; }
-.tour-trophy[data-empty='true'] svg { fill: rgba(255, 255, 255, 0.14); stroke: rgba(255, 255, 255, 0.14); filter: none; }
-.tour-trophy[data-empty='true'] small { color: rgba(255, 220, 168, 0.45); }
-.tour-shelf-note { font-size: 12px; color: #ffdca8; text-align: center; }
 .tour-going { display: flex; flex-direction: column; background: var(--iss-yellow, #ffd23f); color: #1b1400; border: 3px solid #fff; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); }
 .tour-going-main { display: flex; align-items: center; gap: 12px; padding: 12px 14px; font: inherit; color: inherit; text-align: left; background: none; border: 0; cursor: pointer; }
 .tour-going-main > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .tour-going-main b { font: 700 12px/1.3 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; }
 .tour-going-main small { font-size: 13px; }
 .tour-going-x { align-self: flex-end; margin: -6px 10px 8px 0; padding: 2px 4px; font-size: 12px; color: #5a4300; text-decoration: underline; background: none; border: 0; cursor: pointer; }
-.tour-tile-wrap { display: flex; flex-direction: column; }
-.tour-tile { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px; font: inherit; color: #fff; text-align: left; cursor: pointer; background: linear-gradient(180deg, #2341c9, #13288a); border: 3px solid #fff; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); }
-.tour-tile:active { transform: translate(2px, 2px); }
-.tour-tile > svg { flex: none; color: var(--iss-yellow, #ffd23f); }
-.tour-tile[aria-expanded='true'] > svg { transform: rotate(90deg); }
-.tour-tile-icon { flex: none; display: grid; place-items: center; width: 54px; height: 54px; color: #fff; border: 3px solid #fff; box-shadow: 3px 3px 0 #000; }
-.tour-tile[data-tone='red'] .tour-tile-icon { background: #c62828; }
-.tour-tile[data-tone='blue'] .tour-tile-icon { background: #1565c0; }
-.tour-tile[data-tone='purple'] .tour-tile-icon { background: #7b1fa2; }
-.tour-tile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.tour-tile-text b { font: 700 15px/1.2 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; }
-.tour-tile-text small { font-size: 13px; line-height: 1.35; color: #cfd8ff; }
 .tour-online { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: rgba(5, 10, 46, 0.85); border: 3px solid #fff; border-top: 0; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); }
 
 /* ── Play a friend: code ticket ── */
@@ -2723,3 +2703,19 @@ button.other-side { cursor: pointer; }
 .friend-links small { font-size: 12px; color: #aab3d6; }
 .friend-links svg { color: var(--iss-yellow, #ffd23f); flex: none; }
 @media (prefers-reduced-motion: reduce) { .code-boxes:focus-within i[data-next='true'] { animation: none; } }
+
+.tour-poster { display: flex; flex-direction: column; gap: 12px; padding: 16px 14px; background: linear-gradient(180deg, #2546c9, #1a33a0); border: 3px solid #fff; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); }
+.tour-poster-k { font: 700 11px/1.3 var(--font-pixel); letter-spacing: 0.1em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.tour-bracket { display: grid; grid-template-columns: 1.3fr 1fr 0.9fr; align-items: center; gap: 8px; }
+.tour-bracket-col { display: flex; flex-direction: column; justify-content: space-around; gap: 6px; align-self: stretch; }
+.tour-slot { display: flex; align-items: center; gap: 6px; min-width: 0; height: 26px; padding: 0 7px; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.55); }
+.tour-slot i { flex: none; width: 13px; height: 13px; border-radius: 50%; border: 2px solid; }
+.tour-slot[data-empty='true'] { color: #8f9bc4; border-style: dashed; }
+.tour-bracket-final { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 70px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); background: #0b1236; border: 3px solid var(--iss-yellow, #ffd23f); }
+.tour-where button { font-size: 11px; }
+.tour-line { margin: -4px 0 0; font-size: 13px; line-height: 1.4; color: #c4cbe4; }
+.tour-online { border-top: 3px solid #fff; }
+.tour-winners { display: flex; align-items: center; gap: 12px; padding: 12px 14px; font: inherit; font-size: 13px; color: #cfd8ff; text-align: left; cursor: pointer; background: #0b1236; border: 3px solid #fff; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); }
+.tour-winners b { font: 700 11px/1 var(--font-pixel); letter-spacing: 0.1em; text-transform: uppercase; color: #fff; }
+.tour-winners span { flex: 1; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tour-winners svg { color: var(--iss-yellow, #ffd23f); flex: none; }
