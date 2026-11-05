@@ -8,6 +8,7 @@ import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { createLanRoom, joinLanRoom, createAutomaticLanRoom, joinAutomaticLanRoom, finishLanPairing, disconnect, getIsHost } from '../multiplayer/MultiplayerManager'
 import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
+import { FriendTop, FriendTicket, FriendLinks } from '../ui/FriendBits'
 import './lan.css'
 
 function PairingCode({ value, reply }) {
@@ -151,6 +152,29 @@ export default function LanScreen() {
       else useMatchStore.getState().goToScreen(SCREEN.MENU)
     }
     else { setStep('choose'); setManual(false) }
+  }
+  // The start: scan a friend's invite, or host one yourself
+  if (step === 'choose' && !hostingFixture) {
+    return <div className="screen friend-screen">
+      <div className="friend-wrap">
+        <FriendTop mode="lan" onBack={back} />
+        <FriendTicket stub="Same Wi-Fi" onSubmit={e => { e.preventDefault(); setStep('join'); setScan(true) }}>
+          <div className="friend-ticket-k">Got an invite?</div>
+          <p className="friend-ticket-line">Scan the QR code on your friend’s screen, or open their invite link.</p>
+          <button className="btn btn-blue btn-block" type="submit"><Icon name="camera" size={18} /> Scan invite</button>
+        </FriendTicket>
+        <div className="friend-or">or</div>
+        <button className="btn btn-purple btn-lg btn-block" onClick={() => host(false)}>Host LAN match</button>
+        <p className="friend-note">Your friend scans your invite once and joins. Pairing needs internet for a moment; the match then stays on your Wi-Fi.</p>
+        <details className="friend-details"><summary>No internet at all? Offline pairing</summary><p className="muted">Load the game on both devices first. Then exchange an invite and a reply inside the game.</p><button className="btn btn-secondary btn-block" onClick={() => host(true)}>Host offline match</button></details>
+        {(error || ['error', 'disconnected'].includes(status.status)) && <p role="alert">{error || status.msg}</p>}
+        <FriendLinks items={[
+          { title: 'Cups & leagues over LAN', line: 'Host a cup or league; friends join each match', onClick: () => { useTournamentStore.getState().setLocalTransport('lan'); useMatchStore.getState().goToScreen(SCREEN.TOURNAMENT_HOME) } },
+          { title: 'Career vs a friend', line: 'They play your opponents over LAN', onClick: () => useMatchStore.getState().goToScreen(SCREEN.CAREER) },
+        ]} />
+      </div>
+      {scan && <Scanner onRead={receive} onClose={() => setScan(false)} />}
+    </div>
   }
   return <div className="screen online-screen lan-screen">
     <section className="card lan-panel">

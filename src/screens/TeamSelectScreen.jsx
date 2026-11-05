@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAccountStore } from '../state/accountStore'
 import { autoTeamNames } from '../game/teamNames'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
-import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, COLOR_PRESETS, CAP_TEXT_MAX, sanitizeCapText, CLEAR_TO } from '../data/TeamOptions'
-import CapDesigns from '../ui/CapDesigns'
+import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, CAP_TEXT_MAX, sanitizeCapText, CLEAR_TO, designPatch, isDesign } from '../data/TeamOptions'
+import CapDesigns, { useOpenDesigns } from '../ui/CapDesigns'
 import ColorPicker from '../ui/ColorPicker'
 import SquadEditor from '../ui/SquadEditor'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
@@ -21,7 +21,7 @@ const BALL_COLORS = [
 ]
 
 const TABS = [
-  { key: 'designs', label: 'Designs' },
+  { key: 'designs', label: 'All designs' },
   { key: 'colors', label: 'Colours' },
   { key: 'badge', label: 'Text' },
   { key: 'style', label: 'Finish' },
@@ -50,8 +50,27 @@ function Chips({ label, options, value, onPick, disabled, clearTo }) {
   )
 }
 
-function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
-  const [tab, setTab] = useState('designs')
+/** A row of every design you can use now; the one on your caps is ringed. */
+function DesignStrip({ teamKey, config, onPick }) {
+  const list = useOpenDesigns(DEFAULT_TEAM_CONFIG[teamKey])
+  const row = useRef(null)
+  // Start with the design you're wearing in view
+  useEffect(() => { row.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' }) }, [teamKey])
+  return (
+    <div className="cap-strip" ref={row} role="group" aria-label="Designs">
+      {list.map((d) => (
+        <button key={d.key} className="cap-strip-item" aria-pressed={isDesign(config, d)} onClick={() => { playButtonSelect(); onPick(designPatch(d)) }}>
+          <CapPreview config={d} size={54} />
+          <span>{d.name}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** The side you're designing: one big cap, its name, a strip of designs and the finer controls. */
+function CapStudio({ teamKey, config, onUpdate }) {
+  const [tab, setTab] = useState(null)
   const [draftName, setDraftName] = useState(null)
   const [draftText, setDraftText] = useState(null)
   const commitText = () => {
@@ -59,8 +78,6 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
     onUpdate({ capText: sanitizeCapText(draftText) })
     setDraftText(null)
   }
-  const teamColor = displayColor(config.primary)
-
   const commitName = () => {
     if (draftName === null) return
     const name = draftName.trim()
@@ -69,85 +86,85 @@ function TeamCard({ teamKey, config, onUpdate, locked, tag }) {
     else if (!name) onUpdate({ customName: false })
     setDraftName(null)
   }
+  const pickDesign = (patch) => { setDraftText(null); onUpdate(patch) }
 
   return (
-    <section className="card team-card kit-card" style={{ '--team': teamColor }} aria-label={`${config.name} kit`}>
-      <div className="team-card-head">
-        <input
-          className="team-name-input"
-          value={draftName ?? config.name}
-          maxLength={TEAM_NAME_MAX}
-          disabled={locked}
-          aria-label={`${teamKey === 'team1' ? 'Home' : 'Away'} team name`}
-          onChange={(e) => setDraftName(e.target.value)}
-          onBlur={commitName}
-          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-        />
-        {tag && <span className="lock-note">{locked && <Icon name="lock" size={14} />}{tag}</span>}
+    <section className="cap-studio" style={{ '--team': displayColor(config.primary) }} aria-label={`${config.name} kit`}>
+      <div className="cap-studio-hero">
+        <CapPreview config={config} size={210} number={config.numbers?.atk1 ?? DEFAULT_TEAM_CONFIG[teamKey].numbers.atk1} />
       </div>
-
-      <div className="kit-preview">
-        <CapPreview config={config} size={128} number={config.numbers?.atk1 ?? DEFAULT_TEAM_CONFIG[teamKey].numbers.atk1} />
+      <input
+        className="cap-studio-name"
+        value={draftName ?? config.name}
+        maxLength={TEAM_NAME_MAX}
+        aria-label={`${teamKey === 'team1' ? 'Home' : 'Away'} team name`}
+        onChange={(e) => setDraftName(e.target.value)}
+        onBlur={commitName}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+      />
+      <DesignStrip teamKey={teamKey} config={config} onPick={pickDesign} />
+      <div className="cap-studio-tools" role="tablist">
+        {TABS.map((t) => (
+          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => { playButtonSelect(); setTab(tab === t.key ? null : t.key) }}>
+            {t.label}
+          </button>
+        ))}
       </div>
-
-      {locked ? (
-        <p className="muted" style={{ padding: '4px 20px 20px', textAlign: 'center', fontSize: 13 }}>
-          Your opponent is building this kit.
-        </p>
-      ) : (
-        <>
-          <div className="tabs kit-tabs" role="tablist">
-            {TABS.map((t) => (
-              <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => { playButtonSelect(); setTab(t.key) }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="card-pad kit-options">
-            {tab === 'designs' && (
-              <>
-                <p className="muted kit-note">Start from a plain cap or pick a drink-cap design, then change anything you like in the other tabs.</p>
-                <CapDesigns config={config} defaultKit={DEFAULT_TEAM_CONFIG[teamKey]} onPick={(patch) => { setDraftText(null); onUpdate(patch) }} />
-              </>
-            )}
-            {tab === 'colors' && (
-              <>
-                <ColorPicker label="Top colour" value={config.primary} onPick={(c) => onUpdate({ primary: c || config.primary })} />
-                <ColorPicker label="Pattern & ring colour" value={config.edge} onPick={(c) => onUpdate({ edge: c || config.edge })} />
-                <ColorPicker label="Text & badge colour" value={config.textColor || ''} allowDefault onPick={(c) => onUpdate({ textColor: c })} />
-                <ColorPicker label="Sides colour" value={config.skirtColor || ''} allowDefault autoLabel="Same as top" onPick={(c) => onUpdate({ skirtColor: c })} />
-              </>
-            )}
-            {tab === 'badge' && (
-              <>
-                <div>
-                  <label className="eyebrow" htmlFor={`cap-text-${teamKey}`} style={{ display: 'block', marginBottom: 8 }}>Text on your caps</label>
-                  <input
-                    id={`cap-text-${teamKey}`}
-                    className="field"
-                    value={draftText ?? config.capText ?? ''}
-                    maxLength={CAP_TEXT_MAX}
-                    placeholder="Leave empty to print your team name"
-                    autoComplete="off"
-                    onChange={(e) => setDraftText(e.target.value)}
-                    onBlur={commitText}
-                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                  />
-                </div>
-                <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} clearTo={CLEAR_TO.badge} />
-              </>
-            )}
-            {tab === 'squad' && <SquadEditor config={config} teamKey={teamKey} onUpdate={onUpdate} />}
-            {tab === 'style' && (
-              <>
-                <Chips label="Pattern" options={PATTERNS} value={config.pattern} onPick={(k) => onUpdate({ pattern: k })} clearTo={CLEAR_TO.pattern} />
-                <Chips label="Finish" options={FINISHES} value={config.finish} onPick={(k) => onUpdate({ finish: k })} clearTo={CLEAR_TO.finish} />
-              </>
-            )}
-          </div>
-        </>
+      {tab && (
+        <div className="card card-pad kit-options cap-studio-panel">
+          {tab === 'designs' && <CapDesigns config={config} defaultKit={DEFAULT_TEAM_CONFIG[teamKey]} onPick={pickDesign} />}
+          {tab === 'colors' && (
+            <>
+              <ColorPicker label="Top colour" value={config.primary} onPick={(c) => onUpdate({ primary: c || config.primary })} />
+              <ColorPicker label="Pattern & ring colour" value={config.edge} onPick={(c) => onUpdate({ edge: c || config.edge })} />
+              <ColorPicker label="Text & badge colour" value={config.textColor || ''} allowDefault onPick={(c) => onUpdate({ textColor: c })} />
+              <ColorPicker label="Sides colour" value={config.skirtColor || ''} allowDefault autoLabel="Same as top" onPick={(c) => onUpdate({ skirtColor: c })} />
+            </>
+          )}
+          {tab === 'badge' && (
+            <>
+              <div>
+                <label className="eyebrow" htmlFor={`cap-text-${teamKey}`} style={{ display: 'block', marginBottom: 8 }}>Text on your caps</label>
+                <input
+                  id={`cap-text-${teamKey}`}
+                  className="field"
+                  value={draftText ?? config.capText ?? ''}
+                  maxLength={CAP_TEXT_MAX}
+                  placeholder="Leave empty to print your team name"
+                  autoComplete="off"
+                  onChange={(e) => setDraftText(e.target.value)}
+                  onBlur={commitText}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                />
+              </div>
+              <Chips label="Badge" options={BADGES} value={config.badge} onPick={(k) => onUpdate({ badge: k })} clearTo={CLEAR_TO.badge} />
+            </>
+          )}
+          {tab === 'squad' && <SquadEditor config={config} teamKey={teamKey} onUpdate={onUpdate} />}
+          {tab === 'style' && (
+            <>
+              <Chips label="Pattern" options={PATTERNS} value={config.pattern} onPick={(k) => onUpdate({ pattern: k })} clearTo={CLEAR_TO.pattern} />
+              <Chips label="Finish" options={FINISHES} value={config.finish} onPick={(k) => onUpdate({ finish: k })} clearTo={CLEAR_TO.finish} />
+            </>
+          )}
+        </div>
       )}
     </section>
+  )
+}
+
+/** The other side, small: tap it to design their caps instead (unless your opponent is doing that). */
+function OtherSide({ teamKey, config, tag, locked, onOpen }) {
+  const Tag = locked ? 'div' : 'button'
+  return (
+    <Tag className="other-side" style={{ '--team': displayColor(config.primary) }} {...(locked ? {} : { onClick: () => { playButtonSelect(); onOpen() }, type: 'button' })}>
+      <CapPreview config={config} size={64} number={config.numbers?.atk1 ?? DEFAULT_TEAM_CONFIG[teamKey].numbers.atk1} />
+      <span className="other-side-text">
+        <b>{config.name}</b>
+        <small>{tag}{locked ? ' · building their own caps' : ' · tap to change their caps'}</small>
+      </span>
+      {locked ? <Icon name="lock" size={16} /> : <Icon name="next" size={18} />}
+    </Tag>
   )
 }
 
@@ -183,22 +200,26 @@ export default function TeamSelectScreen() {
     return team === 'team1' ? 'Player 1' : 'Player 2'
   }
 
+  // The side you're designing; the other one sits underneath
+  const mine = isOnline ? myTeam || 'team1' : gameMode === 'ai' && aiTeam === 'team1' ? 'team2' : 'team1'
+  const [active, setActive] = useState(mine)
+  useEffect(() => { if (isOnline) setActive(mine) }, [isOnline, mine])
+  const other = active === 'team1' ? 'team2' : 'team1'
+
   return (
     <SetupShell
       step={0}
-      title="Build your teams"
-      subtitle="Name your side and design your caps."
+      title={active === mine ? 'Your caps' : `${teamConfig[active].name}’s caps`}
+      subtitle={`${tagFor(active)} · tap a design to put it on`}
       onBack={() => goToScreen(SCREEN.MENU)}
-      next={{ label: 'Choose venue', onClick: () => goToScreen(SCREEN.STADIUM_SELECT) }}
+      next={{ label: 'Choose table', onClick: () => goToScreen(SCREEN.STADIUM_SELECT) }}
       onBothReady={() => goToScreen(SCREEN.STADIUM_SELECT)}
     >
-      <div className="versus">
-        <TeamCard teamKey="team1" config={teamConfig.team1} onUpdate={(c) => update('team1', c)} locked={isOnline && myTeam !== 'team1'} tag={tagFor('team1')} />
-        <div className="vs-badge" aria-hidden>VS</div>
-        <TeamCard teamKey="team2" config={teamConfig.team2} onUpdate={(c) => update('team2', c)} locked={isOnline && myTeam !== 'team2'} tag={tagFor('team2')} />
-      </div>
+      <CapStudio key={active} teamKey={active} config={teamConfig[active]} onUpdate={(c) => update(active, c)} />
+      <div className="vs-badge cap-studio-vs" aria-hidden>VS</div>
+      <OtherSide teamKey={other} config={teamConfig[other]} tag={tagFor(other)} locked={isOnline && myTeam !== other} onOpen={() => setActive(other)} />
 
-      <div className="card card-pad" style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+      <div className="card card-pad" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div className="eyebrow">Match ball</div>
         <div className="chip-row" role="group" aria-label="Match ball colour">
           {BALL_COLORS.map(({ color, label }) => (
