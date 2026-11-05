@@ -278,3 +278,13 @@ describe('the real Lagos Life error code', () => {
     expect(realErrorCode({ code: 'error' }, Date.now() + 60000)).toBe('error')
   })
 })
+
+describe('the server health check', () => {
+  it('says whether the Lagos Life key is live or test, never the key', async () => {
+    const { lagosConfigured } = await import('../../server/lagos.js')
+    expect(lagosConfigured({ VATAR_SECRET: 'vtr_live_abc123' }).lagosLifeMode).toBe('live')
+    expect(lagosConfigured({ VATAR_SECRET: 'vtr_test_abc123' }).lagosLifeMode).toBe('test')
+    expect(lagosConfigured({}).lagosLifeMode).toBe(null)
+    expect(JSON.stringify(lagosConfigured({ VATAR_SECRET: 'vtr_live_abc123' }))).not.toContain('abc123')
+  })
+})

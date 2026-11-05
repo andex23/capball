@@ -174,6 +174,8 @@ export async function databaseCheck(db = makeOwnedDb()) {
 export function lagosConfigured(env = process.env) {
   return {
     lagosLifeKey: Boolean(env.VATAR_SECRET),
+    // Which kind of key it is (live or test), never the key itself
+    lagosLifeMode: env.VATAR_SECRET ? (String(env.VATAR_SECRET).startsWith('vtr_live_') ? 'live' : String(env.VATAR_SECRET).startsWith('vtr_test_') ? 'test' : 'unknown') : null,
     resultsSecret: Boolean(env.VATAR_RESULTS_SECRET),
     webhookSecret: Boolean(env.VATAR_WEBHOOK_SECRET),
     shopDatabaseKey: Boolean(env.SUPABASE_SERVICE_ROLE_KEY),
