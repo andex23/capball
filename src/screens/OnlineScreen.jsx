@@ -6,6 +6,7 @@ import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundMana
 import Icon from '../ui/Icon'
 import { useOnline } from '../pwa/useOnline'
 import { inviteUrl as makeInviteUrl } from '../utils/inviteUrl'
+import { FriendTop, FriendTicket, CodeBoxes, FriendLinks } from '../ui/FriendBits'
 
 const CODE_LENGTH = 6
 
@@ -101,6 +102,35 @@ export default function OnlineScreen() {
 
   const isError = status.status === 'error' || status.status === 'disconnected'
   const connected = status.status === 'connected'
+
+  // The start: a ticket to type a friend's code into, or host a room yourself
+  if (view === 'menu' && !hostingFixture) {
+    return (
+      <div className="screen friend-screen">
+        <div className="friend-wrap">
+          <FriendTop mode="online" onBack={back} />
+          <FriendTicket stub="Admit 2" onSubmit={(e) => { setView('join'); join(e) }}>
+            <div className="friend-ticket-k">Got a code?</div>
+            <CodeBoxes value={joinCode} length={CODE_LENGTH} onChange={setJoinCode} disabled={busy} />
+            <button className="btn btn-blue btn-block" type="submit" disabled={joinCode.length !== CODE_LENGTH || busy || !online}>Join match</button>
+          </FriendTicket>
+          <div className="friend-or">or</div>
+          <button className="btn btn-purple btn-lg btn-block" onClick={host} onMouseEnter={playHoverTick} disabled={!online}>Host a room</button>
+          <p className="friend-note">You get a code to send your friend. The host plays the home team.</p>
+          {!online && (
+            <div role="status" className="offline-note">
+              <Icon name="wifi" size={18} /> You're offline. Online matches need an internet connection. Local and vs-computer games still work.
+            </div>
+          )}
+          <FriendLinks items={[
+            { title: 'Anytime match', line: 'Take turns whenever you like; it saves', onClick: () => goToScreen(SCREEN.ANYTIME) },
+            { title: 'Cups & leagues', line: 'An online tournament with friends', onClick: () => goToScreen(SCREEN.TOURNAMENT_HOME) },
+            { title: 'Career vs a friend', line: 'They play your opponents', onClick: () => goToScreen(SCREEN.CAREER) },
+          ]} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="screen online-screen" style={{ display: 'grid', placeItems: 'center', padding: 'var(--gutter)' }}>

@@ -11,8 +11,22 @@ import { useLagosStore } from '../lagos/lagosStore'
 import { SHOP_DESIGNS, itemFor, naira } from '../data/shop'
 
 // A plain cap in the team's own colours: the starting point for designing your own
-const PLAIN = { key: 'plain', name: 'Plain', pattern: 'none', badge: 'none', finish: 'matte', capText: '' }
+export const PLAIN = { key: 'plain', name: 'Plain', pattern: 'none', badge: 'none', finish: 'matte', capText: '' }
 const DEFAULT_KIT = { primary: '#D32F2F', edge: '#FFD700' }
+
+/** Every design this player can put on now: plain, the drink caps, and the rare or bought ones they own. */
+export function useOpenDesigns(defaultKit = DEFAULT_KIT) {
+  const designs = useCapDesigns()
+  const progress = useProgress()
+  const owned = useLagosStore((s) => s.owned)
+  const owns = (d) => isLagos() && owned.includes(itemFor(d.key)?.productId)
+  return [
+    { ...PLAIN, primary: defaultKit.primary, edge: defaultKit.edge },
+    ...designs,
+    ...RARE_DESIGNS.filter((d) => isUnlocked(d, progress) || owns(d)),
+    ...(isLagos() ? SHOP_DESIGNS.filter(owns) : []),
+  ]
+}
 
 /**
  * A plain cap to start from, the ready-made drink-cap designs, then the rare
