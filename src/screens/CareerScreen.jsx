@@ -428,6 +428,15 @@ export default function CareerScreen() {
   const cupOppOvr = cupOpp ? ovrOf(cupOpp, career.cup.levels?.[cupOpp.id] ?? career.level) : 0
   const cupRoundName = (t) => roundName(t.round, cupT.rounds.length)
   const pos = myPosition(league)
+  // Reputation as 1–5 stars
+  const stars = Math.max(1, Math.min(5, Math.ceil(((career.rep ?? REP_START) + 1) / 20)))
+  // Last five league results, oldest first
+  const form = fixtures.filter((f) => f.result).sort((a, b) => a.round - b.round).slice(-5).map((f) => {
+    const mine = f.home === ME ? f.result.home : f.result.away
+    const theirs = f.home === ME ? f.result.away : f.result.home
+    return mine > theirs ? 'W' : mine < theirs ? 'L' : 'D'
+  })
+  const [dow, dayN, mon] = formatGameDate(today, { year: false }).split(' ')
   // Where your squad ranks on OVR among the division's clubs (what the board judges you on)
   const squadRank = 1 + league.teams.filter((t) => t.cpu && ovrOf(t) > myOvr).length
 
@@ -435,12 +444,14 @@ export default function CareerScreen() {
     <div className="screen">
       <div className="shell">
         <header className="shell-head">
-          <div className="career-head">
-            <div className="eyebrow shell-eyebrow">{MODE_INFO[career.mode || 'solo'].label} career · Season {career.season} · {division.name}</div>
-            <div className="career-title-row">
-              <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={46} />
+          <div className="career-banner" style={{ '--club': career.club.primary, '--club-edge': career.club.edge }}>
+            <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={58} />
+            <div className="career-banner-text">
+              <div className="eyebrow shell-eyebrow">{MODE_INFO[career.mode || 'solo'].label} career · Season {career.season}</div>
               <h1 className="display shell-title">{career.club.name}</h1>
+              <div className="career-banner-sub">{division.name} · <span className="career-stars" aria-label={`Reputation ${repLabel(career.rep ?? REP_START)}`}>{'★'.repeat(stars)}<span>{'★'.repeat(5 - stars)}</span></span> {repLabel(career.rep ?? REP_START)}</div>
             </div>
+            {!done && <div className="career-pos" aria-label={`${ordinal(pos)} of ${count}`}><b>{ordinal(pos)}</b><small>of {count}</small></div>}
           </div>
         </header>
 
@@ -459,8 +470,9 @@ export default function CareerScreen() {
             </section>
           )}
           {done ? <SeasonEnd career={career} /> : next && (
-            <section className="card card-pad career-next">
-              <div className="career-date">{formatGameDate(today)}</div>
+            <section className="card career-next career-ticket">
+              <div className="ticket-stub" aria-label={formatGameDate(today)}><span>{dow}</span><b>{dayN}</b><span>{mon}</span></div>
+              <div className="ticket-body">
               <div className="eyebrow">Matchday {played + 1} of {fixtures.length} · {next.home === ME ? 'Home' : 'Away'}</div>
               <div className="career-vs">
                 <TeamTag team={teamById(league, ME)} size={34} strong />
@@ -472,6 +484,7 @@ export default function CareerScreen() {
                 <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
               </button>
               {(career.mode === 'online' || career.mode === 'lan') && <p className="muted t-note">Your friend plays the opposition from their phone. The result saves here.</p>}
+              </div>
             </section>
           )}
 
@@ -490,8 +503,16 @@ export default function CareerScreen() {
             </section>
           )}
 
-          {(cupT || (career.target && !done && played > 0)) && (
+          {(cupT || form.length > 0 || (career.target && !done && played > 0)) && (
             <section className="career-season" aria-label="This season">
+              {form.length > 0 && (
+                <button className="career-season-row" onClick={() => career.lastMatch && go('report')}>
+                  <span className="career-season-k">Form</span>
+                  <span className="career-form">{form.map((r, i) => <i key={i} data-r={r}>{r}</i>)}</span>
+                  {career.lastMatch && <small className="muted">Last match</small>}
+                  {career.lastMatch && <Icon name="next" size={14} />}
+                </button>
+              )}
               {career.target && !done && played > 0 && (
                 <div className="career-season-row" data-met={targetMet(career.target, pos, count) ? 'true' : undefined}>
                   <span className="career-season-k">Board</span>
@@ -510,22 +531,20 @@ export default function CareerScreen() {
             </section>
           )}
 
-          <nav className="career-list" aria-label="Career pages">
+          <nav className="career-caps" aria-label="Career pages" style={{ '--club': career.club.primary, '--club-edge': career.club.edge }}>
             {[
               { key: 'squad', icon: 'users', title: 'Squad', line: `${squadSize(career)}/${MAX_SQUAD} players · OVR ${myOvr}` },
-              { key: 'transfers', icon: 'next', title: 'Transfers', line: `${transferWindow(career) ? 'Window open' : 'Window shut'}${inboxOffers(career).length ? ` · ${inboxOffers(career).length} offer${inboxOffers(career).length === 1 ? '' : 's'}` : ''}` },
-              { key: 'youth', icon: 'ball', title: 'Youth team', line: `${(career.youthTeam || []).length} player${(career.youthTeam || []).length === 1 ? '' : 's'}` },
-              { key: 'club', icon: 'cpu', title: 'Club', line: `${money(career.coins)} · Manager: ${repLabel(career.rep ?? REP_START)}` },
-              ...(cupT ? [] : [{ key: 'cup', icon: 'trophy', title: CUP_NAME, line: cupT?.championId === ME ? 'Winners!' : cupOut ? 'Knocked out' : tie ? `${cupRoundName(tie)} · ready to play` : cupUpcoming ? `${cupRoundName(cupUpcoming.tie)} · ${formatGameDate(cupDate(career, cupUpcoming.tie.round), { year: false })}` : 'The draw' }]),
-              { key: 'league', icon: 'menu', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
-              { key: 'history', icon: 'restart', title: 'History', line: `${career.past.length} season${career.past.length === 1 ? '' : 's'} · ${career.promotions} promotion${career.promotions === 1 ? '' : 's'}` },
+              { key: 'transfers', icon: 'next', title: 'Transfers', line: transferWindow(career) ? 'Window open' : 'Window shut', badge: inboxOffers(career).length || null },
+              { key: 'youth', icon: 'ball', title: 'Youth team', short: 'Youth', line: `${(career.youthTeam || []).length} players` },
+              { key: 'club', icon: 'cpu', title: 'Club', line: `${money(career.coins)} · ${repLabel(career.rep ?? REP_START)} manager` },
+              { key: 'league', icon: 'menu', title: 'League', line: `${ordinal(pos)} of ${count}` },
+              { key: 'cup', icon: 'trophy', title: CUP_NAME, short: 'Cup', line: cupT?.championId === ME ? 'Winners!' : cupOut ? 'Knocked out' : 'In the cup' },
+              { key: 'history', icon: 'restart', title: 'History', line: `${career.past.length} seasons` },
               { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, match time, difficulty' },
-              ...(career.lastMatch ? [{ key: 'report', icon: 'ball', title: 'Last match', line: `${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.home)?.name || ''} ${career.lastMatch.result.home}–${career.lastMatch.result.away} ${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.away)?.name || ''}` }] : []),
             ].map((t) => (
-              <button key={t.key} className="career-list-row" onClick={() => go(t.key)}>
-                <span className="career-list-title">{t.title}</span>
-                <small>{t.line}</small>
-                <span className="career-list-arrow" aria-hidden>►</span>
+              <button key={t.key} className="career-cap" onClick={() => go(t.key)} aria-label={`${t.title}: ${t.line}`}>
+                <span className="career-cap-face"><Icon name={t.icon} size={24} />{t.badge ? <em>{t.badge}</em> : null}</span>
+                <span className="career-cap-label">{t.short || t.title}</span>
               </button>
             ))}
           </nav>
