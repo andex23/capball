@@ -2502,7 +2502,7 @@ button { cursor: pointer; background: none; border: 0; }
 .career-title-row > svg { flex: none; }
 .career-rep { display: block; margin-top: 4px; font-size: 12px; color: var(--text-2); }
 /* The save note floats over the page for a moment instead of pushing it down */
-.career-save { position: fixed; z-index: 40; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); animation: fade-in 0.2s ease; }
+.career-save { position: fixed; z-index: 40; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); animation: fade-in 0.2s ease; }
 .career-save[data-error='true'] { background: rgba(120, 20, 20, 0.9); border-color: #ff6b6b; }
 /* The Cap Cup */
 .career-cup-link { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -2561,3 +2561,24 @@ textarea.field { font: inherit; resize: vertical; }
 /* Phones with a notch: a solid strip behind the clock and battery, so a page
    scrolled up doesn't run its text underneath them (0 tall everywhere else) */
 .screen::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: #02041a; z-index: 60; pointer-events: none; }
+
+/* Career home, calmer: one quiet line under the teams, one season box, the game's list */
+.career-match-line { margin: -4px 0 12px; text-align: center; font-size: 14px; color: #cfd8ff; }
+.career-match-line b { color: #fff; }
+.career-match-line[data-matchup='underdog'] b { color: #ff9a8a; }
+.career-match-line[data-matchup='favourite'] b { color: #7dffa0; }
+.career-season { display: flex; flex-direction: column; border: 3px solid #fff; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); background: rgba(5, 10, 46, 0.55); }
+.career-season-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; font: inherit; font-size: 14px; color: inherit; text-align: left; background: none; border: 0; }
+.career-season-row + .career-season-row { border-top: 2px solid rgba(255, 255, 255, 0.15); }
+button.career-season-row { cursor: pointer; }
+.career-season-row > span:nth-child(2) { flex: 1; min-width: 0; }
+.career-season-row svg { color: var(--iss-yellow, #ffd23f); flex: none; }
+.career-season-k { flex: none; width: 52px; font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.career-season-row[data-met='true'] .career-season-k { color: #7dffa0; }
+.career-list { display: flex; flex-direction: column; border: 3px solid #fff; box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); background: linear-gradient(180deg, #2341c9, #13288a); }
+.career-list-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 16px; font: inherit; color: #fff; text-align: left; background: none; border: 0; cursor: pointer; }
+.career-list-row + .career-list-row { border-top: 2px solid rgba(255, 255, 255, 0.12); }
+.career-list-row:hover, .career-list-row:focus-visible { background: rgba(255, 255, 255, 0.08); }
+.career-list-title { font-family: var(--font-pixel); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45); }
+.career-list-row small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: #cfd8ff; font-size: 12px; }
+.career-list-arrow { color: var(--iss-yellow, #ffd23f); font-size: 11px; }
