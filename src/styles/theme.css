@@ -2582,3 +2582,49 @@ button.career-season-row { cursor: pointer; }
 .career-list-title { font-family: var(--font-pixel); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45); }
 .career-list-row small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: #cfd8ff; font-size: 12px; }
 .career-list-arrow { color: var(--iss-yellow, #ffd23f); font-size: 11px; }
+
+/* ── Career: top bar, season road and tab bar ── */
+.career-top { flex-direction: row !important; align-items: center !important; gap: 10px !important; margin-bottom: 14px; }
+.career-top-back { flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; color: #fff; background: rgba(5, 10, 46, 0.6); border: 2px solid #fff; cursor: pointer; }
+.career-top-text { flex: 1; min-width: 0; }
+.career-top-name { margin: 0; font: 700 20px/1.1 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 2px 2px 0 #000; }
+.career-top-sub { font-size: 12px; color: #c4cbe4; }
+.career-top-money { flex: none; padding: 5px 8px; font: 700 12px/1 var(--font-pixel); letter-spacing: 0.06em; background: rgba(0, 0, 0, 0.55); border: 2px solid #fff; }
+
+.road { position: relative; list-style: none; margin: 0; padding: 4px 0 12px; display: flex; flex-direction: column; gap: 14px; }
+.road::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 8px; margin-left: -4px; background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0 12px, transparent 12px 22px); }
+.road-stop { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); align-items: center; gap: 10px; }
+.road-dot { grid-column: 2; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; font: 700 11px/1 var(--font-pixel); color: #aab3d6; background: #0b1236; border: 3px solid #8f9bc4; box-shadow: 3px 3px 0 #000; z-index: 1; }
+.road-stop[data-r] .road-dot { color: #fff; border-color: #fff; }
+.road-stop[data-r='W'] .road-dot { background: #239a55; }
+.road-stop[data-r='D'] .road-dot { background: #6b7489; }
+.road-stop[data-r='L'] .road-dot { background: #c9333f; }
+.road-stop[data-cup='true'] .road-dot { border-color: var(--iss-yellow, #ffd23f); color: var(--iss-yellow, #ffd23f); }
+.road-stop[data-cup='true'][data-r] .road-dot { box-shadow: 0 0 0 3px var(--iss-yellow, #ffd23f), 3px 3px 0 3px #000; }
+.road-tag { grid-row: 1; grid-column: 3; justify-self: start; display: flex; flex-direction: column; gap: 2px; max-width: 100%; padding: 6px 9px; font: inherit; font-size: 13px; line-height: 1.3; color: #fff; text-align: left; background: rgba(11, 18, 54, 0.9); border: 2px solid rgba(255, 255, 255, 0.35); }
+.road-stop:nth-child(even) .road-tag { grid-column: 1; justify-self: end; text-align: right; }
+.road-stop:not([data-r]) .road-tag { color: #aab3d6; }
+.road-tag small { font-size: 11px; color: #8f9bc4; }
+button.road-tag { cursor: pointer; border-color: var(--iss-yellow, #ffd23f); }
+button.road-tag small { color: var(--iss-yellow, #ffd23f); }
+.road-cup { font: 700 10px/1.2 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.road-now { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; margin: 26px 0 6px; }
+.road-now .career-next { padding-top: 30px; }
+.road-ring { position: absolute; left: 50%; top: -30px; margin-left: -30px; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; font: 700 13px/1 var(--font-pixel); color: var(--iss-yellow, #ffd23f); background: #1546b8; border: 4px solid var(--iss-yellow, #ffd23f); box-shadow: 0 0 0 6px rgba(255, 210, 63, 0.25), 4px 4px 0 #000; animation: road-glow 1.6s ease-in-out infinite; }
+.road-ring-cup { background: #6a1b9a; }
+@keyframes road-glow { 50% { box-shadow: 0 0 0 10px rgba(255, 210, 63, 0.12), 4px 4px 0 #000; } }
+@media (prefers-reduced-motion: reduce) { .road-ring { animation: none; } }
+.road-board { margin: 0; padding: 9px 12px; font-size: 13px; background: rgba(11, 18, 54, 0.92); border: 2px solid rgba(255, 255, 255, 0.35); }
+.road-board span { margin-right: 6px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.road-board[data-met='true'] { border-color: #34d27b; }
+.road-board[data-met='true'] span { color: #7dffa0; }
+
+.career-foot { padding: 0 !important; background: #0b1236 !important; border-top: 3px solid #fff; }
+.career-tabs { display: flex; max-width: 760px; margin: 0 auto; padding: 8px 4px calc(var(--safe-bottom) + 8px); }
+.career-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: #8f9bc4; background: none; border: 0; cursor: pointer; }
+.career-tab[aria-current='page'] { color: var(--iss-yellow, #ffd23f); }
+.career-tab[aria-current='page'] svg { filter: drop-shadow(0 0 6px rgba(255, 210, 63, 0.6)); }
+.career-tab-icon { position: relative; display: grid; place-items: center; }
+.career-tab-icon em { position: absolute; top: -6px; right: -12px; min-width: 18px; height: 18px; padding: 0 4px; font: 700 10px/18px var(--font-ui); font-style: normal; text-align: center; color: #fff; background: #e8261f; border: 2px solid #0b1236; }
+.career-tab:focus-visible { outline: 3px solid var(--iss-yellow, #ffd23f); outline-offset: -3px; }
+.shell:has(.career-tabs) .career-save { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }

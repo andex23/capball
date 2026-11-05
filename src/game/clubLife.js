@@ -247,7 +247,7 @@ export function rejectOffer(career, playerId) {
 /* ── Reputation ── */
 
 export const REP_START = 10
-export const repLabel = (rep) => (rep >= 80 ? 'World-class' : rep >= 60 ? 'Renowned' : rep >= 40 ? 'Respected' : rep >= 20 ? 'Promising' : 'Unknown')
+export const repLabel = (rep) => (rep >= 80 ? 'World-class' : rep >= 60 ? 'Renowned' : rep >= 40 ? 'Respected' : rep >= 20 ? 'Promising' : 'Newcomer')
 
 /** Your reputation after a season: trophies and promotions build it, missed targets dent it (0–100). */
 export function repAfterSeason(rep, { outcome, met, cup }) {

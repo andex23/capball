@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
-import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, careerNext, careerDate, cupDate, formatGameDate, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
+import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, careerNext, careerDate, cupDate, leagueDate, formatGameDate, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
 import { teamById, allFixtures, standings, roundName } from '../game/tournament'
 import { formatClock } from '../game/rules'
 import { TEAM_NAME_MAX } from '../data/TeamOptions'
@@ -23,12 +23,14 @@ import LeagueClubs from '../ui/LeagueClubs'
 import MatchReport from '../ui/MatchReport'
 import CupPage from '../ui/CupPage'
 import BoardObjectives from '../ui/BoardObjectives'
-import { inboxOffers, seasonAwards, repLabel, REP_START } from '../game/clubLife'
-import { squadSize, transferWindow, MAX_SQUAD } from '../game/transfers'
+import { inboxOffers, seasonAwards } from '../game/clubLife'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel from '../ui/ClubPanel'
 
-const PAGE_TITLE = { cup: 'Cap Cup', report: 'Match report', squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
+/** Pages reached from the More tab. */
+const MORE_PAGES = ['more', 'youth', 'league', 'cup', 'history', 'settings']
+
+const PAGE_TITLE = { more: 'More', cup: 'Cap Cup', report: 'Match report', squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -316,6 +318,33 @@ function Sacked({ career, onBack }) {
   )
 }
 
+/** One stop on the season road: a match still to come, or a result. */
+function RoadStop({ stop, onOpen }) {
+  const { f, cup, date, label, opp } = stop
+  const r = f.result
+  let tone = null
+  let score = cup && !r ? null : label
+  if (r) {
+    const mine = f.home === ME ? r.home : r.away
+    const theirs = f.home === ME ? r.away : r.home
+    const pens = r.pens ? (f.home === ME ? r.pens.home - r.pens.away : r.pens.away - r.pens.home) : 0
+    tone = mine > theirs || pens > 0 ? 'W' : mine < theirs || pens < 0 ? 'L' : 'D'
+    score = `${mine}-${theirs}`
+  }
+  const word = { W: 'Won', D: 'Drew', L: 'Lost' }[tone]
+  const Tag = onOpen ? 'button' : 'div'
+  return (
+    <li className="road-stop" data-r={tone || undefined} data-cup={cup ? 'true' : undefined}>
+      <span className="road-dot" aria-hidden>{cup && !r ? <Icon name="trophy" size={18} /> : score}</span>
+      <Tag className="road-tag" {...(onOpen ? { onClick: onOpen, type: 'button' } : {})}>
+        {cup && <b className="road-cup">{CUP_NAME} · {label}</b>}
+        <span>{r ? `${word} v ` : 'v '}<b>{opp?.name || 'TBD'}</b>{r?.pens ? ' on pens' : ''}</span>
+        <small>{r ? (onOpen ? 'Match report ►' : formatGameDate(date, { year: false })) : formatGameDate(date, { year: false })}</small>
+      </Tag>
+    </li>
+  )
+}
+
 function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd']
   const v = n % 100
@@ -428,20 +457,38 @@ export default function CareerScreen() {
   const cupOppOvr = cupOpp ? ovrOf(cupOpp, career.cup.levels?.[cupOpp.id] ?? career.level) : 0
   const cupRoundName = (t) => roundName(t.round, cupT.rounds.length)
   const pos = myPosition(league)
+  // The season road: every match on one path, by date. Up to three still to come above
+  // the next match, everything played below it (newest first)
+  const road = (() => {
+    const other = (f) => (f.home === ME ? f.away : f.home)
+    const stops = fixtures.slice().sort((a, b) => a.round - b.round).map((f, i) => ({ f, date: leagueDate(career, f), label: `${i + 1}`, opp: teamById(league, other(f)) }))
+    if (cupT) {
+      for (const f of allFixtures(cupT)) {
+        if ((f.home !== ME && f.away !== ME) || (!f.result && f.id !== cupUpcoming?.tie.id)) continue
+        stops.push({ f, cup: true, date: cupDate(career, f.round), label: cupRoundName(f), opp: teamById(cupT, other(f)) })
+      }
+    }
+    stops.sort((a, b) => a.date - b.date)
+    const nowId = done ? null : due?.fixture.id
+    return {
+      ahead: stops.filter((st) => !st.f.result && st.f.id !== nowId).slice(0, 3).reverse(),
+      behind: stops.filter((st) => st.f.result).reverse(),
+    }
+  })()
   // Where your squad ranks on OVR among the division's clubs (what the board judges you on)
   const squadRank = 1 + league.teams.filter((t) => t.cpu && ovrOf(t) > myOvr).length
 
   return (
     <div className="screen">
       <div className="shell">
-        <header className="shell-head">
-          <div className="career-head">
-            <div className="eyebrow shell-eyebrow">{MODE_INFO[career.mode || 'solo'].label} career · Season {career.season} · {division.name}</div>
-            <div className="career-title-row">
-              <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={46} />
-              <h1 className="display shell-title">{career.club.name}</h1>
-            </div>
+        <header className="shell-head career-top">
+          <button className="career-top-back" onClick={back} aria-label="Back to the menu"><Icon name="back" size={18} /></button>
+          <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={40} />
+          <div className="career-top-text">
+            <h1 className="career-top-name">{career.club.name}</h1>
+            <div className="career-top-sub">{done ? `Season ${career.season} over` : ordinal(pos)} · {division.name}</div>
           </div>
+          <div className="career-top-money">{money(career.coins)}</div>
         </header>
 
         <main className="shell-body career-body" ref={mainRef}>
@@ -458,77 +505,49 @@ export default function CareerScreen() {
               <p className="muted t-note">Your squad’s OVR of <b>{myOvr}</b> ranks <b>{ordinal(squadRank)}</b> of {count} in the {division.name}.{squadRank > PROMOTED && career.target === 'promotion' ? ' Strengthen it in the transfer market before matchday 1.' : ''}</p>
             </section>
           )}
-          {done ? <SeasonEnd career={career} /> : next && (
-            <section className="card card-pad career-next">
-              <div className="career-date">{formatGameDate(today)}</div>
-              <div className="eyebrow">Matchday {played + 1} of {fixtures.length} · {next.home === ME ? 'Home' : 'Away'}</div>
-              <div className="career-vs">
-                <TeamTag team={teamById(league, ME)} size={34} strong />
-                <span className="vs-badge">VS</span>
-                <TeamTag team={opponent} size={34} strong mirror />
-              </div>
-              <p className="career-match-line" data-matchup={matchupOf(myOvr, theirOvr)}>OVR {myOvr} v {theirOvr} · <b>{MATCHUP[matchupOf(myOvr, theirOvr)]}</b></p>
-              <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}>
-                <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
-              </button>
-              {(career.mode === 'online' || career.mode === 'lan') && <p className="muted t-note">Your friend plays the opposition from their phone. The result saves here.</p>}
-            </section>
-          )}
 
-          {tie && (
-            <section className="card card-pad career-next career-cup" aria-label={CUP_NAME}>
-              <div className="career-date">{formatGameDate(today)}</div>
-              <div className="eyebrow">{CUP_NAME} · {cupRoundName(tie)}</div>
-              <div className="career-vs">
-                <TeamTag team={teamById(cupT, ME)} size={30} strong />
-                <span className="vs-badge">VS</span>
-                <TeamTag team={cupOpp} size={30} strong mirror />
-              </div>
-              <p className="career-match-line" data-matchup={matchupOf(myOvr, cupOppOvr)}>OVR {myOvr} v {cupOppOvr} · <b>{MATCHUP[matchupOf(myOvr, cupOppOvr)]}</b>{(career.cup.levels?.[cupOpp?.id] ?? career.level) !== career.level ? ` · ${DIVISIONS[career.cup.levels[cupOpp.id]].name}` : ''}</p>
-              <button className="btn btn-purple btn-lg btn-block" onClick={() => playCareerFixture(career, 'careerCup', tie)}><Icon name="trophy" size={20} /> {career.mode === 'solo' || !career.mode ? 'Play cup tie' : 'Play your friend in the cup'}</button>
-              <p className="muted t-note">Knockout: a draw goes to penalties.</p>
-            </section>
-          )}
-
-          {(cupT || (career.target && !done && played > 0)) && (
-            <section className="career-season" aria-label="This season">
+          <ol className="road" aria-label="Your season">
+            {road.ahead.map((st) => <RoadStop key={st.f.id} stop={st} />)}
+            <li className="road-now">
+              {done ? <SeasonEnd career={career} /> : tie ? (
+                <section className="card card-pad career-next career-cup" aria-label={CUP_NAME}>
+                  <div className="road-ring road-ring-cup" aria-hidden><Icon name="trophy" size={22} /></div>
+                  <div className="career-date">{formatGameDate(today)}</div>
+                  <div className="eyebrow">{CUP_NAME} · {cupRoundName(tie)}</div>
+                  <div className="career-vs">
+                    <TeamTag team={teamById(cupT, ME)} size={30} strong />
+                    <span className="vs-badge">VS</span>
+                    <TeamTag team={cupOpp} size={30} strong mirror />
+                  </div>
+                  <p className="career-match-line" data-matchup={matchupOf(myOvr, cupOppOvr)}>OVR {myOvr} v {cupOppOvr} · <b>{MATCHUP[matchupOf(myOvr, cupOppOvr)]}</b>{(career.cup.levels?.[cupOpp?.id] ?? career.level) !== career.level ? ` · ${DIVISIONS[career.cup.levels[cupOpp.id]].name}` : ''}</p>
+                  <button className="btn btn-purple btn-lg btn-block" onClick={() => playCareerFixture(career, 'careerCup', tie)}><Icon name="trophy" size={20} /> {career.mode === 'solo' || !career.mode ? 'Play cup tie' : 'Play your friend in the cup'}</button>
+                  <p className="muted t-note">Knockout: a draw goes to penalties.</p>
+                </section>
+              ) : next && (
+                <section className="card card-pad career-next">
+                  <div className="road-ring" aria-hidden>MD{played + 1}</div>
+                  <div className="career-date">{formatGameDate(today)} · {next.home === ME ? 'Home' : 'Away'}</div>
+                  <div className="eyebrow">Matchday {played + 1} of {fixtures.length}</div>
+                  <div className="career-vs">
+                    <TeamTag team={teamById(league, ME)} size={34} strong />
+                    <span className="vs-badge">VS</span>
+                    <TeamTag team={opponent} size={34} strong mirror />
+                  </div>
+                  <p className="career-match-line" data-matchup={matchupOf(myOvr, theirOvr)}>OVR {myOvr} v {theirOvr} · <b>{MATCHUP[matchupOf(myOvr, theirOvr)]}</b></p>
+                  <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}>
+                    <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
+                  </button>
+                  {(career.mode === 'online' || career.mode === 'lan') && <p className="muted t-note">Your friend plays the opposition from their phone. The result saves here.</p>}
+                </section>
+              )}
               {career.target && !done && played > 0 && (
-                <div className="career-season-row" data-met={targetMet(career.target, pos, count) ? 'true' : undefined}>
-                  <span className="career-season-k">Board</span>
-                  <span>{TARGETS[career.target].replace(/:.*/, '')} · now <b>{ordinal(pos)}</b>{career.warning ? ' · final warning' : ''}</span>
-                </div>
+                <p className="road-board" data-met={targetMet(career.target, pos, count) ? 'true' : undefined}>
+                  <span>Board</span> {TARGETS[career.target].replace(/:.*/, '')} · now <b>{ordinal(pos)}</b>{career.warning ? ' · final warning' : ''}
+                </p>
               )}
-              {!tie && cupT && (
-                <button className="career-season-row" onClick={() => go('cup')}>
-                  <span className="career-season-k">Cup</span>
-                  <span>{cupT.championId === ME ? 'Winners this season!' : cupOut ? `Out in the ${cupOut === 'final' ? 'final' : cupOut === 'semi' ? 'semi-finals' : 'quarter-finals'}` : cupUpcoming
-                    ? <>{cupRoundName(cupUpcoming.tie)} v <b>{teamById(cupT, cupUpcoming.tie.home === ME ? cupUpcoming.tie.away : cupUpcoming.tie.home)?.name || 'TBD'}</b> · {formatGameDate(cupDate(career, cupUpcoming.tie.round), { year: false })}</>
-                    : 'Waiting for the draw'}</span>
-                  <Icon name="next" size={14} />
-                </button>
-              )}
-            </section>
-          )}
-
-          <nav className="career-list" aria-label="Career pages">
-            {[
-              { key: 'squad', icon: 'users', title: 'Squad', line: `${squadSize(career)}/${MAX_SQUAD} players · OVR ${myOvr}` },
-              { key: 'transfers', icon: 'next', title: 'Transfers', line: `${transferWindow(career) ? 'Window open' : 'Window shut'}${inboxOffers(career).length ? ` · ${inboxOffers(career).length} offer${inboxOffers(career).length === 1 ? '' : 's'}` : ''}` },
-              { key: 'youth', icon: 'ball', title: 'Youth team', line: `${(career.youthTeam || []).length} player${(career.youthTeam || []).length === 1 ? '' : 's'}` },
-              { key: 'club', icon: 'cpu', title: 'Club', line: `${money(career.coins)} · Manager: ${repLabel(career.rep ?? REP_START)}` },
-              ...(cupT ? [] : [{ key: 'cup', icon: 'trophy', title: CUP_NAME, line: cupT?.championId === ME ? 'Winners!' : cupOut ? 'Knocked out' : tie ? `${cupRoundName(tie)} · ready to play` : cupUpcoming ? `${cupRoundName(cupUpcoming.tie)} · ${formatGameDate(cupDate(career, cupUpcoming.tie.round), { year: false })}` : 'The draw' }]),
-              { key: 'league', icon: 'menu', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
-              { key: 'history', icon: 'restart', title: 'History', line: `${career.past.length} season${career.past.length === 1 ? '' : 's'} · ${career.promotions} promotion${career.promotions === 1 ? '' : 's'}` },
-              { key: 'settings', icon: 'settings', title: 'Settings', line: 'Kit, match time, difficulty' },
-              ...(career.lastMatch ? [{ key: 'report', icon: 'ball', title: 'Last match', line: `${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.home)?.name || ''} ${career.lastMatch.result.home}–${career.lastMatch.result.away} ${teamById(career.lastMatch.competition === 'cup' ? career.cup?.tournament || league : league, career.lastMatch.away)?.name || ''}` }] : []),
-            ].map((t) => (
-              <button key={t.key} className="career-list-row" onClick={() => go(t.key)}>
-                <span className="career-list-title">{t.title}</span>
-                <small>{t.line}</small>
-                <span className="career-list-arrow" aria-hidden>►</span>
-              </button>
-            ))}
-          </nav>
+            </li>
+            {road.behind.map((st) => <RoadStop key={st.f.id} stop={st} onOpen={career.lastMatch?.fixtureId === st.f.id ? () => go('report') : null} />)}
+          </ol>
 
           {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0 || career.lastSummer.youthIn?.length > 0 || career.lastSummer.world?.length > 0 || career.lastSummer.left?.length > 0) && (
             <section className="card card-pad" aria-label="Summer news">
@@ -553,15 +572,37 @@ export default function CareerScreen() {
             </section>
           )}
 
-          <OfferInbox career={career} />
-
             </div>
           ) : (
             <div className="career-col career-page">
               <div className="career-page-head">
-                <button className="btn btn-ghost career-back" onClick={() => { if (page === 'report') useCareerStore.getState().reportSeen(); go('home') }}><Icon name="back" size={16} /> Career</button>
+                {(page === 'report' || MORE_PAGES.includes(page)) && page !== 'more' && (
+                  <button className="btn btn-ghost career-back" onClick={() => { if (page === 'report') { useCareerStore.getState().reportSeen(); go('home') } else go('more') }}><Icon name="back" size={16} /> {page === 'report' ? 'Season' : 'More'}</button>
+                )}
                 <h2 className="display career-page-title">{PAGE_TITLE[page]}</h2>
               </div>
+              {page === 'more' && (
+                <nav className="career-list" aria-label="More career pages">
+                  {[
+                    { key: 'youth', title: 'Youth team', line: `${(career.youthTeam || []).length} player${(career.youthTeam || []).length === 1 ? '' : 's'}` },
+                    { key: 'league', title: 'League', line: `${ordinal(pos)} of ${count} · ${division.name}` },
+                    { key: 'cup', title: CUP_NAME, line: cupT?.championId === ME ? 'Winners!' : cupOut ? 'Knocked out' : tie ? `${cupRoundName(tie)} · ready to play` : cupUpcoming ? `${cupRoundName(cupUpcoming.tie)} · ${formatGameDate(cupDate(career, cupUpcoming.tie.round), { year: false })}` : 'The draw' },
+                    { key: 'history', title: 'History', line: `${career.past.length} season${career.past.length === 1 ? '' : 's'} · ${career.promotions} promotion${career.promotions === 1 ? '' : 's'}` },
+                    { key: 'settings', title: 'Settings', line: 'Kit, match time, difficulty' },
+                  ].map((t) => (
+                    <button key={t.key} className="career-list-row" onClick={() => go(t.key)}>
+                      <span className="career-list-title">{t.title}</span>
+                      <small>{t.line}</small>
+                      <span className="career-list-arrow" aria-hidden>►</span>
+                    </button>
+                  ))}
+                  <button className="career-list-row" onClick={back}>
+                    <span className="career-list-title">Main menu</span>
+                    <small>Leave career mode</small>
+                    <span className="career-list-arrow" aria-hidden>►</span>
+                  </button>
+                </nav>
+              )}
               {page === 'report' && <MatchReport career={career} onDone={() => { useCareerStore.getState().reportSeen(); go('home') }} />}
               {page === 'squad' && <>
                 {played > 0 && <PlayerRatings career={career} />}
@@ -644,11 +685,25 @@ export default function CareerScreen() {
           )}
         </main>
 
-        <footer className="shell-foot"><div className="shell-foot-inner">
-          {page === 'home'
-            ? <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Menu</button>
-            : <button className="btn btn-secondary" onClick={() => { if (page === 'report') useCareerStore.getState().reportSeen(); go('home') }}><Icon name="back" size={18} /> Career home</button>}
-        </div></footer>
+        <footer className="shell-foot career-foot">
+          <nav className="career-tabs" aria-label="Career">
+            {[
+              { key: 'home', icon: 'ball', title: 'Season', on: page === 'home' || page === 'report' },
+              { key: 'squad', icon: 'users', title: 'Squad' },
+              { key: 'transfers', icon: 'next', title: 'Market', badge: inboxOffers(career).length || null },
+              { key: 'club', icon: 'cpu', title: 'Club' },
+              { key: 'more', icon: 'menu', title: 'More', on: MORE_PAGES.includes(page) },
+            ].map((t) => {
+              const on = t.on ?? page === t.key
+              return (
+                <button key={t.key} className="career-tab" aria-current={on ? 'page' : undefined} onClick={() => { if (page === 'report') useCareerStore.getState().reportSeen(); go(t.key) }}>
+                  <span className="career-tab-icon"><Icon name={t.icon} size={22} />{t.badge ? <em>{t.badge}</em> : null}</span>
+                  <span>{t.title}</span>
+                </button>
+              )
+            })}
+          </nav>
+        </footer>
       </div>
 
       {editing && kitOpen && (
