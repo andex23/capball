@@ -192,6 +192,40 @@ export default function MenuScreen() {
           <button className="iss-press" onClick={(e) => { e.stopPropagation(); start() }}>
             Press start
           </button>
+        ) : lagos && page === 'main' ? (
+          // Inside Lagos Life: two ways to play up top, everything else in a small grid
+          <main className="lagos-hub" aria-label="Main menu">
+            {saved && <button className="btn btn-secondary btn-block lagos-hub-continue" onClick={() => { playConfirm(); resumeSavedMatch() }}><Icon name="play" size={18} /> Continue: {describeSave(saved)}</button>}
+            <button className="btn btn-gold btn-lg btn-block lagos-hub-play" onClick={() => { playConfirm(); goToScreen(SCREEN.ONLINE) }}>
+              <span className="lagos-hub-live">LIVE</span>Vs Lagos Players<small>Find a player · free or a bet</small>
+            </button>
+            <div className="lagos-hub-cpu">
+              <button className="btn btn-blue btn-lg lagos-hub-play" onClick={() => play('ai')}>Vs Computer</button>
+              <span className="iss-level" role="group" aria-label="Computer level">
+                <button className="iss-arrow" aria-label="Easier" onClick={() => shiftLevel(-1)}>◄</button>
+                <span className="iss-level-name" data-level={aiDifficulty}>{level}</span>
+                <button className="iss-arrow" aria-label="Harder" onClick={() => shiftLevel(1)}>►</button>
+              </span>
+            </div>
+            <button className="lagos-hub-link" onClick={() => play('local')}>Two players on one phone ›</button>
+            <nav className="lagos-hub-grid" aria-label="More">
+              {[
+                { key: 'career', icon: 'users', title: 'Career', line: career ? career.club.name : 'Run a club' },
+                { key: 'tournament', icon: 'trophy', title: 'Tournament', line: openT ? 'Carry on' : 'Leagues & cups' },
+                { key: 'daily', icon: 'ball', title: 'Daily', line: doneToday ? 'Beaten today' : streak ? `Streak x${streak}` : 'New puzzle' },
+                { key: 'shop', icon: 'check', title: 'Shop', line: 'Caps & bands', naira: true },
+              ].map((t) => {
+                const item = items.find((m) => m.key === t.key)
+                return (
+                  <button key={t.key} className="career-tile lagos-hub-tile" onClick={item?.action}>
+                    {t.naira ? <span className="lagos-hub-naira" aria-hidden>₦</span> : <Icon name={t.icon} size={22} />}
+                    <span className="career-tile-title">{t.title}</span>
+                    <small>{t.line}</small>
+                  </button>
+                )
+              })}
+            </nav>
+          </main>
         ) : (
           <main className="iss-window" aria-label={PAGE_TITLES[page]} key={page}>
             <div className="iss-window-tab">{PAGE_TITLES[page]}</div>
@@ -225,6 +259,10 @@ export default function MenuScreen() {
           </footer>
         )}
       </div>
+
+      {started && lagos && page === 'main' && <button className="icon-btn lagos-hub-gear" aria-label="Options" title="Options" onClick={() => go('options')}>
+        <Icon name="settings" size={22} />
+      </button>}
 
       {started && !lagos && <button className="icon-btn iss-share" aria-label="Share game" title="Share game" onClick={() => openDialog('share')}>
         <Icon name="share" size={22} />
