@@ -1,6 +1,7 @@
 import Matter from 'matter-js'
 import { PITCH, PHYSICS, BALL_RADIUS, FORMATIONS, getFormationPositions } from '../data/TeamData.js'
 import { createSimulationWorld } from '../physics/WorldCore.js'
+import { DEFAULT_REFLEX } from './keeper.js'
 import { createLayouts } from '../physics/Layouts.js'
 import { sanitizeTeam } from './tournament.js'
 import { teamOf, teamHomeDir, otherTeam, classifyContact, judgeGoal, keeperCanPlay, isInPenaltyArea, ballInCorner, cornerRestart, shootoutStatus, matchWinner } from './rules.js'
@@ -25,7 +26,8 @@ export function anytimeConfig(input = {}) {
 }
 
 function worldFor(state, config) {
-  const world = createSimulationWorld(state.bodies, { team1Side: 'left' })
+  // Keepers react to hard shots, as in a live match (not on penalties)
+  const world = createSimulationWorld(state.bodies, { team1Side: 'left', reflex: () => (state.penaltyKick ? null : { team1: DEFAULT_REFLEX, team2: DEFAULT_REFLEX }) })
   const layoutState = { team1Side: 'left', formations: config.formations }
   const layouts = createLayouts(world.bodies, () => layoutState, patch => Object.assign(layoutState, patch))
   return { world, layouts, layoutState }

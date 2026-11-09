@@ -1,7 +1,7 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
 import { PHYSICS, PITCH } from '../data/TeamData'
 import { flickScale, aimWobble, powerScale, flickWobble } from './squad'
-import { applyFlick, getBody, diveKeeper, radiusOf } from '../physics/PhysicsWorld'
+import { applyFlick, getBody, diveKeeper, radiusOf, setShotStray } from '../physics/PhysicsWorld'
 import { strikeDirection, crossingY, cpuDive } from './penalty'
 import { playDive } from '../audio/SoundManager'
 import { teamOf, isGoalkeeper, keeperCanPlay, teamHomeDir } from './rules'
@@ -56,6 +56,27 @@ export function aimWobbleFor(state, capId, power = 1) {
   return aimWobble(state.teamConfig?.[capId.slice(0, i)]?.ratings?.[capId.slice(i + 1)])
 }
 
+/* Long shots: a hard flick drifts off its line the further the cap is from
+   the goal it's attacking. Nothing near the box, up to LONG_SHOT.maxDeg from
+   the far end; soft passes stay true. */
+export const LONG_SHOT = { near: 9, far: 24, maxDeg: 4, softPower: 0.4 }
+
+/** Extra stray (degrees) for a flick of this power from `dist` away from the goal being attacked. */
+export function longShotWobble(dist, power) {
+  if (!Number.isFinite(dist) || !Number.isFinite(power)) return 0
+  const far = Math.max(0, Math.min(1, (dist - LONG_SHOT.near) / (LONG_SHOT.far - LONG_SHOT.near)))
+  const hard = Math.max(0, Math.min(1, (power - LONG_SHOT.softPower) / (1 - LONG_SHOT.softPower)))
+  return LONG_SHOT.maxDeg * far * hard
+}
+
+/** How far this cap is from the goal its team attacks (null if it's not on the pitch). */
+export function distanceToGoal(state, capId, pos) {
+  const team = teamOf(capId)
+  if (!team || !pos) return null
+  const goalX = -teamHomeDir(team, state.team1Side || 'left') * PITCH.halfW
+  return Math.hypot(pos.x - goalX, pos.y)
+}
+
 /** Turn a flick by up to ±maxDeg (a less steady player's aim strays a little). */
 export function wobble(velocity, maxDeg, rng = Math.random) {
   if (!maxDeg) return velocity
@@ -76,6 +97,9 @@ export function performFlick(capId, velocity, byTeam = null) {
   const power = Math.min(1, Math.hypot(velocity.x, velocity.y) / PHYSICS.maxFlickVelocity)
   const v = state.penaltyKick ? velocity : wobble(velocity, aimWobbleFor(state, capId, power))
   applyFlick(capId, { x: v.x * scale, y: v.y * scale }, PHYSICS.maxFlickVelocity * scale) // clamps to max power
+  // ...and the further out a hard shot is struck, the more the ball can drift off
+  // its line as it leaves the cap (not penalties or the daily puzzle)
+  if (!state.penaltyKick && !state.challenge) setShotStray(capId, longShotWobble(distanceToGoal(state, capId, getBody(capId)?.position), power))
   if (state.penaltyKick) keeperDives(state, capId, velocity)
   state.commitFlick(capId)
   return null

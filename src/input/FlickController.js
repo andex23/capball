@@ -3,7 +3,7 @@ import { useRef, useCallback, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useMatchStore, PHASE, INPUT_PHASES } from '../state/MatchStore'
-import { performFlick, flickScaleFor, flickError, controllableTeams, capSelectable, powerFraction, MIN_FLICK_PX } from '../game/flick'
+import { performFlick, flickScaleFor, flickError, controllableTeams, capSelectable, powerFraction, MIN_FLICK_PX, aimWobbleFor, longShotWobble, distanceToGoal } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
@@ -55,6 +55,7 @@ function hidePreview(t) {
   t.foul.visible = false
   t.goalRing.visible = false
   t.ring.visible = false
+  t.spread.visible = false
 }
 
 // Flick controller using native DOM pointer events + manual raycasting.
@@ -368,6 +369,19 @@ export function useFlickController(meshRefs, trajectoryRef) {
         t.goalRingMat.color.setRGB(r, g, b)
       }
     }
+    // How far the shot may drift: a faint wedge along the ball's path, wider for long hard shots
+    const spreadDeg = state.penaltyKick ? 0 : aimWobbleFor(state, capId, power) + (state.challenge ? 0 : longShotWobble(distanceToGoal(state, capId, { x: cx, y: cz }), power))
+    t.spread.visible = ballOnPath && spreadDeg >= 0.5
+    if (t.spread.visible) {
+      const sx = pred.ballPath[0], sz = pred.ballPath[1]
+      const e = (pred.ballPoints - 1) * 2
+      const ex = pred.ballPath[2] - sx, ez = pred.ballPath[3] - sz
+      const len = Math.max(1, Math.hypot(pred.ballPath[e] - sx, pred.ballPath[e + 1] - sz))
+      t.spread.position.set(sx, 0.04, sz)
+      t.spread.rotation.y = -Math.atan2(ez, ex)
+      t.spread.scale.set(len, 1, len * Math.tan(spreadDeg * Math.PI / 180))
+    }
+
     t.dots.count = dots
     t.dots.instanceMatrix.needsUpdate = true
     t.dotColors.needsUpdate = true

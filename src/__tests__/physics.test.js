@@ -346,6 +346,8 @@ describe('simulated play', () => {
   }
 
   it('a flick into the ball moves it and counts a shot', () => {
+    // A long shot can drift a few degrees; hold it dead straight here
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
     resetToKickoff('team1')
     readyTurn()
     place('team1_atk1', -3, 0)
@@ -355,6 +357,7 @@ describe('simulated play', () => {
     expect(pos('ball').x).toBeGreaterThan(1)
     expect(store().stats.team1.shots).toBe(1)
     expect(store().firstCollisionTracked).toBe(true)
+    vi.restoreAllMocks()
   })
 
   it('hitting an opponent first is a foul', () => {

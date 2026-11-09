@@ -361,6 +361,45 @@ function diveKeeper(keeperTeam, dive) {
   Body.setVelocity(gk, { x: 0, y: dive * KEEPER_DIVE_SPEED })
 }
 
+/* Narrowing the angle: when play stops with the ball in a keeper's half, he
+   shuffles out between the ball and the middle of his goal. He only takes a
+   short step (a keeper the player sent out stays roughly where he is), never
+   onto another cap or the ball, and not at all when he's already on it. */
+const ANGLE_STEP_OUT = 1.8   // how far off his line he stands
+const ANGLE_MAX_MOVE = 2.5   // the most he shuffles in one go
+const ANGLE_BALL_RANGE = 16  // the ball must be this close to his goal
+function narrowAngles() {
+  const ball = bodies.ball
+  if (!ball) return
+  const b = ball.position
+  for (const team of ['team1', 'team2']) {
+    const id = `${team}_gk`
+    const gk = bodies[id]
+    if (!gk) continue
+    const dir = getTeamDir(team)
+    const gx = dir * PITCH.halfW
+    const toBall = Math.hypot(b.x - gx, b.y)
+    if (b.x * dir <= 0 || toBall > ANGLE_BALL_RANGE || toBall < 0.5) continue
+    const p = gk.position
+    if (Math.hypot(b.x - p.x, b.y - p.y) < GK_RADIUS + BALL_RADIUS + 0.4) continue
+    const ux = (b.x - gx) / toBall, uy = b.y / toBall
+    let tx = gx + ux * ANGLE_STEP_OUT
+    let ty = Math.max(-PITCH.goalWidth / 2, Math.min(PITCH.goalWidth / 2, uy * ANGLE_STEP_OUT))
+    tx = dir * Math.min(PITCH.halfW - GK_RADIUS - 0.1, tx * dir)
+    let mx = tx - p.x, my = ty - p.y
+    const move = Math.hypot(mx, my)
+    if (move < 0.15) continue
+    if (move > ANGLE_MAX_MOVE) { mx *= ANGLE_MAX_MOVE / move; my *= ANGLE_MAX_MOVE / move }
+    // Full step if it's clear, else half a step, else stay
+    for (const f of [1, 0.5]) {
+      const nx = p.x + mx * f, ny = p.y + my * f
+      const clear = Object.entries(bodies).every(([other, o]) => other === id
+        || Math.hypot(o.position.x - nx, o.position.y - ny) >= radiusOf(other) + GK_RADIUS + 0.15)
+      if (clear) { Body.setPosition(gk, { x: nx, y: ny }); Body.setVelocity(gk, { x: 0, y: 0 }); break }
+    }
+  }
+}
+
 function setupPenalty(fouledTeam, { shootout = !!getState().penaltyShootout } = {}) {
   diveStop = null
   const { halfW } = PITCH
@@ -471,5 +510,5 @@ function resetToKickoff(kickingTeam) {
 }
 
 
-return { placeBallAt, deOverlapBodies, setupFreeKick, setupCorner, setupGoalKick, clearKeeperDive, diveKeeper, setupPenalty, resetToKickoff, getDiveStop: () => diveStop }
+return { placeBallAt, deOverlapBodies, setupFreeKick, setupCorner, setupGoalKick, clearKeeperDive, diveKeeper, narrowAngles, setupPenalty, resetToKickoff, getDiveStop: () => diveStop }
 }

@@ -55,10 +55,10 @@ export function readPositions(bodies) {
  * Everything the planner needs to know about the current turn.
  * @param positions  readPositions() output (must include 'ball')
  */
-export function makeContext({ positions, team, team1Side = 'left', kickoffGuard = false, goalKickGuard = false, penaltyShootout = false, requiredCapId = null }) {
+export function makeContext({ positions, team, team1Side = 'left', kickoffGuard = false, goalKickGuard = false, penaltyShootout = false, requiredCapId = null, reflex = null }) {
   const homeDir = teamHomeDir(team, team1Side)
   return {
-    positions, team, opp: otherTeam(team), team1Side, kickoffGuard, goalKickGuard, penaltyShootout, requiredCapId,
+    positions, team, opp: otherTeam(team), team1Side, kickoffGuard, goalKickGuard, penaltyShootout, requiredCapId, reflex,
     homeDir,
     attackDir: -homeDir,
     ownGoal: { x: homeDir * PITCH.halfW, y: 0 },
@@ -514,7 +514,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
  * the first thing the flicked cap (track.capId) touches.
  */
 export function createPlannerWorld(ctx) {
-  const world = createSimulationWorld(ctx.positions, { team1Side: ctx.team1Side })
+  const world = createSimulationWorld(ctx.positions, { team1Side: ctx.team1Side, reflex: ctx.penaltyShootout ? null : ctx.reflex || null })
   const track = { capId: null, first: null, foulAt: null, banked: false, otherCapTouched: false }
   // Ball off a cushion since a cap last touched it: a goal from there won't count
   Events.on(world.engine, 'collisionStart', (event) => {

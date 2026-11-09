@@ -30,7 +30,8 @@
 import Matter from 'matter-js'
 import { createLayouts } from './Layouts'
 export { FREE_KICK_WALL_DISTANCE, FREE_KICK_WALL_MIN, FREE_KICK_TWO_CAP_WALL_WITHIN, FK_TUNE } from './Layouts'
-import { createWallBodies, makeDynamicBody, applyStepFriction, attachKeeperGrip, clampBodyMap } from './WorldCore'
+import { createWallBodies, makeDynamicBody, applyStepFriction, attachKeeperGrip, attachKeeperReflex, clampBodyMap } from './WorldCore'
+import { reflexOptions } from '../game/keeper'
 export { CIRCLE_SIDES, KEEPER_GRIP, radiusOf, createSimulationWorld } from './WorldCore'
 import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, getFormationPositions } from '../data/TeamData'
 import { playFoulWhistle, playBallHit, playCapHit, playWallHit } from '../audio/SoundManager'
@@ -223,6 +224,9 @@ export function createPhysicsWorld() {
   // ── EVENT: Per-step friction + velocity cap ──
   Events.on(engine, 'beforeUpdate', () => applyStepFriction(bodies))
   attachKeeperGrip(engine, () => bodies)
+  attachShotStray(engine)
+  // Keepers react to hard shots on goal (not penalties: those have their own dive)
+  attachKeeperReflex(engine, () => bodies, () => reflexOptions(useMatchStore.getState()))
 
   return engine
 }
@@ -277,10 +281,39 @@ export function applyCapMasses(teamConfig, scaleFor) {
 }
 export function getBody(id) { return bodies[id] }
 
+/* A long shot's drift: set with the flick, applied to the ball the moment the
+   flicked cap first strikes it (so it's the ball's line that strays by up to
+   ±deg, however thin the contact), then forgotten. */
+let shotStray = null // { capId, deg, roll, hit }
+export function setShotStray(capId, deg, roll = Math.random()) {
+  shotStray = deg > 0 ? { capId, deg, roll, hit: false } : null
+}
+function attachShotStray(eng) {
+  Events.on(eng, 'collisionStart', (event) => {
+    if (!shotStray || shotStray.hit) return
+    for (const pair of event.pairs) {
+      const a = pair.bodyA.label
+      const b = pair.bodyB.label
+      if ((a === 'ball' && b === shotStray.capId) || (b === 'ball' && a === shotStray.capId)) shotStray.hit = true
+      else if (a === shotStray.capId || b === shotStray.capId || a === 'ball' || b === 'ball') shotStray = null // touched something else first
+      if (!shotStray?.hit) continue
+      break
+    }
+  })
+  Events.on(eng, 'afterUpdate', () => {
+    if (!shotStray?.hit || !bodies.ball) return
+    const t = (shotStray.roll * 2 - 1) * shotStray.deg * Math.PI / 180
+    const v = bodies.ball.velocity
+    Body.setVelocity(bodies.ball, { x: v.x * Math.cos(t) - v.y * Math.sin(t), y: v.x * Math.sin(t) + v.y * Math.cos(t) })
+    shotStray = null
+  })
+}
+
 /** Apply shot impulse to a cap */
 export function applyFlick(capId, velocity, maxSpeed = PHYSICS.maxFlickVelocity) {
   const body = bodies[capId]
   if (!body) return
+  shotStray = null
   goalEvidence = {}
   foulPending = false
   // Clamp to max flick velocity
@@ -348,6 +381,7 @@ export const setupCorner = (...args) => layouts?.setupCorner(...args)
 export const setupGoalKick = (...args) => layouts?.setupGoalKick(...args)
 export const clearKeeperDive = (...args) => layouts?.clearKeeperDive(...args)
 export const diveKeeper = (...args) => layouts?.diveKeeper(...args)
+export const narrowAngles = (...args) => layouts?.narrowAngles(...args)
 export const setupPenalty = (...args) => layouts?.setupPenalty(...args)
 export const resetToKickoff = (...args) => layouts?.resetToKickoff(...args)
 export const getLastBallTeam = () => lastBallTeam
