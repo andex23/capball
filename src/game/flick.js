@@ -59,7 +59,7 @@ export function aimWobbleFor(state, capId, power = 1) {
 /* Long shots: a hard flick drifts off its line the further the cap is from
    the goal it's attacking. Nothing near the box, up to LONG_SHOT.maxDeg from
    the far end; soft passes stay true. */
-export const LONG_SHOT = { near: 9, far: 24, maxDeg: 4, softPower: 0.4 }
+export const LONG_SHOT = { near: 9, far: 24, maxDeg: 3, softPower: 0.4 }
 
 /** Extra stray (degrees) for a flick of this power from `dist` away from the goal being attacked. */
 export function longShotWobble(dist, power) {

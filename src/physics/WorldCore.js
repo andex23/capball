@@ -195,9 +195,9 @@ export const REFLEX = {
   delaySteps: 16,   // sub-steps before he moves (his reaction time)
   readNear: 4,      // a shot from this close is barely readable...
   readFar: 22,      // ...one from this far is fully readable
-  minRead: 0.25,
-  maxRead: 0.8,     // even a long shot isn't always read
-  miss: 2.2,        // how far off a poor keeper guesses (units, at reflex 0)
+  minRead: 0.15,
+  maxRead: 0.4,     // even a long shot isn't always read
+  miss: 3.0,        // how far off a poor keeper guesses (units, at reflex 0)
 }
 
 /** Where (y) a ball at (x, y) moving (vx, vy) crosses the line x = goalX, or null if it isn't heading there. */
