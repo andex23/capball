@@ -160,12 +160,12 @@ export function usePhysicsSync(meshRefs) {
         stopBall()
         playGoal()
         s.scoreGoal(verdict.scorer, { decision, ownGoal: isOwnGoal(verdict.scorer, s.lastFlickedCapId, getLastBallTeam()) })
-      } else if (verdict.outcome === 'bank_shot') {
-        // In off the wall: no goal, the defending side restarts with a goal kick
+      } else if (verdict.outcome === 'bank_shot' || verdict.outcome === 'cap_bank_shot') {
+        // In off the wall (the ball, or the cap before it struck the ball): no goal, the defending side restarts with a goal kick
         stopAllBodies()
         playWhistle()
         const b = bodies.ball.position
-        s.disallowGoal('bank_shot', { evidence: decision.evidence, restart: { kind: 'goalKick', team: otherTeam(verdict.scorer), ex: b.x < 0 ? -1 : 1, ey: b.y < 0 ? -1 : 1, reason: 'bank' } })
+        s.disallowGoal(verdict.outcome, { evidence: decision.evidence, restart: { kind: 'goalKick', team: otherTeam(verdict.scorer), ex: b.x < 0 ? -1 : 1, ey: b.y < 0 ? -1 : 1, reason: 'bank' } })
       } else {
         // Doesn't count — ball back to the centre spot, possession changes.
         stopAllBodies()

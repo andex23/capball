@@ -60,6 +60,12 @@ describe('judgeGoal', () => {
     expect(judgeGoal({ ...base, banked: true })).toEqual({ outcome: 'bank_shot', scorer: 'team1' })
   })
 
+  it('a cap that came off the wall before striking the ball cannot score, but an own goal still counts', () => {
+    expect(judgeGoal({ ...base, capBanked: true })).toEqual({ outcome: 'cap_bank_shot', scorer: 'team1' })
+    // team2's cap banked and put it in its own net: team1's goal stands
+    expect(judgeGoal({ ...base, capBanked: true, lastFlickedCapId: 'team2_def1' })).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+
   it('returns null when the ball is not in a goal', () => {
     expect(judgeGoal({ ...base, x: 0 })).toBeNull()
   })

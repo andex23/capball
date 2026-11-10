@@ -49,6 +49,11 @@ let lastBallTeam = null // 'team1' | 'team2' | null — last side to touch the b
 // goes in off the wall doesn't count (rules.judgeGoal → 'bank_shot').
 let ballBanked = false
 export const getBallBanked = () => ballBanked
+// Did the flicked cap come off a cushion before it first struck the ball? It can't
+// score with that flick (rules.judgeGoal → 'cap_bank_shot').
+let capBanked = false
+let flickedMetBall = false
+export const getCapBanked = () => capBanked
 let goalEvidence = {}
 // A foul has been whistled and is about to be given: nothing else that
 // happens in the meantime (a goal, everything stopping) can decide the flick
@@ -73,6 +78,8 @@ export function createPhysicsWorld() {
   foulPending = false
   lastBallTeam = null
   ballBanked = false
+  capBanked = false
+  flickedMetBall = false
   // Destroy previous engine if exists
   if (engine) {
     World.clear(engine.world)
@@ -94,7 +101,7 @@ export function createPhysicsWorld() {
   createTeamBodies('team2')
   createBallBody()
   layouts = createLayouts(bodies, useMatchStore.getState, useMatchStore.setState, {
-    onBallPlaced: () => { ballBanked = false; goalEvidence = {} },
+    onBallPlaced: () => { ballBanked = false; capBanked = false; flickedMetBall = false; goalEvidence = {} },
     onKickoff: () => { lastBallTeam = null; ballBanked = false },
   })
 
@@ -172,7 +179,9 @@ export function createPhysicsWorld() {
       const flicked = useMatchStore.getState().lastFlickedCapId
       if ((a === flicked && b === 'pitch_cushion') || (b === flicked && a === 'pitch_cushion')) {
         goalEvidence.capHitEdge = true
+        if (!flickedMetBall) { capBanked = true; goalEvidence.capBankedFirst = true }
       }
+      if (flicked && ((a === flicked && b === 'ball') || (b === flicked && a === 'ball'))) flickedMetBall = true
       if (a !== 'ball' && b !== 'ball') continue
       const other = a === 'ball' ? pair.bodyB : pair.bodyA
       const team = teamOf(other.label)
@@ -314,6 +323,8 @@ export function applyFlick(capId, velocity, maxSpeed = PHYSICS.maxFlickVelocity)
   const body = bodies[capId]
   if (!body) return
   shotStray = null
+  capBanked = false
+  flickedMetBall = false
   goalEvidence = {}
   foulPending = false
   // Clamp to max flick velocity

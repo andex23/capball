@@ -41,7 +41,7 @@ const SECTIONS = [
     items: [
       'The whole ball must cross the goal line between the posts. A ball resting on the line is not a goal yet — you can still clear it.',
       'A rebound off a goalpost can count. The post is not a pitch-edge cushion; the other scoring restrictions still apply.',
-      'Your cap hitting the pitch edge does not disallow a goal. The edge restriction applies to the ball.',
+      'Your cap touching the pitch edge after it has struck the ball does not disallow a goal.',
       'In timed matches, most goals at full time wins and teams swap ends at half time. In first-to-score matches, reach the target to win.',
     ],
   },
@@ -51,6 +51,7 @@ const SECTIONS = [
       'You cannot score on the kick-off flick.',
       'You cannot score directly into the opponent’s goal from a goal kick, even off a goalpost.',
       'If the ball hits a pitch-edge cushion and then enters the goal without touching another cap, it is no goal. The defending team gets a goal kick.',
+      'Strike the ball directly: if your cap bounces off the pitch edge before it hits the ball, you cannot score with that flick. The defending team gets a goal kick. (An own goal still counts.)',
       'If the ball touches a cap after its edge bounce, the edge restriction is cleared. The goal can count unless another scoring restriction applies.',
       'Hitting an opponent’s cap before the ball is a foul, not a scoring play.',
     ],

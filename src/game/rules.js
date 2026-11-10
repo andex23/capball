@@ -49,10 +49,13 @@ export function scorerForBall(x, y, team1Side = 'left') {
  * - Goalkeepers may score in open play. A direct goal kick cannot score
  *   for the taker's team; own goals still count.
  *
- * Returns { outcome: 'goal' | 'kickoff_violation' | 'goal_kick_violation', scorer }
+ * - A cap that bounces off the pitch edge before it first strikes the ball
+ *   can't score for its own team with that flick.
+ *
+ * Returns { outcome: 'goal' | 'kickoff_violation' | 'goal_kick_violation' | 'bank_shot' | 'cap_bank_shot', scorer }
  * or null when the ball isn't in a goal.
  */
-export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, banked = false, goalKickGuard = false }) {
+export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, banked = false, goalKickGuard = false, capBanked = false }) {
   const scorer = scorerForBall(x, y, team1Side)
   if (!scorer) return null
   if (kickoffGuard) return { outcome: 'kickoff_violation', scorer }
@@ -61,6 +64,9 @@ export function judgeGoal({ x, y, team1Side, kickoffGuard, lastFlickedCapId, ban
   }
   // Straight off the wall into the net doesn't count: a goal kick to the defenders
   if (banked) return { outcome: 'bank_shot', scorer }
+  // A cap that came off the wall before it struck the ball can't score with that flick
+  // (an own goal still counts): a goal kick to the defenders
+  if (capBanked && teamOf(lastFlickedCapId) === scorer) return { outcome: 'cap_bank_shot', scorer }
   return { outcome: 'goal', scorer }
 }
 
