@@ -6,6 +6,7 @@ import { CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, PITCH } from '../data/Team
 import { makeContext, readPositions, firstHit, chooseHeuristic, chooseBySimulation } from './planner'
 import { penaltyFlick } from '../game/penalty'
 import { teamHomeDir } from '../game/rules'
+import { reflexOptions } from '../game/keeper'
 
 /**
  * SMART AI CONTROLLER
@@ -104,6 +105,7 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
       kickoffGuard: !!state.kickoffGuard,
       goalKickGuard: !!state.goalKickGuard,
       penaltyShootout: !!state.penaltyShootout,
+      reflex: reflexOptions(state)?.reflex || null,
       requiredCapId,
     })
     const pick = diff.planner === 'simulate'

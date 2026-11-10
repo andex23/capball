@@ -124,6 +124,7 @@ export function decisionText(decision) {
   if (decision.outcome !== 'goal') {
     const reasons = {
       bank_shot: 'The ball hit the pitch edge and entered without another cap touching it. Goal kick.',
+      cap_bank_shot: 'The cap bounced off the pitch edge before it struck the ball. A goal from that flick does not count. Goal kick.',
       kickoff_violation: 'A direct goal from kick-off does not count. Possession changes.',
       goal_kick_violation: 'A direct goal from a goal kick does not count. Possession changes.',
     }
@@ -133,7 +134,7 @@ export function decisionText(decision) {
   const detail = evidence.capAfterBank
     ? 'A cap touched the ball after its edge bounce. The goal counts.'
     : evidence.capHitEdge
-      ? 'The cap hit the pitch edge, not the ball. The goal counts.'
+      ? 'The cap only touched the pitch edge after it struck the ball. The goal counts.'
       : evidence.postContact
         ? 'Off the goalpost and in. Goalpost contact is allowed.'
         : 'The ball crossed the goal line without a scoring-rule violation.'

@@ -348,10 +348,11 @@ describe('decision replays', () => {
 
   it('explains ball-edge violations and legal cap or post contacts', () => {
     expect(decisionText({ outcome: 'no_goal', reason: 'bank_shot' }).detail).toContain('without another cap')
+    expect(decisionText({ outcome: 'no_goal', reason: 'cap_bank_shot' }).detail).toContain('before it struck the ball')
     expect(decisionText({ outcome: 'no_goal', reason: 'kickoff_violation' }).detail).toContain('kick-off')
     expect(decisionText({ outcome: 'no_goal', reason: 'goal_kick_violation' }).detail).toContain('goal kick')
     expect(decisionText({ outcome: 'goal', evidence: { capHitEdge: true } })).toEqual({
-      title: 'Goal stands', detail: 'The cap hit the pitch edge, not the ball. The goal counts.',
+      title: 'Goal stands', detail: 'The cap only touched the pitch edge after it struck the ball. The goal counts.',
     })
     expect(decisionText({ outcome: 'goal', evidence: { capAfterBank: true } }).detail).toContain('after its edge bounce')
     expect(decisionText({ outcome: 'goal', evidence: { postContact: true } }).detail).toContain('Goalpost contact is allowed')

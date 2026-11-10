@@ -55,10 +55,10 @@ export function readPositions(bodies) {
  * Everything the planner needs to know about the current turn.
  * @param positions  readPositions() output (must include 'ball')
  */
-export function makeContext({ positions, team, team1Side = 'left', kickoffGuard = false, goalKickGuard = false, penaltyShootout = false, requiredCapId = null }) {
+export function makeContext({ positions, team, team1Side = 'left', kickoffGuard = false, goalKickGuard = false, penaltyShootout = false, requiredCapId = null, reflex = null }) {
   const homeDir = teamHomeDir(team, team1Side)
   return {
-    positions, team, opp: otherTeam(team), team1Side, kickoffGuard, goalKickGuard, penaltyShootout, requiredCapId,
+    positions, team, opp: otherTeam(team), team1Side, kickoffGuard, goalKickGuard, penaltyShootout, requiredCapId, reflex,
     homeDir,
     attackDir: -homeDir,
     ownGoal: { x: homeDir * PITCH.halfW, y: 0 },
@@ -477,6 +477,8 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
   track.first = null
   track.foulAt = null
   track.banked = false
+  track.capBanked = false
+  track.metBall = false
   track.otherCapTouched = false
 
   let verdict = null
@@ -491,7 +493,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
     if (track.first === 'foul' && !ctx.penaltyShootout) break
     verdict = judgeGoal({
       x: ball.position.x, y: ball.position.y, team1Side: ctx.team1Side,
-      kickoffGuard: ctx.kickoffGuard, goalKickGuard: ctx.goalKickGuard && !track.otherCapTouched, lastFlickedCapId: capId, banked: track.banked,
+      kickoffGuard: ctx.kickoffGuard, goalKickGuard: ctx.goalKickGuard && !track.otherCapTouched, lastFlickedCapId: capId, banked: track.banked, capBanked: track.capBanked,
     })
     if (verdict) break
     if (frames > 5 && settled(world.bodies)) break
@@ -514,15 +516,18 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
  * the first thing the flicked cap (track.capId) touches.
  */
 export function createPlannerWorld(ctx) {
-  const world = createSimulationWorld(ctx.positions, { team1Side: ctx.team1Side })
-  const track = { capId: null, first: null, foulAt: null, banked: false, otherCapTouched: false }
+  const world = createSimulationWorld(ctx.positions, { team1Side: ctx.team1Side, reflex: ctx.penaltyShootout ? null : ctx.reflex || null })
+  const track = { capId: null, first: null, foulAt: null, banked: false, capBanked: false, metBall: false, otherCapTouched: false }
   // Ball off a cushion since a cap last touched it: a goal from there won't count
   Events.on(world.engine, 'collisionStart', (event) => {
     for (const pair of event.pairs) {
       const a = pair.bodyA.label
       const b = pair.bodyB.label
+      // The flicked cap off a cushion before it has struck the ball: it can't score this flick
+      if (track.capId && !track.metBall && ((a === track.capId && b === 'pitch_cushion') || (b === track.capId && a === 'pitch_cushion'))) track.capBanked = true
       if (a !== 'ball' && b !== 'ball') continue
       const other = a === 'ball' ? pair.bodyB : pair.bodyA
+      if (other.label === track.capId) track.metBall = true
       if (teamOf(other.label)) {
         track.banked = false
         if (other.label !== track.capId) track.otherCapTouched = true

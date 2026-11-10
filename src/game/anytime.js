@@ -1,6 +1,7 @@
 import Matter from 'matter-js'
 import { PITCH, PHYSICS, BALL_RADIUS, FORMATIONS, getFormationPositions } from '../data/TeamData.js'
 import { createSimulationWorld } from '../physics/WorldCore.js'
+import { DEFAULT_REFLEX } from './keeper.js'
 import { createLayouts } from '../physics/Layouts.js'
 import { sanitizeTeam } from './tournament.js'
 import { teamOf, teamHomeDir, otherTeam, classifyContact, judgeGoal, keeperCanPlay, isInPenaltyArea, ballInCorner, cornerRestart, shootoutStatus, matchWinner } from './rules.js'
@@ -25,7 +26,8 @@ export function anytimeConfig(input = {}) {
 }
 
 function worldFor(state, config) {
-  const world = createSimulationWorld(state.bodies, { team1Side: 'left' })
+  // Keepers react to hard shots, as in a live match (not on penalties)
+  const world = createSimulationWorld(state.bodies, { team1Side: 'left', reflex: () => (state.penaltyKick ? null : { team1: DEFAULT_REFLEX, team2: DEFAULT_REFLEX }) })
   const layoutState = { team1Side: 'left', formations: config.formations }
   const layouts = createLayouts(world.bodies, () => layoutState, patch => Object.assign(layoutState, patch))
   return { world, layouts, layoutState }
@@ -67,13 +69,14 @@ export function resolveAnytimeTurn(saved, configInput, move) {
   if (capId.endsWith('_gk') && capId !== state.freeKickCapId && !keeperCanPlay(ballStart[0], ballStart[1], teamHomeDir(team))) throw new Error('keeper-out-of-range')
   const { world, layouts, layoutState } = worldFor(state, config)
   const evidence = {}
-  let first = null, foulSpot = null, banked = false, goalKickGuard = state.goalKickGuard, lastTouch = saved.lastTouch || null
+  let first = null, foulSpot = null, banked = false, capBanked = false, metBall = false, goalKickGuard = state.goalKickGuard, lastTouch = saved.lastTouch || null
   Matter.Events.on(world.engine, 'collisionStart', event => {
     for (const pair of event.pairs) {
       const a = pair.bodyA.label, b = pair.bodyB.label
       if (a === capId || b === capId) {
         const other = a === capId ? pair.bodyB : pair.bodyA
-        if (other.label === 'pitch_cushion') evidence.capHitEdge = true
+        if (other.label === 'pitch_cushion') { evidence.capHitEdge = true; if (!metBall) { capBanked = true; evidence.capBankedFirst = true } }
+        if (other.label === 'ball') metBall = true
         const kind = classifyContact(capId, other.label)
         if (!first && kind !== 'wall') {
           first = kind
@@ -104,7 +107,7 @@ export function resolveAnytimeTurn(saved, configInput, move) {
       world.step(STEP_MS, () => {
         if (first === 'foul' && !state.shootout) return true
         const { x, y } = world.bodies.ball.position
-        verdict = judgeGoal({ x, y, team1Side: 'left', kickoffGuard: state.kickoffGuard, goalKickGuard, lastFlickedCapId: capId, banked })
+        verdict = judgeGoal({ x, y, team1Side: 'left', kickoffGuard: state.kickoffGuard, goalKickGuard, lastFlickedCapId: capId, banked, capBanked })
         return !!verdict
       })
       if (frame % 3 === 2) frames.push(positions(world))
@@ -140,7 +143,7 @@ export function resolveAnytimeTurn(saved, configInput, move) {
         state.activeTeam = otherTeam(verdict.scorer)
         layouts.resetToKickoff(state.activeTeam)
         state.kickoffGuard = true
-      } else if (verdict?.outcome === 'bank_shot') {
+      } else if (verdict?.outcome === 'bank_shot' || verdict?.outcome === 'cap_bank_shot') {
         state.activeTeam = otherTeam(verdict.scorer)
         layouts.setupGoalKick(state.activeTeam, Math.sign(world.bodies.ball.position.x) || 1, Math.sign(world.bodies.ball.position.y) || 1)
         state.goalKickGuard = true

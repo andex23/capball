@@ -35,6 +35,7 @@ const NO_GOAL_TEXT = {
   kickoff_violation: 'You can’t score straight from kick-off',
   goal_kick_violation: 'You can’t score directly from a goal kick',
   bank_shot: 'The ball went in off the pitch edge — goal kick',
+  cap_bank_shot: 'Your cap came off the wall before it hit the ball — goal kick',
 }
 
 // The shot clock ran out on this turn (a timed-out shootout kick shows as MISSED)

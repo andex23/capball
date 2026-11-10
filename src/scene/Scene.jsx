@@ -114,8 +114,19 @@ function TrajectoryLineManager({ trajectoryRef }) {
     ring.renderOrder = 999
     scene.add(ring)
 
+    // === Aim spread: a faint wedge from the ball showing how far a long shot may drift ===
+    const spreadGeom = new THREE.BufferGeometry()
+    spreadGeom.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, -1, 1, 0, 1], 3))
+    const spreadMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 0.16 })
+    const spread = new THREE.Mesh(spreadGeom, spreadMat)
+    spread.visible = false
+    spread.renderOrder = 997
+    spread.frustumCulled = false
+    scene.add(spread)
+
     trajectoryRef.current = {
       group, shaft, head, mat,
+      spread, spreadMat,
       dots, dotColors, maxDots: MAX_DOTS,
       foul, foulMat,
       goalRing, goalRingMat,
@@ -128,8 +139,9 @@ function TrajectoryLineManager({ trajectoryRef }) {
       scene.remove(foul)
       scene.remove(goalRing)
       scene.remove(ring)
+      scene.remove(spread)
       dots.dispose()
-      ;[shaftGeom, headGeom, mat, dotGeom, dotMat, foulMat, foulRingGeom, foulBarGeom, goalRingGeom, goalRingMat, ringGeom, ringMat].forEach(g => g.dispose())
+      ;[shaftGeom, headGeom, mat, dotGeom, dotMat, foulMat, foulRingGeom, foulBarGeom, goalRingGeom, goalRingMat, ringGeom, ringMat, spreadGeom, spreadMat].forEach(g => g.dispose())
     }
   }, [scene, trajectoryRef])
 

@@ -346,6 +346,8 @@ describe('simulated play', () => {
   }
 
   it('a flick into the ball moves it and counts a shot', () => {
+    // A long shot can drift a few degrees; hold it dead straight here
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
     resetToKickoff('team1')
     readyTurn()
     place('team1_atk1', -3, 0)
@@ -355,6 +357,7 @@ describe('simulated play', () => {
     expect(pos('ball').x).toBeGreaterThan(1)
     expect(store().stats.team1.shots).toBe(1)
     expect(store().firstCollisionTracked).toBe(true)
+    vi.restoreAllMocks()
   })
 
   it('hitting an opponent first is a foul', () => {
@@ -511,9 +514,10 @@ describe('goal contact history', () => {
     expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
   })
 
-  it('counts a direct goal when the shooter cap hits a pitch edge', () => {
+  it('counts a direct goal when the shooter cap hits a pitch edge after striking the ball', () => {
     goalReady()
     const cushion = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion')
+    contact(getBodies().team1_atk1, getBodies().ball)
     contact(getBodies().team1_atk1, cushion)
     expect(getGoalEvidence().capHitEdge).toBe(true)
     expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
@@ -533,6 +537,27 @@ describe('goal contact history', () => {
     const post = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion' && b.position.x > PITCH.halfW)
     contact(getBodies().ball, post)
     expect(getGoalEvidence().postContact).toBe(true)
+    place('ball', PITCH.halfW + 0.8, 0)
+    expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
+  })
+
+  it('disallows a goal when the flicked cap came off a cushion before it struck the ball', () => {
+    goalReady()
+    place('ball', 0, 0)
+    const cushion = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion')
+    contact(getBodies().team1_atk1, cushion)
+    contact(getBodies().team1_atk1, getBodies().ball)
+    expect(getGoalEvidence().capBankedFirst).toBe(true)
+    place('ball', PITCH.halfW + 0.8, 0)
+    expect(checkGoal(getBodies().ball).outcome).toBe('cap_bank_shot')
+  })
+
+  it('allows the goal when the cap only touches a cushion after it struck the ball', () => {
+    goalReady()
+    place('ball', 0, 0)
+    const cushion = Matter.Composite.allBodies(getEngine().world).find((b) => b.label === 'pitch_cushion')
+    contact(getBodies().team1_atk1, getBodies().ball)
+    contact(getBodies().team1_atk1, cushion)
     place('ball', PITCH.halfW + 0.8, 0)
     expect(checkGoal(getBodies().ball)).toEqual({ outcome: 'goal', scorer: 'team1' })
   })

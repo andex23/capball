@@ -4,7 +4,7 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
-  stopAllBodies, getLastBallTeam, getGoalEvidence, clearKeeperDive, getFoulPending,
+  stopAllBodies, getLastBallTeam, getGoalEvidence, clearKeeperDive, getFoulPending, narrowAngles,
 } from './PhysicsWorld'
 import { ballInCorner, cornerRestart, otherTeam, isOwnGoal } from '../game/rules'
 import { checkGoal } from './GoalDetector'
@@ -110,8 +110,10 @@ export function usePhysicsSync(meshRefs) {
         x = p.x + (x - p.x) * a
         y = p.y + (y - p.y) * a
       }
-      mesh.position.x += (x - mesh.position.x) * blend
-      mesh.position.z += (y - mesh.position.z) * blend
+      // A keeper stepping out between flicks glides there instead of jumping
+      const b = authority && id.endsWith('_gk') && store.phase !== PHASE.RESOLVE ? Math.min(1, delta * 9) : blend
+      mesh.position.x += (x - mesh.position.x) * b
+      mesh.position.z += (y - mesh.position.z) * b
       // How fast it moved on screen this frame (teleports for set pieces don't count)
       const moved = Math.hypot(mesh.position.x - ox, mesh.position.z - oz)
       // Keepers lean into a dive and settle back upright
@@ -158,12 +160,12 @@ export function usePhysicsSync(meshRefs) {
         stopBall()
         playGoal()
         s.scoreGoal(verdict.scorer, { decision, ownGoal: isOwnGoal(verdict.scorer, s.lastFlickedCapId, getLastBallTeam()) })
-      } else if (verdict.outcome === 'bank_shot') {
-        // In off the wall: no goal, the defending side restarts with a goal kick
+      } else if (verdict.outcome === 'bank_shot' || verdict.outcome === 'cap_bank_shot') {
+        // In off the wall (the ball, or the cap before it struck the ball): no goal, the defending side restarts with a goal kick
         stopAllBodies()
         playWhistle()
         const b = bodies.ball.position
-        s.disallowGoal('bank_shot', { evidence: decision.evidence, restart: { kind: 'goalKick', team: otherTeam(verdict.scorer), ex: b.x < 0 ? -1 : 1, ey: b.y < 0 ? -1 : 1, reason: 'bank' } })
+        s.disallowGoal(verdict.outcome, { evidence: decision.evidence, restart: { kind: 'goalKick', team: otherTeam(verdict.scorer), ex: b.x < 0 ? -1 : 1, ey: b.y < 0 ? -1 : 1, reason: 'bank' } })
       } else {
         // Doesn't count — ball back to the centre spot, possession changes.
         stopAllBodies()
@@ -189,6 +191,8 @@ export function usePhysicsSync(meshRefs) {
       playWhistle()
       s.awardRestart({ ...cornerRestart(corner.ex, getLastBallTeam(), s.team1Side || 'left'), ...corner })
     } else {
+      // Keepers step out to narrow the angle before the next flick (not in the daily puzzle)
+      if (!s.challenge) narrowAngles()
       playTurnChange()
       s.switchTurn()
     }

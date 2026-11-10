@@ -182,6 +182,82 @@ export function attachKeeperGrip(eng, bodyMap) {
   })
 }
 
+/* Keeper save reflex: when a hard shot heads for goal, the keeper defending
+   it may slide along his line towards where the ball will cross. Whether he
+   reacts depends on his reflex (0..1) and how readable the shot is: a long
+   shot gives him time, a close one hardly any. He also only slides so fast,
+   so a well-placed shot from close in still beats him. The decision comes
+   from the shot itself (no Math.random), so the live match, the computer's
+   look-ahead and an anytime replay all agree. Shared by every world. */
+export const REFLEX = {
+  shotSpeed: 0.9,   // slower than this isn't a shot he reacts to
+  slide: 0.6,       // how fast he moves across (penalty dives are 1.8)
+  delaySteps: 16,   // sub-steps before he moves (his reaction time)
+  readNear: 4,      // a shot from this close is barely readable...
+  readFar: 22,      // ...one from this far is fully readable
+  minRead: 0.15,
+  maxRead: 0.4,     // even a long shot isn't always read
+  miss: 3.0,        // how far off a poor keeper guesses (units, at reflex 0)
+}
+
+/** Where (y) a ball at (x, y) moving (vx, vy) crosses the line x = goalX, or null if it isn't heading there. */
+export function crossingAt(x, y, vx, vy, goalX) {
+  if (!vx || Math.sign(goalX - x) !== Math.sign(vx)) return null
+  return y + (goalX - x) * (vy / vx)
+}
+
+/** A steady 0..1 number from a shot, so the same shot always gets the same reaction. */
+function shotNoise(a, b) {
+  const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453
+  return v - Math.floor(v)
+}
+
+/** Does a keeper with this reflex react to a shot from `dist` away, and where does he go? */
+export function keeperRead(reflex, dist, cross, ballX, ballY) {
+  const t = Math.max(0, Math.min(1, (dist - REFLEX.readNear) / (REFLEX.readFar - REFLEX.readNear)))
+  const chance = Math.max(0, Math.min(1, reflex)) * (REFLEX.minRead + (REFLEX.maxRead - REFLEX.minRead) * t)
+  const roll = shotNoise(Math.round(ballX * 100) / 100, Math.round(ballY * 100) / 100)
+  if (roll >= chance) return null
+  const guess = (shotNoise(cross, ballX) * 2 - 1) * REFLEX.miss * (1 - reflex)
+  return cross + guess
+}
+
+/**
+ * Attach the save reflex to an engine. getOpts() gives { team1Side, reflex: { team1, team2 } }
+ * (reflex 0..1 per keeper) or null to switch it off (penalties, set-up phases, puzzles).
+ */
+export function attachKeeperReflex(eng, bodyMap, getOpts) {
+  let shot = null // { gk, cross, target, wait }
+  const goalHalf = PITCH.goalWidth / 2
+  Events.on(eng, 'afterUpdate', () => {
+    const opts = getOpts()
+    const bodies = bodyMap()
+    const ball = bodies.ball
+    if (!opts || !ball) { shot = null; return }
+    const { x, y } = ball.position
+    const { x: vx, y: vy } = ball.velocity
+    const speed = Math.hypot(vx, vy)
+    const goalX = Math.sign(vx) * PITCH.halfW
+    const cross = speed >= REFLEX.shotSpeed ? crossingAt(x, y, vx, vy, goalX) : null
+    const onTarget = cross !== null && Math.abs(cross) <= goalHalf + 0.6 && Math.abs(x) < PITCH.halfW
+    if (!onTarget) { shot = null; return }
+    // A new shot (or a deflection that changed where it's going): the keeper reads it afresh
+    if (!shot || Math.abs(shot.cross - cross) > 0.8 || Math.sign(goalX) !== shot.side) {
+      const team = teamHomeDir('team1', opts.team1Side) === Math.sign(goalX) ? 'team1' : 'team2'
+      const gk = `${team}_gk`
+      const target = bodies[gk] ? keeperRead(opts.reflex?.[team] ?? 0, Math.abs(goalX - x), cross, x, y) : null
+      shot = { gk, cross, side: Math.sign(goalX), target, wait: REFLEX.delaySteps }
+    }
+    if (shot.target === null) return
+    if (shot.wait > 0) { shot.wait--; return }
+    const k = bodies[shot.gk]
+    const dy = Math.max(-goalHalf + 0.3, Math.min(goalHalf - 0.3, shot.target)) - k.position.y
+    if (Math.abs(dy) < 0.05) { Body.setVelocity(k, { x: k.velocity.x * 0.5, y: 0 }); shot.target = null; return }
+    Body.setVelocity(k, { x: k.velocity.x * 0.5, y: Math.sign(dy) * Math.min(REFLEX.slide, Math.abs(dy)) })
+  })
+  return () => { shot = null }
+}
+
 /** A cap or the ball, not yet added to any world. Radius and mass follow from the id. */
 export function makeDynamicBody(id, x, y) {
   const isBall = id === 'ball'
@@ -287,7 +363,7 @@ export function clampBodyMap(bodies, team1Side, diveStop = null) {
   }
 }
 
-export function createSimulationWorld(snapshot, { team1Side = 'left' } = {}) {
+export function createSimulationWorld(snapshot, { team1Side = 'left', reflex = null } = {}) {
   const simEngine = Engine.create({ positionIterations: 20, velocityIterations: 20 })
   simEngine.gravity.x = 0
   simEngine.gravity.y = 0
@@ -304,6 +380,9 @@ export function createSimulationWorld(snapshot, { team1Side = 'left' } = {}) {
   }
   Events.on(simEngine, 'beforeUpdate', () => applyStepFriction(simBodies))
   attachKeeperGrip(simEngine, () => simBodies)
+  // reflex: { team1, team2 } levels, or a function giving them (null = off for now)
+  const reflexNow = typeof reflex === 'function' ? reflex : () => reflex
+  const forgetShot = reflex ? attachKeeperReflex(simEngine, () => simBodies, () => { const r = reflexNow(); return r ? { team1Side, reflex: r } : null }) : () => {}
 
   function step(frameMs = 16, shouldStop = null) {
     for (let i = 0; i < SUB_STEPS; i++) {
@@ -323,6 +402,7 @@ export function createSimulationWorld(snapshot, { team1Side = 'left' } = {}) {
       Body.setVelocity(body, { x: p.vx || 0, y: p.vy || 0 })
     }
     Matter.Pairs.clear(simEngine.pairs) // forget contacts from the last run
+    forgetShot()
   }
   return { engine: simEngine, bodies: simBodies, step, reset }
 }
