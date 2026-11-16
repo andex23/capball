@@ -1,4 +1,4 @@
-import { useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { Component, useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -18,8 +18,9 @@ import { usePhysicsSync } from '../physics/PhysicsSync'
 import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
-import { applyPendingBodies } from '../state/savedMatch'
-import { createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick, applyCapMasses } from '../physics/PhysicsWorld'
+import { applyPendingBodies, setPendingBodies } from '../state/savedMatch'
+import { isLagos } from '../platform'
+import { snapshotBodies, createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick, applyCapMasses } from '../physics/PhysicsWorld'
 import { massScale } from '../game/squad'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
@@ -411,28 +412,105 @@ function CameraRefCapture() {
   return null
 }
 
+/* A phone can take the 3D drawing surface away at any moment (low graphics
+   memory, another tab or the host app wanting it). The canvas then goes blank
+   while the scoreboard carries on. We wait briefly for the phone to hand it
+   back; if it doesn't, the canvas is rebuilt with every cap where it was. After
+   a few failed rebuilds we say so and offer a reload instead of a blank screen. */
+const RESTORE_WAIT_MS = 1200
+const MAX_REBUILDS = 4
+const STABLE_MS = 15000
+
+/** Catches a canvas that couldn't be created at all (no graphics available). */
+class PitchBoundary extends Component {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch() { this.props.onFail?.() }
+  render() { return this.state.failed ? null : this.props.children }
+}
+
+/** Inside Lagos Life the game shares the phone's graphics with the host app: draw a little lighter there. */
+const GL_OPTIONS = isLagos() ? { antialias: true, powerPreference: 'default' } : { antialias: true, preserveDrawingBuffer: true }
+const DPR = isLagos() ? [1, 1.5] : [1, 2]
+
 export default function Scene() {
   const matchKey = useMatchStore((s) => s.matchKey)
+  // gen: bumped to rebuild the canvas. state: 'ok' | 'lost' (trying) | 'dead' (gave up)
+  const [gen, setGen] = useState(0)
+  const [state, setState] = useState('ok')
+  const rebuilds = useRef(0)
+  const timers = useRef({})
+  useEffect(() => () => { clearTimeout(timers.current.wait); clearTimeout(timers.current.stable) }, [])
+
+  const rebuild = useCallback(() => {
+    clearTimeout(timers.current.wait)
+    if (rebuilds.current >= MAX_REBUILDS) { setState('dead'); return }
+    rebuilds.current++
+    // Keep every cap where it is: the new scene lays out a fresh world, then restores these
+    if (isAuthority(useMatchStore.getState())) { const snap = snapshotBodies(); if (Object.keys(snap).length) setPendingBodies(snap) }
+    setState('lost')
+    setGen((g) => g + 1)
+  }, [])
+
+  const watch = useCallback((canvas) => {
+    const onLost = (e) => {
+      e.preventDefault() // lets the phone give it back
+      setState('lost')
+      clearTimeout(timers.current.stable)
+      clearTimeout(timers.current.wait)
+      timers.current.wait = setTimeout(rebuild, RESTORE_WAIT_MS)
+    }
+    const onRestored = () => { clearTimeout(timers.current.wait); setState('ok') }
+    canvas.addEventListener('webglcontextlost', onLost)
+    canvas.addEventListener('webglcontextrestored', onRestored)
+    // Drawing again: once it has held for a while, forget the earlier failures
+    setState('ok')
+    clearTimeout(timers.current.stable)
+    timers.current.stable = setTimeout(() => { rebuilds.current = 0 }, STABLE_MS)
+  }, [rebuild])
+
+  const retry = () => { rebuilds.current = 0; rebuild() }
+
   return (
-    <Canvas
-      shadows
-      camera={{
-        position: [0, 30, 5],
-        fov: 55,
-        near: 0.1,
-        far: 400,
-      }}
-      gl={{ antialias: true, preserveDrawingBuffer: true }}
-      style={{ width: '100%', height: '100%' }}
-      onCreated={({ camera, scene }) => {
-        camera.lookAt(0, 0, 0)
-        const stadiumId = useMatchStore.getState().stadium || 'arena'
-        const stadiumCfg = STADIUMS[stadiumId] || STADIUMS.arena
-        scene.fog = new THREE.FogExp2(stadiumCfg.fogColor, stadiumCfg.fogDensity)
-      }}
-    >
-      <color attach="background" args={[STADIUMS[useMatchStore.getState().stadium || 'arena'].bgColor]} />
-      <GameWorld key={matchKey} />
-    </Canvas>
+    <>
+      {state !== 'dead' && (
+        <PitchBoundary key={gen} onFail={() => { timers.current.wait = setTimeout(rebuild, RESTORE_WAIT_MS) }}>
+          <Canvas
+            shadows
+            dpr={DPR}
+            camera={{
+              position: [0, 30, 5],
+              fov: 55,
+              near: 0.1,
+              far: 400,
+            }}
+            gl={GL_OPTIONS}
+            style={{ width: '100%', height: '100%' }}
+            onCreated={({ camera, scene, gl }) => {
+              camera.lookAt(0, 0, 0)
+              const stadiumId = useMatchStore.getState().stadium || 'arena'
+              const stadiumCfg = STADIUMS[stadiumId] || STADIUMS.arena
+              scene.fog = new THREE.FogExp2(stadiumCfg.fogColor, stadiumCfg.fogDensity)
+              watch(gl.domElement)
+            }}
+          >
+            <color attach="background" args={[STADIUMS[useMatchStore.getState().stadium || 'arena'].bgColor]} />
+            <GameWorld key={matchKey} />
+          </Canvas>
+        </PitchBoundary>
+      )}
+      {state !== 'ok' && (
+        <div className="pitch-lost" role="status">
+          {state === 'lost' ? <p>Bringing the pitch back…</p> : (
+            <>
+              <p><b>The pitch couldn’t be drawn.</b></p>
+              <p>Your phone is low on graphics memory. Closing other tabs or apps usually fixes it.</p>
+              <button className="btn btn-gold" onClick={retry}>Try again</button>
+              <button className="btn btn-secondary" onClick={() => window.location.reload()}>Reload the game</button>
+            </>
+          )}
+        </div>
+      )}
+    </>
   )
 }

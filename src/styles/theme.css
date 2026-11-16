@@ -2719,3 +2719,9 @@ button.other-side { cursor: pointer; }
 .tour-winners b { font: 700 11px/1 var(--font-pixel); letter-spacing: 0.1em; text-transform: uppercase; color: #fff; }
 .tour-winners span { flex: 1; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tour-winners svg { color: var(--iss-yellow, #ffd23f); flex: none; }
+
+/* ── The 3D pitch went away (phone took the graphics back) ── */
+.pitch-lost { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; color: #fff; pointer-events: none; }
+.pitch-lost p { margin: 0; max-width: 300px; font-size: 14px; line-height: 1.4; }
+.pitch-lost p:first-child { font-family: var(--font-pixel); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.pitch-lost .btn { pointer-events: auto; min-width: 200px; }
