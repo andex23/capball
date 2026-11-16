@@ -70,6 +70,7 @@ export default function LagosFriendScreen() {
   // Connected: both players go on to pick their teams together
   useEffect(() => {
     if (status.status !== 'connected' || !linking.current) return
+    useLagosStore.getState().count('paired')
     const t = setTimeout(() => goToScreen(SCREEN.TEAM_SELECT), 900)
     return () => clearTimeout(t)
   }, [status.status, goToScreen])
@@ -81,7 +82,9 @@ export default function LagosFriendScreen() {
     try {
       const old = useLagosStore.getState().match
       if (old && (used.has(old.id) || !['open', 'playing'].includes(old.status))) await useLagosStore.getState().leaveMatch()
+      useLagosStore.getState().count('find', kind)
       await useLagosStore.getState().findMatch(kind, code, kind === 'join' ? 0 : stake)
+      useLagosStore.getState().count('find_ok', kind)
       setMadeCode(kind === 'create')
     } catch (e) {
       // The SDK hides some of Lagos Life's codes behind "error": the real one picks
@@ -98,6 +101,7 @@ export default function LagosFriendScreen() {
     playButtonSelect()
     linking.current = null
     disconnect()
+    useLagosStore.getState().count('find_cancel')
     await useLagosStore.getState().leaveMatch()
     setView('menu')
   }

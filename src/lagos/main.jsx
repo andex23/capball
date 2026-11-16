@@ -24,6 +24,8 @@ import { initClips } from '../game/clips'
 import { initCapOverrides } from '../game/capOverrides'
 import { useLagosStore, watchMatches } from './lagosStore'
 import { initIosAudio } from './iosAudio'
+import { watchMatchAnalytics } from '../analytics'
+import { useMatchStore } from '../state/MatchStore'
 
 initPersistence()
 initTournamentWatch()
@@ -37,6 +39,13 @@ initClips()
 initCapOverrides()
 watchMatches()
 useLagosStore.getState().boot()
+// Count matches started and finished, by mode (our own server, counts only)
+watchMatchAnalytics(useMatchStore, (event, _path, meta) => {
+  if (event === 'match_start') useLagosStore.getState().count('match_start', meta?.mode)
+  else if (event === 'match_complete') useLagosStore.getState().count('match_end', meta?.mode)
+})
+// ...and how often a phone takes the pitch away (see Scene.jsx)
+globalThis.__counterballCount = (event) => useLagosStore.getState().count(event)
 
 // Cap artwork is drawn with the game's fonts: have them ready first (they're local, so this is quick)
 Promise.race([loadArtFonts(), new Promise((r) => setTimeout(r, 1500))]).finally(() => {

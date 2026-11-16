@@ -146,6 +146,7 @@ export const useLagosStore = create((set, get) => ({
       // copied to the Counterball server; progress stays on this phone.
       useAccountStore.setState({ username: player.name || 'Player', token: null })
       set({ status: 'ready', player, mode: launch.mode, wins: readWins(player.id) })
+      get().count('open')
       sdk.onPause?.(() => get().pause())
       sdk.onResume?.(() => get().resume())
       sdk.match?.onUpdate?.((raw) => {
@@ -346,6 +347,12 @@ export const useLagosStore = create((set, get) => ({
   clearShopNote: () => set({ shopNote: null }),
 
   /* ── Friend matches ── */
+
+  /** Count something that happened (opens, matches, how finding a player went). Our server only; never shown to players. */
+  count(event, detail) {
+    if (!sdk) return
+    server({ action: 'count', event, ...(detail ? { detail } : {}) }).catch(() => {})
+  },
 
   /** Send the exact Lagos Life code behind a failure to our server's logs. Players only see the friendly message. */
   reportError(code, where) {
