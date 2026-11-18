@@ -3,6 +3,10 @@
  * game leaves them empty), so shared screens don't import platform code.
  */
 export const platformHooks = {
+  /** Persist progress using the signed-in host player's session. */
+  saveProgress: null,
+  /** A daily reward about to be awarded, for recovery after an interrupted upload. */
+  onDailyClaim: null,
   /** The player chose to leave an online match before the end. */
   onOnlineQuit: null,
   /** A line shown above "Leave match", e.g. that leaving loses a stake. */
