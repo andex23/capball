@@ -667,8 +667,11 @@ export function chooseHeuristic(ctx, { aimNoise = 0.2, powerMult = 1, scoreNoise
     powers: [1.6], blocks: true, maxPower: PHYSICS.maxFlickVelocity * powerMult,
   })
   if (!cands.length) return null
+  // Never choose a play that sends the ball at our own net: with nothing else on, hold off
+  const safe = cands.filter((c) => !towardsOwnGoal(ctx, c))
+  if (!safe.length) return null
   let best = null
-  for (const c of cands) {
+  for (const c of safe) {
     const score = heuristicScore(ctx, c) + (rng() - 0.5) * scoreNoise
     if (!best || score > best.score) best = { ...c, score }
   }
@@ -722,7 +725,7 @@ export function chooseBySimulation(ctx, { budgetMs = 70, maxSims = 40, aimNoise 
   // the outcome we score is the flick we'll actually play.
   const ranked = cands
     .map((c) => ({ ...jitter(c, aimNoise, rng), h: heuristicScore(ctx, c) }))
-    .filter((c) => safeFlick(ctx, c))
+    .filter((c) => safeFlick(ctx, c) && !towardsOwnGoal(ctx, c))
     .sort((a, b) => b.h - a.h)
   if (!ranked.length) return null
 

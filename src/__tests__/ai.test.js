@@ -254,3 +254,34 @@ describe('thinking time', () => {
     expect(Math.max(...times)).toBeLessThan(150)
   })
 })
+
+describe('no own goals', () => {
+  // Scrambles in front of the computer's own goal (it defends the right-hand one),
+  // played out in the real world: it must never put the ball in its own net
+  it.each(['easy', 'medium', 'hard'])('%s never scores against itself from a goalmouth scramble', (level) => {
+    let own = 0
+    const seen = []
+    for (let seed = 1; seed <= 40; seed++) {
+      const r = seeded(seed * 7 + 1)
+      clearMatchTimers()
+      useMatchStore.setState(initial, true)
+      useMatchStore.setState({ aiDifficulty: level })
+      createPhysicsWorld()
+      resetToKickoff('team1')
+      readyTurn()
+      for (const id of Object.keys(getBodies())) {
+        if (id === 'ball' || id.endsWith('_gk')) continue
+        place(id, 4 + r() * 10, (r() - 0.5) * 14)
+      }
+      place('ball', 7 + r() * 6.5, (r() - 0.5) * 9)
+      place('team2_gk', 13.9, (r() - 0.5) * 2)
+      for (let k = 0; k < 60; k++) stepPhysics(16 / 3)
+      const d = computeSmartDecision(AI, level, null, r)
+      if (!d) continue // nothing safe on: it holds off rather than risk it
+      const v = play(d, 6000)
+      if (v?.scorer === 'team1') { own++; seen.push(seed) }
+    }
+    expect(seen).toEqual([])
+    expect(own).toBe(0)
+  }, 120000)
+})
