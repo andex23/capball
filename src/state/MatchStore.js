@@ -1,3 +1,4 @@
+import { playerOf } from '../game/commentary'
 import { onlineInterrupted } from '../multiplayer/reconnect'
 import { create } from 'zustand'
 import { otherTeam, shootoutStatus, nextShooter, matchWinner } from '../game/rules'
@@ -463,7 +464,8 @@ export const useMatchStore = create((set, get) => ({
   cancelAim: () => { if (get().phase === PHASE.AIM) set({ selectedCapId: null, phase: PHASE.SELECT, dragPower: 0 }) },
 
   /** A flick has been applied to the physics world — watch it play out. */
-  commitFlick: (capId) => set({
+  commitFlick: (capId, fromOwnHalf = false) => set({
+    fromOwnHalf,
     selectedCapId: capId,
     lastFlickedCapId: capId,
     phase: PHASE.RESOLVE,
@@ -547,7 +549,7 @@ export const useMatchStore = create((set, get) => ({
       lastScorer: scoringTeam,
       lastGoalOwn: !!ownGoal,
       lastGoalCap: cap,
-      goalLog: [...(get().goalLog || []), { team: scoringTeam, cap, own: !!ownGoal, shootout: !!get().penaltyShootout, half: get().half, t: Math.round(get().timeRemaining) }],
+      goalLog: [...(get().goalLog || []), { team: scoringTeam, cap, playerName: playerOf(get().teamConfig, cap)?.name, own: !!ownGoal, shootout: !!get().penaltyShootout, fromOwnHalf: !!get().fromOwnHalf, half: get().half, t: Math.round(get().timeRemaining) }],
       lastConceded: concedingTeam,
     })
     // First to N: that goal wins it

@@ -26,7 +26,7 @@ export function weekKey(date = new Date()) {
 export const DAILY_REWARDS = [
   { coins: 10 },
   { coins: 15 },
-  { coins: 20 },
+  { coins: 20, scout: true },
   { coins: 25 },
   { coins: 30 },
   { fitness: true, coins: 30 }, // the coins only if there's no career to rest

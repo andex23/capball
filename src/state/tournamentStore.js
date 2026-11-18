@@ -22,6 +22,8 @@ import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '..
 import { careerNext, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
+import { pressBoost } from '../game/careerBrief'
+import { legendById } from '../data/Legends'
 import { reportExtras } from '../game/matchReport'
 import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import { useCareerStore } from './careerStore'
@@ -354,12 +356,20 @@ export const useTournamentStore = create((set, get) => ({
     const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : squadRatings(sixOf(team)))
     // ...and each player's attributes: PWR, SHT, PAS and PHY play out on the pitch
     // Your players play at their fitness: a tired player flicks softer and is lighter
-    const tiredSquad = (sq) => Object.fromEntries(Object.entries(sq).map(([r, p]) => [r, { ...p, attrs: matchAttrs(p) }]))
+    const tiredSquad = (sq) => Object.fromEntries(Object.entries(sq).map(([r, p]) => [r, { ...p, attrs: matchAttrs(p, pressBoost(career, p)) }]))
     const attrsOf = (team) => (!career ? null : team.id === 'T1' ? squadAttrs(tiredSquad(career.squad)) : squadAttrs(sixOf(team)))
     // Career: your players' own names go on your caps
     const playersOf = (team) => (!career ? null : squadSurnames(team.id === 'T1' ? career.squad : sixOf(team)))
+    const matchKit = (team, side) => {
+      const kit = kitFor(team, side, ratingsOf(team), playersOf(team), attrsOf(team))
+      if (career) {
+        const six = team.id === 'T1' ? career.squad : sixOf(team)
+        kit.traits = Object.fromEntries(Object.entries(six).filter(([, p]) => legendById(p.id)).map(([role, p]) => [role, legendById(p.id).trait]))
+      }
+      return kit
+    }
     useMatchStore.setState({
-      teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home), playersOf(home), attrsOf(home)), team2: kitFor(away, 'team2', ratingsOf(away), playersOf(away), attrsOf(away)) },
+      teamConfig: { team1: matchKit(home, 'team1'), team2: matchKit(away, 'team2') },
       gameMode: cpuSide ? 'ai' : 'local',
       aiTeam: cpuSide || ms.aiTeam,
       // Career settings can fix the computer's level and the time per half
@@ -412,7 +422,8 @@ export const useTournamentStore = create((set, get) => ({
           ...cfg,
           players: { ...(cfg.players || {}), [role]: surname },
           ratings: { ...(cfg.ratings || {}), [role]: ovrAt(incoming, role) },
-          attrs: { ...(cfg.attrs || {}), [role]: incoming.attrs },
+          attrs: { ...(cfg.attrs || {}), [role]: matchAttrs(incoming, pressBoost(career, incoming)) },
+          traits: { ...(cfg.traits || {}), [role]: legendById(incoming.id)?.trait || null },
         },
       },
     })
@@ -579,8 +590,11 @@ export const useTournamentStore = create((set, get) => ({
         pens: matchResult.penaltyScore || null, extraTime: !!matchResult.afterExtraTime,
       })
       // Stats, who was on top when, and the scorers, for the report
-      const extras = reportExtras({ side, goalLog: ms.goalLog || [], matchEvents: ms.matchEvents || [], stats: matchResult.stats || ms.stats, teamConfig: ms.teamConfig, matchDuration: ms.matchDuration })
-      const perf = { ratings, goalsByRole, story, extras, ...(byPlayer ? { byPlayer } : {}) }
+      const goals = (ms.goalLog || []).map((g, i) => ({
+        ...g, sub: (p.subs || []).some((s) => s.goalIdx <= i && g.cap === side + '_' + s.role),
+      }))
+      const extras = reportExtras({ side, goalLog: goals, matchEvents: ms.matchEvents || [], stats: matchResult.stats || ms.stats, teamConfig: ms.teamConfig, matchDuration: ms.matchDuration, extraTime: !!matchResult.afterExtraTime })
+      const perf = { ratings, goalsByRole, story: story.map((event) => event.team ? { ...event, mine: event.team === side } : event), extras, ...(byPlayer ? { byPlayer } : {}) }
       if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, perf)
       else useCareerStore.getState().record(p.fixture.id, result, perf)
       return

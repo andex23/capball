@@ -1,3 +1,5 @@
+import SeasonOverview, { FormLine } from '../ui/SeasonOverview'
+import { fixtureBrief } from '../game/careerBrief'
 import { useState, useRef, useEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
@@ -471,7 +473,7 @@ export default function CareerScreen() {
     stops.sort((a, b) => a.date - b.date)
     const nowId = done ? null : due?.fixture.id
     return {
-      ahead: stops.filter((st) => !st.f.result && st.f.id !== nowId).slice(0, 3).reverse(),
+      ahead: stops.filter((st) => !st.f.result && st.f.id !== nowId),
       behind: stops.filter((st) => st.f.result).reverse(),
     }
   })()
@@ -494,45 +496,31 @@ export default function CareerScreen() {
         <main className="shell-body career-body" ref={mainRef}>
           {page === 'home' ? (
             <div className="career-col career-home">
-          <SaveBar />
-          {career.target && !done && played === 0 && (
-            <section className="card card-pad career-board" aria-label="The board’s target">
-              <div className="eyebrow">Season {career.season} · the board</div>
-              <h2 className="saved-h">{TARGETS[career.target]}</h2>
-              {career.warning
-                ? <p className="t-note career-warning"><b>Final warning.</b> You missed last season’s target. Miss this one and the board sacks you: your career ends and you start again.</p>
-                : <p className="t-note">Miss it and you get a final warning; miss again and you’re sacked. Meet it for a <b>{money(TARGET_BONUS[career.target])}</b> bonus.</p>}
-              <p className="muted t-note">Your squad’s OVR of <b>{myOvr}</b> ranks <b>{ordinal(squadRank)}</b> of {count} in the {division.name}.{squadRank > PROMOTED && career.target === 'promotion' ? ' Strengthen it in the transfer market before matchday 1.' : ''}</p>
-            </section>
-          )}
-
-          <ol className="road" aria-label="Your season">
-            {road.ahead.map((st) => <RoadStop key={st.f.id} stop={st} />)}
-            <li className="road-now">
-              {done ? <SeasonEnd career={career} /> : tie ? (
+          <div className="cs-matchday">
+              {done && !due ? <SeasonEnd career={career} /> : tie ? (
                 <section className="card card-pad career-next career-cup" aria-label={CUP_NAME}>
-                  <div className="road-ring road-ring-cup" aria-hidden><Icon name="trophy" size={22} /></div>
-                  <div className="career-date">{formatGameDate(today)}</div>
+                  <div className="career-date">{formatGameDate(today)} · {tie.home === ME ? 'Home' : 'Away'}</div>
                   <div className="eyebrow">{CUP_NAME} · {cupRoundName(tie)}</div>
                   <div className="career-vs">
-                    <TeamTag team={teamById(cupT, ME)} size={30} strong />
+                    <TeamTag team={teamById(cupT, ME)} size={52} strong />
                     <span className="vs-badge">VS</span>
-                    <TeamTag team={cupOpp} size={30} strong mirror />
+                    <TeamTag team={cupOpp} size={52} strong mirror />
                   </div>
                   <p className="career-match-line" data-matchup={matchupOf(myOvr, cupOppOvr)}>OVR {myOvr} v {cupOppOvr} · <b>{MATCHUP[matchupOf(myOvr, cupOppOvr)]}</b>{(career.cup.levels?.[cupOpp?.id] ?? career.level) !== career.level ? ` · ${DIVISIONS[career.cup.levels[cupOpp.id]].name}` : ''}</p>
                   <button className="btn btn-purple btn-lg btn-block" onClick={() => playCareerFixture(career, 'careerCup', tie)}><Icon name="trophy" size={20} /> {career.mode === 'solo' || !career.mode ? 'Play cup tie' : 'Play your friend in the cup'}</button>
-                  <p className="muted t-note">Knockout: a draw goes to penalties.</p>
+                  <p className="cs-preview-line">{fixtureBrief(career, due)}</p>
                 </section>
               ) : next && (
                 <section className="card card-pad career-next">
-                  <div className="road-ring" aria-hidden>MD{played + 1}</div>
                   <div className="career-date">{formatGameDate(today)} · {next.home === ME ? 'Home' : 'Away'}</div>
                   <div className="eyebrow">Matchday {played + 1} of {fixtures.length}</div>
                   <div className="career-vs">
-                    <TeamTag team={teamById(league, ME)} size={34} strong />
+                    <TeamTag team={teamById(league, ME)} size={52} strong />
                     <span className="vs-badge">VS</span>
-                    <TeamTag team={opponent} size={34} strong mirror />
+                    <TeamTag team={opponent} size={52} strong mirror />
                   </div>
+                  <FormLine league={league} opponent={opponent.id} />
+                  <p className="cs-preview-line">{fixtureBrief(career, due)}</p>
                   <p className="career-match-line" data-matchup={matchupOf(myOvr, theirOvr)}>OVR {myOvr} v {theirOvr} · <b>{MATCHUP[matchupOf(myOvr, theirOvr)]}</b></p>
                   <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}>
                     <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
@@ -545,9 +533,25 @@ export default function CareerScreen() {
                   <span>Board</span> {TARGETS[career.target].replace(/:.*/, '')} · now <b>{ordinal(pos)}</b>{career.warning ? ' · final warning' : ''}
                 </p>
               )}
-            </li>
-            {road.behind.map((st) => <RoadStop key={st.f.id} stop={st} onOpen={career.lastMatch?.fixtureId === st.f.id ? () => go('report') : null} />)}
-          </ol>
+          </div>
+          <SeasonOverview career={career} go={go} />
+          <details className="card card-pad season-details"><summary>Fixtures &amp; results</summary>
+            <ol className="road">
+              {road.behind.map((st) => <RoadStop key={st.f.id} stop={st} onOpen={career.lastMatch?.fixtureId === st.f.id ? () => go('report') : null} />)}
+              {road.ahead.map((st) => <RoadStop key={st.f.id} stop={st} />)}
+            </ol>
+          </details>
+          <SaveBar />
+          {career.target && !done && played === 0 && (
+            <section className="card card-pad career-board" aria-label="The board’s target">
+              <div className="eyebrow">Season {career.season} · the board</div>
+              <h2 className="saved-h">{TARGETS[career.target]}</h2>
+              {career.warning
+                ? <p className="t-note career-warning"><b>Final warning.</b> You missed last season’s target. Miss this one and the board sacks you: your career ends and you start again.</p>
+                : <p className="t-note">Miss it and you get a final warning; miss again and you’re sacked. Meet it for a <b>{money(TARGET_BONUS[career.target])}</b> bonus.</p>}
+              <p className="muted t-note">Your squad’s OVR of <b>{myOvr}</b> ranks <b>{ordinal(squadRank)}</b> of {count} in the {division.name}.{squadRank > PROMOTED && career.target === 'promotion' ? ' Strengthen it in the transfer market before matchday 1.' : ''}</p>
+            </section>
+          )}
 
           {career.lastSummer?.season === career.season && played === 0 && (career.lastSummer.retired.length > 0 || career.lastSummer.changes.length > 0 || career.lastSummer.youthIn?.length > 0 || career.lastSummer.world?.length > 0 || career.lastSummer.left?.length > 0) && (
             <section className="card card-pad" aria-label="Summer news">

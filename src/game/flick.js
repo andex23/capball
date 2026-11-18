@@ -51,6 +51,7 @@ export function flickScaleFor(state, capId) {
  */
 export function aimWobbleFor(state, capId, power = 1) {
   const a = attrsFor(state, capId)
+  if (state.teamConfig?.[teamOf(capId)]?.traits?.[capId.slice(6)] === 'touch' && power <= LONG_SHOT.softPower) return 0
   if (a) return flickWobble(a, power)
   const i = capId.indexOf('_')
   return aimWobble(state.teamConfig?.[capId.slice(0, i)]?.ratings?.[capId.slice(i + 1)])
@@ -62,11 +63,11 @@ export function aimWobbleFor(state, capId, power = 1) {
 export const LONG_SHOT = { near: 9, far: 24, maxDeg: 3, softPower: 0.4 }
 
 /** Extra stray (degrees) for a flick of this power from `dist` away from the goal being attacked. */
-export function longShotWobble(dist, power) {
+export function longShotWobble(dist, power, trait = null) {
   if (!Number.isFinite(dist) || !Number.isFinite(power)) return 0
   const far = Math.max(0, Math.min(1, (dist - LONG_SHOT.near) / (LONG_SHOT.far - LONG_SHOT.near)))
   const hard = Math.max(0, Math.min(1, (power - LONG_SHOT.softPower) / (1 - LONG_SHOT.softPower)))
-  return LONG_SHOT.maxDeg * far * hard
+  return LONG_SHOT.maxDeg * far * hard * (trait === 'range' ? 0.5 : 1)
 }
 
 /** How far this cap is from the goal its team attacks (null if it's not on the pitch). */
@@ -99,9 +100,14 @@ export function performFlick(capId, velocity, byTeam = null) {
   applyFlick(capId, { x: v.x * scale, y: v.y * scale }, PHYSICS.maxFlickVelocity * scale) // clamps to max power
   // ...and the further out a hard shot is struck, the more the ball can drift off
   // its line as it leaves the cap (not penalties or the daily puzzle)
-  if (!state.penaltyKick && !state.challenge) setShotStray(capId, longShotWobble(distanceToGoal(state, capId, getBody(capId)?.position), power))
+  const ball = getBody('ball')?.position
+  const fromOwnHalf = ball && ball.x * teamHomeDir(teamOf(capId), state.team1Side) > 0
+  if (!state.penaltyKick && !state.challenge) {
+    const trait = state.teamConfig?.[teamOf(capId)]?.traits?.[capId.slice(6)]
+    setShotStray(capId, longShotWobble(distanceToGoal(state, capId, getBody(capId)?.position), power, trait))
+  }
   if (state.penaltyKick) keeperDives(state, capId, velocity)
-  state.commitFlick(capId)
+  state.commitFlick(capId, !!fromOwnHalf)
   return null
 }
 

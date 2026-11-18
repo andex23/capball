@@ -8,11 +8,11 @@ import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WE
 import { money } from '../game/squad'
 import { dayKey } from '../game/daily'
 import { useCareerStore } from './careerStore'
-import { isSignedIn } from './accountStore'
+import { isSignedIn, useAccountStore } from './accountStore'
 
 export const REWARDS_KEY = 'capball:rewards:v1'
 const storage = () => { try { return globalThis.localStorage } catch { return null } }
-const EMPTY = { daily: null, week: null, caps: [], bank: 0, news: [] }
+const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [] }
 
 function clean(raw) {
   const r = raw && typeof raw === 'object' ? raw : {}
@@ -20,6 +20,7 @@ function clean(raw) {
     daily: r.daily && typeof r.daily === 'object' ? { next: r.daily.next, last: r.daily.last } : null,
     week: r.week && typeof r.week.key === 'string' && r.week.progress && typeof r.week.progress === 'object' ? { key: r.week.key, progress: { ...r.week.progress } } : null,
     caps: Array.isArray(r.caps) ? r.caps.filter((x) => typeof x === 'string').slice(0, 200) : [],
+    scouts: Number.isSafeInteger(r.scouts) ? Math.max(0, r.scouts) : 0,
     bank: Number.isFinite(r.bank) && r.bank > 0 ? Math.round(r.bank) : 0,
     // What the bell shows: { id, title, text, date }
     news: Array.isArray(r.news) ? r.news.filter((n) => n && typeof n.id === 'string').slice(0, 30) : [],
@@ -42,8 +43,8 @@ export const useRewardsStore = create((set, get) => ({
 
   _save(next) {
     set(next)
-    const { daily, week, caps, bank, news } = get()
-    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, news })) } catch { /* blocked */ }
+    const { daily, week, caps, bank, scouts, news } = get()
+    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, scouts, news })) } catch { /* blocked */ }
   },
 
   /** Today's reward: { day, ready, reward }. */
@@ -67,8 +68,13 @@ export const useRewardsStore = create((set, get) => ({
       if (cap) { s = { ...s, caps: [...s.caps, cap.key] }; got.cap = cap }
       got.coins = r.reward.coins
     } else got.coins = r.reward.coins
+    if (r.reward.scout) {
+      got.scout = true
+      if (!useCareerStore.getState().addScoutCredits(1)) s.scouts = (s.scouts || 0) + 1
+    }
     if (got.coins) s = pay(got.coins, s)
     get()._save(s)
+    useAccountStore.getState().save()
     return got
   },
 
@@ -93,14 +99,15 @@ export const useRewardsStore = create((set, get) => ({
       s.news = [{ id: `week:${key}`, title: 'All three weekly goals done!', text: `You’ve won this week’s cap. Pick it in Edit team.`, cap: cap.key, coins: WEEK_BONUS, date: today }, ...s.news].slice(0, 30)
     }
     get()._save(s)
+    useAccountStore.getState().save()
   },
 }))
 
-// Money that waited in the bank goes in as soon as a career starts
+// Deliver rewards collected before the player founded a club.
 useCareerStore.subscribe((c) => {
-  const { bank } = useRewardsStore.getState()
-  if (!c.career || bank <= 0) return
-  // Empty the bank first: paying in updates the career, which calls this again
-  useRewardsStore.getState()._save({ bank: 0 })
-  if (!useCareerStore.getState().addCoins(bank)) useRewardsStore.getState()._save({ bank })
+  const { bank, scouts, _save } = useRewardsStore.getState()
+  if (!c.career || (!bank && !scouts)) return
+  _save({ bank: 0, scouts: 0 })
+  if (bank && !c.addCoins(bank)) _save({ bank })
+  if (scouts && !c.addScoutCredits(scouts)) _save({ scouts })
 })

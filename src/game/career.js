@@ -14,6 +14,7 @@ import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade
 import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
 import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withContracts, REP_START, sanitizeAwards } from './clubLife'
 import { sanitizeStory } from './matchStory'
+import { legendById } from '../data/Legends'
 import { sanitizeExtras } from './matchReport'
 import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
 import {
@@ -278,6 +279,8 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     lastMatch: null,   // the matchday report: result, commentary, the round
     warning: false,    // missed a target: the next miss is the sack
     rep: REP_START,    // your name as a manager (0–100)
+    legendSignings: [],
+    scoutCredits: 0,
     scouted: [],       // players whose potential your scouts have checked
     rejected: null,    // offers for your players you've turned down this window
     sacked: null,      // set when the board sacks you: the career is over
@@ -516,6 +519,7 @@ export function sanitizeCareer(input) {
     world: sanitizeWorld(input.world, league.id),
     talks: sanitizeTalks(input.talks),
     deals: sanitizeDeals(input.deals),
+    legendSignings: Array.isArray(input.legendSignings) ? input.legendSignings.filter((id) => legendById(id)).slice(0, 12) : [],
     coins: Number.isInteger(input.coins) ? input.coins : START_COINS,
     lastEarned: Number.isInteger(input.lastEarned) ? input.lastEarned : 0,
     biz: sanitizeClub(input.biz, level, league.id),
@@ -524,6 +528,7 @@ export function sanitizeCareer(input) {
     warning: input.warning === true,
     // The day the last career match was played (one a day)
     rep: Number.isInteger(input.rep) ? Math.max(0, Math.min(100, input.rep)) : REP_START,
+    scoutCredits: Number.isSafeInteger(input.scoutCredits) ? Math.max(0, input.scoutCredits) : 0,
     scouted: Array.isArray(input.scouted) ? input.scouted.filter((x) => typeof x === 'string').map((x) => x.slice(0, 16)).slice(-400) : [],
     rejected: isObj(input.rejected) && typeof input.rejected.key === 'string' && Array.isArray(input.rejected.ids)
       ? { key: input.rejected.key.slice(0, 20), ids: input.rejected.ids.filter((x) => typeof x === 'string').slice(-30) } : null,
@@ -570,6 +575,14 @@ function sanitizeLastMatch(m) {
     result: { home: goals(m.result.home), away: goals(m.result.away), ...(isObj(m.result.pens) ? { pens: { home: goals(m.result.pens.home), away: goals(m.result.pens.away) } } : {}) },
     story: sanitizeStory(m.story),
     ...sanitizeExtras(m),
+    ...(Array.isArray(m.debuts) ? { debuts: m.debuts.filter((n) => typeof n === 'string').slice(0, 9).map((n) => n.slice(0, 24)) } : {}),
+    ...(typeof m.best?.name === 'string' && typeof m.best.id === 'string' && Number.isFinite(m.best.rating) ? {
+      best: { name: m.best.name.slice(0, 32), id: m.best.id.slice(0, 16), rating: Math.min(10, Math.max(0, m.best.rating)), sub: m.best.sub === 'on' ? 'on' : null },
+    } : {}),
+    ...(typeof m.brief === 'string' ? { brief: m.brief.slice(0, 160) } : {}),
+    ...(['squad', 'bench', 'player'].includes(m.press?.choice) && Array.isArray(m.press.ids) ? {
+      press: { choice: m.press.choice, ids: m.press.ids.filter((id) => typeof id === 'string').slice(0, 30) },
+    } : {}),
     ...(Number.isInteger(m.posBefore) && m.posBefore > 0 ? { posBefore: m.posBefore } : {}),
     seen: m.seen === true,
     season: Number.isInteger(m.season) ? m.season : 1,

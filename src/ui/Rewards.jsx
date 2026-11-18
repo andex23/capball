@@ -15,6 +15,7 @@ import Icon from './Icon'
 
 /** What a day's reward is, in two short words. */
 function rewardLabel(r, hasCareer) {
+  if (r.scout) return ['Scout report', '+ ' + money(r.coins)]
   if (r.cap) return ['Mystery cap', `+ ${money(r.coins)}`]
   if (r.fitness && hasCareer) return ['Fitness', 'Squad fully rested']
   return [money(r.coins), 'Club money']
@@ -56,6 +57,7 @@ export function DailyReward({ onClose }) {
         {got ? (
           <p className="rw-got" role="status">
             {got.cap ? <>You won the <b>{got.cap.name}</b> cap! Pick it in Edit team. </> : null}
+            {got.scout && <>One free report is ready in the career transfer market. </>}
             {got.fitness ? <>Your whole squad is fully rested.</> : null}
             {got.coins ? <><b>{money(got.coins)}</b> {hasCareer ? 'is in your career budget.' : 'is saved for your career budget.'}</> : null}
           </p>
