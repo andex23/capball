@@ -21,7 +21,7 @@
  * createPrediction(), so it can run every frame while aiming.
  */
 
-import { PITCH, PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
+import { PITCH, PHYSICS, CAP_RADIUS, GK_RADIUS, GK_HALF_D, GK_CAPSULE, BALL_RADIUS } from '../data/TeamData'
 import { isGoalkeeper, teamOf, teamHomeDir } from './rules'
 
 /** Matter.Resolver._restingThresh — below this closing speed a contact doesn't bounce. */
@@ -49,6 +49,8 @@ const EPS = 1e-9
 
 // Scratch results (module level so nothing is allocated per call)
 const sweepHit = { nx: 0, ny: 0 }
+/** The contact normal of the last sweep (from the body hit towards the mover). Read straight after calling. */
+export const lastSweepNormal = sweepHit
 const wallHit = { nx: 0, ny: 0 }
 
 /**
@@ -58,7 +60,9 @@ const wallHit = { nx: 0, ny: 0 }
  * is left in sweepHit. PhysicsWorld gives round bodies exact circle contacts,
  * taken at the moment they first touch, so this is a plain ray-circle test.
  */
-function sweep(x, y, ux, uy, cx, cy, rSum) {
+function sweep(x, y, ux, uy, cx, cy, rSum, hl = 0) {
+  // A standing keeper is a capsule along y: test its straight sides and round ends
+  if (hl > 0) return sweepCapsule(x, y, ux, uy, cx, cy, rSum, hl)
   const qx = x - cx
   const qy = y - cy
   const b = qx * ux + qy * uy
@@ -78,6 +82,38 @@ function sweep(x, y, ux, uy, cx, cy, rSum) {
   sweepHit.nx = (qx + ux * t) / rSum
   sweepHit.ny = (qy + uy * t) / rSum
   return t
+}
+
+/**
+ * As sweep, against a capsule: a segment from (cx, cy - hl) to (cx, cy + hl)
+ * grown by rSum (a standing keeper, or anything meeting one). The nearest of
+ * its two straight sides and its two round ends.
+ */
+export function sweepCapsule(x, y, ux, uy, cx, cy, rSum, hl) {
+  let best = -1, bnx = 0, bny = 0
+  // Straight sides: x = cx ± rSum, while y stays within the segment
+  if (Math.abs(ux) > EPS) {
+    for (const side of [-1, 1]) {
+      const wx = cx + side * rSum
+      // Only from outside, moving in
+      if ((x - wx) * side < 0 || ux * side >= 0) continue
+      const t = (wx - x) / ux
+      const yy = y + uy * t
+      if (t >= 0 && Math.abs(yy - cy) <= hl && (best < 0 || t < best)) { best = t; bnx = side; bny = 0 }
+    }
+  }
+  // Round ends
+  for (const end of [-1, 1]) {
+    const t = sweep(x, y, ux, uy, cx, cy + end * hl, rSum)
+    if (t >= 0 && (best < 0 || t < best)) { best = t; bnx = sweepHit.nx; bny = sweepHit.ny }
+  }
+  if (best >= 0) { sweepHit.nx = bnx; sweepHit.ny = bny }
+  return best
+}
+
+/** The shape the aim preview uses for a cap: round (hl 0), or the keeper's capsule. */
+export function keeperShape(capId) {
+  return isGoalkeeper(capId) ? GK_CAPSULE : { hl: 0, r: CAP_RADIUS }
 }
 
 /** Distance to the edge of a box of allowed centre positions; inward normal left in wallHit. */
@@ -161,9 +197,9 @@ export function createPrediction() {
 /** Plain input object for predictShot (make once, fill each frame). */
 export function createShot(maxBodies = 16) {
   const bodies = []
-  for (let i = 0; i < maxBodies; i++) bodies.push({ x: 0, y: 0, r: CAP_RADIUS, contact: 'foul' })
+  for (let i = 0; i < maxBodies; i++) bodies.push({ x: 0, y: 0, r: CAP_RADIUS, hl: 0, contact: 'foul' })
   return {
-    x: 0, y: 0, r: CAP_RADIUS, mass: PHYSICS.playerMass, // flicked cap
+    x: 0, y: 0, r: CAP_RADIUS, hl: 0, mass: PHYSICS.playerMass, // flicked cap (hl: a keeper's straight middle, see keeperShape)
     vx: 0, vy: 0,                                         // flick velocity, as the cap actually gets it
     maxSpeed: PHYSICS.maxFlickVelocity,                    // the cap's top speed (more for a better player)
     ballX: 0, ballY: 0,
@@ -180,15 +216,16 @@ export function createShot(maxBodies = 16) {
 export function capBounds(capId, team1Side, out) {
   const { halfW, halfH } = PITCH
   const r = isGoalkeeper(capId) ? GK_RADIUS : CAP_RADIUS
+  const rx = isGoalkeeper(capId) ? GK_HALF_D : r
   out.goalAccess = isGoalkeeper(capId) ? teamHomeDir(teamOf(capId), team1Side) : 0
-  out.minX = -halfW + r
-  out.maxX = halfW - r
+  out.minX = -halfW + rx
+  out.maxX = halfW - rx
   out.minY = -halfH + r
   out.maxY = halfH - r
   if (isGoalkeeper(capId)) {
     const home = teamHomeDir(teamOf(capId), team1Side)
-    if (home === -1) out.maxX = -halfW + PITCH.penAreaW - r
-    else out.minX = halfW - PITCH.penAreaW + r
+    if (home === -1) out.maxX = -halfW + PITCH.penAreaW - rx
+    else out.minX = halfW - PITCH.penAreaW + rx
     out.minY = -PITCH.penAreaH / 2 + r
     out.maxY = PITCH.penAreaH / 2 - r
   }
@@ -228,19 +265,17 @@ export function predictShot(shot, out = createPrediction()) {
     const ux = vx / speed, uy = vy / speed
     const tStop = (speed * speed) / (2 * CAP_DECEL)
     let t = Math.min(tStop, CAP_MAX_LEN - travelled)
-    let kind = 'stop', nx = 0, ny = 0, ox = 0, oy = 0, or = 0
+    let kind = 'stop', nx = 0, ny = 0
 
-    const tb = sweep(x, y, ux, uy, shot.ballX, shot.ballY, shot.r + BALL_RADIUS)
+    const tb = sweep(x, y, ux, uy, shot.ballX, shot.ballY, shot.r + BALL_RADIUS, shot.hl || 0)
     if (tb >= 0 && tb < t) {
       t = tb; kind = 'ball'; nx = sweepHit.nx; ny = sweepHit.ny
-      ox = shot.ballX; oy = shot.ballY; or = BALL_RADIUS
     }
     for (let i = 0; i < bodyCount; i++) {
       const b = bodies[i]
-      const tc = sweep(x, y, ux, uy, b.x, b.y, shot.r + b.r)
+      const tc = sweep(x, y, ux, uy, b.x, b.y, shot.r + b.r, (shot.hl || 0) + (b.hl || 0))
       if (tc >= 0 && tc < t) {
         t = tc; kind = b.contact; nx = sweepHit.nx; ny = sweepHit.ny
-        ox = b.x; oy = b.y; or = b.r
       }
     }
     const tw = capExit(shot, x, y, ux, uy)
@@ -266,8 +301,9 @@ export function predictShot(shot, out = createPrediction()) {
     }
     if (kind === 'stop') break
 
-    out.contactX = ox + nx * or
-    out.contactY = oy + ny * or
+    // The touching point: on the mover's edge, against the contact normal
+    out.contactX = x - nx * shot.r
+    out.contactY = y - ny * shot.r
     out.contact = kind
     out.normalX = nx
     out.normalY = ny
@@ -309,7 +345,7 @@ function traceBall(shot, vx, vy, out) {
 
     for (let i = 0; i < bodyCount; i++) {
       const b = bodies[i]
-      const tc = sweep(x, y, ux, uy, b.x, b.y, BALL_RADIUS + b.r)
+      const tc = sweep(x, y, ux, uy, b.x, b.y, BALL_RADIUS + b.r, b.hl || 0)
       if (tc >= 0 && tc < t) { t = tc; kind = 'cap' }
     }
     let tw = boxExit(x, y, ux, uy, -lim, lim, -limY, limY)

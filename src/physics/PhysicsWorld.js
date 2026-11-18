@@ -299,14 +299,13 @@ export function setShotStray(capId, deg, roll = Math.random()) {
 }
 function attachShotStray(eng) {
   Events.on(eng, 'collisionStart', (event) => {
-    if (!shotStray || shotStray.hit) return
     for (const pair of event.pairs) {
+      // Dropped (or already used) by an earlier contact in this same step: nothing more to check
+      if (!shotStray || shotStray.hit) return
       const a = pair.bodyA.label
       const b = pair.bodyB.label
       if ((a === 'ball' && b === shotStray.capId) || (b === 'ball' && a === shotStray.capId)) shotStray.hit = true
       else if (a === shotStray.capId || b === shotStray.capId || a === 'ball' || b === 'ball') shotStray = null // touched something else first
-      if (!shotStray?.hit) continue
-      break
     }
   })
   Events.on(eng, 'afterUpdate', () => {

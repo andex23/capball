@@ -3,7 +3,7 @@ import { useMatchStore, PHASE } from '../state/MatchStore'
 import { getBodies } from '../physics/PhysicsWorld'
 import { performFlick, capSelectable } from '../game/flick'
 import { CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, PITCH } from '../data/TeamData'
-import { makeContext, readPositions, firstHit, chooseHeuristic, chooseBySimulation } from './planner'
+import { makeContext, readPositions, firstHit, chooseHeuristic, chooseBySimulation, towardsOwnGoal } from './planner'
 import { penaltyFlick } from '../game/penalty'
 import { teamHomeDir } from '../game/rules'
 import { reflexOptions } from '../game/keeper'
@@ -12,8 +12,9 @@ import { reflexOptions } from '../game/keeper'
  * SMART AI CONTROLLER
  *
  * Difficulty levels:
- * - easy:   the classic role-based aim (noisy, weak), and only sometimes
- *           notices that its path runs through an opponent (foul).
+ * - easy:   the medium planner played less well: looser choices, shakier
+ *           aim and power, weaker shots. It still always plays the ball and
+ *           never towards its own goal (it used to, which felt like a let-off).
  * - medium: geometric planner (src/ai/planner.js) — never picks a path that
  *           touches an opponent before the ball, prefers shots toward goal,
  *           clears the ball or blocks when it's close to our own goal.
@@ -23,7 +24,8 @@ import { reflexOptions } from '../game/keeper'
  */
 
 export const DIFFICULTY = {
-  easy:   { thinkDelay: 1200, aimDelay: 600, aimNoise: 0.6, powerMult: 0.5, passChance: 0.1, foulCheck: 0.5 },
+  // Easy plays the same sensible game as medium, less well: looser choices, shakier aim and power, weaker shots
+  easy:   { thinkDelay: 1200, aimDelay: 600, aimNoise: 0.32, powerMult: 0.62, planner: 'heuristic', scoreNoise: 6, powerJitter: 0.22, passChance: 0.1 },
   medium: { thinkDelay: 800,  aimDelay: 400, aimNoise: 0.2, powerMult: 0.75, planner: 'heuristic' },
   hard:   { thinkDelay: 500,  aimDelay: 250, aimNoise: 0.03, powerMult: 1, planner: 'simulate', budgetMs: 70 },
 }
@@ -110,30 +112,27 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
     })
     const pick = diff.planner === 'simulate'
       ? chooseBySimulation(ctx, { budgetMs: diff.budgetMs, aimNoise: diff.aimNoise, rng })
-      : chooseHeuristic(ctx, { aimNoise: diff.aimNoise, powerMult: diff.powerMult, rng })
+      : chooseHeuristic(ctx, { aimNoise: diff.aimNoise, powerMult: diff.powerMult, scoreNoise: diff.scoreNoise, powerJitter: diff.powerJitter, rng })
     if (pick) return { capId: pick.capId, velocity: pick.velocity, kind: pick.kind }
     // Nothing clean on offer (e.g. ball jammed on a cushion) — fall back to the classic aim
   }
 
-  // Easy (and fallback): classic aim, sometimes re-thinking a shot that would foul
-  const checkFouls = rng() < (diff.foulCheck ?? 1)
+  // Try the classic aim for caps the planner couldn't line up.
   const positions = readPositions(bodies)
+  const ownCtx = makeContext({ positions, team: aiTeam, team1Side: state.team1Side || 'left' })
   const excluded = []
   const tried = []
   for (let tries = 0; tries < 5; tries++) {
     const d = classicDecision(aiTeam, diff, requiredCapId, bodies, state, excluded, rng)
     if (!d) break
-    if (!checkFouls || requiredCapId) return d
     const hit = firstHit(positions, d.capId, d.velocity)
-    // Easy only dodges the obvious foul; medium/hard insist on reaching the ball first
-    if (diff.planner ? hit?.id === 'ball' : hit?.kind !== 'foul') return d
+    if (hit?.id === 'ball' && !towardsOwnGoal(ownCtx, d)) return d
+    if (requiredCapId) return null
     tried.push({ d, hit })
     excluded.push(d.capId)
   }
-  if (!diff.planner) return tried[0]?.d ?? null
-  // Medium/hard: a harmless miskick off a teammate shakes up a scrum; failing
-  // that, let the turn go rather than hand over a free kick
-  return tried.find((t) => t.hit?.kind !== 'foul')?.d ?? null
+  // A no-contact move or a nudge off a teammate can still open up a scrum.
+  return tried.find((t) => !t.hit || t.hit.kind === 'teammate')?.d ?? null
 }
 
 function classicDecision(aiTeam, diff, requiredCapId, bodies, state, excluded, rng) {

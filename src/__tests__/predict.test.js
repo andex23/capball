@@ -5,7 +5,7 @@ import { useMatchStore, PHASE, clearMatchTimers } from '../state/MatchStore'
 import { performFlick } from '../game/flick'
 import { predictShot, createShot, createPrediction, capBounds, goalFor } from '../game/predict'
 import { classifyContact } from '../game/rules'
-import { PITCH, PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
+import { PITCH, PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, GK_HALF_D } from '../data/TeamData'
 
 const deg = (x, y) => (Math.atan2(y, x) * 180) / Math.PI
 const angleDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180)
@@ -151,8 +151,10 @@ describe('predictShot', () => {
 
   it('keeps a goalkeeper in its penalty area', () => {
     const b = capBounds('team1_gk', 'left', {})
-    expect(b.maxX).toBeCloseTo(-PITCH.halfW + PITCH.penAreaW - GK_RADIUS)
-    expect(capBounds('team1_gk', 'right', {}).minX).toBeCloseTo(PITCH.halfW - PITCH.penAreaW + GK_RADIUS)
+    // The standing keeper is thin front to back and wide along the goal line
+    expect(b.maxX).toBeCloseTo(-PITCH.halfW + PITCH.penAreaW - GK_HALF_D)
+    expect(capBounds('team1_gk', 'right', {}).minX).toBeCloseTo(PITCH.halfW - PITCH.penAreaW + GK_HALF_D)
+    expect(b.maxY).toBeCloseTo(PITCH.penAreaH / 2 - GK_RADIUS)
   })
 
   it('reuses its output buffer', () => {
