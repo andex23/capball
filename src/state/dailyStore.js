@@ -2,6 +2,7 @@
  * Daily challenge progress: today's attempts, the streak of days in a row
  * it's been beaten, and the best streak (which unlocks a rare cap).
  */
+import { getSaveStorage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { dayKey, nextStreak, previousDay, challengeFor, challengeBodies } from '../game/daily'
 import { useMatchStore } from './MatchStore'
@@ -15,9 +16,9 @@ export const DAILY_KEY = 'capball:daily:v1'
 const EMPTY = { lastDone: null, streak: 0, best: 0, tries: {} }
 
 const read = () => {
-  try { return { ...EMPTY, ...(JSON.parse(localStorage.getItem(DAILY_KEY) || 'null') || {}) } } catch { return { ...EMPTY } }
+  try { return { ...EMPTY, ...(JSON.parse(getSaveStorage()?.getItem(DAILY_KEY) || 'null') || {}) } } catch { return { ...EMPTY } }
 }
-const write = (v) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify(v)) } catch { /* ignore */ } }
+const write = (v) => { try { getSaveStorage()?.setItem(DAILY_KEY, JSON.stringify(v)) } catch { /* ignore */ } }
 
 export const useDailyStore = create((set, get) => ({
   ...read(),

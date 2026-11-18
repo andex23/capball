@@ -2,6 +2,7 @@
  * What the player has earned, gathered from career totals, career mode,
  * tournaments and the daily challenge — and which rare caps that unlocks.
  */
+import { getSaveStorage } from '../utils/playerSave'
 import { useSavedStore } from './savedMatch'
 import { useCareerStore } from './careerStore'
 import { useTournamentStore } from './tournamentStore'
@@ -42,7 +43,7 @@ export function useProgress() {
   return currentProgress()
 }
 
-const readSeen = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '[]') } catch { return [] } }
+const readSeen = () => { try { return JSON.parse(getSaveStorage()?.getItem(SEEN_KEY) || '[]') } catch { return [] } }
 
 /** Rare designs unlocked since the player last looked, marking them seen. */
 export function takeNewUnlocks() {
@@ -50,7 +51,7 @@ export function takeNewUnlocks() {
   const seen = new Set(readSeen())
   const fresh = RARE_DESIGNS.filter((d) => isUnlocked(d, p) && !seen.has(d.key))
   if (fresh.length) {
-    try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen, ...fresh.map((d) => d.key)])) } catch { /* ignore */ }
+    try { getSaveStorage()?.setItem(SEEN_KEY, JSON.stringify([...seen, ...fresh.map((d) => d.key)])) } catch { /* ignore */ }
   }
   return fresh
 }

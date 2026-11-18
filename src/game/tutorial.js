@@ -6,6 +6,7 @@
  * DOM or the store, so every transition is unit tested directly.
  */
 
+import { getSaveStorage as defaultStorage } from '../utils/playerSave'
 import { PHASE } from '../state/MatchStore'
 import { teamHomeDir } from './rules'
 
@@ -163,14 +164,6 @@ export function stepCopy(step, { goalWhere = 'ahead', swipe = false } = {}) {
 export const STORAGE_KEY = 'capball.tutorialDone'
 let memoryDone = false
 const listeners = new Set()
-
-function defaultStorage() {
-  try {
-    return globalThis.localStorage ?? null
-  } catch {
-    return null
-  }
-}
 
 export function isTutorialDone(storage = defaultStorage()) {
   if (memoryDone) return true

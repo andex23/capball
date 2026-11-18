@@ -3,6 +3,7 @@
  * matches. Both live in localStorage, so a signed-in player's account copies
  * them across phones along with the rest of the save (see accountStore).
  */
+import { getSaveStorage as store } from '../utils/playerSave'
 import { create } from 'zustand'
 import { useMatchStore, SCREEN, PHASE, INPUT_PHASES, clearMatchTimers } from './MatchStore'
 import { useTournamentStore } from './tournamentStore'
@@ -28,7 +29,6 @@ const MATCH_FIELDS = [
   'team1Side', 'chosenTeam1Side', 'score', 'stats', 'activeTeam', 'lastScorer',
 ]
 
-const store = () => { try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null } }
 const read = (key) => { try { const raw = store()?.getItem(key); return raw ? JSON.parse(raw) : null } catch { return null } }
 const write = (key, v) => {
   try { if (v == null) store()?.removeItem(key); else store()?.setItem(key, JSON.stringify(v)) } catch { /* full or blocked */ }

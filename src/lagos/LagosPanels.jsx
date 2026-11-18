@@ -15,7 +15,7 @@ export function LagosAccount({ formOnly = false }) {
           {status === 'error' ? error : 'Connecting to Lagos Life…'}
         </p>
         {status === 'error' && (
-          <button className="btn btn-primary" onClick={() => { playButtonSelect(); useLagosStore.getState().boot() }}>Try again</button>
+          <button className="btn btn-primary" onClick={() => { playButtonSelect(); window.location.reload() }}>Try again</button>
         )}
       </div>
     )

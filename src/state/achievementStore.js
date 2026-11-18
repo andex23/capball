@@ -2,12 +2,12 @@
  * Earned achievements (signed-in players only), the win streak and tables
  * played that some of them need, and a queue of fresh ones to announce.
  */
+import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { ACHIEVEMENT_IDS } from '../game/achievements'
 import { isSignedIn } from './accountStore'
 
 export const ACHIEVEMENTS_KEY = 'capball:achievements:v1'
-const storage = () => { try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null } }
 
 function load() {
   try {
