@@ -10,6 +10,8 @@ import { formOf, ROLE_LABEL, squadRatings, averageRating, WINDOW_AFTER, windowDe
 import { CAP_ROLES } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import Modal from './Modal'
+import CareerPlayerCap, { careerNumber } from './CareerPlayerCap'
+import './roster.css'
 import Icon from './Icon'
 import { Rating, Attrs, Coins, DIV_SHORT } from './PlayerBits'
 import TransferMarket from './TransferMarket'
@@ -26,7 +28,6 @@ const DEAL_LINE = {
 export default function SquadPanel({ career, show = null }) {
   const has = (part) => !show || show === part
   const [marketOpen, setMarketOpen] = useState(false)
-  const [starting, setStarting] = useState(null) // bench index being brought into the six
   const [manage, setManage] = useState(null)     // slot of the player being managed
   const [youth, setYouth] = useState(null)       // youth-team index being managed
   const win = transferWindow(career)
@@ -39,62 +40,41 @@ export default function SquadPanel({ career, show = null }) {
   const shutLine = opensAt != null
     ? `The transfer window opens after matchday ${opensAt}. Free agents can sign any time.`
     : 'The transfer window opens again before next season. Free agents can sign any time.'
-  const row = (slot, p, label, extra = null) => (
-    <li key={slot}>
-      <span className="squad-role">{label}</span>
-      <span className="squad-name">
-        <span className="squad-name-main">{p.name}</span>
-        <small className="squad-stats">{p.pos !== label && label !== 'BENCH' && label !== 'RES' ? `${p.pos} playing ${label} · ` : ''}Age {p.age} · POT {potentialRange(p)}{p.apps > 0 ? ` · ${p.goals || 0} goal${p.goals === 1 ? '' : 's'} · form ${formOf(p)}` : ''}</small>
-        <PlayerTags p={p} />
-        <Attrs attrs={p.attrs} />
-      </span>
-      <Rating value={CAP_ROLES.includes(slot) ? ovrAt(p, slot) : p.rating} />
-      <span className="squad-actions">
-        {extra}
-        <button className="btn btn-secondary squad-buy" aria-label={`Manage ${p.name}`} onClick={() => { playButtonSelect(); setManage(slot) }}>
-          <Icon name="settings" size={14} />
-        </button>
-      </span>
-    </li>
+  const row = (slot, p, role = null) => (
+    <RosterRow key={p.id || slot} club={career.club} player={p} role={role}
+      onOpen={() => { playButtonSelect(); setManage(slot) }} />
   )
 
   return (
     <section className="card card-pad squad-card" aria-label={show === 'youth' ? 'Youth team' : show === 'transfers' ? 'Transfers' : 'Squad'}>
-      <div className="squad-head">
-        <h2 className="saved-h">{show === 'youth' ? 'Youth team' : show === 'transfers' ? 'Transfers' : 'Squad'} <small className="squad-count" data-full={size >= MAX_SQUAD ? 'true' : undefined}>{size} of {MAX_SQUAD}</small></h2>
-        <Coins n={career.coins} />
-      </div>
+      {has('squad') ? <div className="roster-head"><strong>{size} of {MAX_SQUAD} players</strong><span>Team rating <b>{mine}</b></span></div> :
+        <div className="squad-head">
+          <h2 className="saved-h">{show === 'youth' ? 'Youth team' : 'Transfers'}</h2><Coins n={career.coins} />
+        </div>}
       {has('squad') && <>
-      <p className="muted t-note">Six start and four sit on the bench; up to five more are reserves. PWR: how hard he flicks · SHT: how straight a hard flick goes · PAS: how straight a soft one goes · PHY: how hard he is to knock aside. Your OVR is <b>{mine}</b>{leagueAvg ? <>; the {DIVISIONS[career.level].name} averages <b>{leagueAvg}</b></> : null}.</p>
-
       <h3 className="squad-sub-h">Starting six</h3>
-      <ul className="squad-list squad-rows">
-        {CAP_ROLES.map((role) => row(role, migratePlayer(career.squad[role], role), ROLE_LABEL[role]))}
+      <ul className="roster-list">
+        {CAP_ROLES.map((role) => row(role, migratePlayer(career.squad[role], role), role))}
       </ul>
 
       <h3 className="squad-sub-h">Bench</h3>
-      <ul className="squad-list squad-rows">
-        {(career.bench || []).map((p, i) => row(`bench:${i}`, p, p.pos))}
+      <ul className="roster-list">
+        {(career.bench || []).map((p, i) => row(`bench:${i}`, p))}
       </ul>
-      <p className="muted t-note">Tap a player to bring him into the starting six, sell, loan or renew him. Make up to three substitutions in a match from the pause menu. Players who never get a game slide a little over the summer.</p>
+
 
       <h3 className="squad-sub-h">Reserves</h3>
       {(career.reserves || []).length > 0
-        ? <ul className="squad-list squad-rows">{career.reserves.map((p, i) => row(`reserve:${i}`, p, p.pos))}</ul>
-        : <p className="muted t-note">No reserves. Sign players from the market or promote from the youth team, up to a squad of {MAX_SQUAD}.</p>}
+        ? <ul className="roster-list">{career.reserves.map((p, i) => row(`reserve:${i}`, p))}</ul>
+        : <p className="muted t-note">New signings and promoted youth players join here.</p>}
       {size > MAX_SQUAD && <p className="club-alert" role="alert">Your squad is over {MAX_SQUAD} after loans came back. Sell, release or loan out {size - MAX_SQUAD} before you can sign anyone.</p>}
 
       {(career.loans || []).length > 0 && (
         <>
           <h3 className="squad-sub-h">Out on loan</h3>
-          <ul className="squad-list squad-simple">
-            {career.loans.map((l) => (
-              <li key={l.player.id}>
-                <span className="squad-role">{l.player.pos}</span>
-                <span className="squad-name"><span className="squad-name-main">{l.player.name}</span><small className="squad-stats">At {l.club} ({DIVISIONS[l.level]?.name}) until the summer</small></span>
-                <Rating value={l.player.rating} />
-              </li>
-            ))}
+          <ul className="roster-list">
+            {career.loans.map((l) => <RosterRow key={l.player.id} club={career.club} player={l.player}
+              note={'At ' + l.club + ' · ' + DIVISIONS[l.level]?.name + ' until summer'} />)}
           </ul>
         </>
       )}
@@ -104,23 +84,9 @@ export default function SquadPanel({ career, show = null }) {
       {has('youth') && <>
       <h3 className="squad-sub-h">Youth team · {(career.youthTeam || []).length} of {YOUTH_MAX}</h3>
       {(career.youthTeam || []).length > 0 ? (
-        <ul className="squad-list squad-rows">
-          {career.youthTeam.map((p, i) => (
-            <li key={p.id}>
-              <span className="squad-role">{p.pos}</span>
-              <span className="squad-name">
-                <span className="squad-name-main">{p.name}</span>
-                <small className="squad-stats">Age {p.age} · POT {potentialRange(p)}</small>
-                <Attrs attrs={p.attrs} />
-              </span>
-              <Rating value={p.rating} />
-              <span className="squad-actions">
-                <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setYouth(i) }}>
-                  <Icon name="settings" size={14} />
-                </button>
-              </span>
-            </li>
-          ))}
+        <ul className="roster-list">
+          {career.youthTeam.map((p, i) => <RosterRow key={p.id} club={career.club} player={p}
+            onOpen={() => { playButtonSelect(); setYouth(i) }} />)}
         </ul>
       ) : <p className="muted t-note">The youth team is empty. Your academy sends up new players every summer.</p>}
       <p className="muted t-note">Youth players don’t count towards the {MAX_SQUAD} and aren’t paid. They grow fast; promote them when they’re ready. At 19 they must move up or leave.</p>
@@ -140,14 +106,38 @@ export default function SquadPanel({ career, show = null }) {
         </ul>
       )}
       </>}
-      {has('squad') && career.biz?.lastMatch && <p className="muted t-note">Last match: <Coins n={career.lastEarned} /> after wages. The full books are under Club.</p>}
+      {has('squad') && <details className="club-detail">
+        <summary>Squad guide</summary>
+        <p>Six caps start. Four sit on the bench. Tap a cap to manage the player or swap them into the six. You can make three substitutions during a match.</p>
+        <p>Power sets flick strength. Shooting and passing keep hard and soft flicks accurate. Physical strength helps a cap hold its ground.</p>
+        {leagueAvg && <p>Average team rating in the {DIVISIONS[career.level].name} · {leagueAvg}</p>}
+      </details>}
 
-      {starting != null && career.bench?.[starting] && <StartFromBench career={career} index={starting} onDone={() => setStarting(null)} />}
       {manage && inSlot(career, manage) && <PlayerSheet career={career} slot={manage} onDone={() => setManage(null)} />}
       {youth != null && career.youthTeam?.[youth] && <YouthSheet career={career} index={youth} onDone={() => setYouth(null)} />}
       {marketOpen && <TransferMarket career={career} onClose={() => setMarketOpen(false)} />}
     </section>
   )
+}
+
+const POSITION = { GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', ATK: 'Forward' }
+
+function RosterRow({ club, player, role, note, onOpen }) {
+  const Tag = onOpen ? 'button' : 'div'
+  const position = role ? ROLE_LABEL[role] : player.pos
+  const number = careerNumber(club, role)
+  const fit = fitnessOf(player)
+  return <li><Tag className="roster-row" onClick={onOpen}>
+    <CareerPlayerCap club={club} player={player} role={role} />
+    <span className="roster-player">
+      <strong>{onOpen && <span className="sr-only">Manage </span>}{player.name}</strong>
+      <span>{number != null && '#' + number + ' · '}{POSITION[position] || position}{player.pos !== position && ' · usually ' + POSITION[player.pos]?.toLowerCase()}</span>
+      {note && <small>{note}</small>}
+      {player.wantsAway ? <small>Wants to leave</small> : fit < 85 && <small>Fitness {fit}%</small>}
+    </span>
+    <span className="roster-rating"><Rating value={role ? ovrAt(player, role) : player.rating} /><small>OVR</small></span>
+    {onOpen && <Icon name="next" size={16} />}
+  </Tag></li>
 }
 
 /** Contract, fitness and morale, when there's something to say. */
@@ -163,30 +153,6 @@ function PlayerTags({ p }) {
       {p.listed && <span data-tone="warn">Transfer listed</span>}
       {p.focus && <span>Training: {FOCUS_LABEL[p.focus]}</span>}
     </span>
-  )
-}
-
-/** Bring a bench player into the starting six in place of someone. */
-function StartFromBench({ career, index, onDone }) {
-  const p = career.bench[index]
-  const roles = CAP_ROLES.filter((r) => (r === 'gk') === (p.pos === 'GK'))
-  return (
-    <Modal title={`Start ${p.name}`} onClose={onDone}>
-      <p className="muted t-note">{p.pos} · OVR {p.rating}. Who drops to the bench?</p>
-      <ul className="squad-list squad-simple">
-        {roles.map((role) => {
-          const out = migratePlayer(career.squad[role], role)
-          return (
-            <li key={role}>
-              <span className="squad-role">{ROLE_LABEL[role]}</span>
-              <span className="squad-name">{out.name} <Rating value={ovrAt(out, role)} /> → <b>{ovrAt(p, role)}</b> here</span>
-              <button className="btn btn-gold squad-buy" onClick={() => { if (useCareerStore.getState().swap(index, role)) { playConfirm(); onDone() } }}>Swap</button>
-            </li>
-          )
-        })}
-      </ul>
-      <button className="btn btn-ghost btn-block" onClick={onDone}>Cancel</button>
-    </Modal>
   )
 }
 
@@ -224,8 +190,8 @@ function PlayerSheet({ career, slot, onDone }) {
     <ul className="squad-list squad-simple">
       {list.map(({ to, label, out, here, was }) => (
         <li key={to}>
-          <span className="squad-role">{label}</span>
-          <span className="squad-name">{out.name} <Rating value={was} /> → <b>{here}</b></span>
+          <CareerPlayerCap club={career.club} player={out} role={CAP_ROLES.includes(to) ? to : null} size={40} />
+          <span className="squad-name">{out.name} <small>{label}</small> <Rating value={was} /> → <b>{here}</b></span>
           <button className="btn btn-gold squad-buy" onClick={() => { if (act(to)) { playConfirm(); onDone() } }}>Swap</button>
         </li>
       ))}
@@ -236,11 +202,11 @@ function PlayerSheet({ career, slot, onDone }) {
   return (
     <Modal title={p.name} onClose={onDone}>
       <div className="player-card">
-        <Rating value={CAP_ROLES.includes(slot) ? ovrAt(p, slot) : p.rating} />
+        <div className="roster-profile"><CareerPlayerCap club={career.club} player={p} role={CAP_ROLES.includes(slot) ? slot : null} size={76} /><Rating value={CAP_ROLES.includes(slot) ? ovrAt(p, slot) : p.rating} /></div>
         <div>
           <p className="player-card-line"><b>{p.pos}</b> · Age {p.age} · POT {potentialRange(p)} · {where}</p>
           <Attrs attrs={p.attrs} />
-          <p className="muted t-note">Value {money(valueOf(p))} · Wages {money(wageOf(p))} a match · Fitness {fitnessOf(p)}% · Contract {contractOf(p) <= 1 ? 'ends this season' : `${contractOf(p)} seasons`}{p.apps ? ` · ${p.apps} app${p.apps === 1 ? '' : 's'}, ${p.goals || 0} goal${p.goals === 1 ? '' : 's'}` : ''}</p>
+          <p className="muted t-note">Value {money(valueOf(p))} · Wages {money(wageOf(p))} a match · Fitness {fitnessOf(p)}% · Contract {contractOf(p) <= 1 ? 'ends this season' : `${contractOf(p)} seasons`}{p.apps ? ` · ${p.apps} app${p.apps === 1 ? '' : 's'}, ${p.goals || 0} goal${p.goals === 1 ? '' : 's'} · Form ${formOf(p)}` : ''}</p>
           <PlayerTags p={p} />
         </div>
       </div>
@@ -360,7 +326,7 @@ function YouthSheet({ career, index, onDone }) {
   return (
     <Modal title={p.name} onClose={onDone}>
       <div className="player-card">
-        <Rating value={p.rating} />
+        <div className="roster-profile"><CareerPlayerCap club={career.club} player={p} size={76} /><Rating value={p.rating} /></div>
         <div>
           <p className="player-card-line"><b>{p.pos}</b> · Age {p.age} · POT {potentialRange(p)} · Youth team</p>
           <Attrs attrs={p.attrs} />
@@ -381,7 +347,7 @@ export function PlayerRatings({ career, title = 'Last match', fixtureId = null }
   const surname = (n) => String(n || '').split(' ').pop()
   // With substitutes: everyone who played, in role order, subs marked
   if (rep.players) {
-    const everyone = [...Object.values(career.squad), ...(career.bench || [])]
+    const everyone = [...Object.values(career.squad), ...(career.bench || []), ...(career.reserves || []), ...(career.loans || []).map((loan) => loan.player)]
     const order = (x) => CAP_ROLES.indexOf(x.role) * 2 + (x.sub === 'on' ? 1 : 0)
     const rows = rep.players.slice().sort((a, b) => order(a) - order(b))
     return (
@@ -393,9 +359,9 @@ export function PlayerRatings({ career, title = 'Last match', fixtureId = null }
             const ch = rep.changes?.find((c) => c.id === x.id)
             return (
               <li key={x.id} data-motm={rep.motmId === x.id ? 'true' : undefined}>
-                <span className="squad-role">{ROLE_LABEL[x.role] || ''}</span>
+                <span>{p && <CareerPlayerCap club={career.club} player={p} role={x.role} size={38} />}</span>
                 <span className="squad-name">
-                  <span className="squad-name-main">{surname(p?.name)}{x.sub === 'on' ? ' ▲' : x.sub === 'off' ? ' ▼' : ''}</span>
+                  <span className="squad-name-main">{ROLE_LABEL[x.role]} · {surname(p?.name) || 'Former player'}{x.sub === 'on' ? ' ▲' : x.sub === 'off' ? ' ▼' : ''}</span>
                   {rep.motmId === x.id && <small className="ratings-motm">★ Man of the Match</small>}
                   {x.sub && <small className="squad-stats">{x.sub === 'on' ? 'came on' : 'taken off'}</small>}
                   {x.goals > 0 && <small className="squad-stats">{'⚽'.repeat(Math.min(x.goals, 4))}</small>}
@@ -421,9 +387,9 @@ export function PlayerRatings({ career, title = 'Last match', fixtureId = null }
           const ch = rep.changes?.find((c) => c.role === role)
           return (
             <li key={role} data-motm={rep.motm === role ? 'true' : undefined}>
-              <span className="squad-role">{ROLE_LABEL[role]}</span>
+              <span>{p && <CareerPlayerCap club={career.club} player={p} role={role} size={38} />}</span>
               <span className="squad-name">
-                <span className="squad-name-main">{surname(p?.name)}</span>
+                <span className="squad-name-main">{ROLE_LABEL[role]} · {surname(p?.name)}</span>
                 {rep.motm === role && <small className="ratings-motm">★ Man of the Match</small>}
                 {rep.goals?.[role] > 0 && <small className="squad-stats">{'⚽'.repeat(Math.min(rep.goals[role], 4))}</small>}
               </span>

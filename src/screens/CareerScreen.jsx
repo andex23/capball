@@ -24,15 +24,14 @@ import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating,
 import LeagueClubs from '../ui/LeagueClubs'
 import MatchReport from '../ui/MatchReport'
 import CupPage from '../ui/CupPage'
-import BoardObjectives from '../ui/BoardObjectives'
 import { inboxOffers, seasonAwards } from '../game/clubLife'
 import RatingsGuide from '../ui/RatingsGuide'
-import ClubPanel from '../ui/ClubPanel'
+import ClubPanel, { CLUB_PAGES } from '../ui/ClubPanel'
 
 /** Pages reached from the More tab. */
 const MORE_PAGES = ['more', 'youth', 'league', 'cup', 'history', 'settings']
 
-const PAGE_TITLE = { more: 'More', cup: 'Cap Cup', report: 'Match report', squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
+const PAGE_TITLE = { ...CLUB_PAGES, more: 'More', cup: 'Cap Cup', report: 'Match report', squad: 'Squad', transfers: 'Transfers', youth: 'Youth team', club: 'Club', league: 'League', history: 'History', settings: 'Settings' }
 
 const OUTCOME = {
   promoted: { title: 'Promoted!', tone: 'good', line: (next) => `Up you go to the ${next}.` },
@@ -135,6 +134,7 @@ function startingKit(teamConfig) {
     name: own.name && own.name !== 'Team 1' ? own.name : 'My Club',
     primary: own.primary, edge: own.edge, badge: own.badge, pattern: own.pattern, finish: own.finish,
     capText: own.capText || '', textColor: own.textColor || '', skirtColor: own.skirtColor || '', numbers: own.numbers,
+    art: own.art || '', bands: own.bands || {}, capNames: own.capNames || 'player',
   }
 }
 
@@ -458,8 +458,11 @@ export default function CareerScreen() {
   // Where your squad ranks on OVR among the division's clubs (what the board judges you on)
   const squadRank = 1 + league.teams.filter((t) => t.cpu && ovrOf(t) > myOvr).length
 
+  const clubDetail = Object.hasOwn(CLUB_PAGES, page)
+  const office = page === 'club' || clubDetail
+
   return (
-    <div className="screen">
+    <div className={office || page === 'squad' ? 'screen career-office' : 'screen'}>
       <div className="shell">
         <header className="shell-head career-top">
           <button className="career-top-back" onClick={back} aria-label="Back to the menu"><Icon name="back" size={18} /></button>
@@ -468,7 +471,7 @@ export default function CareerScreen() {
             <h1 className="career-top-name">{career.club.name}</h1>
             <div className="career-top-sub">{done ? `Season ${career.season} over` : played ? ordinal(pos) : 'Season ' + career.season} · {division.name}</div>
           </div>
-          <div className="career-top-money">{money(career.coins)}</div>
+          {page !== 'club' && <div className="career-top-money">{money(career.coins)}</div>}
         </header>
 
         <main className="shell-body career-body" ref={mainRef}>
@@ -558,6 +561,7 @@ export default function CareerScreen() {
           ) : (
             <div className="career-col career-page">
               <div className="career-page-head">
+                {clubDetail && <button className="btn btn-ghost career-back" onClick={() => go('club')}><Icon name="back" size={16} /> Club</button>}
                 {(page === 'report' || MORE_PAGES.includes(page)) && page !== 'more' && (
                   <button className="btn btn-ghost career-back" onClick={() => { if (page === 'report') { useCareerStore.getState().reportSeen(); go('home') } else go('more') }}><Icon name="back" size={16} /> {page === 'report' ? 'Season' : 'More'}</button>
                 )}
@@ -587,8 +591,8 @@ export default function CareerScreen() {
               )}
               {page === 'report' && <MatchReport career={career} onDone={() => { useCareerStore.getState().reportSeen(); go('home') }} />}
               {page === 'squad' && <>
-                {played > 0 && <PlayerRatings career={career} />}
                 <SquadPanel career={career} show="squad" />
+                {career.lastReport && <details className="card card-pad season-details"><summary>Last match ratings</summary><PlayerRatings career={career} /></details>}
               </>}
               {page === 'transfers' && <>
                 <OfferInbox career={career} />
@@ -596,7 +600,7 @@ export default function CareerScreen() {
               </>}
               {page === 'youth' && <SquadPanel career={career} show="youth" />}
               {page === 'cup' && <CupPage career={career} myOvr={myOvr} onPlay={(t) => playCareerFixture(career, 'careerCup', t)} />}
-              {page === 'club' && <><BoardObjectives career={career} /><ClubPanel career={career} /></>}
+              {office && <ClubPanel career={career} page={page} onOpen={go} />}
               {page === 'league' && <>
           <section className="card card-pad">
             <h2 className="saved-h">{division.name} table</h2>
@@ -673,7 +677,7 @@ export default function CareerScreen() {
               { key: 'home', icon: 'ball', title: 'Season', on: page === 'home' || page === 'report' },
               { key: 'squad', icon: 'users', title: 'Squad' },
               { key: 'transfers', icon: 'next', title: 'Market', badge: inboxOffers(career).length || null },
-              { key: 'club', icon: 'cpu', title: 'Club' },
+              { key: 'club', icon: 'cpu', title: 'Club', on: office },
               { key: 'more', icon: 'menu', title: 'More', on: MORE_PAGES.includes(page) },
             ].map((t) => {
               const on = t.on ?? page === t.key

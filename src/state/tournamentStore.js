@@ -28,7 +28,7 @@ import { legendById } from '../data/Legends'
 import { reportExtras } from '../game/matchReport'
 import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import { useCareerStore } from './careerStore'
-import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
+import { squadRatings, printedSurname, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
 import { applyCapMasses } from '../physics/PhysicsWorld'
 import { playerOf } from '../game/commentary'
 import { useAchievementStore } from './achievementStore'
@@ -359,8 +359,13 @@ export const useTournamentStore = create((set, get) => ({
     // Career: your players' own names go on your caps
     const playersOf = (team) => (!career ? null : squadSurnames(team.id === 'T1' ? career.squad : sixOf(team)))
     const matchKit = (team, side) => {
-      const kit = kitFor(team, side, ratingsOf(team), playersOf(team), attrsOf(team))
+      const own = career && team.id === 'T1'
+      const uniform = own ? { ...team, ...career.club } : team
+      // The manager's club keeps the same shirt numbers at home and away.
+      const kit = kitFor(uniform, own ? 'team1' : side, ratingsOf(team), playersOf(team), attrsOf(team))
       if (career) {
+        kit.art = uniform.art || ''
+        kit.bands = uniform.bands || {}
         const six = team.id === 'T1' ? career.squad : sixOf(team)
         kit.traits = Object.fromEntries(Object.entries(six).filter(([, p]) => legendById(p.id)).map(([role, p]) => [role, legendById(p.id).trait]))
       }
@@ -412,7 +417,7 @@ export const useTournamentStore = create((set, get) => ({
     const ms = useMatchStore.getState()
     const side = p.fixture.home === 'T1' ? 'team1' : 'team2'
     const cfg = ms.teamConfig[side]
-    const surname = String(incoming.name).trim().split(/\s+/).pop().slice(0, 12)
+    const surname = printedSurname(incoming)
     useMatchStore.setState({
       teamConfig: {
         ...ms.teamConfig,
