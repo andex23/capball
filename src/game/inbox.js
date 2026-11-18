@@ -12,10 +12,12 @@ import { ACHIEVEMENTS } from './achievements'
  * @param {object} [p.earned]       achievement id → ISO date earned
  * @param {object} [p.daily]        { ready, streak, day } when there's a challenge to play today
  * @param {object} [p.career]       { key, text, date } for the next career match
+ * @param {object} [p.reward]      { day (YYYY-MM-DD), n (1-7), what } when today's daily reward is waiting
+ * @param {Array} [p.news]          reward news: weekly goals done ({ id, title, text, date })
  * @param {Set|string[]} [p.seen]   item ids already seen
  * @param {string} [p.since]        only updates on or after this date (when the player first played)
  */
-export function inboxItems({ updates = UPDATES, earned = {}, daily = null, career = null, seen = [], since = null } = {}) {
+export function inboxItems({ updates = UPDATES, earned = {}, daily = null, career = null, reward = null, news = [], seen = [], since = null } = {}) {
   const read = seen instanceof Set ? seen : new Set(seen)
   const items = []
   for (const u of updates) {
@@ -32,7 +34,10 @@ export function inboxItems({ updates = UPDATES, earned = {}, daily = null, caree
   if (career?.key) {
     items.push({ id: `career:${career.key}`, kind: 'career', icon: 'trophy', title: 'Your next career match', text: career.text, date: career.date || '' })
   }
+  for (const n of news) items.push({ id: n.id, kind: 'goal', icon: n.cap ? 'trophy' : 'check', title: n.title, text: n.text, date: n.date })
   items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+  // Today's reward waits at the top until it's collected
+  if (reward?.day) items.unshift({ id: `reward:${reward.day}`, kind: 'reward', icon: 'trophy', title: `Daily reward: day ${reward.n} of 7`, text: `${reward.what} is waiting. Tap to collect.`, date: reward.day })
   return items.map((it) => ({ ...it, unread: !read.has(it.id) }))
 }
 

@@ -14,6 +14,7 @@ import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade
 import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
 import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withContracts, REP_START, sanitizeAwards } from './clubLife'
 import { sanitizeStory } from './matchStory'
+import { sanitizeExtras } from './matchReport'
 import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
 import {
   playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, squadSummer, youthIntake,
@@ -568,6 +569,8 @@ function sanitizeLastMatch(m) {
     away: String(m.away || '').slice(0, 4),
     result: { home: goals(m.result.home), away: goals(m.result.away), ...(isObj(m.result.pens) ? { pens: { home: goals(m.result.pens.home), away: goals(m.result.pens.away) } } : {}) },
     story: sanitizeStory(m.story),
+    ...sanitizeExtras(m),
+    ...(Number.isInteger(m.posBefore) && m.posBefore > 0 ? { posBefore: m.posBefore } : {}),
     seen: m.seen === true,
     season: Number.isInteger(m.season) ? m.season : 1,
   }

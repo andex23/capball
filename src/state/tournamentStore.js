@@ -22,6 +22,7 @@ import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '..
 import { careerNext, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
+import { reportExtras } from '../game/matchReport'
 import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import { useCareerStore } from './careerStore'
 import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
@@ -577,7 +578,9 @@ export const useTournamentStore = create((set, get) => ({
         matchDuration: ms.matchDuration, seed: `${p.fixture.id}:${(ms.goalLog || []).length}`, venue: STADIUMS[ms.stadium]?.name || 'table',
         pens: matchResult.penaltyScore || null, extraTime: !!matchResult.afterExtraTime,
       })
-      const perf = { ratings, goalsByRole, story, ...(byPlayer ? { byPlayer } : {}) }
+      // Stats, who was on top when, and the scorers, for the report
+      const extras = reportExtras({ side, goalLog: ms.goalLog || [], matchEvents: ms.matchEvents || [], stats: matchResult.stats || ms.stats, teamConfig: ms.teamConfig, matchDuration: ms.matchDuration })
+      const perf = { ratings, goalsByRole, story, extras, ...(byPlayer ? { byPlayer } : {}) }
       if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, perf)
       else useCareerStore.getState().record(p.fixture.id, result, perf)
       return

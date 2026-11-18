@@ -156,7 +156,7 @@ export function line(kind, ctx = {}) {
   const vars = {
     team: teamConfig?.[team]?.name || '',
     other: teamConfig?.[other]?.name || '',
-    p: p?.label || 'They',
+    p: p?.label || teamConfig?.[team]?.name || 'They',
     k: playerOf(teamConfig, by)?.label || 'the defence',
     venue: venue || 'table',
     winner: winner ? teamConfig?.[winner]?.name || '' : '',
