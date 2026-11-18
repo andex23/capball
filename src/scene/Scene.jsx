@@ -285,9 +285,10 @@ function GameWorld() {
   const sc = STADIUMS[stadiumId] || STADIUMS.arena
   const team1 = teamConfig.team1
   const team2 = teamConfig.team2
-  // Each keeper stands facing up the pitch, away from the goal he defends (ends swap at half time)
+  // Each keeper stands with his hollow towards the players and his printed side
+  // towards the goal he defends (ends swap at half time)
   const team1Side = useMatchStore((s) => s.team1Side) || 'left'
-  const face1 = -teamHomeDir('team1', team1Side)
+  const face1 = teamHomeDir('team1', team1Side)
   const team1Caps = CAP_ROLES.map((r) => `team1_${r}`)
   const team2Caps = CAP_ROLES.map((r) => `team2_${r}`)
 

@@ -436,13 +436,12 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
    ─────────────────────────────────────────
    As played on the table: the cap is bitten top and bottom, its bottom
    folded flat into a foot it balances on and its top only lightly tipped
-   back, then stood up with the printed side facing the pitch and the
-   hollow behind. From the side:
+   back, then stood up with the hollow facing the players and the printed
+   side towards the goal. From the side:
 
-        _                ← light lip at the top
-       |  )
-   ───▶ |  )  hollow
-       |__)____          ← flat foot
+    pitch ◀──   (  |_        ← light lip at the top
+                (  |
+         ____(__|        ← flat foot, the printed side at the back
    ======================================== */
 
 const FOOT_AT = 0.52   // where the foot is folded, as a fraction of the radius from the centre
@@ -471,7 +470,7 @@ function foldKeeper(geometry, radius, top) {
   return geometry
 }
 
-/** The standing keeper. faceDir: +1 faces the +x end of the pitch, -1 the -x end. */
+/** The standing keeper. faceDir: which end (+1 the +x end, -1 the -x end) its printed side faces; the hollow faces the other way. */
 function StandingKeeper({ color, skirtTexture, topTexture, faceDir }) {
   const radius = GK_RADIUS * 0.94
   const topR = radius * TOP_RATIO
