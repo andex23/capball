@@ -5,7 +5,6 @@
  * icon: an Icon name. date: YYYY-MM-DD.
  */
 export const UPDATES = [
-  { id: 'standing-keeper', date: '2026-11-18', icon: 'lock', title: 'Keepers stand up', text: 'Keepers are now bent caps standing on their foot, like the ones you played with. Shots bounce off them; place it past their ends.' },
   { id: 'easy-computer', date: '2026-11-18', icon: 'cpu', title: 'A smarter easy computer', text: 'On easy the computer still makes mistakes, but it always plays the ball and never towards its own goal.' },
   { id: 'wall-rule', date: '2026-11-10', icon: 'help', title: 'No goals off the wall', text: 'If your cap bounces off the wall before it hits the ball, that flick can’t score.' },
   { id: 'long-shots', date: '2026-11-10', icon: 'ball', title: 'Long shots and saves', text: 'Hard shots from far out can drift, and keepers slide across to save them. Work the ball closer to score.' },
