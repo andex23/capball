@@ -225,7 +225,7 @@ export function recordHistory(result, mode) {
     useRewardsStore.getState().noteMatch({
       won, gf: result.score[me], ga: result.score[them],
       mode: playing?.kind === 'career' || playing?.kind === 'careerCup' ? 'career' : playing ? 'tournament' : s.gameMode,
-      level: s.gameMode === 'ai' || playing ? matchLevel(s) : null,
+      level: s.gameMode === 'ai' ? matchLevel(s) : null,
       saves: events.filter((e) => e.type === 'save' && mineCap(e.by)).length,
       posts: events.filter((e) => e.type === 'post' && mineCap(e.cap)).length,
     })

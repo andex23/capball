@@ -76,12 +76,11 @@ export function DailyReward({ onClose }) {
 
 export function WeeklyGoals({ onClose }) {
   const week = useRewardsStore((s) => s.week)
-  const caps = useRewardsStore((s) => s.caps)
   const key = weekKey()
   const goals = weekProgress(week, key)
   const done = goals.filter((g) => g.done).length
   const cap = weekCap(key)
-  const have = caps.includes(cap.key)
+  const have = done === goals.length
   const left = 7 - ((new Date().getDay() + 6) % 7)
   return (
     <section className="corner-sheet rw" role="dialog" aria-label="Weekly goals">

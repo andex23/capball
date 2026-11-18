@@ -76,4 +76,3 @@ export function pressBoost(career, player) {
   if (career?.lastMatch?.season !== career?.season || !press?.ids?.includes(player.id)) return 0
   return { squad: 1, bench: 3, player: 4 }[press.choice] || 0
 }
-

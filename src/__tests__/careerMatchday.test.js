@@ -63,4 +63,3 @@ describe('career matchday', () => {
     expect(headline({ club: 'Rail End', opp: 'Corks', gf: 1, ga: 0, scorers: extra.scorers })).toBe('Substitute Castoro scores the winner for Rail End')
   })
 })
-

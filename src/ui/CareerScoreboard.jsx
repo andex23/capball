@@ -65,4 +65,3 @@ export function CareerFinalWhistle({ career, onReport, onDetails }) {
     <button className="btn btn-secondary btn-block" onClick={onDetails}>Match details &amp; goal clips</button>
   </div></div>
 }
-

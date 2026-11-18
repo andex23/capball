@@ -25,4 +25,3 @@ export default function LegendMarket({ career }) {
     {message && <p role="status">{message}</p>}
   </section>
 }
-

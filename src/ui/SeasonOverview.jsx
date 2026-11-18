@@ -51,4 +51,3 @@ export default function SeasonOverview({ career, go }) {
     {rewards && <><button className="corner-scrim" aria-label="Close daily reward" onClick={() => setRewards(false)} /><DailyReward onClose={() => setRewards(false)} /></>}
   </>
 }
-

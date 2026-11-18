@@ -29,4 +29,3 @@ export function seasonLegends(season) {
   const first = ((Math.max(1, season) - 1) * 2) % LEGENDS.length
   return LEGENDS.slice(first, first + 2)
 }
-
