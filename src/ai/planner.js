@@ -656,27 +656,51 @@ function jitter(c, noise, rng) {
 }
 
 /**
- * Medium: best heuristic candidate, with aim noise that is re-checked so it
- * can't turn a clean shot into a foul.
+ * Medium (and easy): best heuristic candidate, with aim noise that is
+ * re-checked so it can't turn a clean shot into a foul or into our own net.
+ * Easy plays the same way with more human mistakes: a looser choice
+ * (scoreNoise: sometimes the second-best play), shakier aim and power
+ * (powerJitter), but never a flick that misses the ball or heads for its own goal.
  */
-export function chooseHeuristic(ctx, { aimNoise = 0.2, powerMult = 1, rng = Math.random } = {}) {
+export function chooseHeuristic(ctx, { aimNoise = 0.2, powerMult = 1, scoreNoise = 1.5, powerJitter = 0, rng = Math.random } = {}) {
   const cands = generateCandidates(ctx, {
     powers: [1.6], blocks: true, maxPower: PHYSICS.maxFlickVelocity * powerMult,
   })
   if (!cands.length) return null
   let best = null
   for (const c of cands) {
-    const score = heuristicScore(ctx, c) + (rng() - 0.5) * 1.5
+    const score = heuristicScore(ctx, c) + (rng() - 0.5) * scoreNoise
     if (!best || score > best.score) best = { ...c, score }
+  }
+  // A shaky hand: a little too soft or too hard, but always enough to reach what it aims at
+  if (powerJitter > 0) {
+    const reach = Math.sqrt(2 * CAP_DECEL * ((best.capDist || 1) + 0.6))
+    const now = hyp(best.velocity.x, best.velocity.y) || 1
+    const want = Math.max(reach, Math.min(PHYSICS.maxFlickVelocity, now * (1 + (rng() - 0.6) * 2 * powerJitter)))
+    best = { ...best, velocity: { x: best.velocity.x / now * want, y: best.velocity.y / now * want } }
   }
   for (let noise = aimNoise; noise > 0.01; noise /= 2) {
     const j = jitter(best, noise, rng)
-    if (safeFlick(ctx, j)) return j
+    if (safeFlick(ctx, j) && !towardsOwnGoal(ctx, j)) return j
   }
   return best
 }
 
-/** The noisy flick still hits what the clean one was meant to hit (ball, or nothing for blocks). */
+/** Would this flick send the ball at our own goal? (Where the cap meets it decides where it goes.) */
+export function towardsOwnGoal(ctx, c) {
+  const ball = ctx.positions.ball
+  const cap = ctx.positions[c.capId]
+  if (!ball || !cap || c.kind === 'block' || c.kind === 'position' || c.kind === 'keeper') return false
+  const v = c.velocity
+  const speed = hyp(v.x, v.y) || 1
+  const hit = firstHit(ctx.positions, c.capId, v)
+  if (!hit || hit.id !== 'ball') return false
+  const at = { x: cap.x + v.x / speed * hit.t, y: cap.y + v.y / speed * hit.t }
+  const u = unit(ball.x - at.x, ball.y - at.y)
+  const own = crossing(ball, u, ctx.ownGoal.x)
+  return !!own && Math.abs(own.y) < PITCH.goalWidth / 2 + 1.5
+}
+
 function safeFlick(ctx, c) {
   const move = c.kind === 'block' || c.kind === 'position' || c.kind === 'keeper'
   const hit = firstHit(ctx.positions, c.capId, c.velocity, move ? c.capDist + c.runout : Infinity)

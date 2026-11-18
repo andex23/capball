@@ -12,8 +12,9 @@ import { reflexOptions } from '../game/keeper'
  * SMART AI CONTROLLER
  *
  * Difficulty levels:
- * - easy:   the classic role-based aim (noisy, weak), and only sometimes
- *           notices that its path runs through an opponent (foul).
+ * - easy:   the medium planner played less well: looser choices, shakier
+ *           aim and power, weaker shots. It still always plays the ball and
+ *           never towards its own goal (it used to, which felt like a let-off).
  * - medium: geometric planner (src/ai/planner.js) — never picks a path that
  *           touches an opponent before the ball, prefers shots toward goal,
  *           clears the ball or blocks when it's close to our own goal.
@@ -23,7 +24,8 @@ import { reflexOptions } from '../game/keeper'
  */
 
 export const DIFFICULTY = {
-  easy:   { thinkDelay: 1200, aimDelay: 600, aimNoise: 0.6, powerMult: 0.5, passChance: 0.1, foulCheck: 0.5 },
+  // Easy plays the same sensible game as medium, less well: looser choices, shakier aim and power, weaker shots
+  easy:   { thinkDelay: 1200, aimDelay: 600, aimNoise: 0.32, powerMult: 0.62, planner: 'heuristic', scoreNoise: 6, powerJitter: 0.22, passChance: 0.1 },
   medium: { thinkDelay: 800,  aimDelay: 400, aimNoise: 0.2, powerMult: 0.75, planner: 'heuristic' },
   hard:   { thinkDelay: 500,  aimDelay: 250, aimNoise: 0.03, powerMult: 1, planner: 'simulate', budgetMs: 70 },
 }
@@ -110,7 +112,7 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
     })
     const pick = diff.planner === 'simulate'
       ? chooseBySimulation(ctx, { budgetMs: diff.budgetMs, aimNoise: diff.aimNoise, rng })
-      : chooseHeuristic(ctx, { aimNoise: diff.aimNoise, powerMult: diff.powerMult, rng })
+      : chooseHeuristic(ctx, { aimNoise: diff.aimNoise, powerMult: diff.powerMult, scoreNoise: diff.scoreNoise, powerJitter: diff.powerJitter, rng })
     if (pick) return { capId: pick.capId, velocity: pick.velocity, kind: pick.kind }
     // Nothing clean on offer (e.g. ball jammed on a cushion) — fall back to the classic aim
   }
