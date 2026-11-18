@@ -224,10 +224,12 @@ export function squadAttrs(squad) {
   return Object.fromEntries(CAP_ROLES.map((role) => [role, migratePlayer(squad[role], role)?.attrs || null]))
 }
 
+export const printedSurname = (player) => String(player?.name || '').trim().split(/\s+/).pop().slice(0, 12)
+
 /** Surnames by cap role, for printing on the caps. */
 export function squadSurnames(squad) {
   if (!squad) return null
-  return Object.fromEntries(CAP_ROLES.map((role) => [role, String(squad[role]?.name || '').trim().split(/\s+/).pop().slice(0, 12)]))
+  return Object.fromEntries(CAP_ROLES.map((role) => [role, printedSurname(squad[role])]))
 }
 
 /** A computer club's players (attributes and OVR), the same every time for that club in that division. */

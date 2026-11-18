@@ -1,0 +1,22 @@
+.roster-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 15px; }
+.roster-head > span { color: #deebff; }
+.roster-head b { color: #ffe078; }
+.roster-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.roster-row { width: 100%; display: grid; grid-template-columns: 56px minmax(0,1fr) auto 16px; gap: 10px; align-items: center; padding: 5px 10px 5px 5px; min-height: 64px; text-align: left; background: #142965; color: #fff; border: 1px solid #6c83b5; font: 500 15px/1.35 var(--font-ui); }
+button.roster-row { cursor: pointer; }
+button.roster-row:hover, button.roster-row:focus-visible { background: #1d387e; border-color: #ffe078; }
+.roster-row:focus-visible { outline: 2px solid #ffe078; outline-offset: 1px; }
+.roster-row > svg { color: #c9d8ff; }
+.roster-player { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.roster-player > strong { font-size: 17px; line-height: 1.22; }
+.roster-player > span { color: #d3e3ff; font-size: 14px; }
+.roster-player > small { color: #ffe1a2; font-size: 13px; }
+.roster-cap, .roster-profile, .roster-rating { display: inline-grid; place-items: center; }
+.roster-cap { line-height: 0; }
+.roster-rating { gap: 2px; min-width: 30px; }
+.roster-rating small { font-size: 10px; font-weight: 700; color: #ceddff; }
+.roster-profile { gap: 6px; }
+@media (max-width: 370px) {
+  .roster-row { grid-template-columns: 50px minmax(0,1fr) auto 12px; gap: 6px; }
+  .roster-player > strong { font-size: 16px; }
+}

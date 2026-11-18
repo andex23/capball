@@ -61,12 +61,6 @@ function PatternOverlay({ pattern, cx, cy, innerR, edgeColor }) {
           <rect x={cx - innerR * 0.12} y={cy - innerR} width={innerR * 0.24} height={innerR * 2} fill={boldColor} />
         </g>
       )
-    case 'split':
-      return (
-        <clipPath id="split-clip">
-          <rect x={cx} y={cy - innerR} width={innerR} height={innerR * 2} />
-        </clipPath>
-      )
     case 'ring':
       return <circle cx={cx} cy={cy} r={innerR * 0.55} fill="none" stroke={boldColor} strokeWidth={innerR * 0.1} />
     case 'cross':
@@ -138,7 +132,7 @@ const FINISH_LOOK = {
   chrome: { lift: 0.32, rim: 0.9, skirt: 0.4, sheen: 0.22, glare: 0.3, glint: 0 },
 }
 
-export default function CapPreview({ config, size = 120, number = null, role = 'atk1' }) {
+export default function CapPreview({ config, size = 120, number = null, role = 'atk1', standing = false }) {
   const { primary, edge, badge, pattern, finish } = config
   const skirtBase = config.skirtColor || primary
   const capText = capLabel(config, role)
@@ -149,13 +143,14 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   // it with its teeth at the bottom.
   const cx = size / 2
   const R = size * 0.44            // radius of the top
-  const K = 0.62                   // tilt: how round the top looks
-  const tc = size * 0.4            // centre of the top
-  const H = size * 0.15            // skirt height
+  const K = standing ? 0.93 : 0.62                   // tilt: how round the top looks
+  const tc = size * (standing ? 0.55 : 0.4)            // centre of the top
+  const H = size * (standing ? 0.055 : 0.15)            // skirt height
   const R2 = R * 1.09              // the skirt flares a little
   const TOOTH = size * 0.04
   const PLEATS = 21
   const topR = R * 0.97
+  const foldY = tc + R * K * 0.52
 
   // How each finish catches the light. Matte has no shine at all, satin a
   // soft wide sheen, gloss a sharp highlight and a glint, chrome bright metal.
@@ -198,6 +193,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
       <defs>
+        {standing && <clipPath id={`foot-${uid}`}><rect width={size} height={foldY} /></clipPath>}
         <radialGradient id={`top-${uid}`} cx="42%" cy="34%" r="70%">
           <stop offset="0%" stopColor={lightenHex(primary, look.lift)} />
           <stop offset="65%" stopColor={primary} />
@@ -223,7 +219,9 @@ export default function CapPreview({ config, size = 120, number = null, role = '
       </defs>
 
       {/* Shadow on the table */}
-      <ellipse cx={cx + size * 0.02} cy={tc + H + TOOTH + size * 0.02} rx={R2 * 1.02} ry={R2 * K * 0.95} fill="rgba(0,0,0,0.38)" />
+      <ellipse cx={cx + size * 0.02} cy={standing ? foldY + H : tc + H + TOOTH + size * 0.02} rx={R2 * 1.02} ry={standing ? H : R2 * K * 0.95} fill="rgba(0,0,0,0.38)" />
+      {standing && <path d={`M ${cx - R * 0.84} ${foldY - H} h ${R * 1.68} l ${H} ${H * 1.8} h ${-R * 1.8} Z`} fill={darkenHex(skirtBase, 0.24)} stroke={lightenHex(skirtBase, 0.2)} strokeWidth={size * 0.016} />}
+      <g clipPath={standing ? `url(#foot-${uid})` : undefined}>
 
       {/* Fluted skirt */}
       {folds.map((f, i) => (
@@ -301,6 +299,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
       {look.sheen > 0 && <ellipse cx={cx - R * 0.18} cy={tc - R * K * 0.3} rx={R * 0.7} ry={R * K * 0.45} fill={`url(#sheen-${uid})`} />}
       {look.glare > 0 && <ellipse cx={cx - R * 0.32} cy={tc - R * K * 0.42} rx={R * 0.4} ry={R * K * 0.14} fill={`rgba(255,255,255,${look.glare})`} transform={`rotate(-12 ${cx - R * 0.32} ${tc - R * K * 0.42})`} />}
       {look.glint > 0 && <circle cx={cx + R * 0.52} cy={tc - R * K * 0.36} r={size * 0.018} fill={`rgba(255,255,255,${look.glint})`} />}
+      </g>
     </svg>
   )
 }

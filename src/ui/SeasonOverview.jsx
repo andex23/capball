@@ -45,7 +45,7 @@ export default function SeasonOverview({ career, go }) {
     <section className="card card-pad cs-spend">
       <div className="cs-heading"><h2 className="saved-h">Club budget</h2><b>{money(career.coins)}</b></div>
       <button onClick={() => go('transfers')}><span>Scout a transfer target</span><b data-ready={fee === 0 || career.coins >= fee}>{fee ? money(fee) : 'Free report'}</b></button>
-      {cost != null && <button onClick={() => go('club')}><span>{TRAINING[level].name}</span><b data-ready={career.coins >= cost}>{money(cost)}</b></button>}
+      {cost != null && <button onClick={() => go('facilities')}><span>{TRAINING[level].name}</span><b data-ready={career.coins >= cost}>{money(cost)}</b></button>}
       {ready && <button onClick={() => setRewards(true)}><span>Daily reward</span><b data-ready="true">Collect ›</b></button>}
     </section>
     {rewards && <><button className="corner-scrim" aria-label="Close daily reward" onClick={() => setRewards(false)} /><DailyReward onClose={() => setRewards(false)} /></>}
