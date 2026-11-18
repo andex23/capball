@@ -1951,9 +1951,9 @@ button { cursor: pointer; background: none; border: 0; }
 .iss-tag[data-arrow='true'] { background: none; box-shadow: none; color: var(--iss-yellow); font-size: 14px; }
 .iss-row .iss-sub { white-space: nowrap; }
 .iss-window { animation: iss-open 160ms steps(4, end) both; }
-.career-save { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(27, 94, 32, 0.45); border: 2px solid #3ddc6b; color: #e8ffe9; font-size: 13px; }
-.career-save span { flex: 1; min-width: 0; }
-.career-save .btn { min-height: 32px; font-size: 12px; color: #fff; }
+.career-save-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; background: #501e29; border: 2px solid #ff8585; color: #fff; font-size: 14px; }
+.career-save-error span { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.career-save-error .btn { min-height: 40px; font-size: 12px; }
 .career-kit-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
 .career-kit-card .t-note { margin: 0; }
 @media (max-width: 480px) { .career-kit-card { grid-template-columns: auto 1fr; } .career-kit-card > .btn { grid-column: 1 / -1; } }
@@ -2481,12 +2481,13 @@ button { cursor: pointer; background: none; border: 0; }
 .saved-history .career-awards { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; }
 
 /* Career: matchday report */
-.match-report { display: grid; gap: 16px; }
+.match-report { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 16px; overflow-wrap: anywhere; }
+.match-report > * { min-width: 0; }
 .match-report-score { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 12px 0; }
 .match-report-score > :last-child { justify-self: end; }
 .match-report-score > :first-child { justify-self: start; }
 .match-report-goals { font-family: var(--font-pixel); font-size: 24px; color: #fff; white-space: nowrap; }
-.match-story { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.match-story { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; font-size: 14px; }
 .match-story li { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 8px; padding: 6px 8px; background: rgba(5, 10, 46, 0.45); border-left: 3px solid var(--line); }
 .match-story li[data-kind='goal'] { border-left-color: var(--iss-yellow, #ffd23f); font-weight: 700; }
 .match-story li[data-kind='goal'][data-mine='true'] { border-left-color: var(--good, #34d27b); }
@@ -2501,9 +2502,6 @@ button { cursor: pointer; background: none; border: 0; }
 .career-title-row .shell-title { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .career-title-row > svg { flex: none; }
 .career-rep { display: block; margin-top: 4px; font-size: 12px; color: var(--text-2); }
-/* The save note floats over the page for a moment instead of pushing it down */
-.career-save { position: fixed; z-index: 40; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); animation: fade-in 0.2s ease; }
-.career-save[data-error='true'] { background: rgba(120, 20, 20, 0.9); border-color: #ff6b6b; }
 /* The Cap Cup */
 .career-cup-link { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .career-cup-link > span:nth-of-type(1) { flex: 1; min-width: 0; }
@@ -2627,7 +2625,6 @@ button.road-tag small { color: var(--iss-yellow, #ffd23f); }
 .career-tab-icon { position: relative; display: grid; place-items: center; }
 .career-tab-icon em { position: absolute; top: -6px; right: -12px; min-width: 18px; height: 18px; padding: 0 4px; font: 700 10px/18px var(--font-ui); font-style: normal; text-align: center; color: #fff; background: #e8261f; border: 2px solid #0b1236; }
 .career-tab:focus-visible { outline: 3px solid var(--iss-yellow, #ffd23f); outline-offset: -3px; }
-.shell:has(.career-tabs) .career-save { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
 
 /* ── Match setup: progress bars and the cap studio ── */
 .shell-head:has(> .stepper) { flex-direction: column; align-items: stretch; gap: 12px; }
