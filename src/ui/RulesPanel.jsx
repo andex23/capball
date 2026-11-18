@@ -5,6 +5,16 @@ import Icon from './Icon'
 
 const SECTIONS = [
   {
+    title: 'Managing your club',
+    items: [
+      'Season shows your next opponent, the venue and the last meeting. Read the match report after the final whistle for scorers, player ratings and ten-minute spells of pressure.',
+      'Your interview backs the whole squad, your bench or your top performer for one fixture. Each answer shows its passing bonus before you choose.',
+      'Open Transfers, then the market, to scout a player or see the two season legends. Sign a legend in an open window, then move him from reserves into your side. Each gold-rimmed cap has a different playing trait.',
+      'Green prices on the season page are within your club budget. Daily rewards can pay for transfers and facilities. Day three includes a scout report, day six rests your squad, and day seven pays club money and unlocks a design until you own the collection.',
+      'The bell shows three weekly goals. Each pays into your club budget. Complete all three in the same week for the featured cap. Unclaimed daily rewards wait until your next visit.',
+    ],
+  },
+  {
     title: 'Live voice chat',
     items: [
       'In a live online or LAN match, open the match menu and choose Join voice. Each player must join and allow microphone access before you can talk.',

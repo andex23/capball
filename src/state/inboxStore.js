@@ -33,7 +33,7 @@ export const useInboxStore = create((set, get) => ({
   /** Mark these item ids as seen. */
   markSeen(ids) {
     const seen = [...new Set([...get().seen, ...ids])].slice(-400)
-    if (seen.length === get().seen.length) return
+    if (seen.length === get().seen.length && seen.every((id, i) => id === get().seen[i])) return
     set({ seen })
     get().persist()
   },

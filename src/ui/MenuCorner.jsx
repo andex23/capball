@@ -18,10 +18,14 @@ import { careerNext, careerDate, formatGameDate, ME } from '../game/career'
 import { teamById } from '../game/tournament'
 import { playButtonSelect, playMenuNavigate } from '../audio/SoundManager'
 import CapPreview from './CapPreview'
+import { DailyReward, WeeklyGoals } from './Rewards'
+import { useRewardsStore } from '../state/rewardsStore'
+import { weekProgress, weekKey, dailyStatus } from '../game/rewards'
+import { money } from '../game/squad'
 import Icon from './Icon'
 
-const KIND_LABEL = { update: 'Game update', achievement: 'Achievement', daily: 'Daily challenge', career: 'Career' }
-const KIND_TONE = { update: 'blue', achievement: 'gold', daily: 'green', career: 'purple' }
+const KIND_LABEL = { update: 'Game update', achievement: 'Achievement', daily: 'Daily challenge', career: 'Career', reward: 'Daily reward', goal: 'Weekly goals' }
+const KIND_TONE = { update: 'blue', achievement: 'gold', daily: 'green', career: 'purple', reward: 'gold', goal: 'green' }
 const TABS = [['all', 'All'], ['update', 'Updates'], ['achievement', 'Achievements']]
 
 /** Everything the bell knows about right now. */
@@ -31,8 +35,13 @@ function useInbox() {
   const daily = useDailyStore()
   const career = useCareerStore((s) => s.career)
   const seen = useInboxStore((s) => s.seen)
+  const rewardDaily = useRewardsStore((s) => s.daily)
+  const news = useRewardsStore((s) => s.news)
   return useMemo(() => {
     const today = dayKey()
+    const st = dailyStatus(rewardDaily, today)
+    const r = st.reward
+    const reward = username && st.ready ? { day: today, n: st.day + 1, what: r.cap ? 'A mystery cap' : r.scout ? 'A free scout report and ' + money(r.coins) : r.fitness && career ? 'A squad rest day' : money(r.coins) } : null
     const dailyItem = username && !daily.tries?.[today]?.won ? { ready: true, day: today, streak: liveStreak(daily) } : null
     let careerItem = null
     const due = career && careerNext(career)
@@ -43,8 +52,8 @@ function useInbox() {
       const when = careerDate(career)
       careerItem = { key: `${career.season}:${due.kind}:${f.id}`, text: `${career.club.name} v ${opp?.name || 'TBD'} on ${formatGameDate(when, { year: false })}.`, date: today }
     }
-    return inboxItems({ earned: username ? earned : {}, daily: dailyItem, career: careerItem, seen })
-  }, [username, earned, daily, career, seen])
+    return inboxItems({ earned: username ? earned : {}, daily: dailyItem, career: careerItem, reward, news: username ? news : [], seen })
+  }, [username, earned, daily, career, seen, rewardDaily, news])
 }
 
 function Bell({ count, open, onClick }) {
@@ -58,7 +67,7 @@ function Bell({ count, open, onClick }) {
   )
 }
 
-function WhatsNew({ items, onClose }) {
+function WhatsNew({ items, onClose, onPick }) {
   const [tab, setTab] = useState('all')
   const shown = items.filter((i) => tab === 'all' || i.kind === tab)
   return (
@@ -69,7 +78,7 @@ function WhatsNew({ items, onClose }) {
       </div>
       <ul className="corner-list">
         {shown.map((i) => (
-          <li key={i.id} data-unread={i.unread ? 'true' : undefined}>
+          <li key={i.id} data-unread={i.unread ? 'true' : undefined} data-tap={i.kind === 'reward' || i.kind === 'goal' ? 'true' : undefined} onClick={i.kind === 'reward' ? () => onPick('daily') : i.kind === 'goal' ? () => onPick('weekly') : undefined}>
             <span className="corner-ic" data-tone={KIND_TONE[i.kind]}><Icon name={i.icon} size={20} /></span>
             <span className="corner-item">
               <b>{KIND_LABEL[i.kind]}</b>
@@ -86,13 +95,19 @@ function WhatsNew({ items, onClose }) {
   )
 }
 
-function Profile({ onClose, onOpen }) {
+function Profile({ onClose, onOpen, onSheet }) {
   const username = useAccountStore((s) => s.username)
   const kit = useMatchStore((s) => s.teamConfig.team1)
   const totals = useSavedStore((s) => s.career) || {}
   const earned = useAchievementStore((s) => s.earned)
   const badges = Object.keys(earned || {}).length
+  useRewardsStore((s) => s.daily) // shows the new day once collected
+  const st = useRewardsStore.getState().status(dayKey())
+  const week = useRewardsStore((s) => s.week)
+  const goalsDone = weekProgress(week, weekKey()).filter((g) => g.done).length
   const rows = [
+    ['daily', 'Daily reward', st.ready ? `Day ${st.day + 1} ready!` : `Day ${st.day + 1} tomorrow`],
+    ['weekly', 'Weekly goals', `${goalsDone} of 3 done`],
     ['records', 'Records & badges', `${badges} of ${ACHIEVEMENTS.length}`],
     ['settings', 'Sound & settings', 'Sound, camera, controls'],
     ['account', username ? 'My games & account' : 'Save my games', username ? `Saved to ${username}` : 'Free account'],
@@ -114,7 +129,7 @@ function Profile({ onClose, onOpen }) {
         </div>
         <nav className="corner-rows">
           {rows.map(([k, title, sub]) => (
-            <button key={k} onClick={() => { playMenuNavigate(); onOpen(k) }}><b>{title}</b><small>{sub}</small><Icon name="next" size={16} /></button>
+            <button key={k} onClick={() => { playMenuNavigate(); if (k === 'daily' || k === 'weekly') onSheet(k); else onOpen(k) }}><b>{title}</b><small>{sub}</small><Icon name="next" size={16} /></button>
           ))}
         </nav>
       </div>
@@ -124,7 +139,7 @@ function Profile({ onClose, onOpen }) {
 
 /** onOpen(dialog): opens one of the menu's dialogs ('records', 'settings', 'account', 'rules'). */
 export default function MenuCorner({ onOpen }) {
-  const [open, setOpen] = useState(null) // 'bell' | 'me' | null
+  const [open, setOpen] = useState(null) // 'bell' | 'me' | 'daily' | 'weekly' | null
   const items = useInbox()
   const count = unreadCount(items)
   const username = useAccountStore((s) => s.username)
@@ -144,8 +159,10 @@ export default function MenuCorner({ onOpen }) {
         </button>
       </div>
       {open && <div className="corner-dim" onClick={() => setOpen(null)} />}
-      {open === 'bell' && <WhatsNew items={snapshot} onClose={() => setOpen(null)} />}
-      {open === 'me' && <Profile onClose={() => setOpen(null)} onOpen={(d) => { setOpen(null); onOpen(d) }} />}
+      {open === 'bell' && <WhatsNew items={snapshot} onClose={() => setOpen(null)} onPick={(k) => { playButtonSelect(); setOpen(k) }} />}
+      {open === 'me' && <Profile onClose={() => setOpen(null)} onOpen={(d) => { setOpen(null); onOpen(d) }} onSheet={(k) => setOpen(k)} />}
+      {open === 'daily' && <DailyReward onClose={() => setOpen(null)} />}
+      {open === 'weekly' && <WeeklyGoals onClose={() => setOpen(null)} />}
     </>
   )
 }

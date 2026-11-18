@@ -93,7 +93,7 @@ export function goalLine(ctx) {
   const p = playerOf(teamConfig, cap)
   const other = scorerTeam === 'team1' ? 'team2' : 'team1'
   const vars = {
-    p: p?.label || teamConfig?.[own ? other : scorerTeam]?.name || 'They',
+    p: ctx.playerName || p?.label || 'The scorer',
     team: teamConfig?.[scorerTeam]?.name || '',
     other: teamConfig?.[other]?.name || '',
     num: p?.number != null ? `number ${p.number}` : 'striker',
@@ -103,7 +103,7 @@ export function goalLine(ctx) {
   if (shootout) kind = 'penalty'
   else if (own) kind = 'own'
   else {
-    const mine = cap ? goalLog.filter((g) => g.cap === cap && !g.own && !g.shootout).length : 0
+    const mine = cap ? goalLog.filter((g) => g.cap === cap && (!g.playerName || !ctx.playerName || g.playerName === ctx.playerName) && !g.own && !g.shootout).length : 0
     const total = score ? score.team1 + score.team2 : 0
     const us = score?.[scorerTeam] ?? 0
     const them = score?.[other] ?? 0
@@ -156,7 +156,7 @@ export function line(kind, ctx = {}) {
   const vars = {
     team: teamConfig?.[team]?.name || '',
     other: teamConfig?.[other]?.name || '',
-    p: p?.label || 'They',
+    p: p?.label || 'The shooter',
     k: playerOf(teamConfig, by)?.label || 'the defence',
     venue: venue || 'table',
     winner: winner ? teamConfig?.[winner]?.name || '' : '',

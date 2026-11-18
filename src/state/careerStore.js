@@ -4,8 +4,9 @@
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
 import { create } from 'zustand'
-import { CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
-import { makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
+import { answerPress, bestPerformer, fixtureBrief } from '../game/careerBrief'
+import { myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
+import { signLegend, makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
 import { allFixtures } from '../game/tournament'
@@ -33,14 +34,23 @@ function saveHall(hall) {
 }
 
 /** The matchday report to show next: your result, the written commentary, and the round it was in. */
-function withReport(career, fixtureId, result, perf, competition) {
+function withReport(career, fixtureId, result, perf, competition, before = career) {
   const t = competition === 'cup' ? career.cup?.tournament : career.league
   const f = t ? allFixtures(t).find((x) => x.id === fixtureId) : null
   if (!f) return career
-  return {
-    ...career,
-    lastMatch: { fixtureId, competition, round: f.round, home: f.home, away: f.away, result, story: perf?.story || [], seen: false, season: career.season },
+  const lastMatch = {
+    fixtureId, competition, round: f.round, home: f.home, away: f.away, result,
+    story: perf?.story || [], ...perf?.extras, season: career.season, seen: false,
+    brief: fixtureBrief(before, { kind: competition, fixture: f }),
+    posBefore: competition === 'league' && before.league.fixtures.some((x) => x.result) ? myPosition(before.league) : null,
   }
+  const best = bestPerformer({ ...career, lastMatch })
+  if (best) lastMatch.best = best
+  const recruits = new Set(before.deals.filter((d) => d.type === 'in' && d.season === before.season).map((d) => d.id))
+  const players = [...Object.values(before.squad), ...before.bench]
+  const debuts = players.filter((p) => recruits.has(p.id) && !p.apps && perf?.byPlayer?.[p.id]).map((p) => p.name)
+  if (debuts.length) lastMatch.debuts = debuts
+  return { ...career, lastMatch }
 }
 
 /** Everyone who played: tired; everyone who didn't: rested. */
@@ -91,7 +101,7 @@ export const useCareerStore = create((set, get) => ({
     let next = recordCareerResult(career, fixtureId, result)
     next = withPerformance(next, perf, `${career.league.id}:${fixtureId}`, fixtureId)
     next = withFitness(next, career, perf)
-    next = withReport(next, fixtureId, result, perf, 'league')
+    next = withReport(next, fixtureId, result, perf, 'league', career)
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -113,7 +123,7 @@ export const useCareerStore = create((set, get) => ({
     let next = recordCupResult(career, fixtureId, result)
     next = withPerformance(next, perf, `${career.cup.tournament.id}:${fixtureId}`, fixtureId)
     next = withFitness(next, career, perf)
-    next = withReport(next, fixtureId, result, perf, 'cup')
+    next = withReport(next, fixtureId, result, perf, 'cup', career)
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
@@ -204,6 +214,14 @@ export const useCareerStore = create((set, get) => ({
     return true
   },
   sponsor(index) { return get()._apply(signSponsor, index) },
+  /** Money from daily rewards and weekly goals. */
+  addScoutCredits(n) { return n > 0 && get()._apply((c) => ({ ...c, scoutCredits: (c.scoutCredits || 0) + n })) },
+  addCoins(units) { return units > 0 && get()._apply((c) => ({ ...c, coins: (c.coins ?? 0) + Math.round(units) })) },
+  /** A rest day: every player back to full fitness. */
+  restSquad() {
+    const fresh = (p) => { if (!p) return p; const { fit, ...rest } = p; return fit === undefined ? p : rest }
+    return get()._apply((c) => ({ ...c, squad: Object.fromEntries(Object.entries(c.squad || {}).map(([r, p]) => [r, fresh(p)])), bench: (c.bench || []).map(fresh), reserves: (c.reserves || []).map(fresh) }))
+  },
   /** Squad moves: each returns true, or { error } saying why not. */
   _move(fn, ...args) {
     const { career } = get()
@@ -215,6 +233,8 @@ export const useCareerStore = create((set, get) => ({
     useAccountStore.getState().save({ force: true })
     return true
   },
+  answerPress(choice) { return get()._apply(answerPress, choice) },
+  signLegend(id) { return get()._move(signLegend, id) },
   sell(slot, clubId) { return get()._move(sellTo, slot, clubId) },
   release(slot) { return get()._move(releasePlayer, slot) },
   loan(slot) { return get()._move(loanOut, slot) },

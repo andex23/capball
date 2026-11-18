@@ -129,10 +129,10 @@ export function setListed(career, slot, listed) {
 export const fitnessOf = (p) => (Number.isFinite(p?.fit) ? p.fit : 100)
 
 /** His attributes as they play today: a tired player flicks with less power and is lighter (85–100%). */
-export function matchAttrs(p) {
+export function matchAttrs(p, mood = 0) {
   if (!p?.attrs) return p?.attrs || null
   const f = 0.85 + 0.15 * (fitnessOf(p) / 100)
-  return { ...p.attrs, pwr: Math.round(p.attrs.pwr * f), phy: Math.round(p.attrs.phy * f) }
+  return { ...p.attrs, ...(mood && Number.isFinite(p.attrs.pas) ? { pas: Math.min(99, p.attrs.pas + mood) } : {}), pwr: Math.round(p.attrs.pwr * f), phy: Math.round(p.attrs.phy * f) }
 }
 
 /** After a match: everyone who played tires (−14, down to 40%), everyone else recovers (+20). */
@@ -270,10 +270,12 @@ export const isScouted = (career, id) => !!career?.scouted?.includes(id)
 /** Scout a player: his potential becomes clear. Returns the career, or { error }. */
 export function scoutPlayer(career, id) {
   if (isScouted(career, id)) return career
-  const fee = SCOUT_FEE[career.level] ?? 10
-  if ((career.coins ?? 0) < fee) return { error: 'Not enough in the club budget to send a scout.' }
+  const free = (career.scoutCredits || 0) > 0
+  const fee = free ? 0 : SCOUT_FEE[career.level] ?? 10
+  if (!free && (career.coins ?? 0) < fee) return { error: 'Not enough in the club budget to send a scout.' }
   return {
     ...career,
+    scoutCredits: free ? career.scoutCredits - 1 : 0,
     scouted: [...(career.scouted || []), id].slice(-400),
     coins: career.coins - fee,
     biz: book(career.biz || newClub(career.level), { facilities: fee }),

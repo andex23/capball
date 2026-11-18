@@ -18,6 +18,7 @@
  * Pure functions over plain JSON; each returns a new career (or null / a
  * result object saying why not).
  */
+import { seasonLegends } from '../data/Legends'
 import { allFixtures, seededRng } from './tournament'
 import { newClub, book, wageOf, ACADEMY, TRAINING } from './club'
 import { money, openWindow, sanitizePlayer, developSeason, makeYouth, priceOf, ageGrowth, shiftOvr, DIVISION_RATING, POS_OF } from './squad'
@@ -117,6 +118,28 @@ export function vacate(career, slot) {
   return { career: next, player, cover: cover.p }
 }
 
+export function legendUnavailable(career, legend) {
+  if (career.legendSignings?.includes(legend.id)) return 'Already signed'
+  if (!transferWindow(career)) return 'Window closed'
+  if (squadFull(career)) return 'Squad full'
+  if (career.coins < legend.fee) return money(legend.fee) + ' needed'
+  return ''
+}
+
+export function signLegend(career, id) {
+  const legend = seasonLegends(career.season).find((p) => p.id === id)
+  if (!legend) return { error: 'This legend is not on the market this season.' }
+  const error = legendUnavailable(career, legend)
+  if (error) return { error }
+  const player = sanitizePlayer({ ...legend, contract: 2 }, ROLE_FOR_POS[legend.pos])
+  return {
+    ...career, reserves: [...(career.reserves || []), player], coins: career.coins - legend.fee,
+    biz: book(career.biz, { transfers: legend.fee }),
+    legendSignings: [...(career.legendSignings || []), id],
+    deals: logDeal(career, { type: 'in', id: player.id, name: player.name, club: null, fee: legend.fee, season: career.season }),
+  }
+}
+
 /* ── Buying ── */
 
 const talksFor = (career, key) => (career.talks?.key === key ? career.talks : { key, bids: {} })
@@ -165,7 +188,7 @@ export function makeBid(career, playerId, amount) {
       reserves: [...(career.reserves || []), signed],
       coins: (career.coins ?? 0) - cost,
       biz,
-      deals: logDeal(career, { type: 'in', name: player.name, club: club?.name || null, fee: cost, season: career.season }),
+      deals: logDeal(career, { type: 'in', id: player.id, name: player.name, club: club?.name || null, fee: cost, season: career.season }),
     },
     result: { verdict: 'accept', fee: bid, bonus: will.bonus },
   }
@@ -337,6 +360,7 @@ export function sanitizeDeals(input) {
   if (!Array.isArray(input)) return []
   return input.filter(isObj).slice(0, 12).map((d) => ({
     type: ['in', 'out', 'released', 'loan'].includes(d.type) ? d.type : 'in',
+    ...(typeof d.id === 'string' ? { id: d.id.slice(0, 16) } : {}),
     name: String(d.name || '').slice(0, 24),
     club: d.club ? String(d.club).slice(0, 24) : null,
     fee: Number.isFinite(d.fee) ? Math.round(d.fee) : 0,

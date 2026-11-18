@@ -372,7 +372,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
       }
     }
     // How far the shot may drift: a faint wedge along the ball's path, wider for long hard shots
-    const spreadDeg = state.penaltyKick ? 0 : aimWobbleFor(state, capId, power) + (state.challenge ? 0 : longShotWobble(distanceToGoal(state, capId, { x: cx, y: cz }), power))
+    const spreadDeg = state.penaltyKick ? 0 : aimWobbleFor(state, capId, power) + (state.challenge ? 0 : longShotWobble(distanceToGoal(state, capId, { x: cx, y: cz }), power, state.teamConfig?.[capId.slice(0, 5)]?.traits?.[capId.slice(6)]))
     t.spread.visible = ballOnPath && spreadDeg >= 0.5
     if (t.spread.visible) {
       const sx = pred.ballPath[0], sz = pred.ballPath[1]

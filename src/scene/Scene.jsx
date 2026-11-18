@@ -308,7 +308,7 @@ function GameWorld() {
             ref={setMeshRef(id)}
             id={id}
             color={team1.primary}
-            edgeColor={team1.edge}
+            edgeColor={team1.traits?.[id.slice(6)] ? "#ffcf57" : team1.edge}
             isGk={id.endsWith('_gk')}
             faceDir={face1}
             isSelected={selectedCapId === id || freeKickCapId === id}
@@ -317,7 +317,7 @@ function GameWorld() {
             pattern={team1.pattern}
             capText={capLabel(team1, id.slice(6))}
             textColor={team1.textColor}
-            skirtColor={team1.skirtColor}
+            skirtColor={team1.traits?.[id.slice(6)] ? "#b8862e" : team1.skirtColor}
             finish={team1.finish}
             band={bandColor(team1.bands?.[id.slice(6)])}
             art={team1.art}
@@ -332,7 +332,7 @@ function GameWorld() {
             ref={setMeshRef(id)}
             id={id}
             color={team2.primary}
-            edgeColor={team2.edge}
+            edgeColor={team2.traits?.[id.slice(6)] ? "#ffcf57" : team2.edge}
             isGk={id.endsWith('_gk')}
             faceDir={-face1}
             isSelected={selectedCapId === id || freeKickCapId === id}
@@ -341,7 +341,7 @@ function GameWorld() {
             pattern={team2.pattern}
             capText={capLabel(team2, id.slice(6))}
             textColor={team2.textColor}
-            skirtColor={team2.skirtColor}
+            skirtColor={team2.traits?.[id.slice(6)] ? "#b8862e" : team2.skirtColor}
             finish={team2.finish}
             band={bandColor(team2.bands?.[id.slice(6)])}
             art={team2.art}

@@ -285,7 +285,8 @@ export function applyCapMasses(teamConfig, scaleFor) {
     const attrs = teamConfig?.[id.slice(0, i)]?.attrs?.[id.slice(i + 1)]
     if (!attrs) continue
     const base = id.endsWith('_gk') ? PHYSICS.gkMass : PHYSICS.playerMass
-    Matter.Body.setMass(body, base * scaleFor(attrs.phy))
+    const heavy = teamConfig[id.slice(0, i)].traits?.[id.slice(i + 1)] === 'weight'
+    Matter.Body.setMass(body, base * scaleFor(attrs.phy) * (heavy ? 1.12 : 1))
   }
 }
 export function getBody(id) { return bodies[id] }

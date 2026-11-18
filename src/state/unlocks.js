@@ -7,6 +7,7 @@ import { useCareerStore } from './careerStore'
 import { useTournamentStore } from './tournamentStore'
 import { RARE_DESIGNS, isUnlocked } from '../data/TeamOptions'
 import { useAccountStore, isSignedIn } from './accountStore'
+import { useRewardsStore } from './rewardsStore'
 
 const SEEN_KEY = 'capball:unlocks-seen:v1'
 let dailyStreak = () => 0
@@ -27,6 +28,7 @@ export function currentProgress() {
     titles: career?.titles || 0,
     cups,
     streak: dailyStreak() || 0,
+    rewardCaps: useRewardsStore.getState().caps,
   }
 }
 
@@ -36,6 +38,7 @@ export function useProgress() {
   useSavedStore((s) => s.career)
   useCareerStore((s) => s.career)
   useTournamentStore((s) => s.history)
+  useRewardsStore((s) => s.caps)
   return currentProgress()
 }
 
