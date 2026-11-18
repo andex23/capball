@@ -319,9 +319,19 @@ function setupCorner(team, ex, ey) {
 }
 
 /**
+ * Where everyone lines up for a goal kick, as [x in from the kicking side's
+ * goal line, y as a share of `ey` (+ = the side the ball went out)]. The
+ * kicking side: two defenders split wide at the edge of the box, the midfielder
+ * comes short, the strikers wait just over halfway. The other side waits
+ * outside the box: two caps press at its edge, one in midfield, two back.
+ */
+const GOAL_KICK_DEFENCE = { def1: [6.5, 5.5], def2: [6.5, -5.5], mid: [11, -2.5], atk1: [16, 3], atk2: [16, -3] }
+const GOAL_KICK_PRESS = { atk1: [8, 2.5], atk2: [8, -3], mid: [13.5, 1], def1: [19.5, 4], def2: [19.5, -4] }
+
+/**
  * GOAL KICK for `team` (the defenders), after the ball got stuck in a corner
  * at their end. The keeper takes it from inside the six-yard area, on the
- * side the ball went out; attackers leave the penalty area.
+ * side the ball went out; both sides take up goal-kick positions.
  */
 function setupGoalKick(team, ex, ey) {
   const { halfW } = PITCH
@@ -331,10 +341,14 @@ function setupGoalKick(team, ex, ey) {
   placeBallAt(bx, by)
   const taker = `${team}_gk`
   safePlace(taker, ex * (halfW - 1.5), by)
-  const opponents = Object.keys(bodies).filter((id) => id.startsWith(otherTeam(team)) && !id.endsWith('_gk'))
+  // Everyone takes up a position, like a real goal kick (see GOAL_KICK_* above)
+  const opp = otherTeam(team)
+  const at = ([d, s]) => [ex * (halfW - d), ey * s]
+  for (const [role, spot] of Object.entries(GOAL_KICK_DEFENCE)) safePlace(`${team}_${role}`, ...at(spot))
+  for (const [role, spot] of Object.entries(GOAL_KICK_PRESS)) safePlace(`${opp}_${role}`, ...at(spot))
+  safePlace(`${opp}_gk`, -ex * (halfW - 1.3), 0)
+  const opponents = Object.keys(bodies).filter((id) => id.startsWith(opp) && !id.endsWith('_gk'))
   clearAround(bx, by, opponents, GOAL_KICK_CLEARANCE)
-  const mates = Object.keys(bodies).filter((id) => id.startsWith(`${team}_`) && id !== taker)
-  clearAround(bx, by, mates, TEAMMATE_CLEARANCE - 1)
   deOverlapBodies()
   setState({ freeKickCapId: taker })
 }
