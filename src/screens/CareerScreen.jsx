@@ -182,32 +182,13 @@ function StartCareer() {
   )
 }
 
-function timeAgo(iso) {
-  if (!iso) return null
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
-  if (s < 60) return 'just now'
-  if (s < 3600) return `${Math.round(s / 60)} min ago`
-  return new Date(iso).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
-}
-
-/** Where the career is saved, and a button to save right now. */
-function SaveBar() {
-  const { username, savedAt, saving, error } = useAccountStore()
-  // Shown while saving and for a few seconds after; an error stays until it's sorted
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    if (saving || error) { setVisible(true); return undefined }
-    if (!savedAt) return undefined
-    setVisible(true)
-    const timer = setTimeout(() => setVisible(false), 3500)
-    return () => clearTimeout(timer)
-  }, [savedAt, saving, error])
-  if (!visible) return null
+function CareerSaveError() {
+  const error = useAccountStore((s) => s.error)
+  if (!error) return null
   return (
-    <div className="career-save" role="status" data-error={error ? 'true' : undefined}>
-      <Icon name="check" size={16} />
-      <span>{saving ? 'Saving…' : `Saved to ${username}${savedAt ? ` · ${timeAgo(savedAt)}` : ''}`}{error ? ` — ${error}` : ''}</span>
-      {error && <button className="btn btn-ghost" onClick={() => { playButtonSelect(); useAccountStore.getState().save({ force: true }) }} disabled={saving}>Try again</button>}
+    <div className="career-save-error" role="alert">
+      <span><strong>Save pending.</strong> {error}</span>
+      <button className="btn btn-secondary" onClick={() => { playButtonSelect(); useAccountStore.getState().save({ force: true }) }}>Retry save</button>
     </div>
   )
 }
@@ -491,6 +472,7 @@ export default function CareerScreen() {
         </header>
 
         <main className="shell-body career-body" ref={mainRef}>
+          <CareerSaveError />
           {page === 'home' ? (
             <div className="career-col career-home">
           <div className="cs-matchday">
@@ -538,7 +520,6 @@ export default function CareerScreen() {
               {road.ahead.map((st) => <RoadStop key={st.f.id} stop={st} />)}
             </ol>
           </details>
-          <SaveBar />
           {career.target && !done && played === 0 && (
             <section className="card card-pad career-board" aria-label="The board’s target">
               <div className="eyebrow">Season {career.season} · the board</div>

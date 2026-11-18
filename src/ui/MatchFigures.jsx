@@ -35,7 +35,7 @@ export function PressRoom({ career }) {
     {best && <p><b>{best.name}</b> {best.sub === 'on' ? 'came off the bench and earned' : 'finished with'} your highest rating, {best.rating.toFixed(1)}/10.</p>}
     {choice ? <p role="status"><b>{quotes[choice] || PRESS[choice].quote}</b><br />{PRESS[choice].detail} for the next match.</p> :
       <><p>Who gets your backing for the next fixture?</p><div>{Object.entries(PRESS).filter(([id]) => quotes[id] && (id !== 'bench' || career.bench.length)).map(([id, p]) =>
-        <button key={id} className="btn btn-secondary" onClick={() => useCareerStore.getState().answerPress(id)}>{quotes[id]}<small>{p.detail}</small></button>
+        <button key={id} className="btn btn-secondary" onClick={() => useCareerStore.getState().answerPress(id)}><span>{quotes[id]}</span><small>{p.detail}</small></button>
       )}</div></>}
   </section>
 }

@@ -46,7 +46,7 @@
 .cs-facts dd { margin: 4px 0 0; font-weight: 800; overflow-wrap: anywhere; }
 .cs-facts dd b { color: #ffe06b; }
 .corner-scrim { position: fixed; inset: 0; z-index: 28; background: #080f29a6; border: 0; }
-.cs-whistle { display: grid; place-items: center; padding: var(--gutter); overflow-y: auto; }
+.cs-whistle { display: grid; grid-template-columns: minmax(0,1fr); place-items: center; padding: var(--gutter); overflow-y: auto; }
 .cs-whistle > div { display: grid; gap: 10px; width: min(560px,100%); margin: auto; }
 .cs-figures table { text-align: center; table-layout: fixed; }
 .cs-figures tbody th { font-weight: 500; color: #c9d5ff; }
@@ -59,12 +59,16 @@
 .cs-bars i[data-away="true"] { background: #99baff; top: 50%; bottom: auto; }
 .cs-axis { display: flex; justify-content: space-between; }
 .cs-press p { margin: 6px 0 12px; }
-.cs-press > div { display: grid; gap: 6px; }
-.cs-press button { justify-content: space-between; flex-wrap: wrap; text-align: left; font-family: inherit; font-size: 15px; }
+.cs-press > div { display: grid; grid-template-columns: minmax(0,1fr); gap: 6px; }
+.cs-press button { min-width: 0; white-space: normal; overflow-wrap: anywhere; justify-content: space-between; flex-wrap: wrap; text-align: left; font-family: inherit; font-size: 15px; }
 .cs-press small { font-size: 12px; color: #e2eaff; }
 @media (max-width: 480px) {
   .cs-matchday .career-vs .t-team { flex-direction: column; text-align: center; }
   .cs-matchday .career-vs .t-team-name { white-space: normal; }
-  .cs-facts dt { font-size: 8px; }
+  .cs-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px 0; padding: 9px 10px; }
+  .cs-facts dt { font: 700 11px/1.35 var(--font-ui); }
+  .cs-facts div:nth-child(3) { grid-column: 1 / -1; display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap; gap: 3px 8px; border-left: 0; border-top: 1px solid #67759d; padding-top: 6px; }
+  .cs-facts div:nth-child(3) dd { margin: 0; }
+  .cs-press button { display: grid; grid-template-columns: minmax(0,1fr); justify-items: start; gap: 3px; padding-block: 8px; }
   .cs-facts dd { font-size: 13px; }
 }
