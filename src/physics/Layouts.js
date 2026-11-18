@@ -1,5 +1,5 @@
 import Matter from 'matter-js'
-import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, getFormationPositions } from '../data/TeamData.js'
+import { PITCH, CAP_RADIUS, GK_RADIUS, GK_HALF_D, BALL_RADIUS, getFormationPositions } from '../data/TeamData.js'
 import { otherTeam, teamHomeDir } from '../game/rules.js'
 import { radiusOf } from './WorldCore.js'
 const { Body } = Matter
@@ -206,7 +206,7 @@ function setupFreeKick(foulSpot, fouledTeam) {
   const fkGk = bodies[`${defTeam}_gk`]
   if (fkGk && Math.abs(gkY) < 0.01) {
     // (a two-cap wall right by goal covers the near post, so he takes the far side)
-    Body.setPosition(fkGk, { x: defHome * (halfW - GK_RADIUS - 0.05), y: wallCount === 2 ? -nearSide * 1.5 : -nearSide * FK_TUNE.gkShade })
+    Body.setPosition(fkGk, { x: defHome * (halfW - GK_HALF_D - 0.05), y: wallCount === 2 ? -nearSide * 1.5 : -nearSide * FK_TUNE.gkShade })
     Body.setVelocity(fkGk, { x: 0, y: 0 })
   }
 
@@ -385,7 +385,7 @@ function narrowAngles() {
     const ux = (b.x - gx) / toBall, uy = b.y / toBall
     let tx = gx + ux * ANGLE_STEP_OUT
     let ty = Math.max(-PITCH.goalWidth / 2, Math.min(PITCH.goalWidth / 2, uy * ANGLE_STEP_OUT))
-    tx = dir * Math.min(PITCH.halfW - GK_RADIUS - 0.1, tx * dir)
+    tx = dir * Math.min(PITCH.halfW - GK_HALF_D - 0.1, tx * dir)
     let mx = tx - p.x, my = ty - p.y
     const move = Math.hypot(mx, my)
     if (move < 0.15) continue
@@ -422,7 +422,7 @@ function setupPenalty(fouledTeam, { shootout = !!getState().penaltyShootout } = 
   // (right on the line: safePlace keeps a margin off the walls, which would push him out)
   const keeper = bodies[`${defTeam}_gk`]
   if (keeper) {
-    Body.setPosition(keeper, { x: defGkDir * (halfW - GK_RADIUS - 0.02), y: 0 })
+    Body.setPosition(keeper, { x: defGkDir * (halfW - GK_HALF_D - 0.02), y: 0 })
     Body.setVelocity(keeper, { x: 0, y: 0 })
   }
   if (shootout) safePlace(`${fouledTeam}_gk`, atkGkDir * (halfW - 1.2), 0)
