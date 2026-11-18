@@ -216,6 +216,7 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
   if (input?.action === 'loadSave' || input?.action === 'putSave') {
     if (!saves) fail('shop-not-configured')
     const { playerId, mode } = await whoIs(api, input.session)
+    if (input.expectedPlayerId != null && input.expectedPlayerId !== playerId) fail('bad-session')
     if (input.action === 'loadSave') {
       const r = await saves('get', mode, playerId)
       return { ok: true, data: cleanSave(r?.data) }

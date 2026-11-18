@@ -8,8 +8,8 @@ fitted to the frame.
 ## What's different inside Lagos Life
 
 - **Player**: whoever is signed in to Lagos Life. Career, the daily challenge
-  and rewards are open to them. Progress is saved on their phone; there is no
-  Counterball account inside Lagos Life.
+  and rewards are open to them. Career progress and rewards sync to their
+  Lagos Life account.
 - **Leaderboard**: total wins against the computer and in friend matches.
   Matches with two players on one phone don't count. The count goes to the
   Lagos Life leaderboard (at most one update every 20 seconds).
@@ -79,8 +79,9 @@ even if the player closed the game right after paying.
 **Progress follows the player**: each Lagos Life player's save (kits, career,
 records, earned caps and bands) is kept on the server under their Lagos Life
 ID, in `cb_lagos_saves`. It loads when they open the game on any phone and
-saves after every match, every minute if something changed, and when the game
-is put away.
+saves when they collect a reward, complete a challenge, change their club or
+finish a match. Putting the game away also triggers a save. The reward sheet
+shows confirmation when the server accepts the claim.
 
 Run `supabase/lagos.sql` once in the Supabase SQL editor. The server uses the
 same `SUPABASE_SERVICE_ROLE_KEY` as play-anytime matches.
