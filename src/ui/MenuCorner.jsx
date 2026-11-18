@@ -41,7 +41,7 @@ function useInbox() {
     const today = dayKey()
     const st = dailyStatus(rewardDaily, today)
     const r = st.reward
-    const reward = username && st.ready ? { day: today, n: st.day + 1, what: r.cap ? 'A mystery cap' : r.fitness && career ? 'A squad rest day' : money(r.coins) } : null
+    const reward = username && st.ready ? { day: today, n: st.day + 1, what: r.cap ? 'A mystery cap' : r.scout ? 'A free scout report and ' + money(r.coins) : r.fitness && career ? 'A squad rest day' : money(r.coins) } : null
     const dailyItem = username && !daily.tries?.[today]?.won ? { ready: true, day: today, streak: liveStreak(daily) } : null
     let careerItem = null
     const due = career && careerNext(career)

@@ -1,6 +1,6 @@
 import SeasonOverview, { FormLine } from '../ui/SeasonOverview'
 import { fixtureBrief } from '../game/careerBrief'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
@@ -365,15 +365,13 @@ export default function CareerScreen() {
   // After a match: open its report first
   const reportId = career?.lastMatch && !career.lastMatch.seen ? career.lastMatch.fixtureId : null
   useEffect(() => { if (reportId) setPage('report') }, [reportId])
-  // Each page opens at its top: reset every scrolling box up from the page
-  const go = (next) => {
-    playButtonSelect()
-    setPage(next)
-    requestAnimationFrame(() => {
-      for (let el = mainRef.current; el; el = el.parentElement) if (el.scrollTop) el.scrollTop = 0
-      document.scrollingElement && (document.scrollingElement.scrollTop = 0)
-    })
-  }
+  const season = career?.season
+  useLayoutEffect(() => {
+    if (!mainRef.current) return
+    for (let el = mainRef.current; el; el = el.parentElement) el.scrollTop = 0
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0
+  }, [page, season])
+  const go = (next) => { playButtonSelect(); setPage(next) }
 
   const username = useAccountStore((s) => s.username)
   const back = () => { playButtonSelect(); goToScreen(SCREEN.MENU) }
@@ -459,8 +457,7 @@ export default function CareerScreen() {
   const cupOppOvr = cupOpp ? ovrOf(cupOpp, career.cup.levels?.[cupOpp.id] ?? career.level) : 0
   const cupRoundName = (t) => roundName(t.round, cupT.rounds.length)
   const pos = myPosition(league)
-  // The season road: every match on one path, by date. Up to three still to come above
-  // the next match, everything played below it (newest first)
+  // Completed fixtures and the remaining dates share the club calendar.
   const road = (() => {
     const other = (f) => (f.home === ME ? f.away : f.home)
     const stops = fixtures.slice().sort((a, b) => a.round - b.round).map((f, i) => ({ f, date: leagueDate(career, f), label: `${i + 1}`, opp: teamById(league, other(f)) }))
@@ -488,7 +485,7 @@ export default function CareerScreen() {
           <CapPreview config={{ ...career.club, players: squadSurnames(career.squad) }} size={40} />
           <div className="career-top-text">
             <h1 className="career-top-name">{career.club.name}</h1>
-            <div className="career-top-sub">{done ? `Season ${career.season} over` : ordinal(pos)} · {division.name}</div>
+            <div className="career-top-sub">{done ? `Season ${career.season} over` : played ? ordinal(pos) : 'Season ' + career.season} · {division.name}</div>
           </div>
           <div className="career-top-money">{money(career.coins)}</div>
         </header>

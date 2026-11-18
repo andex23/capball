@@ -10,7 +10,7 @@ const SECTIONS = [
       'Season shows your next opponent, the venue and the last meeting. Read the match report after the final whistle for scorers, player ratings and ten-minute spells of pressure.',
       'Your interview backs the whole squad, your bench or your top performer for one fixture. Each answer shows its passing bonus before you choose.',
       'Open Transfers, then the market, to scout a player or see the two season legends. Sign a legend in an open window, then move him from reserves into your side. Each gold-rimmed cap has a different playing trait.',
-      'Green prices on the season page are within your club budget. Daily rewards can pay for transfers and facilities. Day three includes a scout report, day six rests your squad, and day seven unlocks a mystery cap while supplies last.',
+      'Green prices on the season page are within your club budget. Daily rewards can pay for transfers and facilities. Day three includes a scout report, day six rests your squad, and day seven pays club money and unlocks a design until you own the collection.',
       'The bell shows three weekly goals. Each pays into your club budget. Complete all three in the same week for the featured cap. Unclaimed daily rewards wait until your next visit.',
     ],
   },
