@@ -256,6 +256,26 @@ describe('thinking time', () => {
 })
 
 describe('no own goals', () => {
+  it.each(['left', 'right'])('reads the standing keeper’s flat face with team 1 on the %s', (team1Side) => {
+    const dir = team1Side === 'left' ? 1 : -1
+    const ctx = makeContext({
+      positions: { team2_gk: { x: dir * 9.3, y: 0.25 }, ball: { x: dir * 10.5, y: 1 } },
+      team: AI, team1Side,
+    })
+    // The flat face drives the ball straight down the pitch even when contact is off-centre.
+    expect(towardsOwnGoal(ctx, { capId: 'team2_gk', velocity: { x: dir, y: 0 } })).toBe(true)
+  })
+
+  it.each(['easy', 'medium', 'hard'])('%s declines a forced restart straight into its own goal', (level) => {
+    readyTurn({ freeKickCapId: 'team2_atk1' })
+    isolate('ball', 'team2_atk1')
+    place('team2_gk', 13, -4)
+    place('team2_atk1', 10, 0)
+    place('ball', 13.5, 0)
+    const d = computeSmartDecision(AI, level, 'team2_atk1', () => 0.5)
+    expect(d).toBeNull()
+  })
+
   // Scrambles in front of the computer's own goal (it defends the right-hand one),
   // played out in the real world: it must never put the ball in its own net
   it.each(['easy', 'medium', 'hard'])('%s never scores against itself from a goalmouth scramble', (level) => {

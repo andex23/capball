@@ -117,8 +117,7 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
     // Nothing clean on offer (e.g. ball jammed on a cushion) — fall back to the classic aim
   }
 
-  // Easy (and fallback): classic aim, sometimes re-thinking a shot that would foul
-  const checkFouls = rng() < (diff.foulCheck ?? 1)
+  // Try the classic aim for caps the planner couldn't line up.
   const positions = readPositions(bodies)
   const ownCtx = makeContext({ positions, team: aiTeam, team1Side: state.team1Side || 'left' })
   const excluded = []
@@ -126,18 +125,14 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
   for (let tries = 0; tries < 5; tries++) {
     const d = classicDecision(aiTeam, diff, requiredCapId, bodies, state, excluded, rng)
     if (!d) break
-    if (!checkFouls || requiredCapId) return d
     const hit = firstHit(positions, d.capId, d.velocity)
-    // Easy only dodges the obvious foul; medium/hard insist on reaching the ball first
-    // ...and never at their own net
-    if (diff.planner ? hit?.id === 'ball' && !towardsOwnGoal(ownCtx, d) : hit?.kind !== 'foul') return d
+    if (hit?.id === 'ball' && !towardsOwnGoal(ownCtx, d)) return d
+    if (requiredCapId) return null
     tried.push({ d, hit })
     excluded.push(d.capId)
   }
-  if (!diff.planner) return tried[0]?.d ?? null
-  // Medium/hard: a harmless miskick off a teammate shakes up a scrum; failing
-  // that, let the turn go rather than hand over a free kick
-  return tried.find((t) => t.hit?.kind !== 'foul' && !(t.hit?.id === 'ball' && towardsOwnGoal(ownCtx, t.d)))?.d ?? null
+  // A no-contact move or a nudge off a teammate can still open up a scrum.
+  return tried.find((t) => !t.hit || t.hit.kind === 'teammate')?.d ?? null
 }
 
 function classicDecision(aiTeam, diff, requiredCapId, bodies, state, excluded, rng) {

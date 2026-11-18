@@ -699,7 +699,11 @@ export function towardsOwnGoal(ctx, c) {
   const hit = firstHit(ctx.positions, c.capId, v)
   if (!hit || hit.id !== 'ball') return false
   const at = { x: cap.x + v.x / speed * hit.t, y: cap.y + v.y / speed * hit.t }
-  const u = unit(ball.x - at.x, ball.y - at.y)
+  // The keeper's contact normal starts at the nearest point on its upright
+  // segment. Across its flat face the ball travels straight along x.
+  const { hl } = keeperShape(c.capId)
+  const dy = ball.y - at.y
+  const u = unit(ball.x - at.x, dy - Math.max(-hl, Math.min(hl, dy)))
   const own = crossing(ball, u, ctx.ownGoal.x)
   return !!own && Math.abs(own.y) < PITCH.goalWidth / 2 + 1.5
 }
