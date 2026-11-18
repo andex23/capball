@@ -3,6 +3,7 @@
  * and with their account. Money goes into the career budget; with no
  * career yet it waits in the bank and is paid in when one starts.
  */
+import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WEEK_BONUS } from '../game/rewards'
 import { money } from '../game/squad'
@@ -11,7 +12,6 @@ import { useCareerStore } from './careerStore'
 import { isSignedIn, useAccountStore } from './accountStore'
 
 export const REWARDS_KEY = 'capball:rewards:v1'
-const storage = () => { try { return globalThis.localStorage } catch { return null } }
 const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [] }
 
 function clean(raw) {

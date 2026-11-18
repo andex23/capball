@@ -3,11 +3,11 @@
  * with their account). The first time the game runs, everything already
  * shipped counts as seen: only what's new from then on lights up the bell.
  */
+import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { UPDATES } from '../data/updates'
 
 export const INBOX_KEY = 'capball:inbox-seen:v1'
-const storage = () => { try { return globalThis.localStorage } catch { return null } }
 
 function load() {
   try {

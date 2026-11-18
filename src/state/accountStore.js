@@ -10,13 +10,11 @@
  */
 import { create } from 'zustand'
 import { rpc, ApiError } from '../online/supabase'
-import { STORAGE_KEY } from '../utils/storage'
+import { applySave, collectSave, getSaveStorage as storage, hasSaveItems } from '../utils/playerSave'
+export { applySave, collectSave } from '../utils/playerSave'
 import { useMatchStore, SCREEN } from './MatchStore'
 
 const SESSION_KEY = 'capball:account'
-// Everything that makes up a player's save (the device key lets online
-// tournament seats follow the player to a new phone)
-const SAVE_KEYS = [STORAGE_KEY, 'capball:tournaments:v1', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:career-hof:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1', 'capball:inbox-seen:v1', 'capball:rewards:v1', 'capball.tutorialDone', 'capball.coached', 'capball.device']
 // Progress that belongs to the account: cleared from the phone on sign out (it stays on the server)
 export const PROGRESS_KEYS = ['capball:tournaments:v1', 'capball.device', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:career-hof:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1', 'capball:inbox-seen:v1', 'capball:rewards:v1']
 
@@ -29,10 +27,6 @@ function readRecoveryCode() {
 }
 /** Recovery calls on a database that hasn't had recovery.sql yet get a plain message. */
 const recoveryError = (e) => (/cb_account_recover|cb_help_request|cb_account_recovery|PGRST202|http-404/i.test(`${e?.code} ${e?.message}`) ? new ApiError('recovery-unavailable').message : e?.message)
-
-const storage = () => {
-  try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null }
-}
 
 function readSession() {
   try {
@@ -48,38 +42,6 @@ function writeSession(s) {
     else storage()?.removeItem(SESSION_KEY)
   } catch { /* storage blocked: signed in for this visit only */ }
 }
-
-/** The player's save as it is on this phone right now. */
-export function collectSave() {
-  const data = { v: 1, items: {} }
-  for (const key of SAVE_KEYS) {
-    try {
-      const v = storage()?.getItem(key)
-      if (typeof v === 'string') data.items[key] = v
-    } catch { /* skip */ }
-  }
-  return data
-}
-
-/** Put a save from the server onto this phone. Returns true if anything changed. */
-export function applySave(data) {
-  if (!data || data.v !== 1 || !data.items || typeof data.items !== 'object' || Array.isArray(data.items)) return false
-  let changed = false
-  for (const key of SAVE_KEYS) {
-    const v = data.items[key]
-    try {
-      if (typeof v === 'string') {
-        if (storage()?.getItem(key) !== v) { storage()?.setItem(key, v); changed = true }
-      } else if (!Object.hasOwn(data.items, key) && storage()?.getItem(key) != null) {
-        storage()?.removeItem(key)
-        changed = true
-      }
-    } catch { /* storage full or blocked */ }
-  }
-  return changed
-}
-
-const hasItems = (data) => !!data?.items && Object.keys(data.items).some((k) => k !== 'capball.device')
 
 let timer = null
 let lastSent = ''
@@ -188,7 +150,7 @@ export const useAccountStore = create((set, get) => ({
     writeSession({ token: res.token, username: res.username })
     lastSent = ''
     set({ token: res.token, username: res.username, savedAt: null })
-    if (hasItems(cloud?.data)) {
+    if (hasSaveItems(cloud?.data)) {
       // Their save is on the server: load it and restart from it
       if (applySave(cloud.data) && typeof window !== 'undefined') {
         window.location.reload()

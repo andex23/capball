@@ -3,6 +3,7 @@
  * results and moving on a season. Matches are played through the normal
  * tournament fixture flow (tournamentStore.playFixture with kind 'career').
  */
+import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { answerPress, bestPerformer, fixtureBrief } from '../game/careerBrief'
 import { myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
@@ -16,7 +17,6 @@ import { useAchievementStore } from './achievementStore'
 
 export const CAREER_KEY = 'capball:career-mode:v1'
 
-const storage = () => { try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null } }
 
 function load() {
   try {

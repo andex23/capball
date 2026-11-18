@@ -7,19 +7,18 @@
  * - A kit may only wear what this player owns: bought (from our server) or
  *   earned (from their own progress). Anything else comes off.
  */
+import { collectSave, applySave, getSaveStorage as store } from '../utils/playerSave'
 import { CAP_DESIGNS, RARE_DESIGNS, isUnlocked } from '../data/TeamOptions'
 import { BANDS, bandEarned } from '../data/bands'
 import { SHOP_DESIGNS, productIdFor, bandProductId } from '../data/shop'
-import { collectSave, applySave } from '../state/accountStore'
 
 const OWNER_KEY = 'counterball:lagos:owner'
 const saveKey = (id) => `counterball:lagos:save:${id}`
-const store = () => { try { return globalThis.localStorage ?? null } catch { return null } }
 
 /**
  * Make this phone's save the given player's. If someone else played here
  * last, their save is put away and this player's own comes back (empty for a
- * first visit). Returns true when the page must reload to start from it.
+ * first visit). Returns true when the selected progress changed.
  */
 export function switchSaveTo(playerId) {
   const ls = store()

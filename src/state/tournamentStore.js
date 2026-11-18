@@ -1,3 +1,4 @@
+import { getSaveStorage as storage } from '../utils/playerSave'
 import { matchVenue } from '../game/club'
 import { anytimeRequest } from './anytimeStore'
 import { isLagos } from '../platform'
@@ -51,9 +52,6 @@ const RECENT_MAX = 10
 // Prefs a tournament fixture borrows, given back afterwards
 const BORROWED = ['stadium', 'tableFinish', 'teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'goalTarget', 'chosenTeam1Side', 'team1Side']
 
-const storage = () => {
-  try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null }
-}
 
 function load() {
   const empty = { localTransport: 'device', local: null, history: [], recentOnline: [], seenChampions: [], finaleSeen: [] }
@@ -63,7 +61,7 @@ function load() {
     const data = JSON.parse(raw)
     return {
       local: sanitizeTournament(data.local),
-      localTransport: data.localTransport === 'lan' ? 'lan' : 'device',
+      localTransport: data.localTransport === 'lan' && !isLagos() ? 'lan' : 'device',
       history: Array.isArray(data.history) ? data.history.filter((h) => h && typeof h.id === 'string' && h.champion?.name).slice(0, HISTORY_MAX) : [],
       recentOnline: Array.isArray(data.recentOnline)
         ? data.recentOnline.filter((r) => r && /^[A-Z0-9]{6}$/.test(r.code)).slice(0, RECENT_MAX) : [],

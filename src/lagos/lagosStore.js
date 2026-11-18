@@ -4,23 +4,24 @@
  * match they're in. The game itself is untouched — this only listens to the
  * match store and talks to the SDK.
  */
+import { collectSave, getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
-import { loadSdk, sdkMessage } from './sdk'
+import { sdkMessage } from './sdk'
+import { lagosRequest } from './launch'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
-import { useAccountStore, collectSave, applySave } from '../state/accountStore'
+import { useAccountStore } from '../state/accountStore'
 import { holdAudio } from '../audio/SoundManager'
 import { startMenuMusic, stopMenuMusic } from '../audio/MusicManager'
 import { holdIosAudio } from './iosAudio'
 import { isProduct, productIdFor, naira } from '../data/shop'
 import { platformHooks } from '../platformHooks'
 import { sendBet } from '../multiplayer/MultiplayerManager'
-import { switchSaveTo, ownKit } from './ownership'
+import { ownKit } from './ownership'
 import { currentProgress } from '../state/unlocks'
 
 const SCORE_GAP_MS = 21_000 // the SDK takes one score every 20 s
 const winsKey = (playerId) => `counterball:lagos:wins:${playerId}`
 
-const storage = () => { try { return globalThis.localStorage ?? null } catch { return null } }
 const readWins = (playerId) => { const n = Number(storage()?.getItem(winsKey(playerId))); return Number.isInteger(n) && n > 0 ? n : 0 }
 const writeWins = (playerId, n) => { try { storage()?.setItem(winsKey(playerId), String(n)) } catch { /* blocked in the frame: the leaderboard keeps the count */ } }
 
@@ -76,13 +77,7 @@ const CODE = /^[A-Z0-9]{6}$/
 export const potFor = (stake) => Math.floor(stake * 2 * 0.95)
 
 /** Our server (api/lagos.js), with a fresh Lagos Life session. */
-async function server(body) {
-  const { session } = await sdk.session()
-  const res = await fetch('/api/lagos', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, session }) })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw Object.assign(new Error(data?.message || 'Couldn’t reach the game server. Try again.'), { code: data?.error || 'server' })
-  return data
-}
+const server = (body) => lagosRequest(sdk, body)
 const claiming = new Set()
 const unclaimed = new Map() // purchaseId -> productId, paid but not unlocked yet
 const FINAL_CLAIM_ERRORS = new Set(['bad-purchase', 'refunded'])
@@ -131,19 +126,16 @@ export const useLagosStore = create((set, get) => ({
   /** Is this cap design bought? */
   owns: (designKey) => get().owned.includes(productIdFor(designKey)),
 
-  /** Load the SDK and find out who's playing. */
-  async boot() {
-    set({ status: 'loading', error: null })
+  /** Attach the host callbacks after the game has opened the selected save. */
+  async boot({ sdk: client, launch, cloudBaseline, error }) {
+    if (error) {
+      useAccountStore.setState({ username: null, token: null })
+      set({ status: 'error', error: sdkMessage(error) })
+      return false
+    }
     try {
-      sdk = await loadSdk()
-      const launch = await sdk.init()
-      const player = launch?.player
-      if (!player?.id) throw Object.assign(new Error('no player'), { code: 'error' })
-      // Each Lagos Life player has their own save on a shared phone
-      if (switchSaveTo(player.id) && typeof location !== 'undefined') { location.reload(); return false }
-      // The Lagos Life player counts as signed in for career, the daily
-      // challenge and rewards. There's no Counterball account, so nothing is
-      // copied to the Counterball server; progress stays on this phone.
+      sdk = client
+      const player = launch.player
       useAccountStore.setState({ username: player.name || 'Player', token: null })
       set({ status: 'ready', player, mode: launch.mode, wins: readWins(player.id) })
       sdk.onPause?.(() => get().pause())
@@ -159,8 +151,12 @@ export const useLagosStore = create((set, get) => ({
       })
       sdk.match?.current?.().then((m) => { const x = normaliseMatch(m); if (x) set({ match: x }) }).catch(() => {})
       get().loadBoard()
-      // Progress follows the player, not the phone
-      if (await get().loadCloudSave()) return false
+      if (cloudBaseline !== null) {
+        lastCloud = cloudBaseline
+        cloudReady = true
+        startCloudAutosave(() => get().saveCloud())
+        if (cloudBaseline === '') get().saveCloud()
+      }
       // Caps bought before: from our server, and any paid but not yet unlocked
       // Leftovers from earlier visits unlock quietly: a note only if something new actually arrives
       await get().loadOwned()
@@ -230,24 +226,6 @@ export const useLagosStore = create((set, get) => ({
   },
 
   /* ── Cloud save: earned progress follows the player ── */
-
-  /**
-   * Bring this player's save from our server. Returns true when the page is
-   * reloading to start from it. Uploads only start once we know what the
-   * server has, so a fresh phone never overwrites a real save.
-   */
-  async loadCloudSave() {
-    try {
-      const { data } = await server({ action: 'loadSave' })
-      const hasCloud = data && Object.keys(data.items || {}).some((k) => k !== 'capball.device')
-      if (hasCloud && applySave(data) && typeof location !== 'undefined') { location.reload(); return true }
-      lastCloud = hasCloud ? JSON.stringify(collectSave()) : ''
-      cloudReady = true
-      if (!hasCloud) get().saveCloud()
-      startCloudAutosave(() => get().saveCloud())
-    } catch { /* server not set up yet: progress stays on this phone for now */ }
-    return false
-  },
 
   async saveCloud() {
     if (!cloudReady) return
