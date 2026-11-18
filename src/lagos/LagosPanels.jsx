@@ -33,7 +33,7 @@ export function LagosAccount({ formOnly = false }) {
       </div>
       {!formOnly && (
         <>
-          <p className="muted account-note">Your games, career and records are saved on this phone.</p>
+          <p className="muted account-note">Your career, results and rewards sync to your Lagos Life account.</p>
           <SavedGames />
         </>
       )}
