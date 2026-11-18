@@ -7,6 +7,7 @@ import { useRewardsStore } from '../state/rewardsStore'
 import { useAccountStore } from '../state/accountStore'
 import { useCareerStore } from '../state/careerStore'
 import { DAILY_REWARDS, weekProgress, weekCap, weekKey, WEEK_BONUS, nextMysteryCap } from '../game/rewards'
+import { isLagos } from '../platform'
 import { dayKey } from '../game/daily'
 import { money } from '../game/squad'
 import { playConfirm } from '../audio/SoundManager'
@@ -25,6 +26,8 @@ export function DailyReward({ onClose }) {
   const daily = useRewardsStore((s) => s.daily)
   const caps = useRewardsStore((s) => s.caps)
   const signedIn = !!useAccountStore((s) => s.username)
+  const saving = useAccountStore((s) => s.saving)
+  const saveError = useAccountStore((s) => s.error)
   const hasCareer = !!useCareerStore((s) => s.career)
   const [got, setGot] = useState(null)
   const { day, ready } = useRewardsStore.getState().status(dayKey())
@@ -67,6 +70,14 @@ export function DailyReward({ onClose }) {
           <button className="btn btn-gold btn-lg btn-block" onClick={claim}>Collect day {day + 1}</button>
         ) : (
           <p className="rw-got">Come back tomorrow for day {day + 1}.</p>
+        )}
+        {isLagos() && (got || !ready) && (saving || saveError || got) && (
+          <div aria-live="polite">
+            {saving ? <p>Saving reward…</p> : saveError ? <>
+              <p>Reward sync pending. {saveError}</p>
+              <button className="btn btn-secondary" onClick={() => useAccountStore.getState().save()}>Retry save</button>
+            </> : <p>Reward saved.</p>}
+          </div>
         )}
         <p className="rw-note">Money goes into your career budget, for new players and club upgrades.</p>
       </div>

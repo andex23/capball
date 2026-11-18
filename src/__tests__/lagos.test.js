@@ -243,6 +243,9 @@ describe('cloud save', () => {
     await handleLagos({ action: 'putSave', session: 's', data: { v: 1, items: { 'capball:daily:v1': '{}' } } }, api, null, saves)
     expect(saves).toHaveBeenLastCalledWith('put', 'test', 't_ada', { v: 1, items: { 'capball:daily:v1': '{}' } })
     await expect(handleLagos({ action: 'putSave', session: 's', data: 'junk' }, api, null, saves)).rejects.toThrow('bad-request')
+    saves.mockClear()
+    await expect(handleLagos({ action: 'putSave', session: 's', expectedPlayerId: 'previous-player', data: { v: 1, items: {} } }, api, null, saves)).rejects.toThrow('bad-session')
+    expect(saves).not.toHaveBeenCalled()
   })
 })
 

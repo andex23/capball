@@ -5,6 +5,7 @@
  */
 import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
+import { platformHooks } from '../platformHooks'
 import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WEEK_BONUS } from '../game/rewards'
 import { money } from '../game/squad'
 import { dayKey } from '../game/daily'
@@ -58,6 +59,7 @@ export const useRewardsStore = create((set, get) => ({
     if (!isSignedIn()) return null
     const r = claimDaily(get().daily, today)
     if (!r) return null
+    platformHooks.onDailyClaim?.(today)
     let s = { ...get(), daily: r.daily }
     const got = { day: r.day }
     if (r.reward.fitness && useCareerStore.getState().career) {

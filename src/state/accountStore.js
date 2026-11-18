@@ -9,6 +9,7 @@
  * reloads the page, so every store starts from it cleanly.
  */
 import { create } from 'zustand'
+import { platformHooks } from '../platformHooks'
 import { rpc, ApiError } from '../online/supabase'
 import { applySave, collectSave, getSaveStorage as storage, hasSaveItems } from '../utils/playerSave'
 export { applySave, collectSave } from '../utils/playerSave'
@@ -166,6 +167,7 @@ export const useAccountStore = create((set, get) => ({
 
   /** Upload this phone's save (skipped when nothing changed since the last upload). */
   async save({ force = false } = {}) {
+    if (platformHooks.saveProgress) return platformHooks.saveProgress()
     // Wait for an earlier upload, then collect again: career changes made
     // during that request must not be dropped or acknowledged too early.
     if (saveTask) {

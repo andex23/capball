@@ -33,7 +33,7 @@ export function createMockSdk() {
     const ok = (data) => new Response(JSON.stringify({ ok: true, ...data }), { status: 200 })
     if (body.action === 'owned') return ok({ owned })
     if (body.action === 'loadSave') return ok({ data: JSON.parse(localStorage.getItem(`mockVatar:save:${id}`) || 'null') })
-    if (body.action === 'putSave') { localStorage.setItem(`mockVatar:save:${id}`, JSON.stringify(body.data)); return ok({}) }
+    if (body.action === 'putSave') { localStorage.setItem(`mockVatar:save:${id}`, JSON.stringify(body.data)); return ok({ ok: true }) }
     if (body.action === 'claim') {
       // ?claimfail in the address: the shop server isn't set up until localStorage mockVatar:fixed is set
       if (new URLSearchParams(location.search).has('claimfail') && !localStorage.getItem('mockVatar:fixed')) return new Response(JSON.stringify({ error: 'shop-not-configured', message: 'The shop server isn’t set up yet.' }), { status: 503 })
