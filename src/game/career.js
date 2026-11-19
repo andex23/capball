@@ -164,7 +164,7 @@ export function compOf(career, competition, fixtureId = null) {
   return career?.league || null
 }
 
-/** "Cap Champions League · Group A" or "… · Semi-final": what a Champions League fixture is. */
+/** "Canta Champions League · Group A" or "… · Semi-final": what a Champions League fixture is. */
 export function cclLabel(career, fixtureId) {
   const t = compOf(career, 'ccl', fixtureId)
   if (!t) return CCL_NAME
@@ -346,7 +346,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     scouted: [],       // players whose potential your scouts have checked
     rejected: null,    // offers for your players you've turned down this window
     sacked: null,      // set when the board sacks you: the career is over
-    ccl: null,         // this season's Cap Champions League, when you qualified
+    ccl: null,         // this season's Canta Champions League, when you qualified
     cclTitles: 0,
     jobOffer: null,    // a club that wants you as manager: { name, level, reason }
     lastMove: 0,       // the season you last changed clubs

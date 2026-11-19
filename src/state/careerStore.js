@@ -131,7 +131,7 @@ export const useCareerStore = create((set, get) => ({
     useAccountStore.getState().save({ force: true })
   },
 
-  /** Your result in the Cap Champions League. */
+  /** Your result in the Canta Champions League. */
   recordCcl(fixtureId, result, perf = null) {
     const { career } = get()
     if (!career?.ccl) return

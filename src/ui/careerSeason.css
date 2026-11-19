@@ -131,7 +131,7 @@
 .job-stay, .job-note { margin: 0; font-size: 12px; color: #c4cbe4; }
 .job-note { text-align: center; }
 
-/* ── Cap Champions League ── */
+/* ── Canta Champions League ── */
 .ccl-card { border-color: var(--iss-yellow, #ffd23f); background: radial-gradient(120% 60% at 50% 0%, rgba(255, 210, 63, 0.22), transparent 70%), linear-gradient(180deg, #2a1660, #141a52); }
 .ccl-card[data-final='true'] { box-shadow: 0 0 26px rgba(255, 210, 63, 0.45), var(--shadow); }
 .ccl-head { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }

@@ -16,7 +16,7 @@ function playAll(c, [gf, ga]) {
   return c
 }
 
-describe('Cap Champions League', () => {
+describe('Canta Champions League', () => {
   it('top two in the Premier Cap League qualify; the groups, semis and final fit between league matchdays', () => {
     // A career at the top, winning everything
     let c = { ...newCareer(club, { now: 2 }), cup: null }

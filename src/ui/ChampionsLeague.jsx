@@ -1,5 +1,5 @@
 /**
- * The Cap Champions League on the career screen: your next night (with the
+ * The Canta Champions League on the career screen: your next night (with the
  * trophy and what's at stake), and the two group tables.
  */
 import { ME, CCL_NAME, cclLabel, compOf, opponentOvr, formatGameDate, cclDate } from '../game/career'

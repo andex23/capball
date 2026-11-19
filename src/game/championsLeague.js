@@ -1,5 +1,5 @@
 /**
- * The Cap Champions League: the biggest trophy in caps. Finish in the top two
+ * The Canta Champions League: the biggest trophy in caps. Finish in the top two
  * of the Premier Cap League and next season you're in it: eight clubs (the
  * best of the Premier Cap League and four from abroad), two groups of four,
  * then semi-finals (group winners meet the other group's runners-up) and a
@@ -11,7 +11,7 @@ import { clubsIn, clubByName, clubOvr } from './world'
 const ME = 'T1'
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
 
-export const CCL_NAME = 'Cap Champions League'
+export const CCL_NAME = 'Canta Champions League'
 // Your group matches open after this many league matches; then the semi-final and the final
 export const CCL_AFTER = { group: [2, 4, 6], semi: 9, final: 12 }
 // Prize money (units): each group win, reaching the semis, the final, and winning it
