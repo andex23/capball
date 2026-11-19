@@ -151,15 +151,15 @@ export const nextMysteryCap = (owned = []) => MYSTERY_CAPS.find((c) => !owned.in
 
 /* ── The Weekly Cup's names and winners' caps (see weeklyCup.js) ── */
 export const WEEKLY_CUPS = [
-  { name: 'Harmattan Cup', cap: { primary: '#C9771E', edge: '#FFE0A3', pattern: 'rays', badge: 'crown' } },
-  { name: 'Eko Cup', cap: { primary: '#0B3D91', edge: '#FFD23F', pattern: 'ring', badge: 'star' } },
-  { name: 'Lagoon Cup', cap: { primary: '#006064', edge: '#B2EBF2', pattern: 'wave', badge: 'crown' } },
-  { name: 'Danfo Cup', cap: { primary: '#F9A825', edge: '#111111', pattern: 'stripe', badge: 'bolt' } },
-  { name: 'Jollof Cup', cap: { primary: '#C62828', edge: '#FFB300', pattern: 'dots', badge: 'flame' } },
-  { name: 'Suya Shield', cap: { primary: '#4E2A12', edge: '#FF8F00', pattern: 'cross', badge: 'shield' } },
-  { name: 'Agege Cup', cap: { primary: '#F5F0E1', edge: '#8D6E63', pattern: 'split', badge: 'crown' } },
-  { name: 'Okada Trophy', cap: { primary: '#2E7D32', edge: '#FFFFFF', pattern: 'rays', badge: 'star' } },
+  { name: 'Area Cup', cap: { primary: '#C9771E', edge: '#FFE0A3', pattern: 'rays', badge: 'crown' } },
+  { name: 'Street Cup', cap: { primary: '#0B3D91', edge: '#FFD23F', pattern: 'ring', badge: 'star' } },
+  { name: 'Junction Cup', cap: { primary: '#006064', edge: '#B2EBF2', pattern: 'wave', badge: 'crown' } },
+  { name: 'Estate Cup', cap: { primary: '#F9A825', edge: '#111111', pattern: 'stripe', badge: 'bolt' } },
+  { name: 'Compound Cup', cap: { primary: '#C62828', edge: '#FFB300', pattern: 'dots', badge: 'flame' } },
+  { name: 'Bus Stop Cup', cap: { primary: '#4E2A12', edge: '#FF8F00', pattern: 'cross', badge: 'shield' } },
+  { name: 'Corner Cup', cap: { primary: '#F5F0E1', edge: '#8D6E63', pattern: 'split', badge: 'crown' } },
+  { name: 'Backyard Cup', cap: { primary: '#2E7D32', edge: '#FFFFFF', pattern: 'rays', badge: 'star' } },
 ]
 /** A winner's cap for each cup (hidden in the picker until won). */
-export const CUP_CAPS = WEEKLY_CUPS.map((c, i) => ({ ...c.cap, key: `cup-${i + 1}`, name: c.name, finish: 'chrome', capText: c.name.split(' ')[0].toUpperCase() }))
+export const CUP_CAPS = WEEKLY_CUPS.map((c, i) => ({ ...c.cap, key: `cup-${i + 1}`, name: c.name, finish: 'chrome', capText: c.name.replace(/ Cup$/, '').toUpperCase() }))
 
