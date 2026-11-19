@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { loadArtFonts } from '../game/capArt'
 import App from '../App'
 import { initPersistence } from '../state/persistence'
-import { initTournamentWatch } from '../state/tournamentStore'
+import { initTournamentWatch, useTournamentStore } from '../state/tournamentStore'
 import { initAudioUnlock } from '../audio/SoundManager'
 import { initSavedMatches } from '../state/savedMatch'
 import { initClips } from '../game/clips'
@@ -24,9 +24,17 @@ export function startGame(connection) {
   watchMatches()
   useLagosStore.getState().boot(connection)
   // Count matches started and finished, by mode (our own server, counts only)
+  // ...split by what was being played: quick match, career, tournament or the daily challenge
+  const kindOf = (mode) => {
+    const p = useTournamentStore.getState().playing
+    if (useMatchStore.getState().challenge) return 'daily'
+    if (p?.kind === 'career' || p?.kind === 'careerCup') return 'career'
+    if (p) return `tournament_${mode}`
+    return mode
+  }
   watchMatchAnalytics(useMatchStore, (event, _path, meta) => {
-    if (event === 'match_start') useLagosStore.getState().count('match_start', meta?.mode)
-    else if (event === 'match_complete') useLagosStore.getState().count('match_end', meta?.mode)
+    if (event === 'match_start') useLagosStore.getState().count('match_start', kindOf(meta?.mode))
+    else if (event === 'match_complete') useLagosStore.getState().count('match_end', kindOf(meta?.mode))
   })
   // ...and how often a phone takes the pitch away (see Scene.jsx)
   globalThis.__counterballCount = (event) => useLagosStore.getState().count(event)
