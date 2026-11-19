@@ -27,6 +27,11 @@ export default function MatchReport({ career, onDone }) {
 
   return (
     <div className="match-report">
+      {m.derby && (() => {
+        const mine = mineHome ? m.result.home : m.result.away
+        const theirs = mineHome ? m.result.away : m.result.home
+        return <p className="derby-report" data-tone={mine > theirs ? 'good' : mine < theirs ? 'bad' : undefined}>{m.derby} · <b>{mine > theirs ? 'Derby win!' : mine < theirs ? 'Derby defeat' : 'Honours even'}</b></p>
+      })()}
       <CareerScoreboard career={career} />
       {(m.stats || m.momentum) && <MatchFigures match={m} mine={career.club.name} opponent={name(mineHome ? m.away : m.home)} />}
       {m.story?.length > 0 && (

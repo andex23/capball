@@ -26,6 +26,7 @@ import MatchReport from '../ui/MatchReport'
 import CupPage from '../ui/CupPage'
 import { inboxOffers, seasonAwards } from '../game/clubLife'
 import { SeasonNumbers, SummerReview } from '../ui/SeasonReview'
+import { isDerby, derbyName, headToHead, DERBY_PRIZE } from '../game/rivals'
 import '../ui/careerSeason.css'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel, { CLUB_PAGES } from '../ui/ClubPanel'
@@ -250,6 +251,26 @@ function SeasonEnd({ career }) {
         </button>
       )}
     </section>
+  )
+}
+
+/** Derby day: the rivalry's name and the record between you. */
+function DerbyBanner({ career, rival }) {
+  const r = headToHead(career, rival)
+  const met = r.w + r.d + r.l
+  return (
+    <div className="derby-banner">
+      <b className="derby-title">Derby day</b>
+      <span className="derby-name">{derbyName(rival)}{met ? ` · played ${met}` : ' · the first one'}</span>
+      {met > 0 && (
+        <span className="derby-h2h">
+          <span data-tone="good"><b>{r.w}</b> won</span>
+          <span><b>{r.d}</b> drawn</span>
+          <span data-tone="bad"><b>{r.l}</b> lost</span>
+        </span>
+      )}
+      <small className="derby-note">Bigger crowd · win it for {DERBY_PRIZE}× prize money</small>
+    </div>
   )
 }
 
@@ -496,8 +517,9 @@ export default function CareerScreen() {
                   <p className="cs-preview-line">{fixtureBrief(career, due)}</p>
                 </section>
               ) : next && (
-                <section className="card card-pad career-next">
+                <section className="card card-pad career-next" data-derby={isDerby(career, league, next) ? 'true' : undefined}>
                   <div className="career-date">{formatGameDate(today)} · {next.home === ME ? 'Home' : 'Away'}</div>
+                  {isDerby(career, league, next) && <DerbyBanner career={career} rival={opponent.name} />}
                   <div className="eyebrow">Matchday {played + 1} of {fixtures.length}</div>
                   <div className="career-vs">
                     <TeamTag team={teamById(league, ME)} size={52} strong />

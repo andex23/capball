@@ -99,3 +99,20 @@
 .sr-news li[data-tone='bad'] b { color: #ff8c84; }
 @keyframes sr-in { from { opacity: 0; transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .sr-news li { animation: none; } }
+
+/* ── Derby day ── */
+.career-next[data-derby='true'] { border-color: #ff5a4f; background: linear-gradient(180deg, rgba(120, 12, 12, 0.55), transparent 60%), var(--surface, #0f1a4d); }
+.derby-banner { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 2px 0 6px; text-align: center; }
+.derby-title { font: italic 800 30px/1 var(--font-display); text-transform: uppercase; color: #ff5a4f; text-shadow: 3px 3px 0 #000; animation: derby-pulse 1.6s ease-in-out infinite; }
+@keyframes derby-pulse { 50% { transform: scale(1.06); } }
+.derby-name { font-size: 13px; color: #ffd6d2; }
+.derby-h2h { display: flex; gap: 14px; font-size: 12px; color: #c4cbe4; }
+.derby-h2h b { font-size: 16px; color: #fff; }
+.derby-h2h [data-tone='good'] b { color: #7dff95; }
+.derby-h2h [data-tone='bad'] b { color: #ff8c84; }
+.derby-note { font: 700 9px/1.3 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+@media (prefers-reduced-motion: reduce) { .derby-title { animation: none; } }
+.derby-report { margin: 0 0 8px; padding: 8px 12px; text-align: center; font-size: 13px; color: #ffd6d2; background: rgba(120, 12, 12, 0.5); border: 2px solid #ff5a4f; }
+.derby-report b { font: 700 12px/1 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
+.derby-report[data-tone='good'] b { color: #7dff95; }
+.derby-report[data-tone='bad'] b { color: #ff8c84; }

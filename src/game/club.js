@@ -143,8 +143,9 @@ export function fansAfter(fans, outcome, level = 0) {
  * sponsor's payment, and the wage bill. `form` is recent results (−0.2..0.2).
  * Returns { club, lines: { gate, sponsor, wages, prize }, attendance, net }.
  */
-export function matchDay(club, { home, outcome, prize, level, wages, form = 0 }) {
-  const crowd = home ? attendance(club, form) : 0
+export function matchDay(club, { home, outcome, prize, level, wages, form = 0, crowdBoost = 1 }) {
+  // A derby fills the place: more people want in (still no more than the venue holds)
+  const crowd = home ? Math.min(VENUE[club.stadium]?.seats ?? VENUE[0].seats, Math.round(attendance(club, form) * crowdBoost)) : 0
   const gate = home ? Math.round((crowd * ticketPrice(level, club.ticket)) / NAIRA_PER_UNIT) : 0
   const s = club.sponsor
   const sponsor = !s ? 0 : s.kind === 'steady' ? s.amount : s.kind === 'win' && outcome === 'win' ? s.amount : 0

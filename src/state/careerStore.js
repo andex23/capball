@@ -10,7 +10,8 @@ import { myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerR
 import { signLegend, makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
-import { allFixtures } from '../game/tournament'
+import { allFixtures, teamById } from '../game/tournament'
+import { isDerby, derbyName } from '../game/rivals'
 import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
 import { useAccountStore } from './accountStore'
 import { useAchievementStore } from './achievementStore'
@@ -44,6 +45,7 @@ function withReport(career, fixtureId, result, perf, competition, before = caree
     brief: fixtureBrief(before, { kind: competition, fixture: f }),
     posBefore: competition === 'league' && before.league.fixtures.some((x) => x.result) ? myPosition(before.league) : null,
   }
+  if (isDerby(before, t, f)) lastMatch.derby = derbyName(teamById(t, f.home === 'T1' ? f.away : f.home)?.name)
   const best = bestPerformer({ ...career, lastMatch })
   if (best) lastMatch.best = best
   const recruits = new Set(before.deals.filter((d) => d.type === 'in' && d.season === before.season).map((d) => d.id))

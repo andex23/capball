@@ -15,6 +15,7 @@ import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanit
 import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withContracts, REP_START, sanitizeAwards } from './clubLife'
 import { sanitizeStory } from './matchStory'
 import { legendById } from '../data/Legends'
+import { isDerby, noteHeadToHead, sanitizeH2h, DERBY_PRIZE, DERBY_CROWD } from './rivals'
 import { sanitizeExtras } from './matchReport'
 import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
 import {
@@ -200,7 +201,9 @@ export function recordCupResult(career, fixtureId, result) {
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
   const next = { ...career, cup: { ...career.cup, tournament: after } }
-  return mine ? payMatchDay(next, { home, gf, ga }) : next
+  if (!mine) return next
+  const other = teamById(cup, home ? mine.away : mine.home)?.name
+  return payMatchDay(noteHeadToHead(next, other, gf, ga), { home, gf, ga, derby: isDerby(career, cup, mine) })
 }
 
 /* ── The board's target ── */
@@ -285,6 +288,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     scouted: [],       // players whose potential your scouts have checked
     rejected: null,    // offers for your players you've turned down this window
     sacked: null,      // set when the board sacks you: the career is over
+    h2h: {},           // head to head with every club you've played: { name: { w, d, l } }
   }
 }
 
@@ -308,11 +312,12 @@ function recentForm(league) {
 }
 
 /** The money side of one of your matches (tickets if at home, sponsor, prize money, wages). */
-function payMatchDay(career, { home, gf, ga }) {
+function payMatchDay(career, { home, gf, ga, derby = false }) {
   if (!Number.isFinite(gf) || !Number.isFinite(ga)) return { ...career, lastEarned: 0 }
   const biz = career.biz || newClub(career.level)
   const outcome = gf > ga ? 'win' : gf === ga ? 'draw' : 'loss'
-  const r = matchDay(biz, { home, outcome, prize: coinsForResult(gf, ga, career.level), level: career.level, wages: wageBill(career.squad, career.bench, career.reserves), form: recentForm(career.league) })
+  const prize = coinsForResult(gf, ga, career.level) * (derby && outcome === 'win' ? DERBY_PRIZE : 1)
+  const r = matchDay(biz, { home, outcome, prize, level: career.level, wages: wageBill(career.squad, career.bench, career.reserves), form: recentForm(career.league), crowdBoost: derby ? DERBY_CROWD : 1 })
   return { ...career, biz: r.club, coins: (career.coins ?? 0) + r.net, lastEarned: r.net }
 }
 
@@ -396,7 +401,10 @@ export function recordCareerResult(career, fixtureId, result) {
   const home = mine?.home === ME
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
-  return mine ? payMatchDay({ ...career, league }, { home, gf, ga }) : { ...career, league }
+  if (!mine) return { ...career, league }
+  const other = teamById(career.league, home ? mine.away : mine.home)?.name
+  const derby = isDerby(career, career.league, mine)
+  return payMatchDay(noteHeadToHead({ ...career, league }, other, gf, ga), { home, gf, ga, derby })
 }
 
 /** Close the finished season and start the next one, in the new division. */
@@ -493,6 +501,7 @@ export function finishSeason(career, now = Date.now()) {
       youthIn: sq.youthIn.map((p) => ({ name: p.name, pos: p.pos, rating: p.rating, age: p.age, pot: p.pot })),
       youthOut: sq.youthOut.map((p) => ({ name: p.name })),
       world: ws.news.slice(0, 8),
+      seen: false,
     },
     lastEarned: 0,
     // Missing the target earns a final warning; meeting one clears it
@@ -554,6 +563,7 @@ export function sanitizeCareer(input) {
       position: n(input.sacked.position), target: Object.hasOwn(TARGETS, input.sacked.target) ? input.sacked.target : 'promotion',
     } : null,
     cup: sanitizeCup(input.cup),
+    h2h: sanitizeH2h(input.h2h),
     target: Object.hasOwn(TARGETS, input.target) ? input.target : null,
     cups: n(input.cups),
     lastSummer: isObj(input.lastSummer) ? {
@@ -618,6 +628,7 @@ function sanitizeLastMatch(m) {
       best: { name: m.best.name.slice(0, 32), id: m.best.id.slice(0, 16), rating: Math.min(10, Math.max(0, m.best.rating)), sub: m.best.sub === 'on' ? 'on' : null },
     } : {}),
     ...(typeof m.brief === 'string' ? { brief: m.brief.slice(0, 160) } : {}),
+    ...(typeof m.derby === 'string' ? { derby: m.derby.slice(0, 40) } : {}),
     ...(['squad', 'bench', 'player'].includes(m.press?.choice) && Array.isArray(m.press.ids) ? {
       press: { choice: m.press.choice, ids: m.press.ids.filter((id) => typeof id === 'string').slice(0, 30) },
     } : {}),

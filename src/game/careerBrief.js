@@ -1,5 +1,6 @@
 import { standings, teamById } from './tournament'
 import { ME, CUP_NAME, careerNext } from './career'
+import { isDerby, derbyName } from './rivals'
 
 function resultFor(f, id) {
   const home = f.home === id
@@ -31,6 +32,13 @@ export function fixtureBrief(career, due = careerNext(career)) {
       (gap === 0 ? 'Both have ' + first.pts + ' points.' : first.name + ' lead by ' + gap + (gap === 1 ? ' point.' : ' points.'))
   }
   const previous = career.league.fixtures.find((x) => x.result && (x.home === ME && x.away === otherId || x.home === otherId && x.away === ME))
+  if (isDerby(career, career.league, f)) {
+    if (!previous) return derbyName(opponent) + '. The whole area wants this one.'
+    const { gf, ga, outcome } = resultFor(previous, ME)
+    return outcome === 'L' ? 'They beat you ' + ga + '–' + gf + ' last time. Revenge counts double.'
+      : outcome === 'W' ? 'You won the last one ' + gf + '–' + ga + '. They want it back.'
+        : 'Last time it finished ' + gf + '–' + ga + '. Someone has to win this one.'
+  }
   if (previous) {
     const { gf, ga, outcome } = resultFor(previous, ME)
     return 'Last meeting: ' + career.club.name + ' ' + ({ W: 'won', D: 'drew', L: 'lost' }[outcome]) + ' ' + gf + '–' + ga + ' against ' + opponent + '.'
