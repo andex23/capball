@@ -78,3 +78,14 @@ describe('the Lagos Life board', () => {
     expect(top.map((_, i) => tiedRank(top, i, s))).toEqual([1, 2, 2, 2, 5])
   })
 })
+
+describe('the pitch-side board', () => {
+  it('runs the top five, with tied places, and you', async () => {
+    const { tickerItems } = await import('../lagos/LagosPanels')
+    const board = { top: [{ name: 'Alex', score: 14 }, { name: 'Temi', score: 11 }, { name: 'Chidi', score: 11 }, { name: 'Bob', score: 6 }, { name: 'Ade', score: 5 }, { name: 'Zed', score: 4 }], me: { rank: 24, score: 2 } }
+    const { items, me } = tickerItems(board, 2)
+    expect(items.map((x) => `${x.rank} ${x.name} ${x.wins}`)).toEqual(['1 Alex 14', '2 Temi 11', '2 Chidi 11', '4 Bob 6', '5 Ade 5'])
+    expect(me).toEqual({ rank: 24, wins: 2 })
+    expect(tickerItems(null).items).toEqual([])
+  })
+})

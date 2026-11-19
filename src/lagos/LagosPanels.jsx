@@ -49,6 +49,35 @@ export function tiedRank(top, i, scoreOf) {
   return ahead + 1
 }
 
+/** The words that run along the pitch-side board: the top five and you. */
+export function tickerItems(board, wins = 0, max = 5) {
+  const top = Array.isArray(board?.top) ? board.top : []
+  const scoreOf = (r) => r?.score ?? r?.best ?? 0
+  const items = top.slice(0, max).filter((r) => r?.name).map((r, i) => ({ rank: tiedRank(top, i, scoreOf), name: String(r.name).slice(0, 18), wins: scoreOf(r) }))
+  const me = board?.me
+  return { items, me: me?.rank ? { rank: me.rank, wins: Math.max(wins, scoreOf(me)) } : null }
+}
+
+/** A pitch-side LED board on the menu: the top players run past, right to left. Tap for the full board. */
+export function LagosTicker({ onOpen }) {
+  const board = useLagosStore((s) => s.board)
+  const wins = useLagosStore((s) => Math.max(s.wins || 0, s.best || 0))
+  const { items, me } = tickerItems(board, wins)
+  if (!items.length) return null
+  const run = (
+    <span className="tk-run">
+      {items.map((x) => <span key={`${x.rank}-${x.name}`}>★ <b>{x.rank} {x.name}</b> {x.wins} {x.wins === 1 ? 'win' : 'wins'}<i>◆</i></span>)}
+      {me && <span>You: <b>#{me.rank}</b> · {me.wins} {me.wins === 1 ? 'win' : 'wins'}<i>◆</i></span>}
+    </span>
+  )
+  return (
+    <button type="button" className="tk" onClick={() => { playButtonSelect(); onOpen() }} aria-label={`Top player: ${items[0].name}, ${items[0].wins} wins. Open the leaderboard`}>
+      <span className="tk-tag">Top player</span>
+      <span className="tk-track" style={{ '--tk-time': `${8 + (items.length + (me ? 1 : 0)) * 4}s` }} aria-hidden="true">{run}{run}</span>
+    </button>
+  )
+}
+
 /** The Lagos Life leaderboard: total wins. */
 export function LagosBoard() {
   const { board, boardError, wins, best, player } = useLagosStore()
