@@ -63,6 +63,9 @@ export default function MenuScreen() {
   const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
   const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
   const username = useAccountStore((s) => s.username)
+  // Lagos Life: your total wins and place on the board, for the menu line
+  const lagosWins = useLagosStore((s) => Math.max(s.wins || 0, s.best || 0))
+  const lagosRank = useLagosStore((s) => s.board?.me?.rank ?? null)
   const canInstall = useCanInstall()
   const lagos = isLagos()
   // Inside Lagos Life the game already lives in an app
@@ -123,6 +126,7 @@ export default function MenuScreen() {
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
+      ...(lagos ? [{ key: 'board', title: 'Leaderboard', sub: lagosWins ? `Your wins: ${lagosWins}${lagosRank ? ` · ranked #${lagosRank}` : ''}` : 'Most wins in Lagos Life', tag: lagosRank ? `#${lagosRank}` : 'TOP', action: () => openDialog('records') }] : []),
       ...(lagos ? [{ key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => openDialog('shop') }] : []),
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
