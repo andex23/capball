@@ -81,6 +81,7 @@ export default function MenuScreen() {
   const start = useCallback(() => {
     if (pressedStart) return
     pressedStart = true
+    globalThis.__counterballCount?.('menu')
     playCoinInsert()
     setStarted(true)
   }, [])

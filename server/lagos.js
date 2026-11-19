@@ -154,6 +154,56 @@ export function stakedOutcome(reports, players) {
   return a.winner === b.winner ? a.winner : 'draw'
 }
 
+/* ── Usage counts ──
+   How the Lagos Life build is being used: opens, matches, how "find a player"
+   goes, and the errors players hit. One small document a day, kept through the
+   saves function under a reserved name no real player id can take. Counts only:
+   players are remembered as a short one-way hash, to count different people. */
+export const COUNT_EVENTS = ['open', 'menu', 'match_start', 'match_end', 'find', 'find_ok', 'paired', 'find_cancel', 'pitch_lost', 'pitch_back', 'pitch_dead', 'error']
+const DETAIL = /^[a-z0-9_]{1,40}$/
+const statsKey = (day) => `__stats__:${day}`
+export const dayOf = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)
+const emptyDay = () => ({ v: 1, counts: {}, players: [] })
+const cleanDay = (d) => (d && d.v === 1 && d.counts && typeof d.counts === 'object' && Array.isArray(d.players) ? d : emptyDay())
+
+/** Add one to today's count for this event (and remember that this player was here). Never throws. */
+export async function countEvent(saves, mode, playerId, event, detail = null, now = Date.now()) {
+  if (!saves || !COUNT_EVENTS.includes(event)) return false
+  const name = typeof detail === 'string' && DETAIL.test(detail) ? `${event}:${detail}` : event
+  try {
+    const key = statsKey(dayOf(now))
+    const day = cleanDay((await saves('get', mode, key))?.data)
+    day.counts[name] = (day.counts[name] || 0) + 1
+    const who = createHash('sha256').update(String(playerId)).digest('hex').slice(0, 10)
+    if (!day.players.includes(who) && day.players.length < 5000) day.players.push(who)
+    await saves('put', mode, key, day)
+    return true
+  } catch { return false }
+}
+
+/** The last `days` days of counts for one mode, newest first: [{ day, players, counts }]. */
+export async function readStats(saves, mode, days = 14, now = Date.now()) {
+  if (!saves) return []
+  const out = []
+  for (let i = 0; i < Math.min(60, Math.max(1, days)); i++) {
+    const day = dayOf(now - i * 86400000)
+    try {
+      const d = (await saves('get', mode, statsKey(day)))?.data
+      if (d) { const c = cleanDay(d); out.push({ day, players: c.players.length, counts: c.counts }) }
+    } catch { /* skip a day that can't be read */ }
+  }
+  return out
+}
+
+/** Is this the stats key from the server's settings? (Stats are for the owner only.) */
+export function statsAllowed(given, env = process.env) {
+  const want = env.LAGOS_STATS_KEY
+  if (!want || typeof given !== 'string' || !given) return false
+  const a = createHash('sha256').update(given).digest()
+  const b = createHash('sha256').update(String(want)).digest()
+  return timingSafeEqual(a, b)
+}
+
 /** A save is the game's own storage entries: { v: 1, items: { key: string } }. */
 export function cleanSave(data) {
   if (!data || data.v !== 1 || !data.items || typeof data.items !== 'object' || Array.isArray(data.items)) return null
@@ -232,6 +282,14 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
     const where = typeof input.where === 'string' && /^[a-z_]{1,24}$/.test(input.where) ? input.where : 'unknown'
     const { playerId, mode } = await whoIs(api, input.session)
     console.warn(JSON.stringify({ lagosError: code, where, mode, player: playerId }))
+    await countEvent(saves, mode, playerId, 'error', `${where}_${code}`.slice(0, 40))
+    return { ok: true }
+  }
+  // One more of something that happened in the game (see countEvent)
+  if (input?.action === 'count') {
+    if (!COUNT_EVENTS.includes(input.event) || input.event === 'error') fail('bad-request')
+    const { playerId, mode } = await whoIs(api, input.session)
+    await countEvent(saves, mode, playerId, input.event, input.detail)
     return { ok: true }
   }
   if (input?.action === 'claim') return claim(input, api, db)

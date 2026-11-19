@@ -451,7 +451,7 @@ export default function Scene() {
 
   const rebuild = useCallback(() => {
     clearTimeout(timers.current.wait)
-    if (rebuilds.current >= MAX_REBUILDS) { setState('dead'); return }
+    if (rebuilds.current >= MAX_REBUILDS) { setState('dead'); globalThis.__counterballCount?.('pitch_dead'); return }
     rebuilds.current++
     // Keep every cap where it is: the new scene lays out a fresh world, then restores these
     if (isAuthority(useMatchStore.getState())) { const snap = snapshotBodies(); if (Object.keys(snap).length) setPendingBodies(snap) }
@@ -462,15 +462,17 @@ export default function Scene() {
   const watch = useCallback((canvas) => {
     const onLost = (e) => {
       e.preventDefault() // lets the phone give it back
+      globalThis.__counterballCount?.('pitch_lost')
       setState('lost')
       clearTimeout(timers.current.stable)
       clearTimeout(timers.current.wait)
       timers.current.wait = setTimeout(rebuild, RESTORE_WAIT_MS)
     }
-    const onRestored = () => { clearTimeout(timers.current.wait); setState('ok') }
+    const onRestored = () => { clearTimeout(timers.current.wait); setState('ok'); globalThis.__counterballCount?.('pitch_back') }
     canvas.addEventListener('webglcontextlost', onLost)
     canvas.addEventListener('webglcontextrestored', onRestored)
     // Drawing again: once it has held for a while, forget the earlier failures
+    if (rebuilds.current > 0) globalThis.__counterballCount?.('pitch_back')
     setState('ok')
     clearTimeout(timers.current.stable)
     timers.current.stable = setTimeout(() => { rebuilds.current = 0 }, STABLE_MS)
