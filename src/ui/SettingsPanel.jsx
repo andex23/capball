@@ -26,7 +26,7 @@ const LEVELS = [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']]
 function ComputerLevel() {
   const level = useMatchStore((s) => s.aiDifficulty)
   const playing = useTournamentStore((s) => s.playing)
-  const career = playing?.kind === 'career' || playing?.kind === 'careerCup'
+  const career = ['career', 'careerCup', 'careerCcl'].includes(playing?.kind)
   const pick = (k) => {
     playButtonSelect()
     useMatchStore.getState().changeAiDifficulty(k)

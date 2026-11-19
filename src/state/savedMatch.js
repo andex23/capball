@@ -224,7 +224,7 @@ export function recordHistory(result, mode) {
     const playing = useTournamentStore.getState().playing
     useRewardsStore.getState().noteMatch({
       won, gf: result.score[me], ga: result.score[them],
-      mode: playing?.kind === 'career' || playing?.kind === 'careerCup' ? 'career' : playing ? 'tournament' : s.gameMode,
+      mode: ['career', 'careerCup', 'careerCcl'].includes(playing?.kind) ? 'career' : playing ? 'tournament' : s.gameMode,
       level: s.gameMode === 'ai' ? matchLevel(s) : null,
       saves: events.filter((e) => e.type === 'save' && mineCap(e.by)).length,
       posts: events.filter((e) => e.type === 'post' && mineCap(e.cap)).length,

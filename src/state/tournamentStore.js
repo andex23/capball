@@ -21,6 +21,7 @@ import {
 import { api } from '../online/supabase'
 import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '../multiplayer/MultiplayerManager'
 import { careerNext, opponentSix } from '../game/career'
+import { cclStage } from '../game/championsLeague'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
 import { pressBoost } from '../game/careerBrief'
@@ -147,6 +148,14 @@ export function resultFromMatch(matchResult, knockout, reversed = false) {
   if (knockout && result.home === result.away && !result.pens) return null
   return result
 }
+
+// A career fixture's competition (league, Cap Cup, Champions League) and the calendar's name for it
+const CAREER_COMP = {
+  career: (cc) => cc?.league,
+  careerCup: (cc) => cc?.cup?.tournament,
+  careerCcl: (cc) => cclStage(cc?.ccl),
+}
+const DUE_KIND = { career: 'league', careerCup: 'cup', careerCcl: 'ccl' }
 
 export const useTournamentStore = create((set, get) => ({
   ...load(),
@@ -327,12 +336,13 @@ export const useTournamentStore = create((set, get) => ({
   /** Set the match up for a fixture played on this device (vs CPU or pass-and-play). */
   playFixture(kind, fixture) {
     const cc = useCareerStore.getState().career
-    const t = kind === 'local' ? get().local : kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().online?.tournament
-    if (!t || (kind !== 'career' && !readyFixtures(t).some((f) => f.id === fixture.id))) return
+    const t = kind === 'local' ? get().local : CAREER_COMP[kind] ? CAREER_COMP[kind](cc) : get().online?.tournament
+    // (Career fixtures are checked against the calendar below instead)
+    if (!t || (!CAREER_COMP[kind] && !readyFixtures(t).some((f) => f.id === fixture.id))) return
     // Career: only the match the calendar has next (a cup tie on its date before the league)
-    if (kind === 'career' || kind === 'careerCup') {
+    if (CAREER_COMP[kind]) {
       const due = careerNext(cc)
-      if (!due || due.kind !== (kind === 'career' ? 'league' : 'cup') || due.fixture.id !== fixture.id) return
+      if (!due || due.kind !== DUE_KIND[kind] || due.fixture.id !== fixture.id) return
     }
     const home = teamById(t, fixture.home)
     const away = teamById(t, fixture.away)
@@ -341,14 +351,15 @@ export const useTournamentStore = create((set, get) => ({
     const stash = get().stash || Object.fromEntries(BORROWED.map((k) => [k, ms[k]]))
     const cpuSide = home.cpu ? 'team1' : away.cpu ? 'team2' : null
     const cpuTeam = home.cpu ? home : away.cpu ? away : null
-    const cc0 = (kind === 'career' || kind === 'careerCup') ? useCareerStore.getState().career : null
+    const cc0 = CAREER_COMP[kind] ? useCareerStore.getState().career : null
     // Career: who starts in each role (substitutions change it during the match)
     const lineup = cc0 ? Object.fromEntries(Object.entries(cc0.squad).map(([role, pl]) => [role, pl.id])) : null
     set({ stash, playing: { kind, code: kind === 'online' ? get().online?.code : undefined, fixture: { id: fixture.id, home: fixture.home, away: fixture.away }, knockout: t.format === 'knockout', recorded: false, ...(lineup ? { lineup, startLineup: lineup, subs: [] } : {}) } })
     // Career: your squad's ratings and the computer clubs' set how hard each cap flicks
-    const career = kind === 'career' || kind === 'careerCup' ? cc : null
+    const career = CAREER_COMP[kind] ? cc : null
     // Cup clubs come from several divisions: each plays at its own division's ratings
     const levelOf = (team) => (kind === 'careerCup' ? career?.cup?.levels?.[team.id] ?? career?.level : career?.level)
+    // (Champions League clubs all play at the top division's ratings: you're there to be in it)
     // Computer clubs field their real best six from the career world
     const sixOf = (team) => opponentSix(career, team.name, levelOf(team))
     const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : squadRatings(sixOf(team)))
@@ -393,7 +404,7 @@ export const useTournamentStore = create((set, get) => ({
    */
   refreshCareerMatch() {
     const p = get().playing
-    if (!p || p.lan || (p.kind !== 'career' && p.kind !== 'careerCup')) return
+    if (!p || p.lan || !CAREER_COMP[p.kind]) return
     const { formations } = useMatchStore.getState()
     get().playFixture(p.kind, p.fixture)
     useMatchStore.setState({ formations })
@@ -437,17 +448,17 @@ export const useTournamentStore = create((set, get) => ({
 
   /** A saved local cup/league or career fixture, played on two LAN devices. */
   playLanFixture(kind, fixture, hostTeamId = fixture?.home, transport = 'lan') {
-    if (!['local', 'career', 'careerCup'].includes(kind)) return false
+    if (kind !== 'local' && !CAREER_COMP[kind]) return false
     const cc = useCareerStore.getState().career
-    const t = kind === 'career' ? cc?.league : kind === 'careerCup' ? cc?.cup?.tournament : get().local
+    const t = CAREER_COMP[kind] ? CAREER_COMP[kind](cc) : get().local
     if (!t) return false
     // Career: only the match due next in the calendar (a cup tie on its date comes before the league)
-    const due = kind === 'career' || kind === 'careerCup' ? careerNext(cc) : null
-    const eligible = kind === 'career' ? (due?.kind === 'league' ? due.fixture : null) : kind === 'careerCup' ? (due?.kind === 'cup' ? due.fixture : null) : readyFixtures(t).find(f => f.id === fixture?.id)
+    const due = CAREER_COMP[kind] ? careerNext(cc) : null
+    const eligible = CAREER_COMP[kind] ? (due?.kind === DUE_KIND[kind] ? due.fixture : null) : readyFixtures(t).find(f => f.id === fixture?.id)
     if (!eligible || eligible.id !== fixture?.id) return false
     // Use the saved fixture, never home/away identifiers supplied by a caller.
     fixture = eligible
-    if (kind === 'career' || kind === 'careerCup') hostTeamId = 'T1'
+    if (CAREER_COMP[kind]) hostTeamId = 'T1'
     if (![fixture.home, fixture.away].includes(hostTeamId)) return false
     get().playFixture(kind, fixture)
     if (!get().playing) return false
@@ -469,12 +480,12 @@ export const useTournamentStore = create((set, get) => ({
     if (!p?.lan || p.kind === 'lanGuest') return null
     return {
       kind: p.kind, fixture: p.fixture, reversed: !!p.reversed,
-      tournament: p.kind === 'career' ? useCareerStore.getState().career?.league : p.kind === 'careerCup' ? useCareerStore.getState().career?.cup?.tournament : get().local,
+      tournament: CAREER_COMP[p.kind] ? CAREER_COMP[p.kind](useCareerStore.getState().career) : get().local,
     }
   },
 
   receiveLanSnapshot(snapshot) {
-    if (!snapshot || !['local', 'career', 'careerCup'].includes(snapshot.kind)) return
+    if (!snapshot || (snapshot.kind !== 'local' && !CAREER_COMP[snapshot.kind])) return
     const t = sanitizeTournament(snapshot.tournament)
     if (!t || !snapshot.fixture) return
     const fixture = allFixtures(t).find(f => f.id === snapshot.fixture.id && f.home === snapshot.fixture.home && f.away === snapshot.fixture.away)
@@ -577,7 +588,7 @@ export const useTournamentStore = create((set, get) => ({
     const result = resultFromMatch(matchResult, p.knockout, p.reversed)
     if (!result) return
     set({ playing: { ...p, recorded: true } })
-    if (p.kind === 'career' || p.kind === 'careerCup') {
+    if (CAREER_COMP[p.kind]) {
       // LAN hosts always control team1; solo career sides follow home/away.
       const ms = useMatchStore.getState()
       const side = p.lan || p.fixture.home === 'T1' ? 'team1' : 'team2'
@@ -598,7 +609,8 @@ export const useTournamentStore = create((set, get) => ({
       }))
       const extras = reportExtras({ side, goalLog: goals, matchEvents: ms.matchEvents || [], stats: matchResult.stats || ms.stats, teamConfig: ms.teamConfig, matchDuration: ms.matchDuration, extraTime: !!matchResult.afterExtraTime })
       const perf = { ratings, goalsByRole, story: story.map((event) => event.team ? { ...event, mine: event.team === side } : event), extras, ...(byPlayer ? { byPlayer } : {}) }
-      if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, perf)
+      if (p.kind === 'careerCcl') useCareerStore.getState().recordCcl(p.fixture.id, result, perf)
+      else if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, perf)
       else useCareerStore.getState().record(p.fixture.id, result, perf)
       return
     }
@@ -647,7 +659,7 @@ export const useTournamentStore = create((set, get) => ({
     const p = get().playing
     if (p?.lan && p.kind !== 'lanGuest') flushLanState()
     if (useMatchStore.getState().gameMode === 'online' || isConnected()) disconnect()
-    useMatchStore.getState().quitMatch(p?.kind === 'career' || p?.kind === 'careerCup' ? SCREEN.CAREER : SCREEN.TOURNAMENT_HUB)
+    useMatchStore.getState().quitMatch(CAREER_COMP[p?.kind] ? SCREEN.CAREER : SCREEN.TOURNAMENT_HUB)
     get().restore()
     if (p?.kind === 'online' && p.code) get().openOnline(p.code, { quiet: true }).catch(() => {})
   },

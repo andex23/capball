@@ -1,5 +1,5 @@
 import { standings, teamById } from './tournament'
-import { ME, CUP_NAME, careerNext } from './career'
+import { ME, CUP_NAME, careerNext, compOf, CCL_NAME } from './career'
 import { isDerby, derbyName } from './rivals'
 
 function resultFor(f, id) {
@@ -18,10 +18,15 @@ export function fixtureBrief(career, due = careerNext(career)) {
   if (!due) return ''
   const f = due.fixture
   const cup = due.kind === 'cup'
-  const comp = cup ? career.cup?.tournament : career.league
+  const comp = compOf(career, due.kind, f.id)
   const otherId = f.home === ME ? f.away : f.home
   const opponent = teamById(comp, otherId)?.name
   if (!opponent) return ''
+  if (due.kind === 'ccl') {
+    if (comp.format === 'knockout') return f.round === 1 ? 'The ' + CCL_NAME + ' final. The biggest night of your career.' : 'Semi-final. Win and you’re in the final.'
+    const row = standings(comp).find((r) => r.id === ME)
+    return row?.p ? 'Group A: you have ' + row.pts + ' points from ' + row.p + '. The top two go through.' : 'Your first night in the ' + CCL_NAME + '.'
+  }
   if (cup) return f.round === comp.rounds.length - 1 ? 'The ' + CUP_NAME + ' final against ' + opponent + '.' : 'Knockout tie. A draw goes to extra time or penalties.'
   const standingsNow = standings(career.league)
   const topTwo = standingsNow.slice(0, 2)

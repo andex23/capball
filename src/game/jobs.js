@@ -120,6 +120,7 @@ export function takeJob(career, create, now = Date.now()) {
     warning: false,
     sacked: null,
     jobOffer: null,
+    ccl: null,
     lastMove: season,
     jobs: [{ season, from: career.club.name, to: kit.name, reason: offer.reason }, ...(career.jobs || [])].slice(0, 20),
     lastMatch: null,

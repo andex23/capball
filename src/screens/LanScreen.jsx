@@ -113,7 +113,7 @@ export default function LanScreen() {
     if (!getIsHost()) return
     const timer = setTimeout(() => {
       const p = useTournamentStore.getState().playing
-      useMatchStore.getState().goToScreen(p?.kind === 'career' || p?.kind === 'careerCup' ? SCREEN.FORMATION : SCREEN.TEAM_SELECT)
+      useMatchStore.getState().goToScreen(['career', 'careerCup', 'careerCcl'].includes(p?.kind) ? SCREEN.FORMATION : SCREEN.TEAM_SELECT)
     }, 500)
     return () => clearTimeout(timer)
   }, [status.status])

@@ -6,7 +6,7 @@
 import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { answerPress, bestPerformer, fixtureBrief } from '../game/careerBrief'
-import { acceptJob, stayPut, myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
+import { compOf, recordCclMatch, cclPending, acceptJob, stayPut, myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
 import { signLegend, makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
@@ -36,7 +36,7 @@ function saveHall(hall) {
 
 /** The matchday report to show next: your result, the written commentary, and the round it was in. */
 function withReport(career, fixtureId, result, perf, competition, before = career) {
-  const t = competition === 'cup' ? career.cup?.tournament : career.league
+  const t = compOf(career, competition, fixtureId)
   const f = t ? allFixtures(t).find((x) => x.id === fixtureId) : null
   if (!f) return career
   const lastMatch = {
@@ -131,10 +131,24 @@ export const useCareerStore = create((set, get) => ({
     useAccountStore.getState().save({ force: true })
   },
 
+  /** Your result in the Cap Champions League. */
+  recordCcl(fixtureId, result, perf = null) {
+    const { career } = get()
+    if (!career?.ccl) return
+    const before = compOf(career, 'ccl', fixtureId)
+    let next = recordCclMatch(career, fixtureId, result)
+    next = withPerformance(next, perf, `${before?.id}:${fixtureId}`, fixtureId)
+    next = withFitness(next, career, perf)
+    next = withReport(next, fixtureId, result, perf, 'ccl', career)
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+  },
+
   /** The season's over: see it into the record books and start the next. */
   nextSeason() {
     const { career } = get()
-    if (!career || career.sacked || !seasonOver(career.league) || cupPending(career)) return
+    if (!career || career.sacked || !seasonOver(career.league) || cupPending(career) || cclPending(career)) return
     const next = finishSeason(career)
     const outcome = next.past[0]?.outcome
     if (outcome === 'promoted') useAchievementStore.getState().award(['promoted'])

@@ -1,6 +1,6 @@
 import { CareerScoreboard } from './CareerScoreboard'
 import { PressRoom, MatchFigures } from './MatchFigures'
-import { ME, careerNext, careerDate, formatGameDate } from '../game/career'
+import { ME, careerNext, careerDate, formatGameDate, compOf } from '../game/career'
 import { teamById, allFixtures } from '../game/tournament'
 import { scoreText } from './TournamentBits'
 import { PlayerRatings } from './SquadPanel'
@@ -13,12 +13,12 @@ import Icon from './Icon'
 export default function MatchReport({ career, onDone }) {
   const m = career.lastMatch
   if (!m) return null
-  const cup = m.competition === 'cup'
-  const t = cup ? career.cup?.tournament : career.league
+  const cup = m.competition === 'cup' || (m.competition === 'ccl' && compOf(career, 'ccl', m.fixtureId)?.format === 'knockout')
+  const t = compOf(career, m.competition, m.fixtureId)
   if (!t) return null
   const mineHome = m.home === ME
   const due = careerNext(career)
-  const nextTeam = due && teamById(due.kind === 'cup' ? career.cup.tournament : career.league, due.fixture.home === ME ? due.fixture.away : due.fixture.home)
+  const nextTeam = due && teamById(compOf(career, due.kind, due.fixture.id), due.fixture.home === ME ? due.fixture.away : due.fixture.home)
   // The rest of the matchday
   const others = cup
     ? (t.rounds?.[m.round] || []).filter((x) => x.home !== ME && x.away !== ME)
