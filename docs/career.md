@@ -2,6 +2,15 @@
 
 Modelled on EA Sports FC (FIFA) career mode and Football Manager.
 
+## The ladder
+Five divisions, bottom to top: Street League, Sunday League, District League, National League, Premier Cap League. Each is you plus seven computer clubs (14 matches, home and away). Top 2 go up, bottom 2 go down. Saves from before the Street League (v1) load with every division number moved up one (`fromV1`), and their world gets the new clubs built in (`sanitizeWorld`).
+
+## Reasons to play another season
+- **Season review** (`ui/SeasonReview.jsx`): the season-end card shows wins, goals, clean sheets and the player of the season. When the new season starts, a one-time summer review lists the academy's best youngster, who improved, who retired or left, what clubs in your new division signed, and the board's goal (`lastSummer.seen`).
+- **Rivals and derbies** (`game/rivals.js`): one rival per division (one of its four strongest clubs, fixed per club name). Derbies pay 2× prize money for a win, draw a 1.3× crowd at home, and get their own banner, preview line and report header. Head to head with every club is kept in `career.h2h`.
+- **Job offers** (`game/jobs.js`): after promotion, the title or a Cap Cup win (at least two seasons since your last move), a strong club calls (a division above, or another top club if you're champions). Taking it swaps the clubs: you get their name, kit, squad, division and budget (`JOB_BUDGET`); your old club and players take their slot in the world (`swapClub`, `clubsIn`). Records, rep and head to head stay. Sacked managers can get an offer from a weaker club a division down, and the career carries on.
+- **Canta Champions League** (`game/championsLeague.js`): the top two of the Premier Cap League qualify for next season. Eight clubs (the best three other Premier clubs and four from abroad), two groups of four, semis A1 v B2 / B1 v A2, then a final. Group matches open after league matchdays 2, 4 and 6, the semi after 9 and the final after 12, played on Tuesdays (`cclDate`). Prize money: ₦2m a group win, ₦5m for the semis, ₦10m for the final, ₦25m for winning it.
+
 ## Attributes (1–99), each doing something on the pitch
 - **PWR** — flick power: 0.88× at 45, 1.0× at 70, 1.12× at 95 (`powerScale`)
 - **SHT** — how straight a hard flick goes: up to 4.5° off at 45, 1.7° at 70, 0 from 95 (`accuracyWobble`)
@@ -16,7 +25,7 @@ Never applied to penalties. Ordinary (non-career) matches are untouched.
 | MID | PAS 40 · SHT 20 · PWR 20 · PHY 20 |
 | DEF | PHY 40 · PAS 25 · PWR 20 · SHT 15 |
 | GK  | PHY 45 · PAS 25 · PWR 20 · SHT 10 |
-A player out of position rates at that position's weights. Typical division OVR: 52 / 60 / 68 / 78.
+A player out of position rates at that position's weights. Typical division OVR (Street, Sunday, District, National, Premier): 46 / 52 / 60 / 68 / 78.
 Card colours: gold 75+, silver 65–74, bronze below.
 
 ## Potential (hidden, shown as a scout's range)
@@ -76,7 +85,7 @@ Every computer club has a real squad, kept in `career.world` ({ clubs, free, nex
 - Awards per season (player of the season ≥3 apps, top scorer, young ≤21) in `past[].awards`; Hall of Fame (`capball:career-hof:v1`) on retiring or after the sack.
 
 ## Season, Cap Cup, board target
-Board target (shown as a card before matchday 1): promotion (top 2) in every division below the top, then the title in the Premier Cap League. A miss gives a final warning (`career.warning`); a second miss while warned sacks you (`career.sacked`): the season is recorded, the career ends with a summary, and you start a new one. Meeting a target clears the warning. Starting squad ~54 OVR (upper half of the Sunday League) with ₦8m.
+Board target (shown as a card before matchday 1): promotion (top 2) in every division below the top, then the title in the Premier Cap League. A miss gives a final warning (`career.warning`); a second miss while warned sacks you (`career.sacked`): the season is recorded, the career ends with a summary, and you start a new one. Meeting a target clears the warning. Starting squad ~52 OVR (`START_LIFT`) with ₦8m, inside a pack of four Street League title contenders (`TIER_OFFSET`: the top four clubs in every league sit within ~3 OVR of each other).
 Transfer windows (`WINDOWS`): pre-season open until matchday 3 is played (0–2 played), mid-season after matchday 5 until matchday 7 (5–6 played). Bids, offers and loans hold for the whole window.
 Ten league matches (home and away). Cap Cup: 8 clubs (3 from your division, 4 from the ones next door); QF after league match 2, SF after 5, final after 8 (all open once the league ends). Prizes 250 / 100 / 50.
 Board target from your OVR vs the division (win the league / top 2 / top half / stay up), worth 200 / 150 / 80 / 60.

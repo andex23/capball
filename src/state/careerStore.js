@@ -6,11 +6,12 @@
 import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { answerPress, bestPerformer, fixtureBrief } from '../game/careerBrief'
-import { myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
+import { compOf, recordCclMatch, cclPending, acceptJob, stayPut, myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
 import { signLegend, makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
-import { allFixtures } from '../game/tournament'
+import { allFixtures, teamById } from '../game/tournament'
+import { isDerby, derbyName } from '../game/rivals'
 import { applyMatchToSquad, applyMatchByPlayer } from '../game/squad'
 import { useAccountStore } from './accountStore'
 import { useAchievementStore } from './achievementStore'
@@ -35,7 +36,7 @@ function saveHall(hall) {
 
 /** The matchday report to show next: your result, the written commentary, and the round it was in. */
 function withReport(career, fixtureId, result, perf, competition, before = career) {
-  const t = competition === 'cup' ? career.cup?.tournament : career.league
+  const t = compOf(career, competition, fixtureId)
   const f = t ? allFixtures(t).find((x) => x.id === fixtureId) : null
   if (!f) return career
   const lastMatch = {
@@ -44,6 +45,7 @@ function withReport(career, fixtureId, result, perf, competition, before = caree
     brief: fixtureBrief(before, { kind: competition, fixture: f }),
     posBefore: competition === 'league' && before.league.fixtures.some((x) => x.result) ? myPosition(before.league) : null,
   }
+  if (isDerby(before, t, f)) lastMatch.derby = derbyName(teamById(t, f.home === 'T1' ? f.away : f.home)?.name)
   const best = bestPerformer({ ...career, lastMatch })
   if (best) lastMatch.best = best
   const recruits = new Set(before.deals.filter((d) => d.type === 'in' && d.season === before.season).map((d) => d.id))
@@ -129,10 +131,24 @@ export const useCareerStore = create((set, get) => ({
     useAccountStore.getState().save({ force: true })
   },
 
+  /** Your result in the Canta Champions League. */
+  recordCcl(fixtureId, result, perf = null) {
+    const { career } = get()
+    if (!career?.ccl) return
+    const before = compOf(career, 'ccl', fixtureId)
+    let next = recordCclMatch(career, fixtureId, result)
+    next = withPerformance(next, perf, `${before?.id}:${fixtureId}`, fixtureId)
+    next = withFitness(next, career, perf)
+    next = withReport(next, fixtureId, result, perf, 'ccl', career)
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+  },
+
   /** The season's over: see it into the record books and start the next. */
   nextSeason() {
     const { career } = get()
-    if (!career || career.sacked || !seasonOver(career.league) || cupPending(career)) return
+    if (!career || career.sacked || !seasonOver(career.league) || cupPending(career) || cclPending(career)) return
     const next = finishSeason(career)
     const outcome = next.past[0]?.outcome
     if (outcome === 'promoted') useAchievementStore.getState().award(['promoted'])
@@ -141,6 +157,35 @@ export const useCareerStore = create((set, get) => ({
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
+  },
+
+  /** Take the job a club has offered (after a big season, or after the sack). */
+  takeJob() {
+    const { career } = get()
+    const next = career?.jobOffer ? acceptJob(career) : null
+    if (!next) return false
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+    return true
+  },
+
+  /** Turn the offer down and stay. */
+  turnDownJob() {
+    const { career } = get()
+    if (!career?.jobOffer) return
+    const next = stayPut(career)
+    save(next)
+    set({ career: next })
+  },
+
+  /** The summer review has been read: don't open it again this season. */
+  seeSummer() {
+    const { career } = get()
+    if (!career?.lastSummer || career.lastSummer.seen) return
+    const next = { ...career, lastSummer: { ...career.lastSummer, seen: true } }
+    save(next)
+    set({ career: next })
   },
 
   /** Switch between a solo career and playing a friend (online or LAN). */

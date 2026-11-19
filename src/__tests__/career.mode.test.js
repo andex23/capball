@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { newCareer, nextMatch, recordCareerResult, seasonOver, finishSeason, outcomeFor, myPosition, sanitizeCareer, DIVISIONS, ME } from '../game/career'
+import { clubOvr } from '../game/world'
+import { squadRatings, averageRating } from '../game/squad'
+import { squadRank, newCareer, nextMatch, recordCareerResult, seasonOver, finishSeason, outcomeFor, myPosition, sanitizeCareer, DIVISIONS, ME } from '../game/career'
 
 const club = { name: 'Lions', primary: '#D32F2F', edge: '#FFFFFF' }
 
@@ -14,12 +16,22 @@ function playSeason(career, score) {
 }
 
 describe('career mode', () => {
-  it('starts in the bottom division with five computer clubs', () => {
+  it('starts in the Street League with seven computer clubs', () => {
     const c = newCareer(club)
     expect(c.level).toBe(0)
-    expect(c.league.teams).toHaveLength(6)
-    expect(c.league.teams.filter((t) => t.cpu)).toHaveLength(5)
+    expect(c.league.teams).toHaveLength(8)
+    expect(c.league.teams.filter((t) => t.cpu)).toHaveLength(7)
     expect(nextMatch(c.league)).toBeTruthy()
+  })
+  it('a new squad is in a real title race: several clubs close to it, nobody running away', () => {
+    for (let s = 0; s < 12; s++) {
+      const c = newCareer({ ...club, name: `Club ${s}` }, { now: s * 977 })
+      const mine = averageRating(squadRatings(c.squad))
+      const others = c.world.clubs.filter((x) => x.level === 0).map(clubOvr)
+      expect(squadRank(0, c.squad, c.world)).toBeLessThanOrEqual(5)  // in the top pack
+      expect(Math.max(...others) - mine).toBeLessThanOrEqual(4)       // no runaway favourite
+      expect(others.filter((o) => Math.abs(o - mine) <= 3).length).toBeGreaterThanOrEqual(3) // at least three real rivals
+    }
   })
   it('winning every game finishes top and goes up', () => {
     const c = playSeason(newCareer(club), [5, 0])
@@ -30,16 +42,36 @@ describe('career mode', () => {
     expect(next.past[0]).toMatchObject({ position: 1, outcome: 'promoted', division: DIVISIONS[0].name })
   })
   it('promotion, relegation and the title by position', () => {
+    expect(DIVISIONS[0].name).toBe('Street League')
     expect(outcomeFor(0, 2)).toBe('promoted')
-    expect(outcomeFor(0, 6)).toBe('stayed') // can't go below the bottom division
-    expect(outcomeFor(2, 6)).toBe('relegated')
-    expect(outcomeFor(3, 1)).toBe('champions')
-    expect(outcomeFor(3, 2)).toBe('stayed')
+    expect(outcomeFor(0, 8)).toBe('stayed') // can't go below the bottom division
+    expect(outcomeFor(2, 6)).toBe('stayed')
+    expect(outcomeFor(2, 7)).toBe('relegated') // the bottom two go down
+    expect(outcomeFor(2, 8)).toBe('relegated')
+    expect(outcomeFor(4, 1)).toBe('champions')
+    expect(outcomeFor(4, 2)).toBe('stayed')
   })
   it('survives a save and load', () => {
     const c = playSeason(newCareer(club), [1, 0])
     expect(sanitizeCareer(JSON.parse(JSON.stringify(c)))).toEqual(c)
     expect(sanitizeCareer({ v: 99 })).toBeNull()
+  })
+  it('a career saved before the Street League moves up a division number and keeps playing', () => {
+    // A v1 save in the Sunday League (then level 0), half-way through a six-club season
+    const c = playSeason(newCareer(club), [1, 0])
+    const old = JSON.parse(JSON.stringify({ ...c, v: 1, level: 0, past: [{ season: 1, level: 0, division: 'Sunday League', position: 2 }] }))
+    old.world.clubs = old.world.clubs.filter((x) => x.level === 0).map((x) => ({ ...x, level: 0 }))
+    const up = sanitizeCareer(old)
+    expect(up.v).toBe(2)
+    expect(up.level).toBe(1)
+    expect(DIVISIONS[up.level].name).toBe('Sunday League')
+    expect(up.past[0].level).toBe(1)
+    // Clubs that didn't exist in the old world are built; the ones that did keep their players
+    expect(up.world.clubs).toHaveLength(35)
+    const kept = old.world.clubs[0]
+    expect(up.world.clubs.find((x) => x.name === kept.name).players.map((p) => p.id)).toEqual(kept.players.map((p) => p.id))
+    // Next season is a full eight-club league
+    expect(finishSeason(up).league.teams).toHaveLength(8)
   })
 })
 

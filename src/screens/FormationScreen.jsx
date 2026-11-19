@@ -102,7 +102,7 @@ export default function FormationScreen() {
   const inTournament = useTournamentStore((s) => !!s.playing)
   // Career fixtures: set the time per half and pick the starting six here
   const careerKind = useTournamentStore((s) => s.playing?.kind)
-  const inCareer = careerKind === 'career' || careerKind === 'careerCup'
+  const inCareer = ['career', 'careerCup', 'careerCcl'].includes(careerKind)
   // Lineups are picked on the career device for its own solo matches
   const ownLineup = useTournamentStore((s) => inCareer && !s.playing?.lan)
   // Online, the host sets the length (it's synced to the guest)

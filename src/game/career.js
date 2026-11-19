@@ -11,12 +11,16 @@ import { isFinish } from '../data/StadiumData'
 import { DIVISIONS } from './divisions'
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
 import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, TICKETS } from './club'
-import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
+import { START_COINS, START_LIFT, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
 import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withContracts, REP_START, sanitizeAwards } from './clubLife'
 import { sanitizeStory } from './matchStory'
 import { legendById } from '../data/Legends'
+import { isDerby, noteHeadToHead, sanitizeH2h, DERBY_PRIZE, DERBY_CROWD } from './rivals'
+import { jobOfferFor, takeJob, declineJob, sanitizeOffer, sanitizeJobs } from './jobs'
+import { createCcl, cclTie, cclRun, recordCclResult, finishKnockout, sanitizeCcl, cclStage, CCL_AFTER, CCL_NAME } from './championsLeague'
+export { CCL_NAME }
 import { sanitizeExtras } from './matchReport'
-import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
+import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews, clubsIn } from './world'
 import {
   playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, squadSummer, youthIntake,
   sanitizeLoans, sanitizeYouth, sanitizeTalks, sanitizeDeals, MATCHDAY, MAX_RESERVES, MAX_SQUAD, YOUTH_MAX,
@@ -24,16 +28,17 @@ import {
 
 export { playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, MATCHDAY, MAX_RESERVES, MAX_SQUAD, YOUTH_MAX }
 
-export const CAREER_VERSION = 1
+// 2: a fifth division (the Street League) went in at the bottom, so every division number moved up one
+export const CAREER_VERSION = 2
 // Each season: everyone plays everyone home and away
 export const LEGS = 2
 
 export { DIVISIONS }
 
 export const TOP = DIVISIONS.length - 1
-// Top two of a division go up; the bottom club goes down
+// Top two of a division go up; the bottom two go down
 export const PROMOTED = 2
-export const RELEGATED = 1
+export const RELEGATED = 2
 export const ME = 'T1'
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -43,7 +48,7 @@ export function createSeason(club, level, matchDuration = 120, now = Date.now(),
   const div = DIVISIONS[level]
   const teams = [
     { ...club, cpu: false },
-    ...div.clubs.map((c) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: div.difficulty, ...ovrField(world, c.name) })),
+    ...clubsIn(world, level).map((c) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: div.difficulty, ...ovrField(world, c.name) })),
   ]
   return createTournament({ format: 'league', legs: LEGS, teams, matchDuration, now })
 }
@@ -68,7 +73,7 @@ export function opponentOvr(career, name, level) {
 
 export const CUP_NAME = 'Cap Cup'
 // Each cup round opens once you've played this many league matches: quarter-final, semi-final, final
-export const CUP_AFTER = [2, 5, 8]
+export const CUP_AFTER = [3, 7, 11]
 export const CUP_PRIZE = { won: 250, final: 100, semi: 50, quarter: 0 }
 const CUP_ROUNDS = ['quarter', 'semi', 'final']
 
@@ -79,10 +84,10 @@ const CUP_ROUNDS = ['quarter', 'semi', 'final']
  */
 export function createCup(club, level, matchDuration, season, now = Date.now(), world = null) {
   const rng = seededRng(`cup:${club.name}:${season}:${now}`)
-  const own = DIVISIONS[level].clubs.slice().sort(() => rng() - 0.5).slice(0, 3).map((c) => ({ c, lv: level }))
+  const own = clubsIn(world, level).slice().sort(() => rng() - 0.5).slice(0, 3).map((c) => ({ c, lv: level }))
   // Four more from the divisions next door: two above and two below, or four from the one neighbour at the ends
   const near = [level + 1, level - 1].filter((l) => l >= 0 && l <= TOP)
-  const others = near.flatMap((lv) => DIVISIONS[lv].clubs.slice().sort(() => rng() - 0.5).slice(0, 4 / near.length).map((c) => ({ c, lv })))
+  const others = near.flatMap((lv) => clubsIn(world, lv).slice().sort(() => rng() - 0.5).slice(0, 4 / near.length).map((c) => ({ c, lv })))
   const entrants = [...own, ...others.slice(0, 4)]
   const teams = [
     { ...club, cpu: false },
@@ -136,10 +141,63 @@ export function cupDate(career, round) {
   return addDays(anchor ? leagueDate(career, anchor) : seasonStart(career.season), 4 + 7 * extra)
 }
 
+/** A Champions League night: the Tuesday after the league matchday it waits for. */
+export function cclDate(career, fixture) {
+  const after = career.ccl?.knockout ? (fixture.round === 0 ? CCL_AFTER.semi : CCL_AFTER.final) : CCL_AFTER.group[fixture.round] ?? CCL_AFTER.group.at(-1)
+  const mine = allFixtures(career.league).filter((f) => f.home === ME || f.away === ME).sort((a, b) => a.round - b.round)
+  const anchor = mine[Math.min(after, mine.length) - 1]
+  const extra = Math.max(0, after - mine.length)
+  return addDays(anchor ? leagueDate(career, anchor) : seasonStart(career.season), 3 + 7 * extra)
+}
+
+/**
+ * The tournament a fixture of yours belongs to: the league, the Cap Cup, or the
+ * Champions League (its group, or the knockout once drawn).
+ */
+export function compOf(career, competition, fixtureId = null) {
+  if (competition === 'cup') return career?.cup?.tournament || null
+  if (competition === 'ccl') {
+    const c = career?.ccl
+    if (!c) return null
+    return [c.knockout, c.groups?.[0]].find((t) => t && (!fixtureId || allFixtures(t).some((f) => f.id === fixtureId))) || cclStage(c)
+  }
+  return career?.league || null
+}
+
+/** "Canta Champions League · Group A" or "… · Semi-final": what a Champions League fixture is. */
+export function cclLabel(career, fixtureId) {
+  const t = compOf(career, 'ccl', fixtureId)
+  if (!t) return CCL_NAME
+  if (t.format === 'league') return `${CCL_NAME} · Group A`
+  const f = allFixtures(t).find((x) => x.id === fixtureId)
+  return `${CCL_NAME} · ${f?.round === 1 ? 'Final' : 'Semi-final'}`
+}
+
+/** Are you still to play a Champions League match this season? */
+export function cclPending(career) {
+  return !!career.ccl && cclRun(career.ccl) == null
+}
+
+/** Record your Champions League result: the rest of the stage plays alongside, and prize money comes in. */
+export function recordCclMatch(career, fixtureId, result, now = Date.now()) {
+  const t = cclStage(career.ccl)
+  const mine = t ? allFixtures(t).find((f) => f.id === fixtureId) : null
+  if (!mine) return career
+  const r = recordCclResult(career.ccl, fixtureId, result, now)
+  const home = mine.home === ME
+  const gf = home ? result.home : result.away
+  const ga = home ? result.away : result.home
+  const other = teamById(t, home ? mine.away : mine.home)?.name
+  let next = payMatchDay(noteHeadToHead({ ...career, ccl: r.ccl }, other, gf, ga), { home, gf, ga })
+  if (r.prize) next = { ...next, biz: book(next.biz, { prize: r.prize }), coins: next.coins + r.prize, lastEarned: next.lastEarned + r.prize }
+  return next
+}
+
 /** The date of your next match: the career's "today". null when nothing is left. */
 export function careerDate(career) {
   const due = careerNext(career)
   if (!due) return null
+  if (due.kind === 'ccl') return cclDate(career, due.fixture)
   return due.kind === 'cup' ? cupDate(career, due.fixture.round) : leagueDate(career, due.fixture)
 }
 
@@ -160,6 +218,8 @@ export function careerNext(career) {
   if (!career?.league) return null
   const tie = cupTie(career)
   if (tie) return { kind: 'cup', fixture: tie }
+  const ccl = cclTie(career.ccl, playedThisSeason(career.league), seasonOver(career.league))
+  if (ccl) return { kind: 'ccl', fixture: ccl }
   const f = nextMatch(career.league)
   return f ? { kind: 'league', fixture: f } : null
 }
@@ -199,7 +259,9 @@ export function recordCupResult(career, fixtureId, result) {
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
   const next = { ...career, cup: { ...career.cup, tournament: after } }
-  return mine ? payMatchDay(next, { home, gf, ga }) : next
+  if (!mine) return next
+  const other = teamById(cup, home ? mine.away : mine.home)?.name
+  return payMatchDay(noteHeadToHead(next, other, gf, ga), { home, gf, ga, derby: isDerby(career, cup, mine) })
 }
 
 /* ── The board's target ── */
@@ -207,7 +269,7 @@ export function recordCupResult(career, fixtureId, result) {
 export const TARGETS = {
   title: 'Win the league',
   promotion: `Get promoted: finish in the top ${PROMOTED}`,
-  topHalf: 'Finish in the top half (top 3)',
+  topHalf: 'Finish in the top half',
   survive: 'Stay up',
   notLast: 'Don’t finish bottom',
 }
@@ -225,12 +287,12 @@ export function targetFor(level) {
 /** Where your squad ranks on OVR among the division's clubs (1 = strongest). */
 export function squadRank(level, squad, world = null) {
   const mine = averageRating(squadRatings(squad))
-  const theirs = DIVISIONS[level].clubs.map((c) => averageRating(squadRatings(sixFor(world, c.name) || clubPlayers(level, c.name))))
+  const theirs = clubsIn(world, level).map((c) => averageRating(squadRatings(sixFor(world, c.name) || clubPlayers(level, c.name))))
   return 1 + theirs.filter((o) => o > mine).length
 }
 
 /** Did finishing `pos` of `count` meet the target? */
-export function targetMet(target, pos, count = 6) {
+export function targetMet(target, pos, count = 8) {
   if (target === 'title') return pos === 1
   if (target === 'promotion') return pos <= PROMOTED
   if (target === 'topHalf') return pos <= Math.floor(count / 2)
@@ -266,7 +328,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     promotions: 0,
     titles: 0,         // top-division wins
     squad: Object.fromEntries(withContracts(Object.entries(sq).map(([r, p]) => ({ ...p, _role: r })), `${now}:six`).map(({ _role, ...p }) => [_role, p])),
-    bench: withContracts(startingBench(now, 0), `${now}:bench`),
+    bench: withContracts(startingBench(now, 0, START_LIFT), `${now}:bench`),
     reserves: [],      // up to five more players who train but aren't in the matchday ten
     loans: [],         // your players out on loan until the summer
     youthTeam: youthIntake(0, 0, `${now}:start`, 2),
@@ -284,6 +346,12 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     scouted: [],       // players whose potential your scouts have checked
     rejected: null,    // offers for your players you've turned down this window
     sacked: null,      // set when the board sacks you: the career is over
+    ccl: null,         // this season's Canta Champions League, when you qualified
+    cclTitles: 0,
+    jobOffer: null,    // a club that wants you as manager: { name, level, reason }
+    lastMove: 0,       // the season you last changed clubs
+    jobs: [],          // clubs you've moved between
+    h2h: {},           // head to head with every club you've played: { name: { w, d, l } }
   }
 }
 
@@ -307,11 +375,12 @@ function recentForm(league) {
 }
 
 /** The money side of one of your matches (tickets if at home, sponsor, prize money, wages). */
-function payMatchDay(career, { home, gf, ga }) {
+function payMatchDay(career, { home, gf, ga, derby = false }) {
   if (!Number.isFinite(gf) || !Number.isFinite(ga)) return { ...career, lastEarned: 0 }
   const biz = career.biz || newClub(career.level)
   const outcome = gf > ga ? 'win' : gf === ga ? 'draw' : 'loss'
-  const r = matchDay(biz, { home, outcome, prize: coinsForResult(gf, ga, career.level), level: career.level, wages: wageBill(career.squad, career.bench, career.reserves), form: recentForm(career.league) })
+  const prize = coinsForResult(gf, ga, career.level) * (derby && outcome === 'win' ? DERBY_PRIZE : 1)
+  const r = matchDay(biz, { home, outcome, prize, level: career.level, wages: wageBill(career.squad, career.bench, career.reserves), form: recentForm(career.league), crowdBoost: derby ? DERBY_CROWD : 1 })
   return { ...career, biz: r.club, coins: (career.coins ?? 0) + r.net, lastEarned: r.net }
 }
 
@@ -345,13 +414,28 @@ export function nextMatch(league) {
   return allFixtures(league).find((f) => !f.result && (f.home === ME || f.away === ME)) || null
 }
 
+/** Your season so far in the league: matches won, goals scored, clean sheets. */
+export function seasonRecord(league) {
+  let w = 0; let gf = 0; let cs = 0
+  for (const f of allFixtures(league)) {
+    if (!f.result || (f.home !== ME && f.away !== ME)) continue
+    const h = f.home === ME
+    const mine = h ? f.result.home : f.result.away
+    const theirs = h ? f.result.away : f.result.home
+    if (mine > theirs) w++
+    gf += mine
+    if (theirs === 0) cs++
+  }
+  return { w, gf, cs }
+}
+
 /** Your league position (1-based). */
 export function myPosition(league) {
   return standings(league).findIndex((r) => r.id === ME) + 1
 }
 
 /** What finishing `pos` of `count` in division `level` means. */
-export function outcomeFor(level, pos, count = 6) {
+export function outcomeFor(level, pos, count = 8) {
   if (level === TOP && pos === 1) return 'champions'
   if (level < TOP && pos <= PROMOTED) return 'promoted'
   if (level > 0 && pos > count - RELEGATED) return 'relegated'
@@ -380,7 +464,10 @@ export function recordCareerResult(career, fixtureId, result) {
   const home = mine?.home === ME
   const gf = home ? result.home : result.away
   const ga = home ? result.away : result.home
-  return mine ? payMatchDay({ ...career, league }, { home, gf, ga }) : { ...career, league }
+  if (!mine) return { ...career, league }
+  const other = teamById(career.league, home ? mine.away : mine.home)?.name
+  const derby = isDerby(career, career.league, mine)
+  return payMatchDay(noteHeadToHead({ ...career, league }, other, gf, ga), { home, gf, ga, derby })
 }
 
 /** Close the finished season and start the next one, in the new division. */
@@ -400,12 +487,18 @@ export function finishSeason(career, now = Date.now()) {
     cupT = settleCpu(recordResult(cupT, t.id, simulateResult(cupT, t, seededRng(`${cupT.id}:${t.id}`))))
   }
   const cup = cupRun(cupT)
+  // The Champions League, if you were in it: whatever's left plays out
+  const cclT = career.ccl ? (cclRun(career.ccl) === 'won' ? career.ccl : finishKnockout(career.ccl)) : null
+  const ccl = cclT ? (cclRun(cclT) || 'group') : null
+  // Top two in the top division (and staying there): into next season's Champions League
+  const qualified = career.level === TOP && pos <= 2 && level === TOP
   // Before the summer resets the season's stats: the club's awards, and who's unhappy
   const awards = seasonAwards(career)
   const unhappy = unhappyAfterSeason(career, level)
   const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
   const entry = {
     season: career.season,
+    club: career.club?.name || null,
     division: DIVISIONS[career.level].name,
     level: career.level,
     position: pos,
@@ -415,6 +508,8 @@ export function finishSeason(career, now = Date.now()) {
     awards,
     cup,
     cupWinner: cupT?.championId ? teamById(cupT, cupT.championId)?.name || null : null,
+    ...(ccl ? { ccl } : {}),
+    ...(qualified ? { qualified: true } : {}),
     record: me ? { w: me.w, d: me.d, l: me.l, gf: me.gf, ga: me.ga, pts: me.pts } : null,
     // The season's books (season bonus and prizes included)
     finance: (() => { const l = { ...emptyLedger(), ...(career.biz?.ledger || {}) }; l.prize += bonus; return { ...ledgerTotals(l), ledger: l } })(),
@@ -427,6 +522,8 @@ export function finishSeason(career, now = Date.now()) {
       past: [{ ...entry, sacked: true }, ...career.past].slice(0, 50),
       cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
       sacked: { season: career.season, division: DIVISIONS[career.level].name, position: pos, target },
+      // A smaller club may still want you
+      jobOffer: jobOfferFor(career, { outcome, level, cup, sacked: true }),
     }
   }
   // The business side of the summer: fans move with the season, TV money for the new division,
@@ -461,6 +558,8 @@ export function finishSeason(career, now = Date.now()) {
     promotions: career.promotions + (outcome === 'promoted' ? 1 : 0),
     titles: career.titles + (outcome === 'champions' ? 1 : 0),
     cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
+    cclTitles: (career.cclTitles || 0) + (ccl === 'won' ? 1 : 0),
+    ccl: qualified ? createCcl(career.club, level, career.matchDuration, career.season + 1, now, world) : null,
     coins: (career.coins ?? 0) + bonus + tv,
     biz: bizNext,
     squad: summer.squad,
@@ -474,9 +573,10 @@ export function finishSeason(career, now = Date.now()) {
       retired: [...summer.retired, ...benchSummer.retired, ...resSummer.retired.map((r) => ({ ...r, role: `res${r.role}`, left: true }))],
       changes: [...summer.changes, ...benchSummer.changes, ...resSummer.changes.map((c) => ({ ...c, role: `res${c.role}` }))],
       loansBack: sq.loansBack.map((p) => ({ name: p.name, rating: p.rating })),
-      youthIn: sq.youthIn.map((p) => ({ name: p.name, pos: p.pos, rating: p.rating })),
+      youthIn: sq.youthIn.map((p) => ({ name: p.name, pos: p.pos, rating: p.rating, age: p.age, pot: p.pot })),
       youthOut: sq.youthOut.map((p) => ({ name: p.name })),
       world: ws.news.slice(0, 8),
+      seen: false,
     },
     lastEarned: 0,
     // Missing the target earns a final warning; meeting one clears it
@@ -487,11 +587,24 @@ export function finishSeason(career, now = Date.now()) {
   }
   // Contracts run down: expired deals leave on a free; unhappy players want out
   const cs = contractSummer(next, { level, seed, unhappy })
-  return { ...cs.career, lastSummer: { ...next.lastSummer, left: cs.left, unhappy: cs.unhappy } }
+  // A big season and a bigger club may call
+  const jobOffer = jobOfferFor(career, { outcome, level, cup, world })
+  return { ...cs.career, jobOffer, lastSummer: { ...next.lastSummer, left: cs.left, unhappy: cs.unhappy } }
+}
+
+/** Take the job you've been offered: their club, squad, division and budget; your records come with you. */
+export function acceptJob(career, now = Date.now()) {
+  return takeJob(career, { createSeason, createCup, targetFor }, now)
+}
+
+/** Turn the job down and stay. */
+export function stayPut(career) {
+  return declineJob(career)
 }
 
 /** Load a saved career, or null if it's missing or unreadable. */
 export function sanitizeCareer(input) {
+  if (isObj(input) && input.v === 1) input = fromV1(input)
   if (!isObj(input) || input.v !== CAREER_VERSION) return null
   const league = sanitizeTournament(input.league)
   if (!league || !isObj(input.club)) return null
@@ -537,6 +650,12 @@ export function sanitizeCareer(input) {
       position: n(input.sacked.position), target: Object.hasOwn(TARGETS, input.sacked.target) ? input.sacked.target : 'promotion',
     } : null,
     cup: sanitizeCup(input.cup),
+    h2h: sanitizeH2h(input.h2h),
+    ccl: sanitizeCcl(input.ccl),
+    cclTitles: n(input.cclTitles),
+    jobOffer: sanitizeOffer(input.jobOffer),
+    lastMove: Number.isInteger(input.lastMove) && input.lastMove >= 0 ? input.lastMove : 0,
+    jobs: sanitizeJobs(input.jobs),
     target: Object.hasOwn(TARGETS, input.target) ? input.target : null,
     cups: n(input.cups),
     lastSummer: isObj(input.lastSummer) ? {
@@ -545,11 +664,32 @@ export function sanitizeCareer(input) {
       changes: Array.isArray(input.lastSummer.changes) ? input.lastSummer.changes.filter(isObj).slice(0, MAX_SQUAD) : [],
       loansBack: Array.isArray(input.lastSummer.loansBack) ? input.lastSummer.loansBack.filter(isObj).slice(0, MAX_SQUAD) : [],
       youthIn: Array.isArray(input.lastSummer.youthIn) ? input.lastSummer.youthIn.filter(isObj).slice(0, YOUTH_MAX) : [],
+      // The summer review has been shown (it opens once, when the new season starts)
+      seen: input.lastSummer.seen === true,
       youthOut: Array.isArray(input.lastSummer.youthOut) ? input.lastSummer.youthOut.filter(isObj).slice(0, YOUTH_MAX) : [],
       world: Array.isArray(input.lastSummer.world) ? input.lastSummer.world.filter(isObj).slice(0, 8).map(cleanNews) : [],
       left: Array.isArray(input.lastSummer.left) ? input.lastSummer.left.filter((x) => typeof x === 'string').slice(0, MAX_SQUAD) : [],
       unhappy: Array.isArray(input.lastSummer.unhappy) ? input.lastSummer.unhappy.filter((x) => typeof x === 'string').slice(0, MAX_SQUAD) : [],
     } : null,
+  }
+}
+
+/**
+ * A career saved before the Street League existed: every division number moves up one
+ * (the Sunday League was 0, now it's 1). The season in progress carries on as it was;
+ * the new clubs join from next season.
+ */
+function fromV1(c) {
+  const up = (v) => (Number.isInteger(v) && v >= 0 ? v + 1 : v)
+  return {
+    ...c,
+    v: 2,
+    level: up(c.level),
+    past: Array.isArray(c.past) ? c.past.map((e) => (isObj(e) ? { ...e, level: up(e.level) } : e)) : c.past,
+    cup: isObj(c.cup) && isObj(c.cup.levels) ? { ...c.cup, levels: Object.fromEntries(Object.entries(c.cup.levels).map(([k, v]) => [k, up(v)])) } : c.cup,
+    // Loans name the club by id (c + division + tier), which moves up with its division
+    loans: Array.isArray(c.loans) ? c.loans.map((l) => (isObj(l) ? { ...l, level: up(l.level), clubId: String(l.clubId || '').replace(/^c(\d)(\d)$/, (_, lv, t) => `c${Number(lv) + 1}${t}`) } : l)) : c.loans,
+    lastSummer: isObj(c.lastSummer) && Array.isArray(c.lastSummer.world) ? { ...c.lastSummer, world: c.lastSummer.world.map((n) => (isObj(n) ? { ...n, level: up(n.level) } : n)) } : c.lastSummer,
   }
 }
 
@@ -568,7 +708,7 @@ function sanitizeLastMatch(m) {
   const goals = (v) => (Number.isInteger(v) && v >= 0 ? Math.min(v, 99) : 0)
   return {
     fixtureId: m.fixtureId.slice(0, 12),
-    competition: m.competition === 'cup' ? 'cup' : 'league',
+    competition: m.competition === 'cup' || m.competition === 'ccl' ? m.competition : 'league',
     round: Number.isInteger(m.round) ? m.round : 0,
     home: String(m.home || '').slice(0, 4),
     away: String(m.away || '').slice(0, 4),
@@ -580,6 +720,7 @@ function sanitizeLastMatch(m) {
       best: { name: m.best.name.slice(0, 32), id: m.best.id.slice(0, 16), rating: Math.min(10, Math.max(0, m.best.rating)), sub: m.best.sub === 'on' ? 'on' : null },
     } : {}),
     ...(typeof m.brief === 'string' ? { brief: m.brief.slice(0, 160) } : {}),
+    ...(typeof m.derby === 'string' ? { derby: m.derby.slice(0, 40) } : {}),
     ...(['squad', 'bench', 'player'].includes(m.press?.choice) && Array.isArray(m.press.ids) ? {
       press: { choice: m.press.choice, ids: m.press.ids.filter((id) => typeof id === 'string').slice(0, 30) },
     } : {}),

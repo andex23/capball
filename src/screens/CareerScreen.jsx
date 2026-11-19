@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
-import { DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, careerNext, careerDate, cupDate, leagueDate, formatGameDate, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
+import { cclPending, DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, careerNext, careerDate, cupDate, leagueDate, formatGameDate, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
 import { teamById, allFixtures, standings, roundName } from '../game/tournament'
 import { formatClock } from '../game/rules'
 import { TEAM_NAME_MAX } from '../data/TeamOptions'
@@ -25,6 +25,11 @@ import LeagueClubs from '../ui/LeagueClubs'
 import MatchReport from '../ui/MatchReport'
 import CupPage from '../ui/CupPage'
 import { inboxOffers, seasonAwards } from '../game/clubLife'
+import { SeasonNumbers, SummerReview } from '../ui/SeasonReview'
+import { JobOfferCard } from '../ui/JobOffer'
+import { CclMatchCard, CclPanel } from '../ui/ChampionsLeague'
+import { isDerby, derbyName, headToHead, DERBY_PRIZE } from '../game/rivals'
+import '../ui/careerSeason.css'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel, { CLUB_PAGES } from '../ui/ClubPanel'
 
@@ -157,7 +162,7 @@ function StartCareer() {
       </section>
       <section className="card card-pad">
         <h2 className="saved-h">Your club</h2>
-        <p className="muted t-note">Start in the {DIVISIONS[0].name} against five computer clubs. Finish in the top {PROMOTED} to go up a division. Finish bottom and you go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
+        <p className="muted t-note">Start in the {DIVISIONS[0].name} against seven computer clubs. Finish in the top {PROMOTED} to go up a division. Finish in the bottom {RELEGATED} and you go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
         <div className="career-club">
           <CapPreview config={{ ...club, players: squadSurnames(squad) }} size={96} number={club.numbers?.atk1 ?? 10} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -193,7 +198,7 @@ function CareerSaveError() {
   )
 }
 
-function Ladder({ level, promotions, titles, cups = 0 }) {
+function Ladder({ level, promotions, titles, cups = 0, ccl = 0 }) {
   return (
     <section className="card card-pad career-ladder" aria-label="Divisions">
       <h2 className="saved-h">The pyramid</h2>
@@ -206,7 +211,7 @@ function Ladder({ level, promotions, titles, cups = 0 }) {
           </li>
         ))}
       </ol>
-      <p className="muted t-note">{promotions} promotion{promotions === 1 ? '' : 's'} · {titles} title{titles === 1 ? '' : 's'} · {cups} {CUP_NAME}{cups === 1 ? '' : 's'}</p>
+      <p className="muted t-note">{promotions} promotion{promotions === 1 ? '' : 's'} · {titles} title{titles === 1 ? '' : 's'} · {cups} {CUP_NAME}{cups === 1 ? '' : 's'}{ccl ? ` · ${ccl} Champions League${ccl === 1 ? '' : 's'}` : ''}</p>
     </section>
   )
 }
@@ -220,7 +225,7 @@ function SeasonEnd({ career }) {
   const row = standings(career.league).find((r) => r.id === ME)
   const met = career.target ? targetMet(career.target, pos, count) : false
   const cup = cupRun(career.cup?.tournament)
-  const waitingCup = cupPending(career)
+  const waitingCup = cupPending(career) || cclPending(career)
   const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[career.target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
   const doomed = career.target && !met && career.warning
   const warned = career.target && !met && !career.warning
@@ -231,6 +236,7 @@ function SeasonEnd({ career }) {
       <p className="career-end-pos">Finished <b>{ordinal(pos)}</b> of {count}{row ? ` · ${row.w}W ${row.d}D ${row.l}L · ${row.pts} pts` : ''}</p>
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
       {career.target && <p className="career-target-line" data-met={met ? 'true' : undefined}>Board target: {TARGETS[career.target]} · <b>{met ? 'Met' : 'Missed'}</b></p>}
+      <SeasonNumbers career={career} awards={seasonAwards(career)} />
       <Awards awards={seasonAwards(career)} />
       {cup && <p className="career-target-line">{CUP_NAME}: <b>{cup === 'won' ? 'Winners!' : cup === 'final' ? 'Runners-up' : cup === 'semi' ? 'Semi-finals' : 'Quarter-finals'}</b></p>}
       {warned && <p className="t-note career-warning"><b>Final warning.</b> The board isn’t happy. Miss next season’s target too and you’re sacked.</p>}
@@ -238,7 +244,7 @@ function SeasonEnd({ career }) {
         ? <p className="t-note">You missed the board’s target again, on a final warning. They want to see you.</p>
         : <p className="muted">Season bonus: <b>{money(bonus)}</b>. Over the summer young players improve, older ones slow down, and veterans may retire. The transfer window opens before the new season.</p>}
       {waitingCup ? (
-        <p className="t-note" role="status">Play your {CUP_NAME} tie first; the season ends once you’re out or it’s won.</p>
+        <p className="t-note" role="status">{cupPending(career) ? `Play your ${CUP_NAME} tie first; the season ends once you’re out or it’s won.` : 'Your Champions League isn’t over yet. Play it out first.'}</p>
       ) : doomed ? (
         <button className="btn btn-danger btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().nextSeason() }}>Meet the board</button>
       ) : (
@@ -247,6 +253,26 @@ function SeasonEnd({ career }) {
         </button>
       )}
     </section>
+  )
+}
+
+/** Derby day: the rivalry's name and the record between you. */
+function DerbyBanner({ career, rival }) {
+  const r = headToHead(career, rival)
+  const met = r.w + r.d + r.l
+  return (
+    <div className="derby-banner">
+      <b className="derby-title">Derby day</b>
+      <span className="derby-name">{derbyName(rival)}{met ? ` · played ${met}` : ' · the first one'}</span>
+      {met > 0 && (
+        <span className="derby-h2h">
+          <span data-tone="good"><b>{r.w}</b> won</span>
+          <span><b>{r.d}</b> drawn</span>
+          <span data-tone="bad"><b>{r.l}</b> lost</span>
+        </span>
+      )}
+      <small className="derby-note">Bigger crowd · win it for {DERBY_PRIZE}× prize money</small>
+    </div>
   )
 }
 
@@ -259,11 +285,12 @@ function Sacked({ career, onBack }) {
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow shell-eyebrow">Career over · {career.club.name}</div>
+            <div className="eyebrow shell-eyebrow">{career.jobOffer ? `Sacked by ${career.club.name} · a club is calling` : `Career over · ${career.club.name}`}</div>
             <h1 className="display shell-title">Sacked</h1>
           </div>
         </header>
         <main className="shell-body career-start">
+          {career.jobOffer && <JobOfferCard career={career} />}
           <section className="card card-pad career-end" data-tone="bad">
             <div className="eyebrow">Season {s.season} · {s.division}</div>
             <h2 className="display career-end-title">The board has sacked you</h2>
@@ -275,7 +302,7 @@ function Sacked({ career, onBack }) {
               <li><span>{CUP_NAME}s</span><b>{career.cups || 0}</b></li>
               <li><span>Highest division</span><b>{DIVISIONS[best].name}</b></li>
             </ul>
-            <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().retire() }}>Start a new career</button>
+            <button className={`btn ${career.jobOffer ? 'btn-secondary' : 'btn-gold btn-lg'} btn-block`} onClick={() => { playConfirm(); useCareerStore.getState().retire() }}>Start a new career</button>
           </section>
           {career.past.length > 0 && (
             <section className="card card-pad">
@@ -479,7 +506,9 @@ export default function CareerScreen() {
           {page === 'home' ? (
             <div className="career-col career-home">
           <div className="cs-matchday">
-              {done && !due ? <SeasonEnd career={career} /> : tie ? (
+              {done && !due ? <SeasonEnd career={career} /> : due?.kind === 'ccl' ? (
+                <CclMatchCard career={career} fixture={due.fixture} myOvr={myOvr} onPlay={() => playCareerFixture(career, 'careerCcl', due.fixture)} />
+              ) : tie ? (
                 <section className="card card-pad career-next career-cup" aria-label={CUP_NAME}>
                   <div className="career-date">{formatGameDate(today)} · {tie.home === ME ? 'Home' : 'Away'}</div>
                   <div className="eyebrow">{CUP_NAME} · {cupRoundName(tie)}</div>
@@ -493,8 +522,9 @@ export default function CareerScreen() {
                   <p className="cs-preview-line">{fixtureBrief(career, due)}</p>
                 </section>
               ) : next && (
-                <section className="card card-pad career-next">
+                <section className="card card-pad career-next" data-derby={isDerby(career, league, next) ? 'true' : undefined}>
                   <div className="career-date">{formatGameDate(today)} · {next.home === ME ? 'Home' : 'Away'}</div>
+                  {isDerby(career, league, next) && <DerbyBanner career={career} rival={opponent.name} />}
                   <div className="eyebrow">Matchday {played + 1} of {fixtures.length}</div>
                   <div className="career-vs">
                     <TeamTag team={teamById(league, ME)} size={52} strong />
@@ -517,6 +547,7 @@ export default function CareerScreen() {
               )}
           </div>
           <SeasonOverview career={career} go={go} />
+          {career.ccl && <CclPanel career={career} />}
           <details className="card card-pad season-details"><summary>Fixtures &amp; results</summary>
             <ol className="road">
               {road.behind.map((st) => <RoadStop key={st.f.id} stop={st} onOpen={career.lastMatch?.fixtureId === st.f.id ? () => go('report') : null} />)}
@@ -612,7 +643,7 @@ export default function CareerScreen() {
           </section>
 
                 <LeagueClubs career={career} />
-                <Ladder level={career.level} promotions={career.promotions} titles={career.titles} cups={career.cups} />
+                <Ladder level={career.level} promotions={career.promotions} titles={career.titles} cups={career.cups} ccl={career.cclTitles} />
               </>}
               {page === 'history' && <>
           {career.past.length > 0 && (
@@ -702,6 +733,10 @@ export default function CareerScreen() {
         />
       )}
       {guide && <RatingsGuide onClose={() => setGuide(false)} />}
+      {/* A new season has just started: the summer review, once */}
+      {career.lastSummer?.season === career.season && !career.lastSummer.seen && played === 0 && <SummerReview career={career} />}
+      {/* After the summer review: a club wants you */}
+      {career.jobOffer && played === 0 && (career.lastSummer?.seen || career.lastSummer?.season !== career.season) && <JobOfferCard career={career} overlay />}
       {confirmRetire && (
         <Modal title="Retire?" onClose={() => setConfirmRetire(false)}>
           <p>This ends {career.club.name}’s career for good: season {career.season}, {career.promotions} promotions, {career.titles} titles and {career.cups || 0} {CUP_NAME}s.</p>

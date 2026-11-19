@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { DIVISIONS, ME, CUP_NAME, myPosition, leagueDate, cupDate, formatGameDate } from '../game/career'
+import { DIVISIONS, ME, CUP_NAME, myPosition, leagueDate, cupDate, cclDate, formatGameDate, compOf, cclLabel } from '../game/career'
 import { teamById, roundName } from '../game/tournament'
 import { headline } from '../game/matchReport'
 import { bestPerformer } from '../game/careerBrief'
@@ -20,7 +20,8 @@ function ScoreSide({ team, scorers }) {
 export function CareerScoreboard({ career }) {
   const m = career.lastMatch
   const cup = m.competition === 'cup'
-  const t = cup ? career.cup?.tournament : career.league
+  const ccl = m.competition === 'ccl'
+  const t = compOf(career, m.competition, m.fixtureId)
   if (!t) return null
   const home = teamById(t, m.home)
   const away = teamById(t, m.away)
@@ -38,8 +39,8 @@ export function CareerScoreboard({ career }) {
   const title = headline({ club: career.club.name, opp: (mineHome ? away : home).name, gf, ga,
     pens: pens ? wonPens ? 'win' : 'loss' : null, scorers: m.scorers, top: !cup && m.posBefore > 1 && pos === 1 })
   return <section className="card cs-board" aria-label="Final score">
-    <header><span>{cup ? CUP_NAME + ' · ' + roundName(m.round, t.rounds.length) : DIVISIONS[career.level].name + ' · MD ' + (m.round + 1)}</span>
-      <time>{formatGameDate(cup ? cupDate(career, m.round) : leagueDate(career, { round: m.round }))}</time></header>
+    <header><span>{ccl ? cclLabel(career, m.fixtureId) : cup ? CUP_NAME + ' · ' + roundName(m.round, t.rounds.length) : DIVISIONS[career.level].name + ' · MD ' + (m.round + 1)}</span>
+      <time>{formatGameDate(ccl ? cclDate(career, { round: m.round }) : cup ? cupDate(career, m.round) : leagueDate(career, { round: m.round }))}</time></header>
     <div className="cs-score">
       <ScoreSide team={home} scorers={m.scorers?.filter((s) => s.mine === mineHome)} />
       <div className="cs-digits"><small>Full time</small><b>{m.result.home}–{m.result.away}</b>{pens && <small>Pens {pens.home}–{pens.away}</small>}</div>

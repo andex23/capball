@@ -61,4 +61,4 @@ it('the club economy stays sensible over ten seasons: no runaway riches, no hope
   }
   // A club that strengthens sensibly can meet the board; one that never signs anyone gets sacked
   expect(sacked.some((x) => x.startsWith('weak'))).toBe(true)
-})
+}, 20_000) // ten simulated 14-match seasons for several clubs

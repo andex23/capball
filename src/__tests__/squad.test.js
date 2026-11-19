@@ -25,18 +25,22 @@ describe('squad', () => {
   })
 
   it('results pay coins', () => {
-    expect(coinsForResult(2, 0)).toBe(70)
-    expect(coinsForResult(1, 1)).toBe(30)
-    expect(coinsForResult(0, 3)).toBe(10)
+    // The Sunday League (division 1) is the base rate; the Street League pays three-quarters
+    expect(coinsForResult(2, 0, 1)).toBe(70)
+    expect(coinsForResult(1, 1, 1)).toBe(30)
+    expect(coinsForResult(0, 3, 1)).toBe(10)
+    expect(coinsForResult(2, 0, 0)).toBe(53)
+    expect(coinsForResult(2, 0, 2)).toBe(105)
   })
 
-  it('windows open pre-season and after matchday 5', () => {
+  it('windows open pre-season and after matchday 7', () => {
     expect(openWindow(0)).toBe(0)
-    expect(openWindow(5)).toBe(1)
+    expect(openWindow(7)).toBe(1)
     expect(openWindow(2)).toBe(0) // still open: the pre-season window runs to matchday 3
     expect(openWindow(3)).toBe(-1)
-    expect(openWindow(6)).toBe(1)
-    expect(openWindow(7)).toBe(-1)
+    expect(openWindow(6)).toBe(-1)
+    expect(openWindow(8)).toBe(1)
+    expect(openWindow(9)).toBe(-1)
   })
 
   it('computer clubs get stronger up the divisions', () => {
@@ -72,7 +76,7 @@ describe('career transfers', () => {
     expect(locate(next.world, target.player.id)).toBeNull()
   })
 
-  it('results earn coins; the window shuts at matchday 3 and reopens after matchday 5', () => {
+  it('results earn coins; the window shuts at matchday 3 and reopens after matchday 7', () => {
     let c = newCareer(club, { now: 1 })
     const start = c.coins
     const play = () => {
@@ -80,13 +84,13 @@ describe('career transfers', () => {
       c = recordCareerResult(c, f.id, f.home === ME ? { home: 2, away: 0 } : { home: 0, away: 2 })
     }
     play()
-    expect(c.biz.ledger.prize).toBe(70)            // the win's prize money
+    expect(c.biz.ledger.prize).toBe(53)            // the win's prize money (Street League rate)
     expect(c.coins).toBe(start + c.lastEarned)      // plus tickets/sponsor, less wages
     expect(transferWindow(c).index).toBe(0)        // still open after matchday 1
     play(); play()
     expect(transferWindow(c)).toBeNull()
-    play(); play()
-    expect(playedThisSeason(c.league)).toBe(5)
+    play(); play(); play(); play()
+    expect(playedThisSeason(c.league)).toBe(7)
     expect(transferWindow(c).index).toBe(1)
     while (!seasonOver(c.league)) play()
     const before = c.coins

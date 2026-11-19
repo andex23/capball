@@ -98,7 +98,7 @@ export default function MatchEndScreen() {
   // Which result the splash was dismissed for, by content: an online guest
   // gets a fresh copy of the same result with every sync from the host
   const resultKey = `${matchKey}:${JSON.stringify(matchResult)}`
-  const careerFixture = tournament?.kind === 'career' || tournament?.kind === 'careerCup'
+  const careerFixture = ['career', 'careerCup', 'careerCcl'].includes(tournament?.kind)
   if (careerFixture && tournament.recorded && careerNow?.lastMatch?.fixtureId === tournament.fixture?.id &&
       careerNow.lastMatch.season === careerNow.season && dismissedResult !== resultKey) {
     return <CareerFinalWhistle career={careerNow} onReport={backToTournament} onDetails={() => setDismissedResult(resultKey)} />
@@ -145,7 +145,7 @@ export default function MatchEndScreen() {
           </div>
         )}
 
-        {(tournament?.kind === 'career' || tournament?.kind === 'careerCup') && <div style={{ padding: '0 20px 12px' }}><PlayerRatings career={careerNow} title="Player ratings" fixtureId={tournament.fixture?.id} /></div>}
+        {['career', 'careerCup', 'careerCcl'].includes(tournament?.kind) && <div style={{ padding: '0 20px 12px' }}><PlayerRatings career={careerNow} title="Player ratings" fixtureId={tournament.fixture?.id} /></div>}
         <GoalClips />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>
@@ -168,7 +168,7 @@ export default function MatchEndScreen() {
                   : <p className="muted" style={{ textAlign: 'center' }}>Level — {afterExtra ? 'the cup tie goes to penalties…' : 'extra time or penalties next…'}</p>
               ) : (
                 <button className="btn btn-primary btn-lg btn-block" onClick={backToTournament}>
-                  <Icon name="trophy" size={18} /> {tournament.kind === 'lanGuest' ? 'View competition results' : tournament.kind === 'career' || tournament.kind === 'careerCup' ? 'Back to your career' : `Back to the ${tournament.knockout ? 'cup' : 'league'}`}
+                  <Icon name="trophy" size={18} /> {tournament.kind === 'lanGuest' ? 'View competition results' : ['career', 'careerCup', 'careerCcl'].includes(tournament.kind) ? 'Back to your career' : `Back to the ${tournament.knockout ? 'cup' : 'league'}`}
                 </button>
               )}
             </>

@@ -69,7 +69,7 @@ describe('bigger seasons', () => {
     let n = 0
     let cur = c
     while (nextMatch(cur.league)) { cur = playLeague(cur, 1); n++ }
-    expect(n).toBe(10)
+    expect(n).toBe(14)
   })
 
   it('the Cap Cup opens round by round as the league goes on, and can be won', () => {
@@ -113,10 +113,11 @@ describe('bigger seasons', () => {
   it('the board wants promotion until the top; a miss is a final warning, a second miss the sack', () => {
     const c = newCareer(club, { now: 4 })
     expect(c.target).toBe('promotion')
-    expect(targetFor(3)).toBe('title')
+    expect(targetFor(4)).toBe('title')
     expect(targetMet('promotion', 2)).toBe(true)
     expect(targetMet('promotion', 3)).toBe(false)
-    expect(targetMet('topHalf', 4)).toBe(false)
+    expect(targetMet('topHalf', 4)).toBe(true) // top four of eight
+    expect(targetMet('topHalf', 5)).toBe(false)
     // Lose every match: finished bottom
     let lost = c
     while (!seasonOver(lost.league)) {

@@ -264,7 +264,7 @@ export const repDiscount = (rep) => Math.max(0, Math.min(100, rep || 0)) / 150
 
 /* ── Scouting ── */
 
-export const SCOUT_FEE = [5, 10, 20, 40] // units, by your division
+export const SCOUT_FEE = [3, 5, 10, 20, 40] // units, by your division
 export const isScouted = (career, id) => !!career?.scouted?.includes(id)
 
 /** Scout a player: his potential becomes clear. Returns the career, or { error }. */

@@ -1,7 +1,7 @@
 import { ATTRS, ATTR_LABEL, money } from '../game/squad'
 
 /** Divisions in three letters, for tight rows. */
-export const DIV_SHORT = ['SUN', 'DIS', 'NAT', 'PRE']
+export const DIV_SHORT = ['STR', 'SUN', 'DIS', 'NAT', 'PRE']
 
 /** An OVR badge in EA FC card colours. */
 export function Rating({ value }) {

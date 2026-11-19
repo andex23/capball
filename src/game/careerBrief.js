@@ -1,5 +1,6 @@
 import { standings, teamById } from './tournament'
-import { ME, CUP_NAME, careerNext } from './career'
+import { ME, CUP_NAME, careerNext, compOf, CCL_NAME } from './career'
+import { isDerby, derbyName } from './rivals'
 
 function resultFor(f, id) {
   const home = f.home === id
@@ -17,10 +18,15 @@ export function fixtureBrief(career, due = careerNext(career)) {
   if (!due) return ''
   const f = due.fixture
   const cup = due.kind === 'cup'
-  const comp = cup ? career.cup?.tournament : career.league
+  const comp = compOf(career, due.kind, f.id)
   const otherId = f.home === ME ? f.away : f.home
   const opponent = teamById(comp, otherId)?.name
   if (!opponent) return ''
+  if (due.kind === 'ccl') {
+    if (comp.format === 'knockout') return f.round === 1 ? 'The ' + CCL_NAME + ' final. The biggest night of your career.' : 'Semi-final. Win and you’re in the final.'
+    const row = standings(comp).find((r) => r.id === ME)
+    return row?.p ? 'Group A: you have ' + row.pts + ' points from ' + row.p + '. The top two go through.' : 'Your first night in the ' + CCL_NAME + '.'
+  }
   if (cup) return f.round === comp.rounds.length - 1 ? 'The ' + CUP_NAME + ' final against ' + opponent + '.' : 'Knockout tie. A draw goes to extra time or penalties.'
   const standingsNow = standings(career.league)
   const topTwo = standingsNow.slice(0, 2)
@@ -31,6 +37,13 @@ export function fixtureBrief(career, due = careerNext(career)) {
       (gap === 0 ? 'Both have ' + first.pts + ' points.' : first.name + ' lead by ' + gap + (gap === 1 ? ' point.' : ' points.'))
   }
   const previous = career.league.fixtures.find((x) => x.result && (x.home === ME && x.away === otherId || x.home === otherId && x.away === ME))
+  if (isDerby(career, career.league, f)) {
+    if (!previous) return derbyName(opponent) + '. The whole area wants this one.'
+    const { gf, ga, outcome } = resultFor(previous, ME)
+    return outcome === 'L' ? 'They beat you ' + ga + '–' + gf + ' last time. Revenge counts double.'
+      : outcome === 'W' ? 'You won the last one ' + gf + '–' + ga + '. They want it back.'
+        : 'Last time it finished ' + gf + '–' + ga + '. Someone has to win this one.'
+  }
   if (previous) {
     const { gf, ga, outcome } = resultFor(previous, ME)
     return 'Last meeting: ' + career.club.name + ' ' + ({ W: 'won', D: 'drew', L: 'lost' }[outcome]) + ' ' + gf + '–' + ga + ' against ' + opponent + '.'
