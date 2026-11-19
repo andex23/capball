@@ -1,34 +1,38 @@
+import { useEffect } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
 import { playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
 import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 import { markStarted } from './MenuScreen'
 
+/** Title card: "Press start". Audio can only begin after a tap, which is why this screen exists. */
 export default function SplashScreen() {
-  const params = new URLSearchParams(window.location.search)
-  const invite = window.location.hash.startsWith('#lan=') ? SCREEN.LAN
-    : params.has('room') ? SCREEN.ONLINE : params.has('tournament') ? SCREEN.TOURNAMENT_HOME : null
+  const goToScreen = useMatchStore((s) => s.goToScreen)
 
-  function open(screen) {
-    playCoinInsert()
-    startMenuMusic()
-    markStarted()
-    const match = useMatchStore.getState()
-    if (screen === SCREEN.TEAM_SELECT) match.setGameMode('ai')
-    match.goToScreen(screen)
-  }
+  useEffect(() => {
+    const start = () => {
+      playCoinInsert()
+      startMenuMusic()
+      markStarted()
+      // Invite links go straight in: ?room=CODE to the online lobby,
+      // ?tournament=CODE to tournaments (which opens that one)
+      const params = new URLSearchParams(window.location.search)
+      goToScreen(window.location.hash.startsWith('#lan=') ? SCREEN.LAN : params.has('room') ? SCREEN.ONLINE : params.has('tournament') ? SCREEN.TOURNAMENT_HOME : SCREEN.MENU)
+    }
+    window.addEventListener('keydown', start)
+    window.addEventListener('pointerdown', start)
+    return () => {
+      window.removeEventListener('keydown', start)
+      window.removeEventListener('pointerdown', start)
+    }
+  }, [goToScreen])
 
   return (
-    <div className="screen iss">
+    <div className="screen iss" style={{ cursor: 'pointer' }}>
       <RetroBackdrop />
       <div className="iss-layout">
         <RetroLogo />
-        <div className="quick-start-actions">
-          <button className="btn btn-gold btn-lg" autoFocus onClick={() => open(invite || SCREEN.TEAM_SELECT)}>
-            {invite === SCREEN.LAN ? 'Join LAN match' : invite === SCREEN.ONLINE ? 'Join room' : invite ? 'Open tournament' : 'Play now'}
-          </button>
-          {!invite && <button className="btn btn-secondary" onClick={() => open(SCREEN.MENU)}>Main menu</button>}
-        </div>
+        <p className="iss-press" role="button">{window.location.hash.startsWith('#lan=') ? 'Join LAN match' : 'Press start'}</p>
         <footer className="iss-foot"><span>© 2026 Counterball</span></footer>
       </div>
     </div>

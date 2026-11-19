@@ -92,7 +92,6 @@ export function sanitizePrefs(input, defaults = {}) {
 export function pickPrefs(state, { localOnly = false } = {}) {
   const out = {}
   for (const key of PREF_KEYS) if (state[key] !== undefined) out[key] = state[key]
-  if (state.quickMatchPrefs) Object.assign(out, state.quickMatchPrefs)
   for (const key of OPTIONAL_PREF_KEYS) {
     if (typeof state[key] === 'boolean' || typeof state[key] === 'number') out[key] = state[key]
   }

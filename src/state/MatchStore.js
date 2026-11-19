@@ -3,7 +3,6 @@ import { onlineInterrupted } from '../multiplayer/reconnect'
 import { create } from 'zustand'
 import { otherTeam, shootoutStatus, nextShooter, matchWinner } from '../game/rules'
 import { FORMATIONS } from '../data/TeamData'
-import { editKit } from '../data/TeamOptions'
 
 // App screens
 export const SCREEN = {
@@ -160,7 +159,7 @@ export function isAuthority(state) {
   return state.gameMode !== 'anytime' && (state.gameMode !== 'online' || state.onlineMyTeam === 'team1')
 }
 
-/** The remote guest's validated choices arrive on the host with its own seat. */
+/** Each side picks only its own formation (the remote guest's choices arrive on the host with its own seat). */
 export function canPickFormation(state, team, seat = state.onlineMyTeam) {
   if (team !== 'team1' && team !== 'team2') return false
   if (state.gameMode === 'ai') return team !== state.aiTeam
@@ -201,9 +200,11 @@ export const useMatchStore = create((set, get) => ({
 
   // --- Team customization ---
   teamConfig: DEFAULT_TEAM_CONFIG,
-  setTeamConfig: (team, config) => set((s) => ({
-    teamConfig: { ...s.teamConfig, [team]: editKit(s.teamConfig[team], config) },
-  })),
+  setTeamConfig: (team, config) => set((s) => {
+    // Editing colours, print or text by hand turns a printed design back into your own kit
+    const handEdit = !!s.teamConfig[team]?.art && !('art' in config) && ['primary', 'edge', 'pattern', 'badge', 'capText', 'textColor'].some((k) => k in config)
+    return { teamConfig: { ...s.teamConfig, [team]: { ...s.teamConfig[team], ...config, ...(handEdit ? { art: '' } : {}) } } }
+  }),
 
   ballColor: '#EFE6D2', // a white carrom coin
   setBallColor: (color) => set({ ballColor: color }),
@@ -286,17 +287,6 @@ export const useMatchStore = create((set, get) => ({
   matchKey: 0,
 
   // --- Match flow ---
-  // Exhibition clubs borrow the match slots. Keep both players' personal kits for the next game.
-  quickMatchPrefs: null,
-  startQuickMatch: (teamConfig) => {
-    const { teamConfig: ownKits, formations, gameMode, aiTeam } = get()
-    set({
-      quickMatchPrefs: { teamConfig: ownKits, formations },
-      teamConfig,
-      ...(gameMode === 'ai' ? { formations: { ...formations, [aiTeam]: 'default' } } : {}),
-    })
-    get().startGame()
-  },
   startGame: () => {
     clearMatchTimers()
     const s = get()
@@ -424,7 +414,7 @@ export const useMatchStore = create((set, get) => ({
   quitMatch: (screen = SCREEN.MENU) => {
     if (get().challenge) { get().leaveChallenge(screen); return }
     clearMatchTimers()
-    set({ ...get().quickMatchPrefs, quickMatchPrefs: null, ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false, challenge: null })
+    set({ ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false, challenge: null })
   },
 
   lastGoalOwn: false,
