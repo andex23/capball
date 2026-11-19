@@ -52,12 +52,12 @@ export default function SettingsPanel() {
   const musicVolume = useMatchStore((s) => s.musicVolume)
   const muted = useMatchStore((s) => s.muted)
   const vibration = useMatchStore((s) => s.vibration)
-  const turnView = useMatchStore((s) => s.turnView)
+  const spinView = useMatchStore((s) => s.spinView)
   const followBall = useMatchStore((s) => s.followBall)
   const swipeAim = useMatchStore((s) => s.swipeAim)
   const musicTrack = useMatchStore((s) => s.musicTrack)
   const vsComputer = useMatchStore((s) => s.screen === SCREEN.PLAYING && s.gameMode === 'ai' && !s.challenge)
-  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleTurnView, toggleFollowBall, toggleSwipeAim } = useMatchStore.getState()
+  const { setMasterVolume, setSfxVolume, setMusicVolume, toggleMute, toggleVibration, toggleSpinView, toggleFollowBall, toggleSwipeAim } = useMatchStore.getState()
 
   useEffect(() => { updateMenuMusicVolume() }, [masterVolume, musicVolume, muted])
 
@@ -88,8 +88,8 @@ export default function SettingsPanel() {
         </button>
       )}
       <h3 className="eyebrow" style={{ margin: '8px 0 0' }}>Camera</h3>
-      <button className="btn btn-secondary" aria-pressed={turnView} onClick={() => { toggleTurnView(); playButtonSelect() }}>
-        <Icon name="camera" size={18} /> {turnView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
+      <button className="btn btn-secondary" aria-pressed={spinView} onClick={() => { toggleSpinView(); playButtonSelect() }}>
+        <Icon name="camera" size={18} /> {spinView ? 'Turn view each turn: on' : 'Turn view each turn: off'}
       </button>
       <p className="muted" style={{ fontSize: 12, marginTop: -8 }}>Local matches on one device: the pitch swings round so whoever’s turn it is plays from their own end.</p>
       <button className="btn btn-secondary" aria-pressed={followBall} onClick={() => { toggleFollowBall(); playButtonSelect() }}>

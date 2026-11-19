@@ -3,6 +3,7 @@ import { platformHooks } from '../platformHooks'
 import { leaveVoice } from '../multiplayer/voiceStore'
 import ShareGame from './ShareGame'
 import GoalSplash from './GoalSplash'
+import TurnBanner from './TurnBanner'
 import AimWarning from './AimWarning'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -100,7 +101,7 @@ function useTurnText() {
 /** Seconds left to flick, inside the turn pill. Ticks through the last three. */
 function ShotClock() {
   const secs = useMatchStore((s) => Math.ceil(s.shotClockRemaining))
-  const live = useMatchStore((s) => s.shotClock > 0 && !s.challenge && !s.paused && INPUT_PHASES.includes(s.phase))
+  const live = useMatchStore((s) => s.shotClock > 0 && !s.challenge && s.gameMode !== 'local' && !s.paused && INPUT_PHASES.includes(s.phase))
   useEffect(() => {
     if (live && secs > 0 && secs <= 3) playShotClockTick()
   }, [secs, live])
@@ -360,6 +361,7 @@ export default function HUD() {
     <div className="hud">
       <ReplayOverlay />
       <GoalSplash />
+      <TurnBanner />
       <div className="hud-top">
         <ScoreBug />
         <AimWarning />

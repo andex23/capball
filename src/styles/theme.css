@@ -2812,3 +2812,12 @@ button.other-side { cursor: pointer; }
 .rw-prize b { font: 800 italic 22px/1 var(--font-display); text-transform: uppercase; color: #fff; }
 .rw-prize span { font-size: 12px; color: #cfd8ff; }
 .corner-list li[data-tap='true'] { cursor: pointer; }
+
+/* Two players on one phone: whose turn it is, big, for a moment */
+.turn-banner { position: fixed; z-index: 40; left: 0; right: 0; top: 42%; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 16px; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(5, 10, 46, 0.92) 18%, rgba(5, 10, 46, 0.92) 82%, transparent); border-top: 4px solid var(--team, #ffd23f); border-bottom: 4px solid var(--team, #ffd23f); animation: turn-banner 1.4s ease both; }
+.turn-banner > div { display: flex; flex-direction: column; gap: 3px; }
+.turn-banner b { font: 700 13px/1 var(--font-pixel); letter-spacing: 0.12em; text-transform: uppercase; color: var(--team, #ffd23f); text-shadow: 2px 2px 0 #0b0830; }
+.turn-banner span { font: 800 italic 38px/0.95 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #0b0830; }
+.turn-banner small { font: 600 12px/1 var(--font-ui); color: #cfd8ff; }
+@keyframes turn-banner { 0% { opacity: 0; transform: scaleY(0.2); } 12% { opacity: 1; transform: none; } 82% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .turn-banner { animation: none; } }

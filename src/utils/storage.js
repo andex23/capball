@@ -26,7 +26,7 @@ export const PREF_KEYS = [
  * Settings other features may add to the store. Saved only if the store
  * actually has them, and only as a boolean or a small number.
  */
-export const OPTIONAL_PREF_KEYS = ['shotClock', 'vibration', 'haptics', 'turnView', 'followBall', 'swipeAim', 'musicTrack', 'goalTarget']
+export const OPTIONAL_PREF_KEYS = ['shotClock', 'vibration', 'haptics', 'spinView', 'followBall', 'swipeAim', 'musicTrack', 'goalTarget']
 
 /** Prefs the online host mirrors onto the guest's store (so not the guest's own). */
 export const isSyncedPref = (key) => SYNC_KEYS.includes(key)
@@ -95,6 +95,8 @@ export function pickPrefs(state, { localOnly = false } = {}) {
   for (const key of OPTIONAL_PREF_KEYS) {
     if (typeof state[key] === 'boolean' || typeof state[key] === 'number') out[key] = state[key]
   }
+  // During a two-player match the setting kept is the computer matches' one
+  if (state.gameMode === 'local' && typeof state.aiGoalTarget === 'number') out.goalTarget = state.aiGoalTarget
   if (localOnly) for (const key of Object.keys(out)) if (isSyncedPref(key)) delete out[key]
   return out
 }
