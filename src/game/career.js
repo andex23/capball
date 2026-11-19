@@ -24,16 +24,17 @@ import {
 
 export { playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, MATCHDAY, MAX_RESERVES, MAX_SQUAD, YOUTH_MAX }
 
-export const CAREER_VERSION = 1
+// 2: a fifth division (the Street League) went in at the bottom, so every division number moved up one
+export const CAREER_VERSION = 2
 // Each season: everyone plays everyone home and away
 export const LEGS = 2
 
 export { DIVISIONS }
 
 export const TOP = DIVISIONS.length - 1
-// Top two of a division go up; the bottom club goes down
+// Top two of a division go up; the bottom two go down
 export const PROMOTED = 2
-export const RELEGATED = 1
+export const RELEGATED = 2
 export const ME = 'T1'
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -68,7 +69,7 @@ export function opponentOvr(career, name, level) {
 
 export const CUP_NAME = 'Cap Cup'
 // Each cup round opens once you've played this many league matches: quarter-final, semi-final, final
-export const CUP_AFTER = [2, 5, 8]
+export const CUP_AFTER = [3, 7, 11]
 export const CUP_PRIZE = { won: 250, final: 100, semi: 50, quarter: 0 }
 const CUP_ROUNDS = ['quarter', 'semi', 'final']
 
@@ -207,7 +208,7 @@ export function recordCupResult(career, fixtureId, result) {
 export const TARGETS = {
   title: 'Win the league',
   promotion: `Get promoted: finish in the top ${PROMOTED}`,
-  topHalf: 'Finish in the top half (top 3)',
+  topHalf: 'Finish in the top half',
   survive: 'Stay up',
   notLast: 'Don’t finish bottom',
 }
@@ -230,7 +231,7 @@ export function squadRank(level, squad, world = null) {
 }
 
 /** Did finishing `pos` of `count` meet the target? */
-export function targetMet(target, pos, count = 6) {
+export function targetMet(target, pos, count = 8) {
   if (target === 'title') return pos === 1
   if (target === 'promotion') return pos <= PROMOTED
   if (target === 'topHalf') return pos <= Math.floor(count / 2)
@@ -351,7 +352,7 @@ export function myPosition(league) {
 }
 
 /** What finishing `pos` of `count` in division `level` means. */
-export function outcomeFor(level, pos, count = 6) {
+export function outcomeFor(level, pos, count = 8) {
   if (level === TOP && pos === 1) return 'champions'
   if (level < TOP && pos <= PROMOTED) return 'promoted'
   if (level > 0 && pos > count - RELEGATED) return 'relegated'
@@ -492,6 +493,7 @@ export function finishSeason(career, now = Date.now()) {
 
 /** Load a saved career, or null if it's missing or unreadable. */
 export function sanitizeCareer(input) {
+  if (isObj(input) && input.v === 1) input = fromV1(input)
   if (!isObj(input) || input.v !== CAREER_VERSION) return null
   const league = sanitizeTournament(input.league)
   if (!league || !isObj(input.club)) return null
@@ -550,6 +552,25 @@ export function sanitizeCareer(input) {
       left: Array.isArray(input.lastSummer.left) ? input.lastSummer.left.filter((x) => typeof x === 'string').slice(0, MAX_SQUAD) : [],
       unhappy: Array.isArray(input.lastSummer.unhappy) ? input.lastSummer.unhappy.filter((x) => typeof x === 'string').slice(0, MAX_SQUAD) : [],
     } : null,
+  }
+}
+
+/**
+ * A career saved before the Street League existed: every division number moves up one
+ * (the Sunday League was 0, now it's 1). The season in progress carries on as it was;
+ * the new clubs join from next season.
+ */
+function fromV1(c) {
+  const up = (v) => (Number.isInteger(v) && v >= 0 ? v + 1 : v)
+  return {
+    ...c,
+    v: 2,
+    level: up(c.level),
+    past: Array.isArray(c.past) ? c.past.map((e) => (isObj(e) ? { ...e, level: up(e.level) } : e)) : c.past,
+    cup: isObj(c.cup) && isObj(c.cup.levels) ? { ...c.cup, levels: Object.fromEntries(Object.entries(c.cup.levels).map(([k, v]) => [k, up(v)])) } : c.cup,
+    // Loans name the club by id (c + division + tier), which moves up with its division
+    loans: Array.isArray(c.loans) ? c.loans.map((l) => (isObj(l) ? { ...l, level: up(l.level), clubId: String(l.clubId || '').replace(/^c(\d)(\d)$/, (_, lv, t) => `c${Number(lv) + 1}${t}`) } : l)) : c.loans,
+    lastSummer: isObj(c.lastSummer) && Array.isArray(c.lastSummer.world) ? { ...c.lastSummer, world: c.lastSummer.world.map((n) => (isObj(n) ? { ...n, level: up(n.level) } : n)) } : c.lastSummer,
   }
 }
 

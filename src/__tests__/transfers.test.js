@@ -29,18 +29,18 @@ const cheapAt = (c, level = 0) => searchMarket(c.world, { level, sort: 'price' }
 describe('the world', () => {
   it('every division has favourites and strugglers, with stars at the big clubs', () => {
     const w = createWorld('q')
-    for (let level = 0; level < 4; level++) {
+    for (let level = 0; level < 5; level++) {
       const clubs = w.clubs.filter((c) => c.level === level)
-      expect(clubs).toHaveLength(5)
+      expect(clubs).toHaveLength(7)
       const ovr = clubs.map(clubOvr)
-      expect(ovr[0]).toBeGreaterThan(ovr[4] + 6) // the favourites are much stronger than the strugglers
+      expect(ovr[0]).toBeGreaterThan(Math.min(...ovr) + 6) // the favourites are much stronger than the strugglers
       for (const c of clubs) {
         expect(c.players).toHaveLength(AI_SQUAD)
         expect(Object.keys(bestSix(c.players))).toHaveLength(6)
       }
     }
     // The Premier Cap League's best are world-class; the Sunday League's worst are poor
-    const prem = searchMarket(w, { level: 3 }, 3)[0].player.rating
+    const prem = searchMarket(w, { level: 4 }, 4)[0].player.rating
     const sunday = searchMarket(w, { level: 0, sort: 'ovr' }, 0).at(-1).player.rating
     expect(prem).toBeGreaterThanOrEqual(88)
     expect(sunday).toBeLessThan(50)
@@ -102,15 +102,17 @@ describe('the transfer market', () => {
   it('stars cost more than squad players; players from higher divisions want money to drop down', () => {
     const w = createWorld('p')
     const rc = w.clubs.find((c) => c.name === 'Royal Crowns')
-    const rows = searchMarket(w, { name: 'Royal Crowns', sort: 'ovr' }, 3)
+    const rows = searchMarket(w, { name: 'Royal Crowns', sort: 'ovr' }, 4)
     expect(rows[0].standing).toBe('star')
     expect(rows[0].asking).toBeGreaterThan(askingPrice(rows.at(-1).player, rc))
-    const star = willingness(rows[0].player, rc, 0)
+    const star = willingness(rows[0].player, rc, 1)
     expect(star.reluctant).toBe(true)
     expect(star.premium).toBeGreaterThanOrEqual(5) // a Premier star dropping three divisions
     expect(star.bonus).toBeGreaterThan(rows[0].asking)
-    expect(willingness(rows[0].player, rc, 3).reluctant).toBe(false)
-    const oneDown = willingness(rows.at(-1).player, rc, 2)
+    // Dropping all the way to the Street League costs even more
+    expect(willingness(rows[0].player, rc, 0).premium).toBeGreaterThan(star.premium)
+    expect(willingness(rows[0].player, rc, 4).reluctant).toBe(false)
+    const oneDown = willingness(rows.at(-1).player, rc, 3)
     expect(oneDown.premium).toBeLessThan(star.premium)
     expect(oneDown.premium).toBeGreaterThan(1)
   })
@@ -246,7 +248,7 @@ describe('selling, releasing, loans and the youth team', () => {
     const { world, youthTeam, loans, ...old } = c
     void world; void youthTeam; void loans
     const fixed = sanitizeCareer(JSON.parse(JSON.stringify(old)))
-    expect(fixed.world.clubs).toHaveLength(20)
+    expect(fixed.world.clubs).toHaveLength(35)
     expect(fixed.youthTeam.length).toBeGreaterThan(0)
   })
 })

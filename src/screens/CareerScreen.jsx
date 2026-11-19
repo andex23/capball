@@ -157,7 +157,7 @@ function StartCareer() {
       </section>
       <section className="card card-pad">
         <h2 className="saved-h">Your club</h2>
-        <p className="muted t-note">Start in the {DIVISIONS[0].name} against five computer clubs. Finish in the top {PROMOTED} to go up a division. Finish bottom and you go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
+        <p className="muted t-note">Start in the {DIVISIONS[0].name} against seven computer clubs. Finish in the top {PROMOTED} to go up a division. Finish in the bottom {RELEGATED} and you go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
         <div className="career-club">
           <CapPreview config={{ ...club, players: squadSurnames(squad) }} size={96} number={club.numbers?.atk1 ?? 10} />
           <div style={{ flex: 1, minWidth: 0 }}>

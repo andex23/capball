@@ -25,8 +25,8 @@ import {
 import { CAP_ROLES } from '../data/TeamOptions'
 
 /** Each division's clubs, best to worst, sit this far above or below its usual level. */
-export const TIER_OFFSET = [6, 3, 0, -2, -5]
-export const TIER_LABEL = ['Title favourites', 'Contenders', 'Mid-table', 'Battling', 'Strugglers']
+export const TIER_OFFSET = [6, 3, 0, -2, -5, -3, -4]
+export const TIER_LABEL = ['Title favourites', 'Contenders', 'Mid-table', 'Battling', 'Strugglers', 'Battling', 'Strugglers']
 export const AI_SQUAD = 12
 const AI_MIN = 10
 const AI_MAX = 13
@@ -119,25 +119,30 @@ function newPlayer(world, rng, pos, strength, band) {
   return compact({ ...p, id, name: randomName(rng) })
 }
 
+/** One computer club with a full squad, built around its division and tier. */
+function buildClub(world, rng, level, tier, c) {
+  const club = { id: `c${level}${tier}`, name: c.name, level, tier, players: [] }
+  const s = strengthOf(club)
+  const outfield = ['DEF', 'MID', 'ATK']
+  for (const [pos0, band0] of TEMPLATE) {
+    const pos = pos0 || outfield[Math.floor(rng() * 3)]
+    club.players.push(newPlayer(world, rng, pos, s, band0))
+  }
+  // The big clubs have a second star, in midfield
+  if (tier <= 1) {
+    const i = club.players.findIndex((p) => p.pos === 'MID')
+    club.players[i] = newPlayer(world, rng, 'MID', s, 'star')
+  }
+  return club
+}
+
 /** A brand-new world for a career. */
 export function createWorld(seed = 'world') {
   const rng = seededRng(`world:${seed}`)
   const world = { nextId: 1, clubs: [], free: [], news: [] }
   DIVISIONS.forEach((div, level) => {
     div.clubs.forEach((c, tier) => {
-      const club = { id: `c${level}${tier}`, name: c.name, level, tier, players: [] }
-      const s = strengthOf(club)
-      const outfield = ['DEF', 'MID', 'ATK']
-      for (const [pos0, band0] of TEMPLATE) {
-        const pos = pos0 || outfield[Math.floor(rng() * 3)]
-        club.players.push(newPlayer(world, rng, pos, s, band0))
-      }
-      // The big clubs have a second star, in midfield
-      if (tier <= 1) {
-        const i = club.players.findIndex((p) => p.pos === 'MID')
-        club.players[i] = newPlayer(world, rng, 'MID', s, 'star')
-      }
-      world.clubs.push(club)
+      world.clubs.push(buildClub(world, rng, level, tier, c))
     })
   })
   // Free agents: out-of-contract players of every level, mostly older
@@ -184,7 +189,7 @@ export function askingPrice(p, club) {
 }
 
 // What a player wants to drop down: by how many divisions (0–3)...
-export const DROP_PREMIUM = [1, 1.6, 2.6, 4]
+export const DROP_PREMIUM = [1, 1.6, 2.6, 4, 5.5]
 // ...and more again if he's a regular where he is
 const STANDING_PREMIUM = { star: 1.4, key: 1.2 }
 
@@ -198,7 +203,7 @@ const STANDING_PREMIUM = { star: 1.4, key: 1.2 }
  */
 export function willingness(p, club, myLevel, rep = 0) {
   if (!club) return { premium: 1, bonus: 0, reluctant: false }
-  const gap = Math.max(0, Math.min(3, club.level - myLevel))
+  const gap = Math.max(0, Math.min(DROP_PREMIUM.length - 1, club.level - myLevel))
   if (!gap) return { premium: 1, bonus: 0, reluctant: false }
   // Your reputation as a manager takes up to two-thirds of the premium away
   const base = DROP_PREMIUM[gap] * (STANDING_PREMIUM[standingOf(p, club)] ?? 1)
@@ -490,10 +495,13 @@ export function sanitizeWorld(input, seed = 'world') {
   if (!isObj(input) || !Array.isArray(input.clubs) || !Array.isArray(input.free)) return createWorld(seed)
   const fresh = () => createWorld(seed)
   const clubs = []
+  const missing = []
   for (const [level, div] of DIVISIONS.entries()) {
     for (const [tier, c] of div.clubs.entries()) {
       const raw = input.clubs.find((x) => isObj(x) && x.name === c.name)
-      if (!raw || !Array.isArray(raw.players)) return fresh()
+      // A club added to the game since this world was made: build it now
+      if (!raw) { missing.push({ level, tier, c }); continue }
+      if (!Array.isArray(raw.players)) return fresh()
       const players = raw.players.map(cleanPlayer).filter((p) => p?.id).slice(0, AI_MAX + 2)
       if (players.length < 6) return fresh()
       clubs.push({ id: `c${level}${tier}`, name: c.name, level, tier, players })
@@ -502,5 +510,12 @@ export function sanitizeWorld(input, seed = 'world') {
   const free = input.free.map(cleanPlayer).filter((p) => p?.id).slice(0, FREE_MAX)
   const nextId = Number.isInteger(input.nextId) && input.nextId > 0 ? input.nextId : 100_000
   const news = Array.isArray(input.news) ? input.news.filter(isObj).slice(0, 20).map(cleanNews) : []
-  return { nextId, clubs, free, news }
+  const world = { nextId, clubs, free, news }
+  if (missing.length) {
+    const rng = seededRng(`world:${seed}:added`)
+    for (const m of missing) world.clubs.push(buildClub(world, rng, m.level, m.tier, m.c))
+    // Keep the same order as a new world: by division, then tier
+    world.clubs.sort((x, y) => (x.level - y.level) || (x.tier - y.tier))
+  }
+  return world
 }

@@ -22,13 +22,13 @@ export const START_COINS = 800
 export const SELL_SHARE = 0.6
 // Transfer windows, like football's summer and January windows: each is open from
 // the first to the last of these counts of your league matches played, then shuts
-export const WINDOWS = [[0, 2], [5, 6]]
+export const WINDOWS = [[0, 2], [7, 8]]
 // When each window opens (matches played)
 export const WINDOW_AFTER = WINDOWS.map((w) => w[0])
 
 // A typical player's OVR in each division, bottom to top (FIFA-like: a lower-league side in the
 // 50s, a top-flight side in the high 70s; stars in the 80s and 90s)
-export const DIVISION_RATING = [52, 60, 68, 78]
+export const DIVISION_RATING = [46, 52, 60, 68, 78]
 
 export const ROLE_LABEL = { gk: 'GK', def1: 'DEF', def2: 'DEF', mid: 'MID', atk1: 'ATK', atk2: 'ATK' }
 export const POS_OF = { gk: 'GK', def1: 'DEF', def2: 'DEF', mid: 'MID', atk1: 'ATK', atk2: 'ATK' }
@@ -278,10 +278,16 @@ export function money(units) {
   return `${sign}₦${a}`
 }
 
+/**
+ * How much more a division pays than the Sunday League: `step` more per division above it.
+ * The Street League (added below it later) pays a little less.
+ */
+export const divisionScale = (level = 0, step = 0.5) => (level <= 0 ? 0.75 : 1 + step * (level - 1))
+
 /** Coins for one of your results; bigger divisions pay more. */
 export function coinsForResult(gf, ga, level = 0) {
   const base = gf > ga ? 60 : gf === ga ? 25 : 10
-  return Math.round((base + 5 * Math.max(0, gf)) * (1 + 0.5 * (level || 0)))
+  return Math.round((base + 5 * Math.max(0, gf)) * divisionScale(level, 0.5))
 }
 
 /** Coins at the end of a season. */

@@ -8,7 +8,7 @@
  * Pure functions over plain JSON.
  */
 import { seededRng } from './tournament'
-import { priceOf } from './squad'
+import { priceOf, divisionScale } from './squad'
 import { isFinish } from '../data/StadiumData'
 
 /* ── Facilities: five levels each (0–4) ── */
@@ -63,7 +63,7 @@ export function matchVenue(club, home, level = 0, opponentName = '') {
 /* ── Tickets ── */
 
 // A normal ticket in each division, in naira (bottom to top)
-export const BASE_TICKET = [2_000, 2_800, 4_000, 6_000]
+export const BASE_TICKET = [1_500, 2_000, 2_800, 4_000, 6_000]
 export const TICKETS = {
   cheap: { label: 'Cheap', price: 0.7, demand: 1.15 },
   standard: { label: 'Standard', price: 1, demand: 0.9 },
@@ -72,7 +72,7 @@ export const TICKETS = {
 export const ticketPrice = (level, ticket) => Math.round((BASE_TICKET[level] ?? 500) * (TICKETS[ticket] || TICKETS.standard).price)
 
 /* ── TV money, at the start of each season ── */
-export const TV_MONEY = [0, 150, 500, 1_500]
+export const TV_MONEY = [0, 0, 150, 500, 1_500]
 
 export const START_FANS = 75
 const NAIRA_PER_UNIT = 10_000
@@ -128,7 +128,7 @@ export function attendance(club, form = 0) {
 }
 
 // How many supporters a club in each division can hope to draw (growth slows as you near it)
-export const FAN_BASE = [500, 1_500, 3_750, 10_000]
+export const FAN_BASE = [300, 500, 1_500, 3_750, 10_000]
 
 /** Fans after a result: wins bring people in (less as you near your division's fan base), losses lose a few. */
 export function fansAfter(fans, outcome, level = 0) {
@@ -162,7 +162,7 @@ export function matchDay(club, { home, outcome, prize, level, wages, form = 0 })
 export function sponsorOffers(level, fans, seed) {
   const rng = seededRng(`sponsor:${seed}`)
   // Grows with the size of the club, but more slowly than the crowd (like real shirt deals)
-  const base = (8 + Math.sqrt(Math.max(0, fans)) * 1.2) * (1 + level * 0.6)
+  const base = (8 + Math.sqrt(Math.max(0, fans)) * 1.2) * divisionScale(level, 0.6)
   const names = ['Mama Put Foods', 'Okada Express', 'Naija Fizz', 'Bukka Hut Caps', 'Danfo Logistics', 'Jollof Kings', 'Suya Spot', 'Eko Mobile', 'Agege Bread Co', 'Island Telecom']
   const pickName = () => names.splice(Math.floor(rng() * names.length), 1)[0]
   const vary = () => 0.9 + rng() * 0.2
