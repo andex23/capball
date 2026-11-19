@@ -77,8 +77,8 @@ export function LagosTicker({ onOpen }) {
   if (!items.length) return null
   const run = (
     <span className="tk-run">
-      {items.map((x) => <span key={`${x.rank}-${x.name}`} data-medal={medal(x.rank)}><span className="tk-star">★</span> <b>{x.rank} {x.name}</b> {x.wins} {x.wins === 1 ? 'win' : 'wins'}<i>◆</i></span>)}
-      {me && <span>You: <b>#{me.rank}</b> · {me.wins} {me.wins === 1 ? 'win' : 'wins'}<i>◆</i></span>}
+      {items.map((x) => <span key={`${x.rank}-${x.name}`} data-medal={medal(x.rank)}><span className="tk-rank">{x.rank}</span><b>{x.name}</b><small>{x.wins} {x.wins === 1 ? 'win' : 'wins'}</small><i>◆</i></span>)}
+      {me && <span data-me="true"><span className="tk-rank">{me.rank}</span><b>You</b><small>{me.wins} {me.wins === 1 ? 'win' : 'wins'}</small><i>◆</i></span>}
     </span>
   )
   return (

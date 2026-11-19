@@ -46,7 +46,15 @@
 .rankings-list li[data-medal='gold'] { border-color: #ffd23f; }
 .rankings-list li[data-medal='silver'] { border-color: #b9c7d6; }
 .rankings-list li[data-medal='bronze'] { border-color: #e8964a; }
-.tk-run [data-medal] .tk-star { font-size: 14px; }
-.tk-run [data-medal='gold'] .tk-star { color: #ffd23f; } .tk-run [data-medal='silver'] .tk-star { color: #b9c7d6; } .tk-run [data-medal='bronze'] .tk-star { color: #e8964a; }
 .tk-run > span:not([data-medal]) b { color: #8e939c; text-shadow: none; }
 .rankings-list li:not([data-medal]) .rankings-rank, .rankings-list li:not([data-medal]) .rankings-name { color: #8e939c; }
+
+/* The place is a boxed badge, bigger than the wins, so '3' never reads as '3 wins' */
+.tk-run > span { display: inline-flex; align-items: center; gap: 7px; }
+.tk-rank { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 5px; font: 700 15px/1 var(--font-pixel); color: #07070a; text-shadow: none; background: #8e939c; border: 2px solid #fff; }
+.tk-run [data-medal='gold'] .tk-rank { background: #ffd23f; }
+.tk-run [data-medal='silver'] .tk-rank { background: #b9c7d6; }
+.tk-run [data-medal='bronze'] .tk-rank { background: #e8964a; }
+.tk-run [data-me] .tk-rank { background: #36d16b; }
+.tk-run > span[data-me] b { color: #fff; }
+.tk-run small { font: 700 9px/1 var(--font-pixel); color: #ffb21f; opacity: 0.85; }
