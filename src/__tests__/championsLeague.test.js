@@ -34,12 +34,11 @@ describe('Cap Champions League', () => {
     c = { ...c, cup: null }
     expect(careerNext(c).kind).toBe('league')
     let sawCcl = false
-    let coinsBefore = 0
     for (let i = 0; i < 60; i++) {
       const due = careerNext(c)
       if (!due) break
       const r = due.fixture.home === ME ? { home: 3, away: 0 } : { home: 0, away: 3 }
-      if (due.kind === 'ccl') { sawCcl = true; coinsBefore = c.coins; c = recordCclMatch(c, due.fixture.id, r); expect(c.coins).toBeGreaterThan(coinsBefore) } else c = recordCareerResult(c, due.fixture.id, r)
+      if (due.kind === 'ccl') { sawCcl = true; const before = c.coins; c = recordCclMatch(c, due.fixture.id, r); expect(c.coins).toBeGreaterThan(before) } else c = recordCareerResult(c, due.fixture.id, r)
     }
     expect(sawCcl).toBe(true)
     expect(seasonOver(c.league)).toBe(true)
