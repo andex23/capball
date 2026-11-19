@@ -16,8 +16,9 @@ import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withC
 import { sanitizeStory } from './matchStory'
 import { legendById } from '../data/Legends'
 import { isDerby, noteHeadToHead, sanitizeH2h, DERBY_PRIZE, DERBY_CROWD } from './rivals'
+import { jobOfferFor, takeJob, declineJob, sanitizeOffer, sanitizeJobs } from './jobs'
 import { sanitizeExtras } from './matchReport'
-import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews } from './world'
+import { createWorld, sanitizeWorld, worldSummer, clubByName, clubOvr, sixFor, cleanNews, clubsIn } from './world'
 import {
   playedThisSeason, transferWindow, spendingFrozen, squadSize, squadFull, promoteReserve, squadSummer, youthIntake,
   sanitizeLoans, sanitizeYouth, sanitizeTalks, sanitizeDeals, MATCHDAY, MAX_RESERVES, MAX_SQUAD, YOUTH_MAX,
@@ -45,7 +46,7 @@ export function createSeason(club, level, matchDuration = 120, now = Date.now(),
   const div = DIVISIONS[level]
   const teams = [
     { ...club, cpu: false },
-    ...div.clubs.map((c) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: div.difficulty, ...ovrField(world, c.name) })),
+    ...clubsIn(world, level).map((c) => ({ badge: 'none', finish: 'gloss', ...c, cpu: true, difficulty: div.difficulty, ...ovrField(world, c.name) })),
   ]
   return createTournament({ format: 'league', legs: LEGS, teams, matchDuration, now })
 }
@@ -81,10 +82,10 @@ const CUP_ROUNDS = ['quarter', 'semi', 'final']
  */
 export function createCup(club, level, matchDuration, season, now = Date.now(), world = null) {
   const rng = seededRng(`cup:${club.name}:${season}:${now}`)
-  const own = DIVISIONS[level].clubs.slice().sort(() => rng() - 0.5).slice(0, 3).map((c) => ({ c, lv: level }))
+  const own = clubsIn(world, level).slice().sort(() => rng() - 0.5).slice(0, 3).map((c) => ({ c, lv: level }))
   // Four more from the divisions next door: two above and two below, or four from the one neighbour at the ends
   const near = [level + 1, level - 1].filter((l) => l >= 0 && l <= TOP)
-  const others = near.flatMap((lv) => DIVISIONS[lv].clubs.slice().sort(() => rng() - 0.5).slice(0, 4 / near.length).map((c) => ({ c, lv })))
+  const others = near.flatMap((lv) => clubsIn(world, lv).slice().sort(() => rng() - 0.5).slice(0, 4 / near.length).map((c) => ({ c, lv })))
   const entrants = [...own, ...others.slice(0, 4)]
   const teams = [
     { ...club, cpu: false },
@@ -229,7 +230,7 @@ export function targetFor(level) {
 /** Where your squad ranks on OVR among the division's clubs (1 = strongest). */
 export function squadRank(level, squad, world = null) {
   const mine = averageRating(squadRatings(squad))
-  const theirs = DIVISIONS[level].clubs.map((c) => averageRating(squadRatings(sixFor(world, c.name) || clubPlayers(level, c.name))))
+  const theirs = clubsIn(world, level).map((c) => averageRating(squadRatings(sixFor(world, c.name) || clubPlayers(level, c.name))))
   return 1 + theirs.filter((o) => o > mine).length
 }
 
@@ -288,6 +289,9 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     scouted: [],       // players whose potential your scouts have checked
     rejected: null,    // offers for your players you've turned down this window
     sacked: null,      // set when the board sacks you: the career is over
+    jobOffer: null,    // a club that wants you as manager: { name, level, reason }
+    lastMove: 0,       // the season you last changed clubs
+    jobs: [],          // clubs you've moved between
     h2h: {},           // head to head with every club you've played: { name: { w, d, l } }
   }
 }
@@ -430,6 +434,7 @@ export function finishSeason(career, now = Date.now()) {
   const bonus = seasonBonus(outcome) + (met ? TARGET_BONUS[target] : 0) + (cup ? CUP_PRIZE[cup] : 0)
   const entry = {
     season: career.season,
+    club: career.club?.name || null,
     division: DIVISIONS[career.level].name,
     level: career.level,
     position: pos,
@@ -451,6 +456,8 @@ export function finishSeason(career, now = Date.now()) {
       past: [{ ...entry, sacked: true }, ...career.past].slice(0, 50),
       cups: (career.cups || 0) + (cup === 'won' ? 1 : 0),
       sacked: { season: career.season, division: DIVISIONS[career.level].name, position: pos, target },
+      // A smaller club may still want you
+      jobOffer: jobOfferFor(career, { outcome, level, cup, sacked: true }),
     }
   }
   // The business side of the summer: fans move with the season, TV money for the new division,
@@ -512,7 +519,19 @@ export function finishSeason(career, now = Date.now()) {
   }
   // Contracts run down: expired deals leave on a free; unhappy players want out
   const cs = contractSummer(next, { level, seed, unhappy })
-  return { ...cs.career, lastSummer: { ...next.lastSummer, left: cs.left, unhappy: cs.unhappy } }
+  // A big season and a bigger club may call
+  const jobOffer = jobOfferFor(career, { outcome, level, cup, world })
+  return { ...cs.career, jobOffer, lastSummer: { ...next.lastSummer, left: cs.left, unhappy: cs.unhappy } }
+}
+
+/** Take the job you've been offered: their club, squad, division and budget; your records come with you. */
+export function acceptJob(career, now = Date.now()) {
+  return takeJob(career, { createSeason, createCup, targetFor }, now)
+}
+
+/** Turn the job down and stay. */
+export function stayPut(career) {
+  return declineJob(career)
 }
 
 /** Load a saved career, or null if it's missing or unreadable. */
@@ -564,6 +583,9 @@ export function sanitizeCareer(input) {
     } : null,
     cup: sanitizeCup(input.cup),
     h2h: sanitizeH2h(input.h2h),
+    jobOffer: sanitizeOffer(input.jobOffer),
+    lastMove: Number.isInteger(input.lastMove) && input.lastMove >= 0 ? input.lastMove : 0,
+    jobs: sanitizeJobs(input.jobs),
     target: Object.hasOwn(TARGETS, input.target) ? input.target : null,
     cups: n(input.cups),
     lastSummer: isObj(input.lastSummer) ? {

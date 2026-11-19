@@ -6,7 +6,7 @@
 import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { answerPress, bestPerformer, fixtureBrief } from '../game/careerBrief'
-import { myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
+import { acceptJob, stayPut, myPosition, CAREER_MODES, CAREER_DIFFICULTIES, newCareer, recordCareerResult, recordCupResult, finishSeason, sanitizeCareer, seasonOver, cupPending, swapLineup, signSponsor, buildFacility, setTickets, setTableFinish } from '../game/career'
 import { signLegend, makeBid, sellTo, releasePlayer, loanOut, promoteYouth, releaseYouth, promoteReserve } from '../game/transfers'
 import { afterMatch, renewContract, scoutPlayer, rejectOffer, hallEntry, sanitizeHall, HOF_KEY, negotiateContract, setTraining, setListed } from '../game/clubLife'
 import { TRAINING } from '../game/club'
@@ -143,6 +143,26 @@ export const useCareerStore = create((set, get) => ({
     save(next)
     set({ career: next })
     useAccountStore.getState().save({ force: true })
+  },
+
+  /** Take the job a club has offered (after a big season, or after the sack). */
+  takeJob() {
+    const { career } = get()
+    const next = career?.jobOffer ? acceptJob(career) : null
+    if (!next) return false
+    save(next)
+    set({ career: next })
+    useAccountStore.getState().save({ force: true })
+    return true
+  },
+
+  /** Turn the offer down and stay. */
+  turnDownJob() {
+    const { career } = get()
+    if (!career?.jobOffer) return
+    const next = stayPut(career)
+    save(next)
+    set({ career: next })
   },
 
   /** The summer review has been read: don't open it again this season. */

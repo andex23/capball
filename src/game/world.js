@@ -160,6 +160,46 @@ function freeAgent(world, rng) {
 /* ── Finding things ── */
 
 export const clubByName = (world, name) => world?.clubs.find((c) => c.name === name) || null
+
+/** The kit fields a club's look is made of (name and colours: what shows on the pitch). */
+const LOOK_FIELDS = ['name', 'primary', 'edge', 'pattern', 'badge', 'finish', 'capText', 'textColor', 'skirtColor', 'art']
+const HEX = /^#[0-9a-fA-F]{6}$/
+export function cleanLook(look) {
+  if (!isObj(look) || typeof look.name !== 'string' || !look.name.trim()) return null
+  const out = {}
+  for (const k of LOOK_FIELDS) {
+    const v = look[k]
+    if (typeof v !== 'string') continue
+    if (['primary', 'edge', 'textColor', 'skirtColor'].includes(k) && v && !HEX.test(v)) continue
+    out[k] = v.slice(0, k === 'capText' ? 24 : 16)
+  }
+  return out
+}
+
+/**
+ * A division's computer clubs as they are in this world. When you take over a
+ * club (a job offer), your old club takes its place in its division: same slot,
+ * your old club's name and kit.
+ */
+export function clubsIn(world, level) {
+  return (DIVISIONS[level]?.clubs || []).map((c) => {
+    const w = world?.clubs.find((x) => (x.key || x.name) === c.name)
+    return w?.look ? { ...c, ...w.look } : c
+  })
+}
+
+/**
+ * Swap a club for yours: you take over `name` (its players come to you) and
+ * your old club, with `players` (compact), moves into its slot.
+ * Returns { world, club: the world club you took over (before the swap) } or null.
+ */
+export function swapClub(world, name, look, players) {
+  const club = clubByName(world, name)
+  const clean = cleanLook(look)
+  if (!club || !clean) return null
+  const moved = { ...club, key: club.key || club.name, name: clean.name, look: clean, players: players.map(compact) }
+  return { world: { ...world, clubs: world.clubs.map((c) => (c.id === club.id ? moved : c)) }, club }
+}
 export const clubById = (world, id) => world?.clubs.find((c) => c.id === id) || null
 
 /** Where a player is: { player, club } (club null for a free agent), or null. */
@@ -498,13 +538,15 @@ export function sanitizeWorld(input, seed = 'world') {
   const missing = []
   for (const [level, div] of DIVISIONS.entries()) {
     for (const [tier, c] of div.clubs.entries()) {
-      const raw = input.clubs.find((x) => isObj(x) && x.name === c.name)
+      const raw = input.clubs.find((x) => isObj(x) && (x.key || x.name) === c.name)
       // A club added to the game since this world was made: build it now
       if (!raw) { missing.push({ level, tier, c }); continue }
       if (!Array.isArray(raw.players)) return fresh()
       const players = raw.players.map(cleanPlayer).filter((p) => p?.id).slice(0, AI_MAX + 2)
       if (players.length < 6) return fresh()
-      clubs.push({ id: `c${level}${tier}`, name: c.name, level, tier, players })
+      // A slot your old club took over (after you moved to another job) keeps its look
+      const look = raw.key === c.name ? cleanLook(raw.look) : null
+      clubs.push(look ? { id: `c${level}${tier}`, key: c.name, name: look.name, look, level, tier, players } : { id: `c${level}${tier}`, name: c.name, level, tier, players })
     }
   }
   const free = input.free.map(cleanPlayer).filter((p) => p?.id).slice(0, FREE_MAX)

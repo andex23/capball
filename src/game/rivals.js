@@ -4,15 +4,16 @@
  * and the record between you is kept for good (head to head, across seasons).
  * Pure functions over the career.
  */
-import { DIVISIONS } from './divisions'
 import { teamById } from './tournament'
+import { clubsIn } from './world'
 
 const ME = 'T1'
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
 
 /** Your rival in a division: one of its four strongest clubs, the same every time for your club. */
 export function rivalFor(career, level = career?.level ?? 0) {
-  const clubs = DIVISIONS[level]?.clubs || []
+  // The division as it is now (a club you left sits in its old slot); never your own club
+  const clubs = clubsIn(career?.world, level).filter((c) => c.name !== career?.club?.name)
   if (!clubs.length) return null
   let h = 0
   for (const ch of `${career?.club?.name || 'My Club'}:${level}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0

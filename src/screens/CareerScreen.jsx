@@ -26,6 +26,7 @@ import MatchReport from '../ui/MatchReport'
 import CupPage from '../ui/CupPage'
 import { inboxOffers, seasonAwards } from '../game/clubLife'
 import { SeasonNumbers, SummerReview } from '../ui/SeasonReview'
+import { JobOfferCard } from '../ui/JobOffer'
 import { isDerby, derbyName, headToHead, DERBY_PRIZE } from '../game/rivals'
 import '../ui/careerSeason.css'
 import RatingsGuide from '../ui/RatingsGuide'
@@ -283,11 +284,12 @@ function Sacked({ career, onBack }) {
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow shell-eyebrow">Career over · {career.club.name}</div>
+            <div className="eyebrow shell-eyebrow">{career.jobOffer ? `Sacked by ${career.club.name} · a club is calling` : `Career over · ${career.club.name}`}</div>
             <h1 className="display shell-title">Sacked</h1>
           </div>
         </header>
         <main className="shell-body career-start">
+          {career.jobOffer && <JobOfferCard career={career} />}
           <section className="card card-pad career-end" data-tone="bad">
             <div className="eyebrow">Season {s.season} · {s.division}</div>
             <h2 className="display career-end-title">The board has sacked you</h2>
@@ -299,7 +301,7 @@ function Sacked({ career, onBack }) {
               <li><span>{CUP_NAME}s</span><b>{career.cups || 0}</b></li>
               <li><span>Highest division</span><b>{DIVISIONS[best].name}</b></li>
             </ul>
-            <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useCareerStore.getState().retire() }}>Start a new career</button>
+            <button className={`btn ${career.jobOffer ? 'btn-secondary' : 'btn-gold btn-lg'} btn-block`} onClick={() => { playConfirm(); useCareerStore.getState().retire() }}>Start a new career</button>
           </section>
           {career.past.length > 0 && (
             <section className="card card-pad">
@@ -729,6 +731,8 @@ export default function CareerScreen() {
       {guide && <RatingsGuide onClose={() => setGuide(false)} />}
       {/* A new season has just started: the summer review, once */}
       {career.lastSummer?.season === career.season && !career.lastSummer.seen && played === 0 && <SummerReview career={career} />}
+      {/* After the summer review: a club wants you */}
+      {career.jobOffer && played === 0 && (career.lastSummer?.seen || career.lastSummer?.season !== career.season) && <JobOfferCard career={career} overlay />}
       {confirmRetire && (
         <Modal title="Retire?" onClose={() => setConfirmRetire(false)}>
           <p>This ends {career.club.name}’s career for good: season {career.season}, {career.promotions} promotions, {career.titles} titles and {career.cups || 0} {CUP_NAME}s.</p>
