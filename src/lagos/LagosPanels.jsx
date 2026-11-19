@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLagosStore } from './lagosStore'
+import { useLagosStore, winsOf, rankValue } from './lagosStore'
 import { playButtonSelect } from '../audio/SoundManager'
 import SavedGames from '../ui/SavedGames'
 import RecordsPanel from '../ui/RecordsPanel'
@@ -53,12 +53,20 @@ export function tiedRank(top, i, scoreOf) {
 export const medal = (rank) => ({ 1: 'gold', 2: 'silver', 3: 'bronze' })[rank]
 
 /** The words that run along the pitch-side board: the top five and you. */
-export function tickerItems(board, wins = 0, max = 5) {
+const rawOf = (r) => r?.score ?? r?.best ?? 0
+
+/** The board in order: most wins first, then most goals (the numbers carry both). */
+export function orderedBoard(board) {
   const top = Array.isArray(board?.top) ? board.top : []
-  const scoreOf = (r) => r?.score ?? r?.best ?? 0
-  const items = top.slice(0, max).filter((r) => r?.name).map((r, i) => ({ rank: tiedRank(top, i, scoreOf), name: String(r.name).slice(0, 18), wins: scoreOf(r) }))
+  return top.map((r, i) => ({ r, i })).sort((a, b) => (rankValue(rawOf(b.r)) - rankValue(rawOf(a.r))) || (a.i - b.i)).map((x) => x.r)
+}
+
+export function tickerItems(board, wins = 0, max = 5) {
+  const top = orderedBoard(board)
+  const value = (r) => rankValue(rawOf(r))
+  const items = top.slice(0, max).filter((r) => r?.name).map((r, i) => ({ rank: tiedRank(top, i, value), name: String(r.name).slice(0, 18), wins: winsOf(rawOf(r)) }))
   const me = board?.me
-  return { items, me: me?.rank ? { rank: me.rank, wins: Math.max(wins, scoreOf(me)) } : null }
+  return { items, me: me?.rank ? { rank: me.rank, wins: Math.max(wins, winsOf(rawOf(me))) } : null }
 }
 
 /** A pitch-side LED board on the menu: the top players run past, right to left. Tap for the full board. */
@@ -86,9 +94,9 @@ export function LagosBoard() {
   const { board, boardError, wins, best, player } = useLagosStore()
   const [tab, setTab] = useState('board')
   useEffect(() => { if (tab === 'board') useLagosStore.getState().loadBoard() }, [tab])
-  const top = Array.isArray(board?.top) ? board.top : []
+  const top = orderedBoard(board)
   const me = board?.me
-  const scoreOf = (r) => r?.score ?? r?.best ?? 0
+  const scoreOf = (r) => rankValue(rawOf(r))
   return (
     <div className="rankings">
       <div className="tabs" role="tablist">
@@ -107,7 +115,7 @@ export function LagosBoard() {
                   <li key={`${i}-${r.name}`} data-medal={medal(tiedRank(top, i, scoreOf))} data-me={player && r.name === player.name && scoreOf(r) === scoreOf(me) ? 'true' : undefined}>
                     <span className="rankings-rank">{tiedRank(top, i, scoreOf)}</span>
                     <span className="rankings-name">{r.name}</span>
-                    <span className="rankings-num"><b>{scoreOf(r)}</b><small>wins</small></span>
+                    <span className="rankings-num"><b>{winsOf(rawOf(r))}</b><small>wins</small></span>
                   </li>
                 ))}
               </ol>

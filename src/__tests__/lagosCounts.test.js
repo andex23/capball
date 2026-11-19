@@ -89,3 +89,20 @@ describe('the pitch-side board', () => {
     expect(tickerItems(null).items).toEqual([])
   })
 })
+
+describe('goals settle ties on the board', () => {
+  it('one number carries wins then goals; old numbers are all wins', async () => {
+    const { boardScore, winsOf, goalsOf, rankValue } = await import('../lagos/lagosStore')
+    expect(boardScore(2, 13)).toBe(2013)
+    expect([winsOf(2013), goalsOf(2013)]).toEqual([2, 13])
+    expect([winsOf(3), goalsOf(3)]).toEqual([3, 0]) // from before goals counted
+    expect(rankValue(3)).toBeGreaterThan(rankValue(2013)) // 3 wins beats 2 wins, whatever the goals
+    expect(boardScore(1, 5000)).toBe(1999) // goals never spill into wins
+  })
+  it('level on wins, more goals ranks higher; only wins are shown', async () => {
+    const { tickerItems } = await import('../lagos/LagosPanels')
+    const board = { top: [{ name: 'Bob', score: 2009 }, { name: 'Elder', score: 2013 }, { name: 'Old', score: 3 }, { name: 'Zed', score: 2009 }], me: { rank: 2, score: 2013 } }
+    const { items } = tickerItems(board)
+    expect(items.map((x) => `${x.rank} ${x.name} ${x.wins}`)).toEqual(['1 Old 3', '2 Elder 2', '3 Bob 2', '3 Zed 2'])
+  })
+})

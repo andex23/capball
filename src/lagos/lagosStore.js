@@ -24,8 +24,23 @@ import { currentProgress } from '../state/unlocks'
 const SCORE_GAP_MS = 21_000 // the SDK takes one score every 20 s
 const winsKey = (playerId) => `counterball:lagos:wins:${playerId}`
 
-const readWins = (playerId) => { const n = Number(storage()?.getItem(winsKey(playerId))); return Number.isInteger(n) && n > 0 ? n : 0 }
-const writeWins = (playerId, n) => { try { storage()?.setItem(winsKey(playerId), String(n)) } catch { /* blocked in the frame: the leaderboard keeps the count */ } }
+const goalsKey = (playerId) => `counterball:lagos:goals:${playerId}`
+const readCount = (key) => { const n = Number(storage()?.getItem(key)); return Number.isInteger(n) && n > 0 ? n : 0 }
+const writeCount = (key, n) => { try { storage()?.setItem(key, String(n)) } catch { /* blocked in the frame: the leaderboard keeps the count */ } }
+const readWins = (playerId) => readCount(winsKey(playerId))
+const writeWins = (playerId, n) => writeCount(winsKey(playerId), n)
+
+/*
+ * The leaderboard holds one number a player. It carries wins first and goals
+ * as the tie-breaker: wins × 1000 + goals (up to 999). Only wins are ever shown.
+ * A number under 1000 is from before goals counted: all wins, no goals.
+ */
+export const GOAL_SLOT = 1000
+export const boardScore = (wins, goals) => Math.max(0, wins | 0) * GOAL_SLOT + Math.min(GOAL_SLOT - 1, Math.max(0, goals | 0))
+export const winsOf = (raw) => { const n = Math.max(0, Number(raw) || 0); return n >= GOAL_SLOT ? Math.floor(n / GOAL_SLOT) : n }
+export const goalsOf = (raw) => { const n = Math.max(0, Number(raw) || 0); return n >= GOAL_SLOT ? n % GOAL_SLOT : 0 }
+/** For ordering: older wins-only numbers read as wins with no goals. */
+export const rankValue = (raw) => boardScore(winsOf(raw), goalsOf(raw))
 
 /**
  * Which team the person holding this phone plays, or null when a win here
@@ -120,6 +135,8 @@ export const useLagosStore = create((set, get) => ({
   player: null,      // { id, name, avatar }
   mode: null,        // 'test' | 'live'
   wins: 0,           // total wins, as counted on this phone
+  goals: 0,          // total goals in matches that count (the board's tie-breaker)
+  bestGoals: 0,      // goals the board holds
   best: 0,           // what the leaderboard holds
   board: null,       // { top, me }
   boardError: null,
@@ -147,7 +164,7 @@ export const useLagosStore = create((set, get) => ({
       sdk = client
       const player = launch.player
       useAccountStore.setState({ username: player.name || 'Player', token: null })
-      set({ status: 'ready', player, mode: launch.mode, wins: readWins(player.id) })
+      set({ status: 'ready', player, mode: launch.mode, wins: readWins(player.id), goals: readCount(goalsKey(player.id)) })
       get().count('open')
       sdk.onPause?.(() => get().pause())
       sdk.onResume?.(() => get().resume())
@@ -207,11 +224,21 @@ export const useLagosStore = create((set, get) => ({
     if (!sdk?.leaderboard) return
     try {
       const board = await sdk.leaderboard()
-      const best = Number(board?.me?.score ?? board?.me?.best ?? 0) || 0
-      set((s) => ({ board, boardError: null, best: Math.max(s.best, best) }))
+      const raw = Number(board?.me?.score ?? board?.me?.best ?? 0) || 0
+      set((s) => ({ board, boardError: null, best: Math.max(s.best, winsOf(raw)), bestGoals: Math.max(s.bestGoals || 0, goalsOf(raw)) }))
     } catch (e) {
       set({ boardError: sdkMessage(e) })
     }
+  },
+
+  /** Goals scored in a match that counts: they settle ties on the board. */
+  addGoals(n) {
+    const { player, goals, bestGoals } = get()
+    if (!player || !(n > 0)) return
+    const total = Math.max(goals || 0, bestGoals || 0) + n
+    writeCount(goalsKey(player.id), total)
+    set({ goals: total })
+    get().sendScore()
   },
 
   /** One more win: add it to the total and send it to the leaderboard. */
@@ -230,16 +257,17 @@ export const useLagosStore = create((set, get) => ({
     scoreTimer = setTimeout(async () => {
       scoreTimer = null
       lastScoreAt = Date.now()
-      const n = get().wins
+      const { wins, goals, best, bestGoals } = get()
+      const n = boardScore(Math.max(wins, best), Math.max(goals || 0, bestGoals || 0))
       try {
         const res = await sdk.submitScore(n)
-        set((s) => ({ best: Math.max(s.best, Number(res?.best) || 0) }))
+        set((s) => ({ best: Math.max(s.best, winsOf(res?.best)), bestGoals: Math.max(s.bestGoals || 0, goalsOf(res?.best)) }))
         get().loadBoard()
       } catch (e) {
         if (e?.code === 'too_soon' || e?.code === 'rate_limited' || e?.code === 'timeout') get().sendScore()
       }
       // More wins came in while this one was being sent
-      if (get().wins > n) get().sendScore()
+      if (boardScore(Math.max(get().wins, get().best), Math.max(get().goals || 0, get().bestGoals || 0)) > n) get().sendScore()
     }, wait)
   },
 
@@ -532,7 +560,11 @@ export function watchMatches() {
     const team = myTeamFor(m)
     const winner = m.matchResult.winner
     const key = `${m.matchKey}:${winner}`
-    if (team && winner === team && !counted.has(key)) { counted.add(key); lagos.addWin() }
+    if (team && !counted.has(key)) {
+      counted.add(key)
+      if (winner === team) lagos.addWin()
+      lagos.addGoals(m.matchResult.score?.[team] || 0)
+    }
     // A friend match, or the sandbox's test match played against the computer here
     const reportable = lagos.match && (m.gameMode === 'online' || (m.gameMode === 'ai' && lagos.botMatch === lagos.match.id))
     if (reportable) {
