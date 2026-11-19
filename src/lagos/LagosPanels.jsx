@@ -41,6 +41,14 @@ export function LagosAccount({ formOnly = false }) {
   )
 }
 
+/** A place on the board where ties share a place: 1 + how many have more wins (as Lagos Life counts your rank). */
+export function tiedRank(top, i, scoreOf) {
+  const mine = scoreOf(top[i])
+  let ahead = 0
+  for (const r of top) if (scoreOf(r) > mine) ahead++
+  return ahead + 1
+}
+
 /** The Lagos Life leaderboard: total wins. */
 export function LagosBoard() {
   const { board, boardError, wins, best, player } = useLagosStore()
@@ -64,8 +72,8 @@ export function LagosBoard() {
             : (
               <ol className="rankings-list">
                 {top.map((r, i) => (
-                  <li key={`${r.rank ?? i + 1}-${r.name}`} data-me={player && r.name === player.name && scoreOf(r) === scoreOf(me) ? 'true' : undefined}>
-                    <span className="rankings-rank">{r.rank ?? i + 1}</span>
+                  <li key={`${i}-${r.name}`} data-me={player && r.name === player.name && scoreOf(r) === scoreOf(me) ? 'true' : undefined}>
+                    <span className="rankings-rank">{tiedRank(top, i, scoreOf)}</span>
                     <span className="rankings-name">{r.name}</span>
                     <span className="rankings-num"><b>{scoreOf(r)}</b><small>wins</small></span>
                   </li>
