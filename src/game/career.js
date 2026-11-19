@@ -11,7 +11,7 @@ import { isFinish } from '../data/StadiumData'
 import { DIVISIONS } from './divisions'
 import { createTournament, recordResult, standings, allFixtures, sanitizeTournament, simulateResult, seededRng, readyFixtures, settleCpu, teamById } from './tournament'
 import { newClub, sanitizeClub, matchDay, wageBill, book, chooseSponsor, upgrade as upgradeClub, sponsorOffers, fansAfterSeason, ledgerTotals, emptyLedger, TV_MONEY, TICKETS } from './club'
-import { START_COINS, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
+import { START_COINS, START_LIFT, startingSquad, startingBench, sanitizeBench, swapIn, sanitizeSquad, sanitizePlayer, coinsForResult, seasonBonus, developSeason, squadRatings, clubPlayers, averageRating } from './squad'
 import { seasonAwards, unhappyAfterSeason, contractSummer, repAfterSeason, withContracts, REP_START, sanitizeAwards } from './clubLife'
 import { sanitizeStory } from './matchStory'
 import { legendById } from '../data/Legends'
@@ -328,7 +328,7 @@ export function newCareer(club, { matchDuration = 120, now = Date.now(), squad =
     promotions: 0,
     titles: 0,         // top-division wins
     squad: Object.fromEntries(withContracts(Object.entries(sq).map(([r, p]) => ({ ...p, _role: r })), `${now}:six`).map(({ _role, ...p }) => [_role, p])),
-    bench: withContracts(startingBench(now, 0), `${now}:bench`),
+    bench: withContracts(startingBench(now, 0, START_LIFT), `${now}:bench`),
     reserves: [],      // up to five more players who train but aren't in the matchday ten
     loans: [],         // your players out on loan until the summer
     youthTeam: youthIntake(0, 0, `${now}:start`, 2),

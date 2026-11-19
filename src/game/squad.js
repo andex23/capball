@@ -188,11 +188,14 @@ export function sellValue(p) {
 
 /* ── Squads ── */
 
-/** Your first squad: about a mid-table Sunday League side, one young prospect among them. */
+// How far above the bottom division's usual level your first squad starts: in the promotion race from day one
+export const START_LIFT = 7
+
+/** Your first squad: one of the stronger Street League sides (a promotion contender), one young prospect among them. */
 export function startingSquad(seed = 'start') {
   const rng = seededRng(`squad:${seed}`)
   return Object.fromEntries(CAP_ROLES.map((role) => {
-    const p = role === 'mid' ? makeYouth(rng, 0, 'MID') : makePlayer(rng, DIVISION_RATING[0] + 2, POS_OF[role], 2, [20, 30])
+    const p = role === 'mid' ? makeYouth(rng, 0, 'MID', 0, [17, 18], 7 - START_LIFT) : makePlayer(rng, DIVISION_RATING[0] + START_LIFT, POS_OF[role], 2, [20, 30])
     return [role, p]
   }))
 }
@@ -207,9 +210,9 @@ export const MAX_SUBS = 3
 const ROLE_FOR_POS = { GK: 'gk', DEF: 'def1', MID: 'mid', ATK: 'atk1' }
 
 /** Your first bench: a backup for each position, a little below the starters. */
-export function startingBench(seed = 'bench', level = 0) {
+export function startingBench(seed = 'bench', level = 0, lift = 0) {
   const rng = seededRng(`bench:${seed}`)
-  return BENCH_POS.map((pos) => makePlayer(rng, (DIVISION_RATING[level] ?? 52) - 6, pos, 2, [18, 31]))
+  return BENCH_POS.map((pos) => makePlayer(rng, (DIVISION_RATING[level] ?? 52) - 6 + lift, pos, 2, [18, 31]))
 }
 
 /** OVR by cap role, as shown and as a match uses them. */

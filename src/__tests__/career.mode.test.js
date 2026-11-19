@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { newCareer, nextMatch, recordCareerResult, seasonOver, finishSeason, outcomeFor, myPosition, sanitizeCareer, DIVISIONS, ME } from '../game/career'
+import { squadRank, newCareer, nextMatch, recordCareerResult, seasonOver, finishSeason, outcomeFor, myPosition, sanitizeCareer, DIVISIONS, ME } from '../game/career'
 
 const club = { name: 'Lions', primary: '#D32F2F', edge: '#FFFFFF' }
 
@@ -20,6 +20,14 @@ describe('career mode', () => {
     expect(c.league.teams).toHaveLength(8)
     expect(c.league.teams.filter((t) => t.cpu)).toHaveLength(7)
     expect(nextMatch(c.league)).toBeTruthy()
+  })
+  it('a new squad is competitive: in the Street League promotion race, behind the favourites', () => {
+    for (let s = 0; s < 12; s++) {
+      const c = newCareer({ ...club, name: `Club ${s}` }, { now: s * 977 })
+      const rank = squadRank(0, c.squad, c.world)
+      expect(rank).toBeGreaterThanOrEqual(2)
+      expect(rank).toBeLessThanOrEqual(3)
+    }
   })
   it('winning every game finishes top and goes up', () => {
     const c = playSeason(newCareer(club), [5, 0])
