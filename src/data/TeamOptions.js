@@ -1,4 +1,4 @@
-import { MYSTERY_CAPS, WEEK_CAPS } from '../game/rewards.js'
+import { MYSTERY_CAPS, WEEK_CAPS, CUP_CAPS } from '../game/rewards.js'
 import { hasArt } from '../game/capArt.js'
 // Cap customisation options shared by the team builder and online validation.
 
@@ -114,6 +114,7 @@ export const RARE_DESIGNS = [
   // Won from daily rewards and weekly goals: only shown once you have them
   ...MYSTERY_CAPS.map((c) => ({ ...c, hidden: true, hint: 'Win it on day 7 of the daily reward', need: (p) => [p.rewardCaps?.includes(c.key) ? 1 : 0, 1] })),
   ...WEEK_CAPS.map((c) => ({ ...c, hidden: true, hint: 'Finish all three weekly goals', need: (p) => [p.rewardCaps?.includes(c.key) ? 1 : 0, 1] })),
+  ...CUP_CAPS.map((c) => ({ ...c, hidden: true, hint: `Win the ${c.name}`, need: (p) => [p.rewardCaps?.includes(c.key) ? 1 : 0, 1] })),
 ]
 
 /** Is a rare design unlocked for this progress? */

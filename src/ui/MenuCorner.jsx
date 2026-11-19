@@ -20,7 +20,7 @@ import { playButtonSelect, playMenuNavigate } from '../audio/SoundManager'
 import CapPreview from './CapPreview'
 import { DailyReward, WeeklyGoals } from './Rewards'
 import { useRewardsStore } from '../state/rewardsStore'
-import { weekProgress, weekKey, dailyStatus } from '../game/rewards'
+import { weekProgress, weekKey, dailyStatus, CUP_CAPS } from '../game/rewards'
 import { money } from '../game/squad'
 import Icon from './Icon'
 
@@ -105,6 +105,7 @@ function Profile({ onClose, onOpen, onSheet }) {
   const st = useRewardsStore.getState().status(dayKey())
   const week = useRewardsStore((s) => s.week)
   const goalsDone = weekProgress(week, weekKey()).filter((g) => g.done).length
+  const cups = useRewardsStore((s) => s.cups)
   const rows = [
     ['daily', 'Daily reward', st.ready ? `Day ${st.day + 1} ready!` : `Day ${st.day + 1} tomorrow`],
     ['weekly', 'Weekly goals', `${goalsDone} of 3 done`],
@@ -127,6 +128,12 @@ function Profile({ onClose, onOpen, onSheet }) {
           <div><b>{totals.goalsFor || 0}</b><span>Goals</span></div>
           <div><b>{badges}</b><span>Badges</span></div>
         </div>
+        {cups.length > 0 && (
+          <div className="corner-cups" aria-label={`Weekly Cups won: ${cups.length}`}>
+            <span><Icon name="trophy" size={14} /> Cups won <b>{cups.length}</b></span>
+            <ul>{cups.slice(0, 8).map((c) => <li key={c.key} title={`${c.name} · ${c.key}`}><CapPreview config={CUP_CAPS.find((x) => x.name === c.name) || kit} size={34} /></li>)}</ul>
+          </div>
+        )}
         <nav className="corner-rows">
           {rows.map(([k, title, sub]) => (
             <button key={k} onClick={() => { playMenuNavigate(); if (k === 'daily' || k === 'weekly') onSheet(k); else onOpen(k) }}><b>{title}</b><small>{sub}</small><Icon name="next" size={16} /></button>

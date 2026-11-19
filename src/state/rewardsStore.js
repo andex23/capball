@@ -6,14 +6,15 @@
 import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { platformHooks } from '../platformHooks'
-import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WEEK_BONUS } from '../game/rewards'
+import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WEEK_BONUS, CUP_CAPS } from '../game/rewards'
+import { CUP_PRIZE } from '../game/weeklyCup'
 import { money } from '../game/squad'
 import { dayKey } from '../game/daily'
 import { useCareerStore } from './careerStore'
 import { isSignedIn, useAccountStore } from './accountStore'
 
 export const REWARDS_KEY = 'capball:rewards:v1'
-const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [] }
+const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [], cups: [] }
 
 function clean(raw) {
   const r = raw && typeof raw === 'object' ? raw : {}
@@ -25,6 +26,8 @@ function clean(raw) {
     bank: Number.isFinite(r.bank) && r.bank > 0 ? Math.round(r.bank) : 0,
     // What the bell shows: { id, title, text, date }
     news: Array.isArray(r.news) ? r.news.filter((n) => n && typeof n.id === 'string').slice(0, 30) : [],
+    // Weekly Cups won: { key (week), name, date }
+    cups: Array.isArray(r.cups) ? r.cups.filter((c) => c && typeof c.key === 'string' && typeof c.name === 'string').slice(0, 200).map((c) => ({ key: c.key.slice(0, 10), name: c.name.slice(0, 24), id: typeof c.id === 'string' ? c.id.slice(0, 40) : null, date: String(c.date || '').slice(0, 10) })) : [],
   }
 }
 
@@ -44,8 +47,8 @@ export const useRewardsStore = create((set, get) => ({
 
   _save(next) {
     set(next)
-    const { daily, week, caps, bank, scouts, news } = get()
-    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, scouts, news })) } catch { /* blocked */ }
+    const { daily, week, caps, bank, scouts, news, cups } = get()
+    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, scouts, news, cups })) } catch { /* blocked */ }
   },
 
   /** Today's reward: { day, ready, reward }. */
@@ -78,6 +81,19 @@ export const useRewardsStore = create((set, get) => ({
     get()._save(s)
     useAccountStore.getState().save()
     return got
+  },
+
+  /** You won this week's cup: the prize money and the cup's cap, once a week. */
+  winCup(weekly, now = new Date()) {
+    if (!isSignedIn() || !weekly?.key || get().cups.some((c) => c.key === weekly.key)) return false
+    const cap = CUP_CAPS.find((c) => c.name === weekly.name)
+    const today = dayKey(now)
+    let s = { ...get(), cups: [{ key: weekly.key, name: weekly.name, id: weekly.id || null, date: today }, ...get().cups].slice(0, 200) }
+    if (cap && !s.caps.includes(cap.key)) s.caps = [...s.caps, cap.key]
+    s = pay(CUP_PRIZE, s)
+    s.news = [{ id: `cup:${weekly.key}`, title: `You won the ${weekly.name}!`, text: `+${money(CUP_PRIZE)} and the ${weekly.name} cap. Pick it in Edit team.`, cap: cap?.key, coins: CUP_PRIZE, date: today }, ...s.news].slice(0, 30)
+    get()._save(s)
+    return true
   },
 
   /**
