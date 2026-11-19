@@ -23,7 +23,7 @@ import { isLagos } from '../platform'
 import { snapshotBodies, createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick, applyCapMasses } from '../physics/PhysicsWorld'
 import { massScale } from '../game/squad'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
-import { useMatchStore, PHASE, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
+import { useMatchStore, PHASE, SCREEN, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { teamHomeDir } from '../game/rules'
 
 /** The number on a cap's shirt: the team's own, else the default squad number. */
@@ -453,14 +453,19 @@ export default function Scene() {
     clearTimeout(timers.current.wait)
     if (rebuilds.current >= MAX_REBUILDS) { setState('dead'); globalThis.__counterballCount?.('pitch_dead'); return }
     rebuilds.current++
+    current.current = null // the old canvas is on its way out
     // Keep every cap where it is: the new scene lays out a fresh world, then restores these
     if (isAuthority(useMatchStore.getState())) { const snap = snapshotBodies(); if (Object.keys(snap).length) setPendingBodies(snap) }
     setState('lost')
     setGen((g) => g + 1)
   }, [])
 
+  const current = useRef(null)
   const watch = useCallback((canvas) => {
+    current.current = canvas
     const onLost = (e) => {
+      // Not a real loss: an old canvas being put away (a rebuild), or the match closing
+      if (canvas !== current.current || useMatchStore.getState().screen !== SCREEN.PLAYING) return
       e.preventDefault() // lets the phone give it back
       globalThis.__counterballCount?.('pitch_lost')
       setState('lost')

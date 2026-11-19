@@ -36,6 +36,10 @@ import { useLagosStore } from '../lagos/lagosStore'
 const PAGE_TITLES = { main: 'Main menu', play: 'Quick match', tournament: 'Tournament', options: 'Options' }
 const DIFFICULTIES = ['easy', 'medium', 'hard']
 
+// Matches against other Lagos Life players: hidden until Lagos Life switches them
+// on for Counterball (every try was answered 'not available')
+const LAGOS_PLAYERS = false
+
 // The title card shows once per visit; coming back from a match goes straight to the menu
 let pressedStart = false
 /** The splash screen is the title card: once it's been tapped, go straight to the menu. */
@@ -115,7 +119,7 @@ export default function MenuScreen() {
   const PAGES = {
     main: [
       // Something saved shows on its own button; the choice to carry on or start again is one tap in
-      { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? 'Computer, Lagos players or one phone' : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
+      { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? (LAGOS_PLAYERS ? 'Computer, Lagos players or one phone' : 'Computer or two on one phone') : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
@@ -125,7 +129,7 @@ export default function MenuScreen() {
     ],
     play: lagos ? [
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
-      { key: 'online', title: 'Vs Lagos Players', sub: 'Another Lagos Life player · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
+      ...(LAGOS_PLAYERS ? [{ key: 'online', title: 'Vs Lagos Players', sub: 'Another Lagos Life player · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } }] : []),
       ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
       { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
       back,
