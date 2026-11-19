@@ -10,6 +10,8 @@
  *  - Lagos Life exclusives: full-bleed pictures of Lagos
  */
 
+import { WEEK_CAPS } from './rewards.js'
+
 const COND = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif'
 const SANS = 'Inter, "Helvetica Neue", Arial, sans-serif'
 const PAPER = '#F3EBD8' // printed white on tin is never pure white
@@ -435,6 +437,217 @@ const ART = {
     ring(ctx, 95, 3, '#D4AF37')
   },
 }
+
+/* ── Weekly Cup winners' medals: enamel field, gold rim, a street emblem, the cup's name on a ribbon ── */
+
+const GOLD = ['#FFF3B0', '#D4AF37', '#FFE58A', '#A27C1B']
+
+function medal(ctx, field, deep, emblem, name) {
+  disc(ctx, 100, metal(ctx, 100, GOLD))
+  disc(ctx, 88, deep)
+  const f = ctx.createRadialGradient(-26, -30, 8, 0, 0, 86); f.addColorStop(0, field); f.addColorStop(1, deep)
+  disc(ctx, 84, f)
+  dotRing(ctx, 93, 36, 1.7, '#7A5A10')
+  // a little star at the top, like a medal hanger
+  starPath(ctx, 0, -70, 9, 4); ctx.fillStyle = metal(ctx, 10, GOLD); ctx.fill()
+  ctx.save(); emblem(ctx); ctx.restore()
+  banner(ctx, 50, 132, 24, metal(ctx, 60, GOLD), '#8A6A14', name, '#2A1C02', 15)
+}
+
+const EMBLEMS = {
+  // a street-name sign on a post
+  area(ctx) {
+    ctx.fillStyle = '#C9D0D6'; ctx.fillRect(-26, -30, 6, 68)
+    ctx.fillStyle = '#1B5E20'; ctx.fillRect(-54, -50, 88, 28); ctx.lineWidth = 3; ctx.strokeStyle = PAPER; ctx.strokeRect(-50, -46, 80, 20)
+    text(ctx, 'AREA', -10, -36, { size: 19, color: PAPER, spacing: 2 })
+    ball(ctx, 24, 10, 16)
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(24, 30, 14, 3.5, 0, 0, Math.PI * 2); ctx.fill()
+  },
+  // a road running away with lane markings and a street light
+  street(ctx) {
+    ctx.fillStyle = '#2B2F33'; ctx.beginPath(); ctx.moveTo(-14, -52); ctx.lineTo(14, -52); ctx.lineTo(56, 36); ctx.lineTo(-56, 36); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#FFD54F'; for (let i = 0; i < 4; i++) { const y = -44 + i * 21; const w = 2 + i * 1.6; ctx.fillRect(-w / 2, y, w, 10 + i * 2) }
+    ctx.strokeStyle = '#C9D0D6'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(44, 30); ctx.lineTo(44, -40); ctx.lineTo(28, -46); ctx.stroke()
+    ctx.fillStyle = '#FFF3B0'; ctx.beginPath(); ctx.arc(26, -42, 6, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = 'rgba(255,243,176,0.22)'; ctx.beginPath(); ctx.moveTo(22, -38); ctx.lineTo(30, -38); ctx.lineTo(40, 30); ctx.lineTo(0, 30); ctx.closePath(); ctx.fill()
+    ball(ctx, -14, 18, 9)
+  },
+  // crossroads seen from above, a ball in the middle
+  junction(ctx) {
+    ctx.fillStyle = '#2B2F33'; ctx.fillRect(-18, -60, 36, 100); ctx.fillRect(-64, -28, 128, 36)
+    ctx.fillStyle = PAPER; for (let i = -3; i <= 3; i++) { ctx.fillRect(i * 7 - 2, -36, 4, 8); ctx.fillRect(i * 7 - 2, 8, 4, 8) }
+    ctx.fillStyle = '#FFD54F'; ctx.fillRect(-60, -11, 34, 3); ctx.fillRect(26, -11, 34, 3); ctx.fillRect(-1.5, -58, 3, 20); ctx.fillRect(-1.5, 18, 3, 20)
+    ball(ctx, 0, -10, 10)
+  },
+  // a row of estate houses behind a gate
+  estate(ctx) {
+    for (const [x, c] of [[-40, '#EF6C00'], [0, '#C62828'], [40, '#1565C0']]) {
+      ctx.fillStyle = PAPER; ctx.fillRect(x - 17, -22, 34, 30)
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x - 21, -22); ctx.lineTo(x, -44); ctx.lineTo(x + 21, -22); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#3E2723'; ctx.fillRect(x - 5, -6, 10, 14)
+    }
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-62, 30); ctx.lineTo(62, 30); ctx.moveTo(-62, 14); ctx.lineTo(62, 14); ctx.stroke()
+    for (let x = -60; x <= 60; x += 10) { ctx.beginPath(); ctx.moveTo(x, 34); ctx.lineTo(x, 8); ctx.lineTo(x + 2, 5); ctx.stroke() }
+  },
+  // a sandy compound with two-stone goalposts
+  compound(ctx) {
+    ctx.fillStyle = '#D7A86E'; ctx.beginPath(); ctx.ellipse(0, 6, 64, 34, 0, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = PAPER; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 6, 64, 34, 0, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, -28); ctx.lineTo(0, 40); ctx.stroke()
+    for (const x of [-52, 52]) for (const y of [-6, 18]) { ctx.beginPath(); ctx.ellipse(x, y, 6, 4, 0, 0, Math.PI * 2); ctx.fillStyle = '#6D6D6D'; ctx.fill() }
+    ball(ctx, 14, 0, 9)
+    ctx.fillStyle = '#2E7D32'; ctx.beginPath(); ctx.arc(-34, -38, 16, 0, Math.PI * 2); ctx.arc(-20, -44, 12, 0, Math.PI * 2); ctx.fill()
+  },
+  // a bus-stop sign
+  busstop(ctx) {
+    ctx.fillStyle = '#C9D0D6'; ctx.fillRect(-4, -10, 8, 54)
+    ctx.beginPath(); ctx.arc(0, -26, 34, 0, Math.PI * 2); ctx.fillStyle = '#FFC400'; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = '#111'; ctx.stroke()
+    // a danfo, side on
+    ctx.fillStyle = '#111'; ctx.fillRect(-22, -46, 44, 20); ctx.fillStyle = '#FFC400'; ctx.fillRect(-20, -44, 40, 9)
+    ctx.fillStyle = '#111'; for (const x of [-12, 12]) { ctx.beginPath(); ctx.arc(x, -24, 5, 0, Math.PI * 2); ctx.fill() }
+    text(ctx, 'BUS STOP', 0, -4, { size: 10, font: SANS, weight: 800, color: '#111', maxW: 46 })
+  },
+  // a corner flag in the turf
+  corner(ctx) {
+    ctx.fillStyle = '#2E7D32'; ctx.beginPath(); ctx.moveTo(-70, 40); ctx.lineTo(70, 40); ctx.lineTo(70, 10); ctx.lineTo(-70, 10); ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = PAPER; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-10, 40, 34, -Math.PI / 2 + 0.25, 0); ctx.stroke()
+    ctx.fillStyle = PAPER; ctx.fillRect(-14, -56, 5, 92)
+    ctx.fillStyle = '#E53935'; ctx.beginPath(); ctx.moveTo(-9, -56); ctx.lineTo(36, -44); ctx.lineTo(-9, -30); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#FFD54F'; ctx.beginPath(); ctx.moveTo(-9, -48); ctx.lineTo(16, -43); ctx.lineTo(-9, -38); ctx.closePath(); ctx.fill()
+  },
+  // a zinc fence, a ball over it
+  backyard(ctx) {
+    for (let i = -4; i <= 3; i++) { ctx.fillStyle = i % 2 ? '#90A4AE' : '#B0BEC5'; ctx.fillRect(i * 16, -14, 16, 54); ctx.fillStyle = 'rgba(0,0,0,0.18)'; for (let k = 0; k < 4; k++) ctx.fillRect(i * 16 + 2 + k * 4, -14, 1.5, 54) }
+    ctx.fillStyle = '#6D4C41'; for (const x of [-56, 0, 50]) { ctx.beginPath(); ctx.arc(x, -6, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(x, 28, 2.5, 0, Math.PI * 2); ctx.fill() }
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.moveTo(-50, 0); ctx.quadraticCurveTo(-10, -70, 26, -40); ctx.stroke(); ctx.setLineDash([])
+    ball(ctx, 30, -36, 12)
+  },
+}
+
+function ball(ctx, x, y, r) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = '#FAFAFA'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#111'; ctx.stroke()
+  ctx.fillStyle = '#111'; ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; ctx.lineTo(x + Math.cos(a) * r * 0.42, y + Math.sin(a) * r * 0.42) } ctx.fill()
+}
+
+/** One medal per Weekly Cup, in the order of WEEKLY_CUPS (rewards.js). */
+export const CUP_MEDALS = [
+  ['area', '#2E7D32', '#0B3D1E', 'AREA CUP'],
+  ['street', '#37474F', '#101820', 'STREET CUP'],
+  ['junction', '#C62828', '#4A0A0A', 'JUNCTION CUP'],
+  ['estate', '#1565C0', '#08254F', 'ESTATE CUP'],
+  ['compound', '#6D4C41', '#2A1A12', 'COMPOUND CUP'],
+  ['busstop', '#F9A825', '#5A3A00', 'BUS STOP CUP'],
+  ['corner', '#00838F', '#00353B', 'CORNER CUP'],
+  ['backyard', '#5E35B1', '#1E0E45', 'BACKYARD CUP'],
+]
+CUP_MEDALS.forEach(([emblem, field, deep, name], i) => {
+  ART[`cup-${i + 1}`] = (ctx, w = {}) => medal(ctx, field, deep, EMBLEMS[emblem], w.main || name)
+})
+
+/* ── Mystery caps (day-7 rewards): little pictures, full bleed ── */
+
+function sky(ctx, stops) {
+  const g = ctx.createLinearGradient(0, -100, 0, 100)
+  stops.forEach(([t, c]) => g.addColorStop(t, c))
+  disc(ctx, 100, g)
+}
+
+Object.assign(ART, {
+  'mystery-sunset'(ctx) {
+    sky(ctx, [[0, '#3A0E4A'], [0.45, '#E65100'], [0.62, '#FFB74D'], [0.63, '#1A0F2E'], [1, '#2A1238']])
+    const sun = ctx.createRadialGradient(0, 24, 4, 0, 24, 60); sun.addColorStop(0, '#FFF3B0'); sun.addColorStop(1, 'rgba(255,183,77,0)')
+    disc(ctx, 100, sun)
+    ctx.save(); ctx.beginPath(); ctx.rect(-100, -100, 200, 126); ctx.clip(); ctx.beginPath(); ctx.arc(0, 26, 34, 0, Math.PI * 2); ctx.fillStyle = '#FFD54F'; ctx.fill(); ctx.restore()
+    ctx.fillStyle = '#1A0F2E'
+    // palm trees
+    for (const [x, h, s] of [[-58, 70, -1], [62, 58, 1]]) {
+      ctx.save(); ctx.strokeStyle = '#1A0F2E'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x, 30); ctx.quadraticCurveTo(x + s * 10, 30 - h / 2, x + s * 4, 30 - h); ctx.stroke()
+      for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + (k - 2) * 0.6; ctx.beginPath(); ctx.ellipse(x + s * 4 + Math.cos(a) * 16, 30 - h + Math.sin(a) * 10 + 8, 18, 5, a, 0, Math.PI * 2); ctx.fill() }
+      ctx.restore()
+    }
+    ctx.strokeStyle = 'rgba(255,213,79,0.6)'; ctx.lineWidth = 2
+    for (let i = 0; i < 5; i++) { const y = 36 + i * 9; const w = 34 - i * 5; ctx.beginPath(); ctx.moveTo(-w, y); ctx.lineTo(w, y); ctx.stroke() }
+  },
+  'mystery-midnight'(ctx) {
+    sky(ctx, [[0, '#020617'], [1, '#0D1B4C']])
+    for (let i = 0; i < 46; i++) { const x = Math.sin(i * 12.9) * 92; const y = Math.cos(i * 7.3) * 92; const r = i % 7 === 0 ? 1.8 : 0.9; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = '#E3E9FF'; ctx.fill() }
+    // crescent moon
+    ctx.beginPath(); ctx.arc(-10, -14, 40, 0, Math.PI * 2); ctx.fillStyle = '#F5E9B8'; ctx.fill()
+    ctx.beginPath(); ctx.arc(8, -26, 36, 0, Math.PI * 2); ctx.fillStyle = '#0A1336'; ctx.fill()
+    starPath(ctx, 40, 22, 10, 4); ctx.fillStyle = '#9FB4FF'; ctx.fill()
+    ring(ctx, 92, 2, '#9FB4FF')
+  },
+  'mystery-jungle'(ctx) {
+    disc(ctx, 100, '#0E3B16')
+    const leaf = (x, y, a, l, c) => { ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(l * 0.5, -l * 0.35, l, 0); ctx.quadraticCurveTo(l * 0.5, l * 0.35, 0, 0); ctx.fillStyle = c; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(l - 4, 0); ctx.stroke(); ctx.restore() }
+    for (let i = 0; i < 14; i++) leaf(Math.sin(i * 2.3) * 70, Math.cos(i * 1.7) * 70, i * 0.9, 60 + (i % 3) * 14, i % 2 ? '#2E7D32' : '#1B5E20')
+    // a toucan-bright flower in the middle
+    for (let k = 0; k < 6; k++) { ctx.save(); ctx.rotate(k * Math.PI / 3); ctx.beginPath(); ctx.ellipse(0, -18, 10, 18, 0, 0, Math.PI * 2); ctx.fillStyle = '#C6FF00'; ctx.fill(); ctx.restore() }
+    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fillStyle = '#FF6D00'; ctx.fill()
+  },
+  'mystery-ruby'(ctx) {
+    disc(ctx, 100, '#3A0614')
+    for (let i = 0; i < 12; i++) { ctx.save(); ctx.rotate(i * Math.PI / 6); ctx.fillStyle = i % 2 ? 'rgba(255,214,222,0.08)' : 'rgba(255,214,222,0.16)'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-27, -100); ctx.lineTo(27, -100); ctx.closePath(); ctx.fill(); ctx.restore() }
+    // a cut gem
+    const pts = [[-46, -18], [-26, -42], [26, -42], [46, -18], [0, 50]]
+    ctx.beginPath(); pts.forEach(([x, y], i) => ctx[i ? 'lineTo' : 'moveTo'](x, y)); ctx.closePath(); ctx.fillStyle = '#C2185B'; ctx.fill()
+    const facets = [[[-46, -18], [-26, -42], [-14, -18], '#F06292'], [[-14, -18], [-26, -42], [26, -42], '#EC407A'], [[-14, -18], [26, -42], [14, -18], '#F48FB1'], [[14, -18], [26, -42], [46, -18], '#E91E63'], [[-46, -18], [-14, -18], [0, 50], '#AD1457'], [[-14, -18], [14, -18], [0, 50], '#D81B60'], [[14, -18], [46, -18], [0, 50], '#880E4F']]
+    for (const [a, b, c, col] of facets) { ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.lineTo(...c); ctx.closePath(); ctx.fillStyle = col; ctx.fill() }
+    ctx.lineWidth = 2; ctx.strokeStyle = '#FFD6DE'; ctx.beginPath(); pts.forEach(([x, y], i) => ctx[i ? 'lineTo' : 'moveTo'](x, y)); ctx.closePath(); ctx.stroke()
+    starPath(ctx, -22, -30, 7, 2, 4, 0); ctx.fillStyle = '#FFFFFF'; ctx.fill()
+  },
+  'mystery-ocean'(ctx) {
+    sky(ctx, [[0, '#B2EBF2'], [0.35, '#4DD0E1'], [0.36, '#006064'], [1, '#00252A']])
+    ctx.save(); ctx.lineWidth = 0
+    for (let row = 0; row < 4; row++) {
+      ctx.beginPath(); const y0 = -24 + row * 26
+      ctx.moveTo(-110, y0 + 20)
+      for (let x = -110; x <= 110; x += 40) { ctx.quadraticCurveTo(x + 10, y0 - 14, x + 20, y0); ctx.quadraticCurveTo(x + 30, y0 + 12, x + 40, y0) }
+      ctx.lineTo(110, 110); ctx.lineTo(-110, 110); ctx.closePath()
+      ctx.fillStyle = ['#00838F', '#006F79', '#005A63', '#00444B'][row]; ctx.fill()
+      ctx.strokeStyle = 'rgba(224,247,250,0.7)'; ctx.lineWidth = 2.5; ctx.stroke()
+    }
+    ctx.restore()
+    // a little sailboat on the horizon
+    ctx.fillStyle = '#E0F7FA'; ctx.beginPath(); ctx.moveTo(20, -66); ctx.lineTo(20, -34); ctx.lineTo(40, -34); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#3E2723'; ctx.fillRect(8, -34, 36, 5)
+  },
+  'mystery-volcano'(ctx) {
+    sky(ctx, [[0, '#2A0E08'], [0.6, '#5D1F0E'], [1, '#2A0E08']])
+    ctx.fillStyle = metal(ctx, 100, ['#6D4C41', '#3E2723', '#5D4037', '#2B1A14']); ctx.beginPath(); ctx.moveTo(-100, 70); ctx.lineTo(-26, -22); ctx.lineTo(26, -22); ctx.lineTo(100, 70); ctx.lineTo(100, 100); ctx.lineTo(-100, 100); ctx.closePath(); ctx.fill()
+    // lava rivers
+    ctx.strokeStyle = '#FF6D00'; ctx.lineWidth = 6; ctx.lineCap = 'round'
+    for (const [a, b] of [[-10, -40], [6, 30], [14, 54]]) { ctx.beginPath(); ctx.moveTo(a * 0.6, -20); ctx.quadraticCurveTo(b * 0.4, 20, b, 80); ctx.stroke() }
+    ctx.strokeStyle = '#FFD54F'; ctx.lineWidth = 2.5
+    for (const [a, b] of [[-10, -40], [6, 30], [14, 54]]) { ctx.beginPath(); ctx.moveTo(a * 0.6, -20); ctx.quadraticCurveTo(b * 0.4, 20, b, 80); ctx.stroke() }
+    // the eruption
+    const g = ctx.createRadialGradient(0, -36, 2, 0, -36, 50); g.addColorStop(0, '#FFF3B0'); g.addColorStop(0.4, '#FF9100'); g.addColorStop(1, 'rgba(255,61,0,0)')
+    disc(ctx, 100, 'rgba(0,0,0,0)'); ctx.beginPath(); ctx.arc(0, -36, 50, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill()
+    ctx.fillStyle = '#FFAB40'; for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.28; ctx.beginPath(); ctx.arc(Math.cos(a) * (36 + (i % 3) * 12), -30 + Math.sin(a) * (36 + (i % 3) * 12), 3.5, 0, Math.PI * 2); ctx.fill() }
+  },
+})
+
+/* ── Weekly-goal caps: a match-ticket stub with the week's number ── */
+
+function ticket(ctx, i, c) {
+  disc(ctx, 100, c.primary)
+  // diagonal stripes in the edge colour, faint
+  ctx.save(); ctx.globalAlpha = 0.14; ctx.strokeStyle = c.edge; ctx.lineWidth = 10
+  for (let x = -200; x <= 200; x += 26) { ctx.beginPath(); ctx.moveTo(x, -100); ctx.lineTo(x + 200, 100); ctx.stroke() }
+  ctx.restore()
+  // the stub
+  ctx.save(); ctx.rotate(-0.12)
+  ctx.beginPath(); ctx.moveTo(-64, -38); ctx.lineTo(64, -38); ctx.lineTo(64, -10); ctx.arc(64, 0, 10, -Math.PI / 2, Math.PI / 2, true); ctx.lineTo(64, 38); ctx.lineTo(-64, 38); ctx.lineTo(-64, 10); ctx.arc(-64, 0, 10, Math.PI / 2, -Math.PI / 2, true); ctx.closePath()
+  ctx.fillStyle = PAPER; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = c.edge; ctx.stroke()
+  ctx.setLineDash([4, 4]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.moveTo(30, -36); ctx.lineTo(30, 36); ctx.stroke(); ctx.setLineDash([])
+  text(ctx, 'WEEK', -18, -18, { size: 13, font: SANS, weight: 800, color: '#222', spacing: 3 })
+  text(ctx, String(i + 1), -18, 12, { size: 46, color: c.primary, stroke: '#111', strokeW: 1.5 })
+  ctx.save(); ctx.translate(44, 0); ctx.rotate(-Math.PI / 2); text(ctx, 'ADMIT ONE', 0, 0, { size: 9, font: SANS, weight: 800, color: '#444', spacing: 1, maxW: 60 }); ctx.restore()
+  ctx.restore()
+  ring(ctx, 93, 3, c.edge)
+}
+
+WEEK_CAPS.forEach((c, i) => { ART[c.key] = (ctx) => ticket(ctx, i, c) })
 
 /**
  * Words printed on the ready-made caps, changeable from the admin console:

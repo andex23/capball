@@ -151,14 +151,14 @@ export const nextMysteryCap = (owned = []) => MYSTERY_CAPS.find((c) => !owned.in
 
 /* ── The Weekly Cup's names and winners' caps (see weeklyCup.js) ── */
 export const WEEKLY_CUPS = [
-  { name: 'Harmattan Cup', cap: { primary: '#C9771E', edge: '#FFE0A3', pattern: 'rays', badge: 'crown' } },
-  { name: 'Eko Cup', cap: { primary: '#0B3D91', edge: '#FFD23F', pattern: 'ring', badge: 'star' } },
-  { name: 'Lagoon Cup', cap: { primary: '#006064', edge: '#B2EBF2', pattern: 'wave', badge: 'crown' } },
-  { name: 'Danfo Cup', cap: { primary: '#F9A825', edge: '#111111', pattern: 'stripe', badge: 'bolt' } },
-  { name: 'Jollof Cup', cap: { primary: '#C62828', edge: '#FFB300', pattern: 'dots', badge: 'flame' } },
-  { name: 'Suya Shield', cap: { primary: '#4E2A12', edge: '#FF8F00', pattern: 'cross', badge: 'shield' } },
-  { name: 'Agege Cup', cap: { primary: '#F5F0E1', edge: '#8D6E63', pattern: 'split', badge: 'crown' } },
-  { name: 'Okada Trophy', cap: { primary: '#2E7D32', edge: '#FFFFFF', pattern: 'rays', badge: 'star' } },
+  { name: 'Area Cup', cap: { primary: '#2E7D32', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
+  { name: 'Street Cup', cap: { primary: '#37474F', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
+  { name: 'Junction Cup', cap: { primary: '#C62828', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
+  { name: 'Estate Cup', cap: { primary: '#1565C0', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
+  { name: 'Compound Cup', cap: { primary: '#6D4C41', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
+  { name: 'Bus Stop Cup', cap: { primary: '#F9A825', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
+  { name: 'Corner Cup', cap: { primary: '#00838F', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
+  { name: 'Backyard Cup', cap: { primary: '#5E35B1', edge: '#D4AF37', pattern: 'ring', badge: 'star' } },
 ]
 /** A winner's cap for each cup (hidden in the picker until won). */
 export const CUP_CAPS = WEEKLY_CUPS.map((c, i) => ({ ...c.cap, key: `cup-${i + 1}`, name: c.name, finish: 'chrome', capText: c.name.split(' ')[0].toUpperCase() }))
