@@ -49,6 +49,9 @@ export function tiedRank(top, i, scoreOf) {
   return ahead + 1
 }
 
+/** Gold, silver and bronze for the top three places (ties share a medal). */
+export const medal = (rank) => ({ 1: 'gold', 2: 'silver', 3: 'bronze' })[rank]
+
 /** The words that run along the pitch-side board: the top five and you. */
 export function tickerItems(board, wins = 0, max = 5) {
   const top = Array.isArray(board?.top) ? board.top : []
@@ -66,7 +69,7 @@ export function LagosTicker({ onOpen }) {
   if (!items.length) return null
   const run = (
     <span className="tk-run">
-      {items.map((x) => <span key={`${x.rank}-${x.name}`}>★ <b>{x.rank} {x.name}</b> {x.wins} {x.wins === 1 ? 'win' : 'wins'}<i>◆</i></span>)}
+      {items.map((x) => <span key={`${x.rank}-${x.name}`} data-medal={medal(x.rank)}><span className="tk-star">★</span> <b>{x.rank} {x.name}</b> {x.wins} {x.wins === 1 ? 'win' : 'wins'}<i>◆</i></span>)}
       {me && <span>You: <b>#{me.rank}</b> · {me.wins} {me.wins === 1 ? 'win' : 'wins'}<i>◆</i></span>}
     </span>
   )
@@ -101,7 +104,7 @@ export function LagosBoard() {
             : (
               <ol className="rankings-list">
                 {top.map((r, i) => (
-                  <li key={`${i}-${r.name}`} data-me={player && r.name === player.name && scoreOf(r) === scoreOf(me) ? 'true' : undefined}>
+                  <li key={`${i}-${r.name}`} data-medal={medal(tiedRank(top, i, scoreOf))} data-me={player && r.name === player.name && scoreOf(r) === scoreOf(me) ? 'true' : undefined}>
                     <span className="rankings-rank">{tiedRank(top, i, scoreOf)}</span>
                     <span className="rankings-name">{r.name}</span>
                     <span className="rankings-num"><b>{scoreOf(r)}</b><small>wins</small></span>
