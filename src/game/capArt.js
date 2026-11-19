@@ -438,20 +438,120 @@ const ART = {
   },
 }
 
-/* ── Weekly Cup winners' medals: enamel field, gold rim, a street emblem, the cup's name on a ribbon ── */
+/* ── Weekly Cup winners' badges: stitched club-crest patches ── */
 
-const GOLD = ['#FFF3B0', '#D4AF37', '#FFE58A', '#A27C1B']
+/** Twill fabric: the patch's base cloth with a fine diagonal weave. */
+function twill(ctx, color, r = 100) {
+  disc(ctx, r, color)
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip()
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1
+  for (let x = -220; x <= 220; x += 3) { ctx.beginPath(); ctx.moveTo(x, -110); ctx.lineTo(x + 110, 110); ctx.stroke() }
+  ctx.strokeStyle = 'rgba(0,0,0,0.07)'
+  for (let x = -220; x <= 220; x += 3) { ctx.beginPath(); ctx.moveTo(x + 1.5, -110); ctx.lineTo(x + 111.5, 110); ctx.stroke() }
+  ctx.restore()
+}
 
-function medal(ctx, field, deep, emblem, name) {
-  disc(ctx, 100, metal(ctx, 100, GOLD))
-  disc(ctx, 88, deep)
-  const f = ctx.createRadialGradient(-26, -30, 8, 0, 0, 86); f.addColorStop(0, field); f.addColorStop(1, deep)
-  disc(ctx, 84, f)
-  dotRing(ctx, 93, 36, 1.7, '#7A5A10')
-  // a little star at the top, like a medal hanger
-  starPath(ctx, 0, -70, 9, 4); ctx.fillStyle = metal(ctx, 10, GOLD); ctx.fill()
-  ctx.save(); emblem(ctx); ctx.restore()
-  banner(ctx, 50, 132, 24, metal(ctx, 60, GOLD), '#8A6A14', name, '#2A1C02', 15)
+/** Satin stitch: fill the current path, then lay thread lines across it at an angle. */
+function satin(ctx, path, color, angle = 0.8, gap = 2.2) {
+  ctx.save(); path(); ctx.fillStyle = color; ctx.fill(); ctx.clip()
+  ctx.rotate(angle); ctx.lineWidth = 0.9
+  for (let x = -160; x <= 160; x += gap) { ctx.strokeStyle = (x / gap) % 2 ? 'rgba(255,255,255,0.13)' : 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.moveTo(x, -160); ctx.lineTo(x, 160); ctx.stroke() }
+  ctx.restore()
+}
+
+/** A running stitch along a path, a few px inside the edge. */
+function stitch(ctx, path, color, w = 1.8, dash = [5, 3.5]) {
+  ctx.save(); path(); ctx.setLineDash(dash); ctx.lineWidth = w; ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.stroke(); ctx.restore()
+}
+
+/** Merrowed edge: the thick overlocked border round a patch. */
+function merrow(ctx, color) {
+  ctx.save()
+  ctx.lineWidth = 9; ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(0, 0, 95, 0, Math.PI * 2); ctx.stroke()
+  ctx.lineWidth = 1.2
+  for (let i = 0; i < 180; i++) {
+    const a = (i / 180) * Math.PI * 2
+    ctx.strokeStyle = i % 2 ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.22)'
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * 90.5, Math.sin(a) * 90.5); ctx.lineTo(Math.cos(a + 0.05) * 99.5, Math.sin(a + 0.05) * 99.5); ctx.stroke()
+  }
+  ctx.restore()
+}
+
+/** Letters round an arc (top of the patch), centred on the top. */
+function arcText(ctx, str, r, { size = 14, color = PAPER, spacing = 1.5, stroke = '#000', strokeW = 3, bottom = false } = {}) {
+  ctx.save()
+  ctx.font = `800 ${size}px ${COND}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  const widths = [...str].map((ch) => ctx.measureText(ch).width + spacing)
+  const total = widths.reduce((a, b) => a + b, 0)
+  let a = (bottom ? Math.PI / 2 : -Math.PI / 2) + (bottom ? 1 : -1) * (total / r) / 2
+  ;[...str].forEach((ch, i) => {
+    const step = widths[i] / r
+    a += (bottom ? -1 : 1) * step / 2
+    ctx.save(); ctx.translate(Math.cos(a) * r, Math.sin(a) * r); ctx.rotate(a + (bottom ? -Math.PI / 2 : Math.PI / 2))
+    ctx.lineJoin = 'round'; ctx.lineWidth = strokeW; ctx.strokeStyle = stroke; ctx.strokeText(ch, 0, 0)
+    ctx.fillStyle = color; ctx.fillText(ch, 0, 0); ctx.restore()
+    a += (bottom ? -1 : 1) * step / 2
+  })
+  ctx.restore()
+}
+
+const SHIELDS = {
+  heater: (ctx) => { ctx.beginPath(); ctx.moveTo(-46, -50); ctx.lineTo(46, -50); ctx.lineTo(46, -6); ctx.quadraticCurveTo(44, 36, 0, 58); ctx.quadraticCurveTo(-44, 36, -46, -6); ctx.closePath() },
+  round: (ctx) => { ctx.beginPath(); ctx.arc(0, 2, 52, 0, Math.PI * 2) },
+  pointed: (ctx) => { ctx.beginPath(); ctx.moveTo(-48, -50); ctx.lineTo(-24, -42); ctx.lineTo(0, -54); ctx.lineTo(24, -42); ctx.lineTo(48, -50); ctx.lineTo(44, 10); ctx.lineTo(0, 60); ctx.lineTo(-44, 10); ctx.closePath() },
+  swiss: (ctx) => { ctx.beginPath(); ctx.moveTo(-48, -40); ctx.quadraticCurveTo(-24, -58, 0, -44); ctx.quadraticCurveTo(24, -58, 48, -40); ctx.lineTo(44, 16); ctx.quadraticCurveTo(30, 48, 0, 60); ctx.quadraticCurveTo(-30, 48, -44, 16); ctx.closePath() },
+  octagon: (ctx) => { ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; ctx.lineTo(Math.cos(a) * 54, 2 + Math.sin(a) * 54) } ctx.closePath() },
+}
+
+/** Heraldic splits of the shield in two colours. */
+const SPLITS = {
+  pale: (ctx, b) => { ctx.fillStyle = b; ctx.fillRect(0, -70, 70, 140) },
+  bend: (ctx, b) => { ctx.fillStyle = b; ctx.beginPath(); ctx.moveTo(-70, -70); ctx.lineTo(70, 70); ctx.lineTo(70, -70); ctx.closePath(); ctx.fill() },
+  quarter: (ctx, b) => { ctx.fillStyle = b; ctx.fillRect(0, -70, 70, 70); ctx.fillRect(-70, 0, 70, 70) },
+  hoops: (ctx, b) => { ctx.fillStyle = b; for (let y = -60; y < 70; y += 26) ctx.fillRect(-70, y, 140, 13) },
+  stripes: (ctx, b) => { ctx.fillStyle = b; for (let x = -63; x < 70; x += 21) ctx.fillRect(x, -70, 10.5, 140) },
+  chevron: (ctx, b) => { ctx.fillStyle = b; ctx.beginPath(); ctx.moveTo(-70, 30); ctx.lineTo(0, -16); ctx.lineTo(70, 30); ctx.lineTo(70, 54); ctx.lineTo(0, 8); ctx.lineTo(-70, 54); ctx.closePath(); ctx.fill() },
+  chief: (ctx, b) => { ctx.fillStyle = b; ctx.fillRect(-70, -70, 140, 42) },
+  saltire: (ctx, b) => { ctx.strokeStyle = b; ctx.lineWidth = 18; ctx.beginPath(); ctx.moveTo(-70, -70); ctx.lineTo(70, 70); ctx.moveTo(70, -70); ctx.lineTo(-70, 70); ctx.stroke() },
+}
+
+function crestPatch(ctx, c, w = {}) {
+  const shield = () => SHIELDS[c.shield](ctx)
+  twill(ctx, c.cloth)
+  // the shield: two-colour split in satin stitch, then the emblem on top
+  satin(ctx, shield, c.a, 0.9)
+  ctx.save(); shield(); ctx.clip(); SPLITS[c.split](ctx, c.b)
+  ctx.globalAlpha = 1; ctx.rotate(-0.7); ctx.lineWidth = 0.9
+  for (let x = -160; x <= 160; x += 2.2) { ctx.strokeStyle = (x / 2.2) % 2 ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; ctx.beginPath(); ctx.moveTo(x, -160); ctx.lineTo(x, 160); ctx.stroke() }
+  ctx.restore()
+  // emblem, a little shadow under it like raised thread
+  ctx.save(); ctx.translate(0, 2); ctx.scale(0.62, 0.62)
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowOffsetY = 2.5; ctx.shadowBlur = 2
+  EMBLEMS[c.emblem](ctx)
+  ctx.restore()
+  // thread over the emblem too, so it reads as stitched, not printed
+  ctx.save(); shield(); ctx.clip(); ctx.rotate(0.35); ctx.lineWidth = 0.8
+  for (let x = -160; x <= 160; x += 1.8) { ctx.strokeStyle = (Math.round(x / 1.8)) % 2 ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.09)'; ctx.beginPath(); ctx.moveTo(x, -160); ctx.lineTo(x, 160); ctx.stroke() }
+  ctx.restore()
+  // thick satin border round the shield, with its stitch line
+  ctx.save(); shield(); ctx.lineWidth = 6; ctx.strokeStyle = c.trim; ctx.stroke(); ctx.restore()
+  stitch(ctx, shield, 'rgba(0,0,0,0.45)', 1, [2.5, 2.5])
+  // stars over the shield
+  for (let i = -1; i <= 1; i++) { starPath(ctx, i * 15, -66 + Math.abs(i) * 3, 6, 2.6); ctx.fillStyle = c.trim; ctx.fill(); ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.stroke() }
+  // motto ribbon and the year
+  banner(ctx, 58, 118, 19, c.trim, shadeOf(c.trim), w.sub || c.motto, c.ink, 11.5)
+  text(ctx, 'EST. 2026', 0, 78, { size: 9, font: SANS, weight: 800, color: c.trim, spacing: 2 })
+  // the cup's name round the top, in thread
+  arcText(ctx, w.main || c.name, 80, { size: 15.5, color: c.trim, stroke: 'rgba(0,0,0,0.55)', strokeW: 3, spacing: 1.2 })
+  // merrowed edge and a stitch line inside it
+  merrow(ctx, c.edge)
+  stitch(ctx, () => { ctx.beginPath(); ctx.arc(0, 0, 87, 0, Math.PI * 2) }, c.trim, 1.3, [4, 3])
+}
+
+function shadeOf(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  const f = (v) => Math.max(0, Math.round(v * 0.62))
+  return `rgb(${f(n >> 16)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`
 }
 
 const EMBLEMS = {
@@ -529,20 +629,18 @@ function ball(ctx, x, y, r) {
   ctx.fillStyle = '#111'; ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; ctx.lineTo(x + Math.cos(a) * r * 0.42, y + Math.sin(a) * r * 0.42) } ctx.fill()
 }
 
-/** One medal per Weekly Cup, in the order of WEEKLY_CUPS (rewards.js). */
-export const CUP_MEDALS = [
-  ['area', '#2E7D32', '#0B3D1E', 'AREA CUP'],
-  ['street', '#37474F', '#101820', 'STREET CUP'],
-  ['junction', '#C62828', '#4A0A0A', 'JUNCTION CUP'],
-  ['estate', '#1565C0', '#08254F', 'ESTATE CUP'],
-  ['compound', '#6D4C41', '#2A1A12', 'COMPOUND CUP'],
-  ['busstop', '#F9A825', '#5A3A00', 'BUS STOP CUP'],
-  ['corner', '#00838F', '#00353B', 'CORNER CUP'],
-  ['backyard', '#5E35B1', '#1E0E45', 'BACKYARD CUP'],
+/** One badge per Weekly Cup, in the order of WEEKLY_CUPS (rewards.js). */
+export const CUP_CRESTS = [
+  { name: 'AREA CUP', motto: 'NO SHAKING', emblem: 'area', shield: 'heater', split: 'pale', cloth: '#0E2A17', a: '#1B5E20', b: '#2E7D32', trim: '#F2C14E', edge: '#0A1F10', ink: '#1B1400' },
+  { name: 'STREET CUP', motto: 'EVERY DAY', emblem: 'street', shield: 'pointed', split: 'stripes', cloth: '#14181C', a: '#263238', b: '#37474F', trim: '#FFD54F', edge: '#0B0E11', ink: '#14181C' },
+  { name: 'JUNCTION CUP', motto: 'FOUR WAYS', emblem: 'junction', shield: 'round', split: 'quarter', cloth: '#2A0707', a: '#B71C1C', b: '#7F0000', trim: '#F3EBD8', edge: '#1A0404', ink: '#7F0000' },
+  { name: 'ESTATE CUP', motto: 'BEHIND THE GATE', emblem: 'estate', shield: 'swiss', split: 'chief', cloth: '#071A3A', a: '#0D47A1', b: '#1976D2', trim: '#F2C14E', edge: '#04102A', ink: '#0D2A5C' },
+  { name: 'COMPOUND CUP', motto: 'SAND AND SWEAT', emblem: 'compound', shield: 'heater', split: 'chevron', cloth: '#2A1A10', a: '#4E342E', b: '#8D6E63', trim: '#F3EBD8', edge: '#1A100A', ink: '#3E2723' },
+  { name: 'BUS STOP CUP', motto: 'OYA ENTER', emblem: 'busstop', shield: 'octagon', split: 'hoops', cloth: '#111111', a: '#212121', b: '#F9A825', trim: '#FFC400', edge: '#000000', ink: '#111111' },
+  { name: 'CORNER CUP', motto: 'LAST MINUTE', emblem: 'corner', shield: 'pointed', split: 'bend', cloth: '#012B30', a: '#006064', b: '#00838F', trim: '#FFFFFF', edge: '#001A1D', ink: '#004D52' },
+  { name: 'BACKYARD CUP', motto: 'HOME GROUND', emblem: 'backyard', shield: 'swiss', split: 'saltire', cloth: '#170A33', a: '#4527A0', b: '#7E57C2', trim: '#E1BEE7', edge: '#0E0620', ink: '#311B92' },
 ]
-CUP_MEDALS.forEach(([emblem, field, deep, name], i) => {
-  ART[`cup-${i + 1}`] = (ctx, w = {}) => medal(ctx, field, deep, EMBLEMS[emblem], w.main || name)
-})
+CUP_CRESTS.forEach((c, i) => { ART[`cup-${i + 1}`] = (ctx, w = {}) => crestPatch(ctx, c, w) })
 
 /* ── Mystery caps (day-7 rewards): little pictures, full bleed ── */
 
