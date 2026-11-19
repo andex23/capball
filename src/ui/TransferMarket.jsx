@@ -1,154 +1,207 @@
-import LegendMarket from './LegendMarket'
+/**
+ * The transfer market, as its own page in the career's Market tab: players
+ * first, the club's money and window at the top, simple tabs (For you, Best,
+ * Bargains, Young, Free) and the rest of the filters behind one button. Open a
+ * player for one clear price and three offers.
+ */
 import { useMemo, useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
 import { DIVISIONS } from '../game/career'
-import { transferWindow, squadSize, squadFull, MAX_SQUAD, talksWith, spendingFrozen } from '../game/transfers'
+import { transferWindow, squadSize, squadFull, MAX_SQUAD, talksWith, spendingFrozen, playedThisSeason } from '../game/transfers'
 import { searchMarket, locate, hydrate, askingPrice, willingness, standingOf, STANDING_LABEL, clubOvr, TIER_LABEL, MAX_BIDS } from '../game/world'
 import { wageOf } from '../game/club'
-import { potentialRange, priceOf, money, windowDeadline } from '../game/squad'
+import { potentialRange, money, windowDeadline, ATTRS, ATTR_LABEL, ROLE_LABEL } from '../game/squad'
 import { isScouted, roughPotential, SCOUT_FEE } from '../game/clubLife'
+import { fitFor, offerOptions, tabRows, MARKET_TABS } from '../game/marketFit'
+import { playButtonSelect, playConfirm } from '../audio/SoundManager'
+import LegendMarket from './LegendMarket'
+import Icon from './Icon'
+import Modal from './Modal'
+import { Rating, DIV_SHORT } from './PlayerBits'
+import './market.css'
+
+const PAGE = 25
+const POSITIONS = ['ALL', 'GK', 'DEF', 'MID', 'ATK']
+const SORTS = { ovr: 'Best rated', pot: 'Potential', price: 'Cheapest', age: 'Youngest' }
 
 /** Potential as you know it: exact range once scouted, a rough guess before. */
 const potOf = (career, p) => (isScouted(career, p.id) ? potentialRange(p) : `${roughPotential(p)}?`)
-import { playButtonSelect, playConfirm } from '../audio/SoundManager'
-import Modal from './Modal'
-import Icon from './Icon'
-import { Rating, Attrs, Coins, DIV_SHORT } from './PlayerBits'
 
-const PAGE = 30
-const POSITIONS = ['ALL', 'GK', 'DEF', 'MID', 'ATK']
-const SORTS = { ovr: 'Best OVR', pot: 'Potential', price: 'Cheapest', age: 'Youngest' }
-const AGES = { 0: 'Any age', 21: '21 or under', 24: '24 or under', 28: '28 or under' }
+const DEAL_LINE = {
+  in: (d) => `Signed ${d.name}${d.club ? ` from ${d.club}` : ' on a free'} · ${money(d.fee)}`,
+  out: (d) => `Sold ${d.name} to ${d.club} · ${money(d.fee)}`,
+  released: (d) => `Released ${d.name} · paid ${money(d.fee)}`,
+  loan: (d) => `Loaned ${d.name} to ${d.club}`,
+}
 
-/**
- * The transfer market: every player at every club in the world, and the free
- * agents. Search, open a player, and bid.
- */
-export default function TransferMarket({ career, onClose }) {
-  const [pos, setPos] = useState('ALL')
-  const [level, setLevel] = useState(String(career.level))
-  const [sort, setSort] = useState('ovr')
-  const [maxAge, setMaxAge] = useState('0')
-  const [name, setName] = useState('')
-  const [affordable, setAffordable] = useState(false)
-  const [happyOnly, setHappyOnly] = useState(false)
-  const [listed, setListed] = useState(false)
-  const [shown, setShown] = useState(PAGE)
+export default function TransferMarket({ career }) {
   const [open, setOpen] = useState(null) // player id
+  const [tab, setTab] = useState('forYou')
+  const [pos, setPos] = useState('ALL')
+  const [name, setName] = useState('')
+  const [filters, setFilters] = useState({ level: String(career.level), sort: 'ovr', affordable: false, happyOnly: false, listed: false })
+  const [showFilters, setShowFilters] = useState(false)
+  const [legends, setLegends] = useState(false)
+  const [shown, setShown] = useState(PAGE)
 
   const rows = useMemo(() => {
-    const lv = level === 'all' ? undefined : level === 'free' ? 'free' : Number(level)
-    return searchMarket(career.world, {
-      pos, level: lv, sort, maxAge: Number(maxAge) || undefined, name, listed,
-      maxPrice: affordable ? Math.max(0, career.coins) : undefined, happy: happyOnly,
+    const f = filters
+    // The tabs look across every division (and the free agents); the Division filter narrows the Best tab
+    const lv = tab !== 'best' ? undefined : f.level === 'all' ? undefined : f.level === 'free' ? 'free' : Number(f.level)
+    const base = searchMarket(career.world, {
+      pos, level: lv, sort: tab === 'best' ? f.sort : 'ovr', name, listed: f.listed,
+      maxPrice: f.affordable ? Math.max(0, career.coins) : undefined, happy: f.happyOnly,
     }, career.level, career.rep ?? 0)
-  }, [career.world, career.level, career.rep, career.coins, pos, level, sort, maxAge, name, affordable, happyOnly, listed])
+    return tabRows(career, base, tab)
+  }, [career, pos, name, tab, filters])
 
   const win = transferWindow(career)
+  const played = playedThisSeason(career.league)
   const reset = () => setShown(PAGE)
 
-  if (open) return <PlayerDetail career={career} id={open} onBack={() => setOpen(null)} onClose={onClose} />
+  if (open) return <PlayerPage career={career} id={open} onBack={() => setOpen(null)} />
+
+  const used = Object.entries(filters).filter(([k, v]) => (k === 'level' ? v !== String(career.level) : k === 'sort' ? v !== 'ovr' : v)).length
 
   return (
-    <Modal title="Transfer market" onClose={onClose}>
-      <div className="market-status">
-        <span>Budget <Coins n={career.coins} /></span>
-        <span data-full={squadFull(career) ? 'true' : undefined}>Squad <b>{squadSize(career)}/{MAX_SQUAD}</b></span>
-        <span data-open={win ? 'true' : undefined}>{win ? `Window open · shuts at matchday ${windowDeadline(win.index)}` : 'Window shut'}</span>
+    <section className="tm" aria-label="Transfer market">
+      <div className="tm-strip">
+        <div><small>Budget</small><b className="tm-money">{money(career.coins)}</b></div>
+        <div data-full={squadFull(career) ? 'true' : undefined}><small>Squad</small><b>{squadSize(career)}/{MAX_SQUAD}</b></div>
+        <div data-open={win ? 'true' : undefined}><small>Window</small><b>{win ? `Open · ${windowDeadline(win.index) - played} game${windowDeadline(win.index) - played === 1 ? '' : 's'} left` : 'Shut'}</b></div>
       </div>
       {squadFull(career) && <p className="club-alert" role="status">Your squad is full. Sell, release or loan out a player before you can sign anyone.</p>}
-      {!win && <p className="muted t-note"><Icon name="lock" size={13} /> Players at clubs can only be signed in a transfer window. Free agents can sign any time.</p>}
+      {!win && <p className="tm-note"><Icon name="lock" size={13} /> Players at clubs can only be signed in a transfer window. Free agents can sign any time.</p>}
 
-      <details className="season-details"><summary>Season legends</summary><LegendMarket career={career} /></details>
-      <p className="muted t-note">Players from a higher division don’t want to drop down to the {DIVISIONS[career.level].name}. They’ll come for money: a signing bonus and higher wages (marked ×). The further they drop, the more they want.</p>
-      <div className="market-filters">
+      <div className="tm-search">
         <input className="field" type="search" placeholder="Search a player or club" value={name} onChange={(e) => { setName(e.target.value); reset() }} aria-label="Search a player or club" />
-        <div className="segmented stretch" role="group" aria-label="Position">
-          {POSITIONS.map((p) => <button key={p} aria-pressed={pos === p} onClick={() => { setPos(p); reset() }}>{p === 'ALL' ? 'All' : p}</button>)}
-        </div>
-        <div className="market-selects">
-          <label><span>Division</span>
-            <select className="field" value={level} onChange={(e) => { setLevel(e.target.value); reset() }}>
-              <option value="all">All divisions</option>
-              {DIVISIONS.map((d, i) => <option key={d.name} value={String(i)}>{d.name}</option>)}
-              <option value="free">Free agents</option>
-            </select>
-          </label>
-          <label><span>Sort</span>
-            <select className="field" value={sort} onChange={(e) => { setSort(e.target.value); reset() }}>
-              {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </label>
-          <label><span>Age</span>
-            <select className="field" value={maxAge} onChange={(e) => { setMaxAge(e.target.value); reset() }}>
-              {Object.entries(AGES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </label>
-        </div>
-        <div className="market-checks">
-          <label><input type="checkbox" checked={affordable} onChange={(e) => { setAffordable(e.target.checked); reset() }} /> In my budget</label>
-          <label><input type="checkbox" checked={happyOnly} onChange={(e) => { setHappyOnly(e.target.checked); reset() }} /> No drop-down premium</label>
-          <label><input type="checkbox" checked={listed} onChange={(e) => { setListed(e.target.checked); reset() }} /> Listed and free agents</label>
-        </div>
+        <button className="tm-filter-btn" onClick={() => { playButtonSelect(); setShowFilters(true) }}>Filters{used ? ` · ${used}` : ''}</button>
+      </div>
+      <div className="tm-chips" role="group" aria-label="Position">
+        {POSITIONS.map((p) => <button key={p} aria-pressed={pos === p} onClick={() => { playButtonSelect(); setPos(p); reset() }}>{p === 'ALL' ? 'All' : p}</button>)}
+      </div>
+      <div className="tm-tabs" role="tablist">
+        {Object.entries(MARKET_TABS).map(([k, label]) => (
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => { playButtonSelect(); setTab(k); reset() }}>{label}</button>
+        ))}
       </div>
 
-      <p className="muted t-note market-count">{rows.length} player{rows.length === 1 ? '' : 's'}</p>
-      {rows.length === 0
-        ? <p className="muted t-note">Nobody matches. Try another division, or turn off a filter.</p>
-        : (
-          <ul className="squad-list market-rows">
-            {rows.slice(0, shown).map(({ player: p, club, total, standing, willing }) => (
-              <li key={p.id}>
-                <button className="market-row" onClick={() => { playButtonSelect(); setOpen(p.id) }} data-reluctant={willing.reluctant ? 'true' : undefined}>
-                  <span className="squad-role">{p.pos}</span>
-                  <span className="squad-name">
-                    <span className="squad-name-main">{p.name}</span>
-                    <small className="squad-stats">{club ? `${club.name} · ${DIV_SHORT[club.level]}` : 'Free agent'} · {p.age} · POT {potOf(career, p)}{standing === 'listed' ? ' · listed' : ''}</small>
-                  </span>
-                  <Rating value={p.rating} />
-                  <span className="market-price">{money(total)}{willing.reluctant && <small>×{willing.premium} wages</small>}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      {rows.length > shown && <button className="btn btn-secondary btn-block" onClick={() => setShown((n) => n + PAGE)}>Show more</button>}
-    </Modal>
+      <button className="tm-legends" aria-expanded={legends} onClick={() => { playButtonSelect(); setLegends((v) => !v) }}>
+        <b>★ Legends</b><span>Big names for one season</span><Icon name="next" size={14} />
+      </button>
+      {legends && <div className="tm-legends-body"><LegendMarket career={career} /></div>}
+
+      {tab === 'forYou' && <p className="tm-note">Players who’d start for you, that you can afford, without silly wages. Biggest upgrade first.</p>}
+      {rows.length === 0 ? (
+        <p className="tm-note tm-empty">{tab === 'forYou' ? 'Nobody you can afford would start for you right now. Try Bargains or Free.' : 'Nobody matches. Try another tab, or change a filter.'}</p>
+      ) : (
+        <ul className="tm-list">
+          {rows.slice(0, shown).map((r) => <PlayerCard key={r.player.id} career={career} row={r} onOpen={() => { playButtonSelect(); setOpen(r.player.id) }} />)}
+        </ul>
+      )}
+      {rows.length > shown && <button className="btn btn-secondary btn-block" onClick={() => setShown((n) => n + PAGE)}>Show more ({rows.length - shown})</button>}
+
+      {(career.deals || []).length > 0 && (
+        <div className="tm-deals">
+          <small>Your recent deals</small>
+          <ul>{career.deals.slice(0, 4).map((d, i) => <li key={i}>{DEAL_LINE[d.type]?.(d)}</li>)}</ul>
+        </div>
+      )}
+
+      {showFilters && (
+        <Modal title="Filters" onClose={() => setShowFilters(false)}>
+          <div className="tm-filters">
+            <label><span>Division (Best tab)</span>
+              <select className="field" value={filters.level} onChange={(e) => { setFilters((f) => ({ ...f, level: e.target.value })); reset() }}>
+                <option value="all">All divisions</option>
+                {DIVISIONS.map((d, i) => <option key={d.name} value={String(i)}>{d.name}</option>)}
+                <option value="free">Free agents</option>
+              </select>
+            </label>
+            <label><span>Sort (Best tab)</span>
+              <select className="field" value={filters.sort} onChange={(e) => { setFilters((f) => ({ ...f, sort: e.target.value })); reset() }}>
+                {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
+            <label className="tm-check"><input type="checkbox" checked={filters.affordable} onChange={(e) => { setFilters((f) => ({ ...f, affordable: e.target.checked })); reset() }} /> Only players in my budget</label>
+            <label className="tm-check"><input type="checkbox" checked={filters.happyOnly} onChange={(e) => { setFilters((f) => ({ ...f, happyOnly: e.target.checked })); reset() }} /> Only players happy to join (no extra pay)</label>
+            <label className="tm-check"><input type="checkbox" checked={filters.listed} onChange={(e) => { setFilters((f) => ({ ...f, listed: e.target.checked })); reset() }} /> Only transfer-listed and free agents</label>
+            <p className="tm-note">Players from a higher division don’t want to drop down to the {DIVISIONS[career.level].name}. They’ll come for a signing bonus and higher wages; the further they drop, the more they want.</p>
+            <button className="btn btn-gold btn-block" onClick={() => setShowFilters(false)}>Show players</button>
+          </div>
+        </Modal>
+      )}
+    </section>
   )
 }
 
-/** One player in the market: who he is, what his club wants, and your bid. */
-function PlayerDetail({ career, id, onBack, onClose }) {
+/** One player in the list: rating, who he is, where he'd fit, and the one price. */
+function PlayerCard({ career, row, onOpen }) {
+  const { player: p, club, total, willing, standing, fit } = row
+  const tooDear = total > Math.max(0, career.coins)
+  return (
+    <li>
+      <button className="tm-card" onClick={onOpen} data-dim={tooDear ? 'true' : undefined}>
+        <Rating value={p.rating} />
+        <span className="tm-card-main">
+          <b>{p.name}</b>
+          <small>{p.pos} · {p.age} · {club ? `${club.name} · ${DIV_SHORT[club.level]}` : 'Free agent'}{standing === 'listed' ? ' · listed' : ''}</small>
+          <span className="tm-tags">
+            {fit && fit.delta > 0 && <span className="tm-tag" data-tone="good">+{fit.delta} on your {ROLE_LABEL[fit.role] || fit.pos}</span>}
+            {!club && <span className="tm-tag" data-tone="good">Free</span>}
+            {p.age <= 21 && <span className="tm-tag">POT {potOf(career, p)}</span>}
+            {willing.reluctant && <span className="tm-tag" data-tone="warn">Wants {willing.premium}× pay to drop down</span>}
+            {tooDear && <span className="tm-tag" data-tone="bad">Over your budget</span>}
+          </span>
+        </span>
+        <span className="tm-price"><b>{money(total)}</b><small>{money(Math.round(wageOf(p) * (willing.premium || 1)))} a game</small></span>
+      </button>
+    </li>
+  )
+}
+
+/** One player: who he is and how he compares with your starter, one clear price, three offers. */
+function PlayerPage({ career, id, onBack }) {
   const where = locate(career.world, id)
   const [result, setResult] = useState(null)
   const p0 = where?.player
   const club = where?.club || null
   const asking = p0 ? askingPrice(p0, club) : 0
-  const step = Math.max(5, Math.round((asking * 0.05) / 5) * 5)
   const talks = talksWith(career, id)
-  const [bid, setBid] = useState(() => talks?.counter ?? (club ? Math.max(5, Math.round((asking * 0.9) / 5) * 5) : asking))
+  const options = offerOptions(asking)
+  const [bid, setBid] = useState(() => talks?.counter ?? options[1].fee)
 
   // Signed: he's left the world
   if (!where) {
     return (
-      <Modal title="Done deal" onClose={onClose}>
-        <p className="t-note">{result?.name || 'He'} has signed and joined your reserves. Bring him into the matchday ten from your squad list.</p>
-        <button className="btn btn-gold btn-block" onClick={onBack}>Back to the market</button>
-      </Modal>
+      <section className="tm tm-player">
+        <button className="tm-back" onClick={onBack}><Icon name="back" size={16} /> Back to the market</button>
+        <div className="tm-done">
+          <b>Done deal!</b>
+          <p>{result?.name || 'He'} has signed and joined your reserves. Bring him into the matchday ten from your squad.</p>
+          <button className="btn btn-gold btn-block" onClick={onBack}>Back to the market</button>
+        </div>
+      </section>
     )
   }
   const hp = hydrate(p0)
   const standing = standingOf(p0, club)
   const willing = willingness(p0, club, career.level, career.rep ?? 0)
+  const fit = fitFor(career, hp)
   const win = transferWindow(career)
   const ended = talks?.ended || (talks?.tries ?? 0) >= MAX_BIDS
+  const fee = club ? bid : asking
+  const totalCost = fee + willing.bonus
+  const wages = Math.round(wageOf(hp) * (willing.premium || 1))
   const blocked = squadFull(career) ? `Your squad is full (${MAX_SQUAD}). Sell, release or loan out a player first.`
-      : club && !win ? 'The transfer window is shut. Come back when it opens.'
-        : spendingFrozen(career) ? 'The board has frozen spending while the club is in the red.'
-          : ended ? `${club?.name || 'His agent'} won’t talk again until the next window.` : null
+    : club && !win ? 'The transfer window is shut. Come back when it opens.'
+      : spendingFrozen(career) ? 'The board has frozen spending while the club is in the red.'
+        : ended ? `${club?.name || 'His agent'} won’t talk again until the next window.` : null
+  const triesLeft = MAX_BIDS - (talks?.tries ?? 0)
+  const mineAttrs = fit?.mine.attrs
 
   const send = () => {
-    const r = useCareerStore.getState().bid(id, bid)
+    const r = useCareerStore.getState().bid(id, fee)
     if (r.verdict === 'accept') playConfirm()
     else playButtonSelect()
     if (r.verdict === 'counter') setBid(r.fee)
@@ -156,71 +209,75 @@ function PlayerDetail({ career, id, onBack, onClose }) {
   }
 
   return (
-    <Modal title={hp.name} onClose={onClose}>
-      <button className="btn btn-ghost market-back" onClick={onBack}><Icon name="back" size={16} /> Back to the search</button>
-      <div className="player-card">
+    <section className="tm tm-player" aria-label={hp.name}>
+      <button className="tm-back" onClick={onBack}><Icon name="back" size={16} /> Back to the market</button>
+      <div className="tm-hero">
         <Rating value={hp.rating} />
-        <div>
-          <p className="player-card-line"><b>{hp.pos}</b> · Age {hp.age} · POT {potOf(career, hp)}</p>
-          <Attrs attrs={hp.attrs} />
-          <p className="muted t-note">
-            {club ? <>{STANDING_LABEL[standing]} at <b>{club.name}</b> ({DIVISIONS[club.level].name}, {TIER_LABEL[club.tier].toLowerCase()}, OVR {clubOvr(club)})</> : 'Free agent: no club, no fee, just a signing-on payment.'}
+        <div className="tm-hero-main">
+          <h2>{hp.name}</h2>
+          <p>{hp.pos} · Age {hp.age} · Potential {potOf(career, hp)}</p>
+          <p className="tm-hero-club">{club ? <>{STANDING_LABEL[standing]} at <b>{club.name}</b> · {DIVISIONS[club.level].name} · {TIER_LABEL[club.tier]?.toLowerCase()} (OVR {clubOvr(club)})</> : 'Free agent: no club, no fee to pay, just his signing-on fee.'}</p>
+        </div>
+        <div className="tm-bars">
+          {ATTRS.map((k) => {
+            const d = mineAttrs ? hp.attrs[k] - (mineAttrs[k] ?? hp.attrs[k]) : 0
+            return (
+              <div key={k} className="tm-bar">
+                <div><span>{ATTR_LABEL[k]}</span><span>{hp.attrs[k]} {d !== 0 && <b data-tone={d > 0 ? 'good' : 'bad'}>{d > 0 ? '+' : '−'}{Math.abs(d)}</b>}</span></div>
+                <i><em style={{ width: `${Math.max(4, Math.min(100, hp.attrs[k]))}%` }} /></i>
+              </div>
+            )
+          })}
+        </div>
+        {fit && (
+          <p className="tm-fit" data-tone={fit.delta > 0 ? 'good' : undefined}>
+            {fit.delta > 0
+              ? <>↑ Better than your {ROLE_LABEL[fit.role] || fit.pos} <b>{fit.mine.name} ({fit.mine.rating})</b>. He’d start.</>
+              : <>Your {ROLE_LABEL[fit.role] || fit.pos} <b>{fit.mine.name}</b> is rated {fit.mine.rating}. He’d be a squad player.</>}
           </p>
-          <p className="muted t-note">Value {money(priceOf(hp))} · Wages {money(wageOf(hp))} a match</p>
-        </div>
+        )}
+        {!isScouted(career, id) && (
+          <button className="tm-scout" disabled={!career.scoutCredits && career.coins < (SCOUT_FEE[career.level] ?? 10)} onClick={() => { playButtonSelect(); useCareerStore.getState().scout(id) }}>
+            {career.scoutCredits ? 'Use a free scout report to see his real potential' : `Scout him to see his real potential · ${money(SCOUT_FEE[career.level] ?? 10)}`}
+          </button>
+        )}
       </div>
 
-      {!isScouted(career, id) && (
-        <div className="market-scout">
-          <p className="muted t-note">His potential is a rough guess until a scout watches him.</p>
-          <button className="btn btn-secondary" disabled={!career.scoutCredits && career.coins < (SCOUT_FEE[career.level] ?? 10)} onClick={() => { playButtonSelect(); useCareerStore.getState().scout(id) }}>{career.scoutCredits ? 'Use free scout report' : 'Scout him · ' + money(SCOUT_FEE[career.level] ?? 10)}</button>
-        </div>
-      )}
-
-      <div className="market-ask">
-        <span>{club ? 'Asking price' : 'Signing-on fee'}</span>
-        <b>{money(asking)}</b>
+      <div className="tm-cost">
+        <div className="tm-cost-big"><span>Total to sign</span><b>{money(totalCost)}</b></div>
+        {club ? <div className="tm-cost-row"><span>Fee to {club.name}</span><span>{money(fee)}</span></div> : <div className="tm-cost-row"><span>His signing-on fee</span><span>{money(asking)}</span></div>}
+        {willing.bonus > 0 && <div className="tm-cost-row"><span>Signing bonus (to drop down)</span><span>{money(willing.bonus)}</span></div>}
+        <div className="tm-cost-row"><span>His wages</span><span>{money(wages)} a game{willing.reluctant ? ` (${willing.premium}×)` : ''}</span></div>
+        <div className="tm-cost-row" data-neg={career.coins - totalCost < 0 ? 'true' : undefined}><span>Budget left after</span><span>{money(career.coins - totalCost)}</span></div>
       </div>
-      {willing.reluctant && (
-        <div className="market-reluctant" role="note">
-          <p>{willing.why}</p>
-          <ul className="club-lines">
-            <li><span>Signing bonus (on top of the fee)</span><b>{money(willing.bonus)}</b></li>
-            <li><span>His wages with you</span><b>{money(Math.round(wageOf(hp) * willing.premium))} a match</b></li>
-          </ul>
-        </div>
-      )}
 
       {blocked ? <p className="club-alert" role="status">{blocked}</p> : (
-        <div className="market-bid">
+        <>
           {club && (
-            <div className="market-stepper">
-              <button className="btn btn-secondary" aria-label="Bid less" onClick={() => setBid((b) => Math.max(5, b - step))}>−</button>
-              <output aria-live="polite">{money(bid)}</output>
-              <button className="btn btn-secondary" aria-label="Bid more" onClick={() => setBid((b) => b + step)}>+</button>
+            <div className="tm-offers" role="group" aria-label="Your offer">
+              {options.map((o) => (
+                <button key={o.key} aria-pressed={bid === o.fee} onClick={() => { playButtonSelect(); setBid(o.fee) }}>
+                  <small>{o.label}</small><b>{money(o.fee)}</b><span data-chance={o.chance}>{o.note}</span>
+                </button>
+              ))}
             </div>
           )}
-          {club && (
-            <div className="market-quick">
-              {[0.8, 0.9, 1].map((f) => {
-                const v = Math.max(5, Math.round((asking * f) / 5) * 5)
-                return <button key={f} className="btn btn-ghost" aria-pressed={bid === v} onClick={() => setBid(v)}>{f === 1 ? 'Asking' : `${Math.round(f * 100)}%`}</button>
-              })}
-            </div>
-          )}
-          <button className="btn btn-gold btn-lg btn-block" disabled={career.coins < bid + willing.bonus} onClick={send}>
-            {club ? `Bid ${money(bid)}` : `Sign for ${money(asking)}`}{willing.bonus ? ` + ${money(willing.bonus)} bonus` : ''}
+          {club && talks?.counter && bid === talks.counter && !options.some((o) => o.fee === bid) && <p className="tm-note">Their price: {money(talks.counter)}.</p>}
+          <button className="btn btn-gold btn-lg btn-block" disabled={career.coins < totalCost} onClick={send}>
+            {club ? `Offer ${money(fee)}` : `Sign him for ${money(asking)}`}{willing.bonus ? ` + bonus` : ''}
           </button>
-          {career.coins < bid + willing.bonus && <p className="muted t-note">That’s more than your budget of {money(career.coins)}.</p>}
-          {club && <p className="muted t-note">Bids left this window: {MAX_BIDS - (talks?.tries ?? 0)}. Clubs accept fair bids, counter low ones and walk away after {MAX_BIDS}.</p>}
-        </div>
+          {career.coins < totalCost && <p className="tm-note">That’s more than your budget of {money(career.coins)}.</p>}
+          {club && (
+            <div className="tm-tries"><span>Offers left this window</span><span className="tm-dots" aria-label={`${triesLeft} of ${MAX_BIDS}`}>{Array.from({ length: MAX_BIDS }, (_, i) => <i key={i} data-used={i >= triesLeft ? 'true' : undefined} />)}</span></div>
+          )}
+        </>
       )}
 
       {result && result.verdict !== 'accept' && (
         <p className="market-verdict" data-verdict={result.verdict} role="status">
-          {result.verdict === 'counter' ? `${club?.name} want ${money(result.fee)}. Your bid is set to that.` : result.why || 'Bid rejected.'}
+          {result.verdict === 'counter' ? `${club?.name} want ${money(result.fee)}. Your offer is set to that.` : result.why || 'Offer turned down.'}
         </p>
       )}
-    </Modal>
+    </section>
   )
 }

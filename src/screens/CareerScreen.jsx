@@ -22,6 +22,7 @@ import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
 import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money } from '../game/squad'
 import LeagueClubs from '../ui/LeagueClubs'
+import TransferMarket from '../ui/TransferMarket'
 import MatchReport from '../ui/MatchReport'
 import CupPage from '../ui/CupPage'
 import { inboxOffers, seasonAwards } from '../game/clubLife'
@@ -627,7 +628,7 @@ export default function CareerScreen() {
               </>}
               {page === 'transfers' && <>
                 <OfferInbox career={career} />
-                <SquadPanel career={career} show="transfers" />
+                <TransferMarket career={career} />
               </>}
               {page === 'youth' && <SquadPanel career={career} show="youth" />}
               {page === 'cup' && <CupPage career={career} myOvr={myOvr} onPlay={(t) => playCareerFixture(career, 'careerCup', t)} />}
