@@ -1,5 +1,5 @@
 import Matter from 'matter-js'
-import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS } from '../data/TeamData.js'
+import { PITCH, CAP_RADIUS, GK_RADIUS, GK_HALF_D, BALL_RADIUS, PHYSICS } from '../data/TeamData.js'
 import { teamHomeDir } from '../game/rules.js'
 
 const { Engine, World, Bodies, Body, Events } = Matter
@@ -263,8 +263,7 @@ export function makeDynamicBody(id, x, y) {
   const isBall = id === 'ball'
   const mass = isBall ? PHYSICS.ballMass : (id.endsWith('_gk') ? PHYSICS.gkMass : PHYSICS.playerMass)
   const r = radiusOf(id)
-  const body = Bodies.polygon(x, y, CIRCLE_SIDES, r, {
-    circleRadius: r,
+  const opts = {
     friction: 0,
     frictionStatic: 0,
     frictionAir: isBall ? 0 : 0.001, // ball has zero air drag, caps have minimal
@@ -272,7 +271,13 @@ export function makeDynamicBody(id, x, y) {
     label: id,
     slop: 0.001,  // very tight — prevents sinking into walls
     collisionFilter: { category: CAT_DEFAULT, mask: CAT_DEFAULT },
-  })
+  }
+  // The keeper stands up: a thin wall across the goal (a capsule along y,
+  // facing the pitch). It never turns (inertia Infinity below), so it always
+  // faces the shooter. No circleRadius: its contacts are Matter's own.
+  const body = id.endsWith('_gk')
+    ? Bodies.rectangle(x, y, 2 * GK_HALF_D, 2 * GK_RADIUS, { ...opts, chamfer: { radius: GK_HALF_D * 0.98, quality: 8 } })
+    : Bodies.polygon(x, y, CIRCLE_SIDES, r, { ...opts, circleRadius: r })
   Body.setMass(body, mass)
   Body.setInertia(body, Infinity) // no rotation — pure translation
   return body
@@ -301,17 +306,19 @@ export function clampBodyMap(bodies, team1Side, diveStop = null) {
 
     // ── GK CONFINEMENT (always active — no physical walls for this) ──
     if (isGk) {
+      // r: half its width along the goal line; rx: half its depth front to back
       const r = GK_RADIUS
+      const rx = GK_HALF_D
       const team = id.startsWith('team1') ? 'team1' : 'team2'
       const homeDir = teamHomeDir(team, team1Side)
       const onLeft = homeDir === -1
       // The keeper may step through his own goalmouth to get behind a
       // ball on the line. The posts and net remain physical boundaries.
-      const behindLine = x * homeDir > halfW - r
+      const behindLine = x * homeDir > halfW - rx
       const goalLane = Math.abs(y) <= goalHalf - r || behindLine
-      const back = goalLane ? backWallX - r : halfW - r
-      const xMin = onLeft ? -back : (halfW - PEN_AREA_W + r)
-      const xMax = onLeft ? (-halfW + PEN_AREA_W - r) : back
+      const back = goalLane ? backWallX - rx : halfW - rx
+      const xMin = onLeft ? -back : (halfW - PEN_AREA_W + rx)
+      const xMax = onLeft ? (-halfW + PEN_AREA_W - rx) : back
       let yMin = -penHalfH + r
       let yMax = penHalfH - r
       if (behindLine) { yMin = -goalHalf + r; yMax = goalHalf - r }

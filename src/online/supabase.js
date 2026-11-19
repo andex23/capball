@@ -7,6 +7,8 @@
  * this device's own secret token.
  */
 
+import { getSaveStorage } from '../utils/playerSave'
+
 const DEFAULT_URL = 'https://tmbittgluvbpuoygrrqb.supabase.co'
 const DEFAULT_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtYml0dGdsdXZicHVveWdycnFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTY0ODUsImV4cCI6MjEwNzAzMjQ4NX0.nSq0jgefoIPderkGoY-x_iFDMLshWRQtSvnwzU0ddkA'
 
@@ -20,7 +22,7 @@ const DEVICE_KEY = 'capball.device'
 let memoryToken = null
 
 /** This device's secret (made once, kept in localStorage). */
-export function deviceToken(storage = typeof localStorage !== 'undefined' ? localStorage : null) {
+export function deviceToken(storage = getSaveStorage()) {
   try {
     const saved = storage?.getItem(DEVICE_KEY)
     if (saved && /^[0-9a-f]{40}$/.test(saved)) return saved

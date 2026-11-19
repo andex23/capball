@@ -7,12 +7,18 @@ import { goalLine, line } from './commentary'
 
 const clean = (s, n = 140) => String(s || '').slice(0, n)
 
-/** The football minute (1–90, 91–120 in extra time) for a moment `t` seconds left in `half`, with halves `dur` seconds long. */
+/** The football minute (1–90, 91–120 in extra time) for a moment `t` seconds left in `half`, with a period of `dur` seconds. */
 export function footballMinute(half, t, dur) {
   const d = dur > 0 ? dur : 120
   const into = Math.max(0, Math.min(1, 1 - (Number.isFinite(t) ? t : d) / d))
   if (half === 3) return Math.min(120, 90 + Math.max(1, Math.round(into * 30))) // extra time
   return Math.max(1, Math.min(90, Math.round(((half === 2 ? 1 : 0) + into) * 45)))
+}
+
+// The engine uses one shorter period for extra time.
+export function eventMinute(event, matchDuration) {
+  const duration = event.half === 3 ? Math.max(30, Math.round(matchDuration * 2 / 3)) : matchDuration
+  return footballMinute(event.half, event.t, duration)
 }
 
 /**
@@ -26,17 +32,20 @@ export function buildStory({ goalLog = [], matchEvents = [], teamConfig, score, 
   const goals = goalLog.filter((g) => !g.shootout)
   goals.forEach((g, i) => {
     running[g.team] += 1
-    const min = footballMinute(g.half, g.t, matchDuration)
+    const min = eventMinute(g, matchDuration)
     const last = i === goals.length - 1
-    const winner = last && running.team1 !== running.team2 && Math.abs(running.team1 - running.team2) === 1 && min >= 80
-    const { line: text } = goalLine({ teamConfig, scorerTeam: g.team, cap: g.cap, own: g.own, score: { ...running }, goalLog: goals.slice(0, i + 1), late: min >= 80, winner, seed: `${seed}:${i}` })
+    const winner = last && running[g.team] > running[g.team === 'team1' ? 'team2' : 'team1'] && Math.abs(running.team1 - running.team2) === 1 && min >= 80
+    const { line: normal } = goalLine({ teamConfig, scorerTeam: g.team, cap: g.cap, playerName: g.playerName, own: g.own, score: { ...running }, goalLog: goals.slice(0, i + 1), late: min >= 80, winner, seed: `${seed}:${i}` })
+    const text = g.fromOwnHalf && !g.own && g.playerName
+      ? g.playerName + ' scores from their own half. ' + running.team1 + '–' + running.team2 + '.'
+      : normal
     out.push({ min, kind: 'goal', team: g.team, text })
   })
   // A few of the chances that didn't go in
   const chances = matchEvents.filter((e) => ['save', 'post', 'block', 'wide'].includes(e.type)).slice(0, 3)
   chances.forEach((e, i) => {
     const team = String(e.cap || '').startsWith('team2') ? 'team2' : 'team1'
-    const min = Number.isInteger(e.half) && Number.isFinite(e.t) ? footballMinute(e.half, e.t, matchDuration) : null
+    const min = Number.isInteger(e.half) && Number.isFinite(e.t) ? eventMinute(e, matchDuration) : null
     out.push({ min, kind: e.type, team, text: line(e.type, { teamConfig, team, cap: e.cap, by: e.by, seed: `${seed}:c${i}` }) })
   })
   // In the order they happened (kick-off first; chances from older saves, with no minute, last)
@@ -57,6 +66,7 @@ export function sanitizeStory(input) {
     min: Number.isInteger(x.min) && x.min >= 1 && x.min <= 120 ? x.min : null,
     kind: typeof x.kind === 'string' ? x.kind.slice(0, 12) : 'note',
     ...(x.team === 'team1' || x.team === 'team2' ? { team: x.team } : {}),
+    ...(typeof x.mine === 'boolean' ? { mine: x.mine } : {}),
     text: clean(x.text),
   }))
 }

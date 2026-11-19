@@ -1,3 +1,4 @@
+import CareerPlayerCap from './CareerPlayerCap'
 import { useState } from 'react'
 import { create } from 'zustand'
 import { useTournamentStore } from '../state/tournamentStore'
@@ -60,8 +61,8 @@ export default function SubsSheet({ onClose }) {
                 const p = byId(playing.lineup[role])
                 return (
                   <li key={role}>
-                    <span className="squad-role">{ROLE_LABEL[role]}</span>
-                    <span className="squad-name"><span className="squad-name-main">{p?.name}</span></span>
+                    <span>{p && <CareerPlayerCap club={career.club} player={p} role={role} size={40} />}</span>
+                    <span className="squad-name"><span className="squad-name-main">{p?.name}</span><small>{ROLE_LABEL[role]}</small></span>
                     <b className="squad-rating">{p ? ovrAt(p, role) : ''}</b>
                     <button className="btn btn-secondary squad-buy" onClick={() => { playButtonSelect(); setError(null); setOff(role) }}>Off</button>
                   </li>
@@ -78,8 +79,8 @@ export default function SubsSheet({ onClose }) {
                 const fits = (off === 'gk') === (p.pos === 'GK')
                 return (
                   <li key={p.id}>
-                    <span className="squad-role">{p.pos}</span>
-                    <span className="squad-name"><span className="squad-name-main">{p.name}</span>{fits && p.pos !== ROLE_LABEL[off] && <small className="squad-stats">plays {ROLE_LABEL[off]} at {ovrAt(p, off)}</small>}</span>
+                    <CareerPlayerCap club={career.club} player={p} size={40} />
+                    <span className="squad-name"><span className="squad-name-main">{p.name}</span><small>{p.pos}</small>{fits && p.pos !== ROLE_LABEL[off] && <small className="squad-stats">plays {ROLE_LABEL[off]} at {ovrAt(p, off)}</small>}</span>
                     <b className="squad-rating">{fits ? ovrAt(p, off) : p.rating}</b>
                     <button className="btn btn-gold squad-buy" disabled={!fits} onClick={() => bringOn(p)}>On</button>
                   </li>

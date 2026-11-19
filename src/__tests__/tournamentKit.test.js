@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { useTournamentStore, initTournamentWatch } from '../state/tournamentStore'
-import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useCareerStore } from '../state/careerStore'
+import { newCareer, careerNext, recordCareerResult, recordCupResult, ME } from '../game/career'
+import { useMatchStore, DEFAULT_TEAM_CONFIG, SCREEN } from '../state/MatchStore'
 import { allFixtures } from '../game/tournament'
 
 describe('tournament kits', () => {
@@ -19,5 +21,22 @@ describe('tournament kits', () => {
     expect(useTournamentStore.getState().playing).toBeNull()
     expect(useMatchStore.getState().teamConfig.team1.name).toBe('Lagos Fizz')
     expect(useMatchStore.getState().teamConfig.team1.primary).toBe('#E53935')
+  })
+
+  it('an away career fixture uses the squad’s cap art, bands, numbers and player prints', () => {
+    let career = newCareer({ name: 'Rail End', art: 'stout', bands: { atk1: 'red' }, numbers: { atk1: 0 } }, { now: 45 })
+    let due = careerNext(career)
+    while (due.fixture.away !== ME) {
+      const record = due.kind === 'cup' ? recordCupResult : recordCareerResult
+      career = record(career, due.fixture.id, { home: 1, away: 0 })
+      due = careerNext(career)
+    }
+    useCareerStore.setState({ career })
+    useTournamentStore.getState().playFixture(due.kind === 'cup' ? 'careerCup' : 'career', due.fixture)
+    const kit = useMatchStore.getState().teamConfig.team2
+    expect(kit.art).toBe('stout')
+    expect(kit.bands.atk1).toBe('red')
+    expect(kit.numbers).toEqual({ ...DEFAULT_TEAM_CONFIG.team1.numbers, atk1: 0 })
+    expect(kit.players.atk1).toBe(career.squad.atk1.name.split(' ').at(-1).slice(0, 12))
   })
 })

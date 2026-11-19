@@ -15,7 +15,7 @@ export function LagosAccount({ formOnly = false }) {
           {status === 'error' ? error : 'Connecting to Lagos Life…'}
         </p>
         {status === 'error' && (
-          <button className="btn btn-primary" onClick={() => { playButtonSelect(); useLagosStore.getState().boot() }}>Try again</button>
+          <button className="btn btn-primary" onClick={() => { playButtonSelect(); window.location.reload() }}>Try again</button>
         )}
       </div>
     )
@@ -33,7 +33,7 @@ export function LagosAccount({ formOnly = false }) {
       </div>
       {!formOnly && (
         <>
-          <p className="muted account-note">Your games, career and records are saved on this phone.</p>
+          <p className="muted account-note">Your career, results and rewards sync to your Lagos Life account.</p>
           <SavedGames />
         </>
       )}

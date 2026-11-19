@@ -22,6 +22,7 @@ import { challengeFor, dayKey } from '../game/daily'
 import { useCareerStore } from '../state/careerStore'
 import { DIVISIONS } from '../game/career'
 import ShopPanel from '../lagos/ShopPanel'
+import MenuCorner from '../ui/MenuCorner'
 import { useLagosStore } from '../lagos/lagosStore'
 
 /**
@@ -80,6 +81,7 @@ export default function MenuScreen() {
   const start = useCallback(() => {
     if (pressedStart) return
     pressedStart = true
+    globalThis.__counterballCount?.('menu')
     playCoinInsert()
     setStarted(true)
   }, [])
@@ -224,6 +226,9 @@ export default function MenuScreen() {
           </footer>
         )}
       </div>
+
+      {/* Top right once past "press start": what's new, and the player's profile */}
+      {started && <MenuCorner onOpen={openDialog} />}
 
       {started && !lagos && <button className="icon-btn iss-share" aria-label="Share game" title="Share game" onClick={() => openDialog('share')}>
         <Icon name="share" size={22} />

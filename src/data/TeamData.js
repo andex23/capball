@@ -17,6 +17,14 @@ export const PITCH = {
 // Cap radii
 export const CAP_RADIUS = 0.75
 export const GK_RADIUS = 1.1 // a bigger frame than outfield caps (1.47x): more of the goal covered
+/* The keeper stands up: a cap bitten top and bottom and stood on its folded
+   foot, facing the pitch. On the table it's a thin wall across the goal,
+   GK_RADIUS either side of its centre and GK_HALF_D deep front to back (a
+   capsule: rounded at both ends). GK_RADIUS is still the reach used for
+   rough checks (is he near the ball, keep the others clear of him). */
+export const GK_HALF_D = 0.3
+/** The keeper as a capsule along the goal line: straight middle of half-length hl, round ends of radius r. */
+export const GK_CAPSULE = { hl: GK_RADIUS - GK_HALF_D, r: GK_HALF_D }
 export const BALL_RADIUS = 0.48 // 0.64x standard
 
 // Physics values — tabletop feel. Tuned together; see the notes on each.

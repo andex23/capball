@@ -1,3 +1,4 @@
+import { MYSTERY_CAPS, WEEK_CAPS } from '../game/rewards.js'
 import { hasArt } from '../game/capArt.js'
 // Cap customisation options shared by the team builder and online validation.
 
@@ -110,6 +111,9 @@ export const RARE_DESIGNS = [
     hint: 'Beat the daily challenge 7 days running', need: (p) => [p.streak, 7] },
   { key: 'royal', name: 'Champion of Champions', primary: '#4A148C', edge: '#FFD700', pattern: 'ring', badge: 'crown', finish: 'chrome', capText: 'ROYAL',
     hint: 'Win the Premier Cap League', need: (p) => [p.titles, 1] },
+  // Won from daily rewards and weekly goals: only shown once you have them
+  ...MYSTERY_CAPS.map((c) => ({ ...c, hidden: true, hint: 'Win it on day 7 of the daily reward', need: (p) => [p.rewardCaps?.includes(c.key) ? 1 : 0, 1] })),
+  ...WEEK_CAPS.map((c) => ({ ...c, hidden: true, hint: 'Finish all three weekly goals', need: (p) => [p.rewardCaps?.includes(c.key) ? 1 : 0, 1] })),
 ]
 
 /** Is a rare design unlocked for this progress? */

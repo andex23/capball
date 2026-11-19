@@ -1,3 +1,4 @@
+import { getSaveStorage as storage } from '../utils/playerSave'
 import { matchVenue } from '../game/club'
 import { anytimeRequest } from './anytimeStore'
 import { isLagos } from '../platform'
@@ -22,9 +23,12 @@ import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '..
 import { careerNext, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
+import { pressBoost } from '../game/careerBrief'
+import { legendById } from '../data/Legends'
+import { reportExtras } from '../game/matchReport'
 import { STADIUMS, finishForName, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import { useCareerStore } from './careerStore'
-import { squadRatings, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
+import { squadRatings, printedSurname, squadSurnames, matchRatings, squadAttrs, ovrAt, massScale, MAX_SUBS } from '../game/squad'
 import { applyCapMasses } from '../physics/PhysicsWorld'
 import { playerOf } from '../game/commentary'
 import { useAchievementStore } from './achievementStore'
@@ -48,9 +52,6 @@ const RECENT_MAX = 10
 // Prefs a tournament fixture borrows, given back afterwards
 const BORROWED = ['stadium', 'tableFinish', 'teamConfig', 'formations', 'gameMode', 'aiTeam', 'aiDifficulty', 'matchDuration', 'goalTarget', 'chosenTeam1Side', 'team1Side']
 
-const storage = () => {
-  try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null }
-}
 
 function load() {
   const empty = { localTransport: 'device', local: null, history: [], recentOnline: [], seenChampions: [], finaleSeen: [] }
@@ -60,7 +61,7 @@ function load() {
     const data = JSON.parse(raw)
     return {
       local: sanitizeTournament(data.local),
-      localTransport: data.localTransport === 'lan' ? 'lan' : 'device',
+      localTransport: data.localTransport === 'lan' && !isLagos() ? 'lan' : 'device',
       history: Array.isArray(data.history) ? data.history.filter((h) => h && typeof h.id === 'string' && h.champion?.name).slice(0, HISTORY_MAX) : [],
       recentOnline: Array.isArray(data.recentOnline)
         ? data.recentOnline.filter((r) => r && /^[A-Z0-9]{6}$/.test(r.code)).slice(0, RECENT_MAX) : [],
@@ -353,12 +354,25 @@ export const useTournamentStore = create((set, get) => ({
     const ratingsOf = (team) => (!career ? null : team.id === 'T1' ? squadRatings(career.squad) : squadRatings(sixOf(team)))
     // ...and each player's attributes: PWR, SHT, PAS and PHY play out on the pitch
     // Your players play at their fitness: a tired player flicks softer and is lighter
-    const tiredSquad = (sq) => Object.fromEntries(Object.entries(sq).map(([r, p]) => [r, { ...p, attrs: matchAttrs(p) }]))
+    const tiredSquad = (sq) => Object.fromEntries(Object.entries(sq).map(([r, p]) => [r, { ...p, attrs: matchAttrs(p, pressBoost(career, p)) }]))
     const attrsOf = (team) => (!career ? null : team.id === 'T1' ? squadAttrs(tiredSquad(career.squad)) : squadAttrs(sixOf(team)))
     // Career: your players' own names go on your caps
     const playersOf = (team) => (!career ? null : squadSurnames(team.id === 'T1' ? career.squad : sixOf(team)))
+    const matchKit = (team, side) => {
+      const own = career && team.id === 'T1'
+      const uniform = own ? { ...team, ...career.club } : team
+      // The manager's club keeps the same shirt numbers at home and away.
+      const kit = kitFor(uniform, own ? 'team1' : side, ratingsOf(team), playersOf(team), attrsOf(team))
+      if (career) {
+        kit.art = uniform.art || ''
+        kit.bands = uniform.bands || {}
+        const six = team.id === 'T1' ? career.squad : sixOf(team)
+        kit.traits = Object.fromEntries(Object.entries(six).filter(([, p]) => legendById(p.id)).map(([role, p]) => [role, legendById(p.id).trait]))
+      }
+      return kit
+    }
     useMatchStore.setState({
-      teamConfig: { team1: kitFor(home, 'team1', ratingsOf(home), playersOf(home), attrsOf(home)), team2: kitFor(away, 'team2', ratingsOf(away), playersOf(away), attrsOf(away)) },
+      teamConfig: { team1: matchKit(home, 'team1'), team2: matchKit(away, 'team2') },
       gameMode: cpuSide ? 'ai' : 'local',
       aiTeam: cpuSide || ms.aiTeam,
       // Career settings can fix the computer's level and the time per half
@@ -403,7 +417,7 @@ export const useTournamentStore = create((set, get) => ({
     const ms = useMatchStore.getState()
     const side = p.fixture.home === 'T1' ? 'team1' : 'team2'
     const cfg = ms.teamConfig[side]
-    const surname = String(incoming.name).trim().split(/\s+/).pop().slice(0, 12)
+    const surname = printedSurname(incoming)
     useMatchStore.setState({
       teamConfig: {
         ...ms.teamConfig,
@@ -411,7 +425,8 @@ export const useTournamentStore = create((set, get) => ({
           ...cfg,
           players: { ...(cfg.players || {}), [role]: surname },
           ratings: { ...(cfg.ratings || {}), [role]: ovrAt(incoming, role) },
-          attrs: { ...(cfg.attrs || {}), [role]: incoming.attrs },
+          attrs: { ...(cfg.attrs || {}), [role]: matchAttrs(incoming, pressBoost(career, incoming)) },
+          traits: { ...(cfg.traits || {}), [role]: legendById(incoming.id)?.trait || null },
         },
       },
     })
@@ -577,7 +592,12 @@ export const useTournamentStore = create((set, get) => ({
         matchDuration: ms.matchDuration, seed: `${p.fixture.id}:${(ms.goalLog || []).length}`, venue: STADIUMS[ms.stadium]?.name || 'table',
         pens: matchResult.penaltyScore || null, extraTime: !!matchResult.afterExtraTime,
       })
-      const perf = { ratings, goalsByRole, story, ...(byPlayer ? { byPlayer } : {}) }
+      // Stats, who was on top when, and the scorers, for the report
+      const goals = (ms.goalLog || []).map((g, i) => ({
+        ...g, sub: (p.subs || []).some((s) => s.goalIdx <= i && g.cap === side + '_' + s.role),
+      }))
+      const extras = reportExtras({ side, goalLog: goals, matchEvents: ms.matchEvents || [], stats: matchResult.stats || ms.stats, teamConfig: ms.teamConfig, matchDuration: ms.matchDuration, extraTime: !!matchResult.afterExtraTime })
+      const perf = { ratings, goalsByRole, story: story.map((event) => event.team ? { ...event, mine: event.team === side } : event), extras, ...(byPlayer ? { byPlayer } : {}) }
       if (p.kind === 'careerCup') useCareerStore.getState().recordCup(p.fixture.id, result, perf)
       else useCareerStore.getState().record(p.fixture.id, result, perf)
       return

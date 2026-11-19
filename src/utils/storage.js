@@ -13,7 +13,8 @@ import { STADIUMS } from '../data/StadiumData'
 import { FORMATIONS } from '../data/TeamData'
 import { AI_DIFFICULTIES, emptyRecords, sanitizeRecords } from '../game/records'
 
-export const STORAGE_KEY = 'capball:v1'
+import { STORAGE_KEY, getSaveStorage as getStorage } from './playerSave'
+export { STORAGE_KEY, getStorage }
 const VERSION = 1
 const MAX_BYTES = 200_000
 
@@ -33,15 +34,6 @@ export const isSyncedPref = (key) => SYNC_KEYS.includes(key)
 const HEX_COLOR = /^#[0-9a-f]{6}$/i
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const unit = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined)
-
-/** localStorage, or null when the browser won't give us one. */
-export function getStorage() {
-  try {
-    return typeof globalThis.localStorage === 'undefined' ? null : globalThis.localStorage
-  } catch {
-    return null
-  }
-}
 
 function sanitizeTeam(team, input) {
   const clean = sanitizeTeamConfig(input)

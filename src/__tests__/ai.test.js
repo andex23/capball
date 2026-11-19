@@ -9,7 +9,7 @@ import { useMatchStore, PHASE, clearMatchTimers } from '../state/MatchStore'
 import { performFlick } from '../game/flick'
 import { PITCH, PHYSICS } from '../data/TeamData'
 import { computeSmartDecision } from '../ai/AIController'
-import { firstHit, readPositions, makeContext, eligibleCaps } from '../ai/planner'
+import { firstHit, readPositions, makeContext, eligibleCaps, towardsOwnGoal } from '../ai/planner'
 
 const initial = useMatchStore.getState()
 const store = () => useMatchStore.getState()
@@ -118,12 +118,11 @@ describe('foul avoidance', () => {
     place('team2_atk1', 4, 0)
   }
 
-  it('the naive (classic) shot would foul here', () => {
+  it.each([1, 2, 3, 4, 5])('easy never picks a path through an opponent either (seed %i)', (seed) => {
     foulTrap()
-    // rng ≈ 1 → easy skips its foul check
-    const naive = computeSmartDecision(AI, 'easy', null, () => 0.99)
-    expect(naive.capId).toBe('team2_atk1')
-    expect(firstHit(readPositions(getBodies()), naive.capId, naive.velocity).kind).toBe('foul')
+    const d = computeSmartDecision(AI, 'easy', null, seeded(seed))
+    expect(d).toBeTruthy()
+    expect(firstHit(readPositions(getBodies()), d.capId, d.velocity)?.kind).not.toBe('foul')
   })
 
   it.each([
@@ -149,10 +148,22 @@ describe('foul avoidance', () => {
     expect(store().foulData).toBeFalsy()
   })
 
-  it('easy sometimes notices the foul and uses another cap', () => {
-    foulTrap()
-    const d = computeSmartDecision(AI, 'easy', null, () => 0.01)
-    expect(firstHit(readPositions(getBodies()), d.capId, d.velocity)?.kind).not.toBe('foul')
+})
+
+describe('easy plays sensibly', () => {
+  // A spread of everyday situations around the pitch, each from several seeds
+  const spots = [[-9, 1.5], [-4, -3], [0, 2], [4, 0], [9, -2], [11, 3], [12, -0.5]]
+  it.each(spots)('plays the ball, and never at its own goal, with the ball at (%s, %s)', (bx, by) => {
+    for (let seed = 1; seed <= 6; seed++) {
+      readyTurn()
+      place('ball', bx, by)
+      const ctx = makeContext({ positions: readPositions(getBodies()), team: AI, team1Side: 'left' })
+      const d = computeSmartDecision(AI, 'easy', null, seeded(seed))
+      expect(d).toBeTruthy()
+      if (d.kind === 'block' || d.kind === 'position' || d.kind === 'keeper') continue
+      expect(firstHit(ctx.positions, d.capId, d.velocity)?.id).toBe('ball')
+      expect(towardsOwnGoal(ctx, d)).toBe(false)
+    }
   })
 })
 
@@ -242,4 +253,55 @@ describe('thinking time', () => {
     console.log('hard decision ms:', times.map((t) => t.toFixed(1)).join(', '))
     expect(Math.max(...times)).toBeLessThan(150)
   })
+})
+
+describe('no own goals', () => {
+  it.each(['left', 'right'])('reads the standing keeper’s flat face with team 1 on the %s', (team1Side) => {
+    const dir = team1Side === 'left' ? 1 : -1
+    const ctx = makeContext({
+      positions: { team2_gk: { x: dir * 9.3, y: 0.25 }, ball: { x: dir * 10.5, y: 1 } },
+      team: AI, team1Side,
+    })
+    // The flat face drives the ball straight down the pitch even when contact is off-centre.
+    expect(towardsOwnGoal(ctx, { capId: 'team2_gk', velocity: { x: dir, y: 0 } })).toBe(true)
+  })
+
+  it.each(['easy', 'medium', 'hard'])('%s declines a forced restart straight into its own goal', (level) => {
+    readyTurn({ freeKickCapId: 'team2_atk1' })
+    isolate('ball', 'team2_atk1')
+    place('team2_gk', 13, -4)
+    place('team2_atk1', 10, 0)
+    place('ball', 13.5, 0)
+    const d = computeSmartDecision(AI, level, 'team2_atk1', () => 0.5)
+    expect(d).toBeNull()
+  })
+
+  // Scrambles in front of the computer's own goal (it defends the right-hand one),
+  // played out in the real world: it must never put the ball in its own net
+  it.each(['easy', 'medium', 'hard'])('%s never scores against itself from a goalmouth scramble', (level) => {
+    let own = 0
+    const seen = []
+    for (let seed = 1; seed <= 40; seed++) {
+      const r = seeded(seed * 7 + 1)
+      clearMatchTimers()
+      useMatchStore.setState(initial, true)
+      useMatchStore.setState({ aiDifficulty: level })
+      createPhysicsWorld()
+      resetToKickoff('team1')
+      readyTurn()
+      for (const id of Object.keys(getBodies())) {
+        if (id === 'ball' || id.endsWith('_gk')) continue
+        place(id, 4 + r() * 10, (r() - 0.5) * 14)
+      }
+      place('ball', 7 + r() * 6.5, (r() - 0.5) * 9)
+      place('team2_gk', 13.9, (r() - 0.5) * 2)
+      for (let k = 0; k < 60; k++) stepPhysics(16 / 3)
+      const d = computeSmartDecision(AI, level, null, r)
+      if (!d) continue // nothing safe on: it holds off rather than risk it
+      const v = play(d, 6000)
+      if (v?.scorer === 'team1') { own++; seen.push(seed) }
+    }
+    expect(seen).toEqual([])
+    expect(own).toBe(0)
+  }, 120000)
 })

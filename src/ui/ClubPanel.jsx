@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
-import { spendingFrozen, DIVISIONS, TOP } from '../game/career'
+import { spendingFrozen, TOP } from '../game/career'
 import { TABLE_FINISHES, resolveFinish, isFinish, DEFAULT_FINISH } from '../data/StadiumData'
 import {
   VENUE, TRAINING, ACADEMY, UPGRADE_COST, TICKETS, ticketPrice, attendance, wageBill, ledgerTotals,
@@ -7,160 +8,171 @@ import {
 } from '../game/club'
 import { money } from '../game/squad'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
+import BoardObjectives from './BoardObjectives'
+import Icon from './Icon'
+import './club.css'
 
-const naira = (n) => money(n / 10_000)
+export const CLUB_PAGES = { sponsor: 'Sponsor', tickets: 'Ticket prices', facilities: 'Facilities', finances: 'Finances' }
 const people = (n) => Math.round(n).toLocaleString('en-NG')
+const price = (n) => '₦' + people(n)
+const signed = (n) => (n > 0 ? '+' : '') + money(n)
+const terms = (offer) => money(offer.amount) + ({ steady: ' per match', win: ' per win', upfront: ' up front' }[offer.kind])
+const matchNet = (match) => match.gate + match.prize + match.sponsor - match.wages
 
-const FACILITY = [
-  { kind: 'stadium', label: 'Venue', levels: VENUE, effect: (l) => `${l.table}, room for ${people(l.seats)} to watch` },
-  { kind: 'training', label: 'Training ground', levels: TRAINING, effect: (l) => (l.xp > 1 ? `Players improve ${Math.round((l.xp - 1) * 100)}% faster` : 'No boost to development') },
-  { kind: 'academy', label: 'Academy', levels: ACADEMY, effect: (l) => `${l.intake} youth player${l.intake === 1 ? '' : 's'} a summer${l.pot > 0 ? `, +${l.pot} potential` : l.pot < 0 ? ', modest potential' : ''}` },
+const FACILITIES = [
+  { key: 'stadium', label: 'Home ground', levels: VENUE, benefit: (now, next) => people(now.seats) + ' → ' + people(next.seats) + ' seats' },
+  { key: 'training', label: 'Training ground', levels: TRAINING, benefit: (now, next) => 'Match experience bonus ' + Math.round((now.xp - 1) * 100) + '% → ' + Math.round((next.xp - 1) * 100) + '%' },
+  { key: 'academy', label: 'Youth academy', levels: ACADEMY, benefit: (now, next) => next.intake + ' recruits each summer' + (next.pot > now.pot ? ' · higher potential' : '') },
 ]
 
-const SPONSOR_KIND = {
-  steady: (a) => `${money(a)} every match`,
-  win: (a) => `${money(a)} for every win`,
-  upfront: (a) => `${money(a)} now, once`,
+function Overview({ career, onOpen }) {
+  const { biz, coins } = career
+  const available = FACILITIES.map(({ key }) => UPGRADE_COST[key][biz[key] + 1]).filter(Number.isFinite)
+  const offers = biz.offers?.length || 0
+  const rows = [
+    ['sponsor', !biz.sponsor && offers ? 'Choose a sponsor' : 'Sponsor', biz.sponsor?.name || (offers ? offers + ' offers' : 'No offers')],
+    ['tickets', 'Ticket prices', price(ticketPrice(career.level, biz.ticket))],
+    ['facilities', 'Upgrade facilities', available.length ? 'From ' + money(Math.min(...available)) : 'Fully upgraded'],
+    ['finances', 'Finances', 'Season ' + career.season],
+  ]
+  return <>
+    <section className="card club-overview" aria-label="Budget and season target">
+      <div className="club-balance"><span>Available budget</span><strong data-negative={coins < 0}>{money(coins)}</strong>
+        {biz.lastMatch && <small>Last match <b>{signed(matchNet(biz.lastMatch))}</b></small>}
+      </div>
+      {spendingFrozen(career) && <p className="club-alert" role="alert">Transfers and upgrades are paused until your balance reaches ₦0.</p>}
+      <BoardObjectives career={career} />
+    </section>
+    <nav className="card club-menu" aria-label="Manage club">
+      {rows.map(([key, label, value]) => <button key={key} onClick={() => onOpen(key)}>
+        <strong>{label}</strong><span>{value}</span><Icon name="next" size={17} />
+      </button>)}
+    </nav>
+  </>
 }
 
-/** The business side of the club: money in and out, the ground, tickets, sponsor and academy. */
-export default function ClubPanel({ career }) {
+function Sponsors({ career }) {
+  const { sponsor, offers } = career.biz
+  if (sponsor) return <div className="club-signed" role="status">
+    <small>Signed for season {career.season}</small><strong>{sponsor.name}</strong>
+    <span>{sponsor.kind === 'upfront' ? money(sponsor.amount) + ' paid on signing' : terms(sponsor)}</span>
+  </div>
+  if (!offers.length) return <p>No offers this season.</p>
+  return <>
+    <p className="club-caption">Choose one deal for this season.</p>
+    <ul className="club-options">{offers.map((offer, i) => <li key={offer.name}>
+      <div><strong>{terms(offer)}</strong><small>{offer.name}</small></div>
+      <button className="btn btn-gold" aria-label={'Sign ' + offer.name} onClick={() => {
+        if (useCareerStore.getState().sponsor(i)) playConfirm()
+      }}>Sign</button>
+    </li>)}</ul>
+  </>
+}
+
+function Tickets({ career }) {
   const biz = career.biz
-  if (!biz) return null
-  const store = useCareerStore.getState()
-  const frozen = spendingFrozen(career)
-  const wages = wageBill(career.squad, career.bench, career.reserves)
+  const venue = VENUE[biz.stadium]
+  return <>
+    <p className="club-caption"><strong>{venue.name}</strong> · {people(venue.seats)} seats</p>
+    <fieldset className="club-prices"><legend>Home ticket price</legend>
+      <div className="club-price-head" aria-hidden="true"><span>Ticket</span><span>Price</span><span>Est. fans</span></div>
+      {Object.entries(TICKETS).map(([key, t]) => <label key={key} data-selected={biz.ticket === key}>
+        <span><input type="radio" name="club-ticket" value={key} checked={biz.ticket === key}
+          onChange={() => { playButtonSelect(); useCareerStore.getState().tickets(key) }} />{t.label}</span>
+        <strong>{price(ticketPrice(career.level, key))}</strong>
+        <span>{people(attendance({ ...biz, ticket: key }))}<span className="sr-only"> estimated fans</span></span>
+      </label>)}
+    </fieldset>
+  </>
+}
+
+function Facilities({ career }) {
+  const [receipt, setReceipt] = useState('')
+  const { biz, coins } = career
+  return <>
+    <p className="club-caption">Available budget <b>{money(coins)}</b></p>
+    {spendingFrozen(career) && <p className="club-alert" role="alert">Upgrades are paused until your balance reaches ₦0.</p>}
+    <ul className="club-options">{FACILITIES.map(({ key, label, levels, benefit }) => {
+      const lv = biz[key]
+      const now = levels[lv]
+      const next = levels[lv + 1]
+      const cost = UPGRADE_COST[key][lv + 1]
+      return <li key={key}><div>
+        <small>{label} · {now.name}</small>
+        {next ? <><strong>{next.name}</strong><span>{benefit(now, next)}</span></> : <strong>Fully upgraded</strong>}
+      </div>
+        {next && <button className="btn btn-secondary" disabled={coins < cost} aria-label={'Build ' + next.name + ' for ' + money(cost)}
+          onClick={() => {
+            if (useCareerStore.getState().build(key)) { playConfirm(); setReceipt(next.name + ' built for ' + money(cost) + '.') }
+          }}>Build {money(cost)}</button>}
+      </li>
+    })}</ul>
+    {receipt && <p className="club-receipt" role="status">{receipt}</p>}
+    {career.level === TOP && <ProTable career={career} />}
+  </>
+}
+
+function ProTable({ career }) {
+  const current = isFinish(career.biz.finish) ? career.biz.finish : DEFAULT_FINISH
+  return <details className="club-detail">
+    <summary>Pro table finish · {resolveFinish(current, career.club).label}</summary>
+    <p className="club-caption">{VENUE[career.biz.stadium].venue === 'capArena' ? 'Used for home matches at Cap Arena.' : 'Takes effect when you build Cap Arena.'}</p>
+    <div className="finish-grid" role="group" aria-label="Pro table finish">
+      {TABLE_FINISHES.map((x) => {
+        const f = resolveFinish(x.id, career.club)
+        return <button key={x.id} className="finish-pick" aria-pressed={x.id === current} data-on={x.id === current}
+          onClick={() => { playButtonSelect(); useCareerStore.getState().tableFinish(x.id) }}>
+          <span className="finish-swatch" aria-hidden="true" style={{ '--c1': f.c1, '--c2': f.c2, '--fline': f.line, '--rail': f.rail, '--trim': f.trim }} />
+          <b>{x.label}</b>
+        </button>
+      })}
+    </div>
+  </details>
+}
+
+function Finances({ career }) {
+  const { biz } = career
   const books = ledgerTotals(biz.ledger)
   const last = biz.lastMatch
-  const lastNet = last ? last.gate + last.sponsor + last.prize - last.wages : null
-  const seats = VENUE[biz.stadium].seats
-
-  return (
-    <section className="card card-pad club-card" aria-label="Club business">
-      <div className="squad-head">
-        <h2 className="saved-h">Club business</h2>
-        <span className="squad-coins squad-naira" data-neg={career.coins < 0 ? 'true' : undefined}>{money(career.coins)}</span>
-      </div>
-
-      <dl className="club-facts">
+  return <>
+    <h3 className="saved-h">Season {career.season}</h3>
+    <dl className="club-ledger">
+      <div><dt>Money in</dt><dd>{money(books.income)}</dd></div>
+      <div><dt>Money out</dt><dd>{money(books.costs)}</dd></div>
+      <div className="club-net"><dt>{books.profit < 0 ? 'Season loss' : 'Season profit'}</dt><dd>{money(Math.abs(books.profit))}</dd></div>
+    </dl>
+    <details className="club-detail"><summary>Season breakdown</summary>
+      <dl className="club-ledger">
+        {[...INCOME, ...COSTS].filter((k) => biz.ledger[k]).map((k) =>
+          <div key={k}><dt>{LEDGER_LABEL[k]}</dt><dd>{signed((COSTS.includes(k) ? -1 : 1) * biz.ledger[k])}</dd></div>)}
+      </dl>
+      {!books.income && !books.costs && <p>No transactions yet.</p>}
+      <p className="club-caption">Bonuses and cup prizes arrive at season end.{TV_MONEY[career.level] ? ' Season TV money is ' + money(TV_MONEY[career.level]) + '.' : ''}</p>
+    </details>
+    {last && <details className="club-detail"><summary>Last match · {signed(matchNet(last))}</summary>
+      <dl className="club-ledger">
+        <div><dt>{last.home ? 'Tickets · ' + people(last.attendance) + ' fans' : 'Tickets · away match'}</dt><dd>{money(last.gate)}</dd></div>
+        <div><dt>Prize money</dt><dd>{money(last.prize)}</dd></div>
+        {last.sponsor > 0 && <div><dt>Sponsor</dt><dd>{money(last.sponsor)}</dd></div>}
+        <div><dt>Wages</dt><dd>{signed(-last.wages)}</dd></div>
+      </dl>
+    </details>}
+    <details className="club-detail"><summary>Club figures</summary>
+      <dl className="club-ledger">
         <div><dt>Fans</dt><dd>{people(biz.fans)}</dd></div>
-        <div><dt>Wage bill</dt><dd>{money(wages)} a match</dd></div>
+        <div><dt>Wages per match</dt><dd>{money(wageBill(career.squad, career.bench, career.reserves))}</dd></div>
         <div><dt>Club value</dt><dd>{money(clubValue(career.squad, career.bench, biz, career.reserves))}</dd></div>
       </dl>
-
-      {frozen && (
-        <p className="club-alert" role="alert">The club is in the red. The board has frozen transfers and building work until the balance is back above zero. Sell a player or win some matches.</p>
-      )}
-
-      {last && (
-        <>
-          <h3 className="squad-sub-h">Last match</h3>
-          <ul className="club-lines">
-            {last.home ? <li><span>Tickets ({people(last.attendance)} came)</span><b>+{money(last.gate)}</b></li> : <li><span>Away match, no ticket money</span><b /></li>}
-            <li><span>Prize money</span><b>+{money(last.prize)}</b></li>
-            {last.sponsor > 0 && <li><span>Sponsor</span><b>+{money(last.sponsor)}</b></li>}
-            <li><span>Wages</span><b data-neg="true">−{money(last.wages)}</b></li>
-            <li className="club-total"><span>Profit</span><b data-neg={lastNet < 0 ? 'true' : undefined}>{lastNet >= 0 ? '+' : ''}{money(lastNet)}</b></li>
-          </ul>
-        </>
-      )}
-
-      <h3 className="squad-sub-h">This season’s books</h3>
-      <ul className="club-lines">
-        {INCOME.filter((k) => biz.ledger[k]).map((k) => <li key={k}><span>{LEDGER_LABEL[k]}</span><b>+{money(biz.ledger[k])}</b></li>)}
-        {COSTS.filter((k) => biz.ledger[k]).map((k) => <li key={k}><span>{LEDGER_LABEL[k]}</span><b data-neg="true">−{money(biz.ledger[k])}</b></li>)}
-        <li className="club-total"><span>Profit so far</span><b data-neg={books.profit < 0 ? 'true' : undefined}>{books.profit >= 0 ? '+' : ''}{money(books.profit)}</b></li>
-      </ul>
-      <p className="muted t-note">Season bonuses and cup prizes are paid at the end. {TV_MONEY[career.level] ? `TV money in the ${DIVISIONS[career.level].name} is ${money(TV_MONEY[career.level])} a season.` : 'There’s no TV money until the division above.'}</p>
-
-      <h3 className="squad-sub-h">Tickets</h3>
-      <div className="club-tickets" role="radiogroup" aria-label="Ticket price">
-        {Object.entries(TICKETS).map(([key, t]) => {
-          const crowd = attendance({ ...biz, ticket: key })
-          return (
-            <button key={key} role="radio" aria-checked={biz.ticket === key} className="club-ticket" data-on={biz.ticket === key ? 'true' : undefined}
-              onClick={() => { playButtonSelect(); store.tickets(key) }}>
-              <b>{t.label}</b>
-              <span>{naira(ticketPrice(career.level, key))}</span>
-              <small>{people(crowd)} / {people(seats)}</small>
-            </button>
-          )
-        })}
-      </div>
-      <p className="muted t-note">Your home venue: <b>{VENUE[biz.stadium].name}</b>, {VENUE[biz.stadium].table.toLowerCase()}, with room for {people(seats)} to watch. Cheaper tickets bring more people in, and more come as you win.</p>
-
-      <ProTable career={career} />
-
-      <h3 className="squad-sub-h">Sponsor</h3>
-      {biz.sponsor ? (
-        <p className="t-note"><b>{biz.sponsor.name}</b> · {SPONSOR_KIND[biz.sponsor.kind](biz.sponsor.amount)}. New offers come in next summer.</p>
-      ) : biz.offers?.length ? (
-        <ul className="squad-list club-offers">
-          {biz.offers.map((o, i) => (
-            <li key={o.name}>
-              <span className="squad-name"><span className="squad-name-main">{o.name}</span><small className="squad-stats">{SPONSOR_KIND[o.kind](o.amount)}</small></span>
-              <button className="btn btn-gold squad-buy" onClick={() => { playConfirm(); store.sponsor(i) }}>Sign</button>
-            </li>
-          ))}
-        </ul>
-      ) : <p className="muted t-note">No sponsor this season.</p>}
-
-      <h3 className="squad-sub-h">Facilities</h3>
-      <ul className="squad-list club-facilities">
-        {FACILITY.map((f) => {
-          const lv = biz[f.kind]
-          const now = f.levels[lv]
-          const nextLv = f.levels[lv + 1]
-          const cost = UPGRADE_COST[f.kind][lv + 1]
-          const can = nextLv && !frozen && career.coins >= cost
-          return (
-            <li key={f.kind}>
-              <span className="squad-name">
-                <span className="squad-name-main">{f.label}: {now.name}</span>
-                <small className="squad-stats">{f.effect(now)}{nextLv ? ` · next: ${nextLv.name}, ${f.effect(nextLv).toLowerCase()}` : ' · fully built'}</small>
-              </span>
-              {nextLv && (
-                <button className="btn btn-secondary squad-buy" disabled={!can} onClick={() => { playConfirm(); store.build(f.kind) }}>
-                  Build {money(cost)}
-                </button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-
-    </section>
-  )
+    </details>
+  </>
 }
 
-/** Top division: choose the table your home matches at Cap Arena are played on. */
-function ProTable({ career }) {
-  const pro = career.level === TOP
-  const current = isFinish(career.biz.finish) ? career.biz.finish : DEFAULT_FINISH
-  const atArena = VENUE[career.biz.stadium]?.venue === 'capArena'
-  return (
-    <>
-      <h3 className="squad-sub-h">Pro table</h3>
-      {!pro ? (
-        <p className="muted t-note">Reach the {DIVISIONS[TOP].name} to choose the finish of your pro table at Cap Arena.</p>
-      ) : (
-        <>
-          <div className="finish-grid" role="radiogroup" aria-label="Pro table finish">
-            {TABLE_FINISHES.map((x) => {
-              const f = resolveFinish(x.id, career.club)
-              return (
-                <button key={x.id} role="radio" aria-checked={current === x.id} className="finish-pick" data-on={current === x.id ? 'true' : undefined}
-                  onClick={() => { playButtonSelect(); useCareerStore.getState().tableFinish(x.id) }}>
-                  <span className="finish-swatch" aria-hidden="true" style={{ '--c1': f.c1, '--c2': f.c2, '--fline': f.line, '--rail': f.rail, '--trim': f.trim }} />
-                  <b>{x.label}</b>
-                  <small>{x.note}</small>
-                </button>
-              )
-            })}
-          </div>
-          <p className="muted t-note">{atArena ? 'Your home matches are played on this table.' : 'Your home matches use it once you build Cap Arena.'} Away teams bring their own.</p>
-        </>
-      )}
-    </>
-  )
+const SECTIONS = { sponsor: Sponsors, tickets: Tickets, facilities: Facilities, finances: Finances }
+
+export default function ClubPanel({ career, page = 'club', onOpen }) {
+  if (!career.biz) return null
+  const Section = SECTIONS[page]
+  return Section
+    ? <section className="card card-pad club-section" aria-label={CLUB_PAGES[page]}><Section career={career} /></section>
+    : <Overview career={career} onOpen={onOpen} />
 }

@@ -3,6 +3,7 @@
  * matches. Both live in localStorage, so a signed-in player's account copies
  * them across phones along with the rest of the save (see accountStore).
  */
+import { getSaveStorage as store } from '../utils/playerSave'
 import { create } from 'zustand'
 import { useMatchStore, SCREEN, PHASE, INPUT_PHASES, clearMatchTimers } from './MatchStore'
 import { useTournamentStore } from './tournamentStore'
@@ -12,6 +13,8 @@ import { isSignedIn } from './accountStore'
 import { useAchievementStore } from './achievementStore'
 import { matchAchievements } from '../game/achievements'
 import { matchLevel } from '../game/records'
+import { weekKey } from '../game/rewards'
+import { useRewardsStore } from './rewardsStore'
 
 export const SAVED_MATCH_KEY = 'capball:savedMatch:v1'
 export const HISTORY_KEY = 'capball:history:v1'
@@ -26,7 +29,6 @@ const MATCH_FIELDS = [
   'team1Side', 'chosenTeam1Side', 'score', 'stats', 'activeTeam', 'lastScorer',
 ]
 
-const store = () => { try { return typeof localStorage !== 'undefined' ? localStorage : null } catch { return null } }
 const read = (key) => { try { const raw = store()?.getItem(key); return raw ? JSON.parse(raw) : null } catch { return null } }
 const write = (key, v) => {
   try { if (v == null) store()?.removeItem(key); else store()?.setItem(key, JSON.stringify(v)) } catch { /* full or blocked */ }
@@ -216,6 +218,17 @@ export function recordHistory(result, mode) {
       write(RIVALS_KEY, rivals)
       useSavedStore.setState({ rivals })
     }
+    // This week's goals
+    const mineCap = (id) => String(id || '').startsWith(`${me}_`)
+    const events = s.matchEvents || []
+    const playing = useTournamentStore.getState().playing
+    useRewardsStore.getState().noteMatch({
+      won, gf: result.score[me], ga: result.score[them],
+      mode: playing?.kind === 'career' || playing?.kind === 'careerCup' ? 'career' : playing ? 'tournament' : s.gameMode,
+      level: s.gameMode === 'ai' ? matchLevel(s) : null,
+      saves: events.filter((e) => e.type === 'save' && mineCap(e.by)).length,
+      posts: events.filter((e) => e.type === 'post' && mineCap(e.cap)).length,
+    })
     const ach = useAchievementStore.getState()
     const { winStreak, tables } = ach.noteMatch({ won, table: s.stadium })
     ach.award(matchAchievements({
@@ -232,15 +245,7 @@ function myTeamFor(s) {
   return null
 }
 
-/** ISO week key for a date, e.g. '2026-W41' (weeks start on Monday). */
-export function weekKey(date = new Date()) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const day = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - day)
-  const year = d.getUTCFullYear()
-  const week = Math.ceil(((d - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7)
-  return `${year}-W${String(week).padStart(2, '0')}`
-}
+export { weekKey }
 
 /** Career totals after one more finished match. Pure, for testing. */
 export function addToCareer(prev, result, me, teamConfig = {}, now = new Date()) {

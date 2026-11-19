@@ -9,7 +9,7 @@ import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick } from '../audio/SoundManager'
 import { haptic } from './haptics'
 import { classifyContact } from '../game/rules'
-import { predictShot, createShot, createPrediction, capBounds, goalFor, ownGoalRisk } from '../game/predict'
+import { predictShot, createShot, createPrediction, capBounds, goalFor, ownGoalRisk, keeperShape } from '../game/predict'
 import { holdCamera } from '../scene/camera'
 
 const DOT_SPACING = 0.5
@@ -316,7 +316,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
     const isGk = capId.endsWith('_gk')
     const capRadius = isGk ? GK_RADIUS : CAP_RADIUS
     shot.x = cx; shot.y = cz
-    shot.r = capRadius
+    shot.r = keeperShape(capId).r
+    shot.hl = keeperShape(capId).hl
     shot.mass = isGk ? PHYSICS.gkMass : PHYSICS.playerMass
     const scale = flickScaleFor(useMatchStore.getState(), capId)
     shot.vx = nx * flickSpeed * scale; shot.vy = nz * flickSpeed * scale
@@ -329,7 +330,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
       if (!mesh || id === 'ball' || id === capId || n >= shot.bodies.length) continue
       const b = shot.bodies[n++]
       b.x = mesh.position.x; b.y = mesh.position.z
-      b.r = id.endsWith('_gk') ? GK_RADIUS : CAP_RADIUS
+      b.r = keeperShape(id).r
+      b.hl = keeperShape(id).hl
       b.contact = classifyContact(capId, id)
     }
     shot.bodyCount = n
@@ -370,7 +372,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
       }
     }
     // How far the shot may drift: a faint wedge along the ball's path, wider for long hard shots
-    const spreadDeg = state.penaltyKick ? 0 : aimWobbleFor(state, capId, power) + (state.challenge ? 0 : longShotWobble(distanceToGoal(state, capId, { x: cx, y: cz }), power))
+    const spreadDeg = state.penaltyKick ? 0 : aimWobbleFor(state, capId, power) + (state.challenge ? 0 : longShotWobble(distanceToGoal(state, capId, { x: cx, y: cz }), power, state.teamConfig?.[capId.slice(0, 5)]?.traits?.[capId.slice(6)]))
     t.spread.visible = ballOnPath && spreadDeg >= 0.5
     if (t.spread.visible) {
       const sx = pred.ballPath[0], sz = pred.ballPath[1]

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CareerFinalWhistle } from '../ui/CareerScoreboard'
 import MatchResultSplash from '../ui/MatchResultSplash'
 import { useTournamentStore } from '../state/tournamentStore'
 import GoalClips from '../ui/GoalClips'
@@ -97,6 +98,11 @@ export default function MatchEndScreen() {
   // Which result the splash was dismissed for, by content: an online guest
   // gets a fresh copy of the same result with every sync from the host
   const resultKey = `${matchKey}:${JSON.stringify(matchResult)}`
+  const careerFixture = tournament?.kind === 'career' || tournament?.kind === 'careerCup'
+  if (careerFixture && tournament.recorded && careerNow?.lastMatch?.fixtureId === tournament.fixture?.id &&
+      careerNow.lastMatch.season === careerNow.season && dismissedResult !== resultKey) {
+    return <CareerFinalWhistle career={careerNow} onReport={backToTournament} onDetails={() => setDismissedResult(resultKey)} />
+  }
   if (dismissedResult !== resultKey) return <MatchResultSplash
     teams={teamConfig} score={score} winner={winner} penaltyScore={penaltyScore}
     myTeam={gameMode === 'ai' ? (useMatchStore.getState().aiTeam === 'team1' ? 'team2' : 'team1') : online ? useMatchStore.getState().onlineMyTeam : null}

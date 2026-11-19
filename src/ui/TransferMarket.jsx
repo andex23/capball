@@ -1,3 +1,4 @@
+import LegendMarket from './LegendMarket'
 import { useMemo, useState } from 'react'
 import { useCareerStore } from '../state/careerStore'
 import { DIVISIONS } from '../game/career'
@@ -58,6 +59,7 @@ export default function TransferMarket({ career, onClose }) {
       {squadFull(career) && <p className="club-alert" role="status">Your squad is full. Sell, release or loan out a player before you can sign anyone.</p>}
       {!win && <p className="muted t-note"><Icon name="lock" size={13} /> Players at clubs can only be signed in a transfer window. Free agents can sign any time.</p>}
 
+      <details className="season-details"><summary>Season legends</summary><LegendMarket career={career} /></details>
       <p className="muted t-note">Players from a higher division don’t want to drop down to the {DIVISIONS[career.level].name}. They’ll come for money: a signing bonus and higher wages (marked ×). The further they drop, the more they want.</p>
       <div className="market-filters">
         <input className="field" type="search" placeholder="Search a player or club" value={name} onChange={(e) => { setName(e.target.value); reset() }} aria-label="Search a player or club" />
@@ -171,7 +173,7 @@ function PlayerDetail({ career, id, onBack, onClose }) {
       {!isScouted(career, id) && (
         <div className="market-scout">
           <p className="muted t-note">His potential is a rough guess until a scout watches him.</p>
-          <button className="btn btn-secondary" disabled={career.coins < (SCOUT_FEE[career.level] ?? 10)} onClick={() => { playButtonSelect(); useCareerStore.getState().scout(id) }}>Scout him · {money(SCOUT_FEE[career.level] ?? 10)}</button>
+          <button className="btn btn-secondary" disabled={!career.scoutCredits && career.coins < (SCOUT_FEE[career.level] ?? 10)} onClick={() => { playButtonSelect(); useCareerStore.getState().scout(id) }}>{career.scoutCredits ? 'Use free scout report' : 'Scout him · ' + money(SCOUT_FEE[career.level] ?? 10)}</button>
         </div>
       )}
 

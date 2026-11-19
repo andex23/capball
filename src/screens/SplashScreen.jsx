@@ -14,6 +14,7 @@ export default function SplashScreen() {
       playCoinInsert()
       startMenuMusic()
       markStarted()
+      globalThis.__counterballCount?.('menu')
       // Invite links go straight in: ?room=CODE to the online lobby,
       // ?tournament=CODE to tournaments (which opens that one)
       const params = new URLSearchParams(window.location.search)

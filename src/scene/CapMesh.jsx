@@ -2,7 +2,7 @@ import { forwardRef, useRef, useMemo, useEffect } from 'react'
 import { drawCapArt, drawNumberSticker, stickerSpot } from '../game/capArt'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { CAP_RADIUS, GK_RADIUS } from '../data/TeamData'
+import { CAP_RADIUS, GK_RADIUS, GK_HALF_D } from '../data/TeamData'
 
 /* ========================================
    A CROWN BOTTLE CAP, lying top up
@@ -431,7 +431,79 @@ function createBodyTexture(color, edgeColor, pattern, size = 512) {
   return texture
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, isSelected, badge, number, pattern, finish, capText, band, art }, ref) {
+/* ========================================
+   THE KEEPER: a cap stood up
+   ─────────────────────────────────────────
+   As played on the table: the cap is bitten top and bottom, its bottom
+   folded flat into a foot it balances on and its top only lightly tipped
+   back, then stood up with the hollow facing the players and the printed
+   side towards the goal. From the side:
+
+    pitch ◀──   (  |_        ← light lip at the top
+                (  |
+         ____(__|        ← flat foot, the printed side at the back
+   ======================================== */
+
+const FOOT_AT = 0.52   // where the foot is folded, as a fraction of the radius from the centre
+const LIP_AT = 0.8     // where the top lip starts
+const LIP_TILT = 0.6   // how far the lip tips back (radians)
+
+/** Fold a lying cap's vertex (face up at y = top) into the standing keeper's shape. Local z becomes height. */
+function foldKeeper(geometry, radius, top) {
+  const p = geometry.attributes.position
+  const foot = FOOT_AT * radius
+  const lip = LIP_AT * radius
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i)
+    const yy = p.getY(i) - top // 0 on the face, negative down the skirt
+    const z = p.getZ(i)
+    if (z > foot) {
+      // The foot: everything past the fold laid flat behind the face
+      p.setXYZ(i, x, top - (z - foot) + yy * 0.15, foot)
+    } else if (z < -lip) {
+      // The lip: tipped back a little
+      const d = -lip - z
+      p.setXYZ(i, x, top - d * Math.sin(LIP_TILT) + yy * Math.cos(LIP_TILT), -lip - d * Math.cos(LIP_TILT) - yy * Math.sin(LIP_TILT) * 0.5)
+    }
+  }
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+/** The standing keeper. faceDir: which end (+1 the +x end, -1 the -x end) its printed side faces; the hollow faces the other way. */
+function StandingKeeper({ color, skirtTexture, topTexture, faceDir }) {
+  const radius = GK_RADIUS * 0.94
+  const topR = radius * TOP_RATIO
+  const top = CAP_H / 2
+  const face = useMemo(() => foldKeeper(new THREE.CircleGeometry(topR * 0.985, 64).rotateX(-Math.PI / 2).translate(0, top, 0), radius, top), [radius, topR, top])
+  const back = useMemo(() => foldKeeper(new THREE.CircleGeometry(topR * 0.985, 64).rotateX(-Math.PI / 2).translate(0, top - 0.025, 0), radius, top), [radius, topR, top])
+  const skirt = useMemo(() => foldKeeper(createSkirtGeometry(radius), radius, top), [radius, top])
+  useEffect(() => () => { face.dispose(); back.dispose(); skirt.dispose() }, [face, back, skirt])
+  return (
+    // Turn to face the pitch, then stand it on its foot with the face at the front of its body
+    <group rotation-y={faceDir > 0 ? Math.PI / 2 : -Math.PI / 2}>
+      <group rotation-x={Math.PI / 2} position={[0, FOOT_AT * radius - top, GK_HALF_D - top]}>
+        <mesh geometry={skirt} castShadow receiveShadow>
+          <meshStandardMaterial map={skirtTexture} color={SKIRT_LIT} emissive="#ffffff" emissiveMap={skirtTexture} emissiveIntensity={SKIRT_BASE} metalness={0.35} roughness={0.4} side={THREE.DoubleSide} toneMapped={false} fog={false} />
+        </mesh>
+        <mesh geometry={face} castShadow>
+          <meshBasicMaterial map={topTexture} color="#ffffff" side={THREE.FrontSide} toneMapped={false} fog={false} />
+        </mesh>
+        {/* The hollow behind: bare tin */}
+        <mesh geometry={back}>
+          <meshStandardMaterial color="#9aa1ab" metalness={0.8} roughness={0.35} side={THREE.BackSide} />
+        </mesh>
+      </group>
+      {/* A soft shadow of colour where it stands, so it reads from above */}
+      <mesh position={[0, -top + 0.005, 0]} rotation-x={-Math.PI / 2}>
+        <planeGeometry args={[GK_HALF_D * 2.6, radius * 2]} />
+        <meshBasicMaterial color={color} transparent opacity={0.18} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, faceDir = 1, isSelected, badge, number, pattern, finish, capText, band, art }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -459,6 +531,20 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
   const metal = fp.metalness
   const rough = fp.roughness
   const shoulderLit = useMemo(() => new THREE.Color(color).multiplyScalar(SKIRT_LIT_K), [color])
+
+  if (isGk) {
+    return (
+      <group ref={ref} position={[0, halfH, 0]}>
+        <StandingKeeper color={color} skirtTexture={skirtTexture} topTexture={topTexture} faceDir={faceDir} />
+        {isSelected && (
+          <mesh ref={ringRef} position={[0, -halfH + 0.015, 0]} rotation-x={-Math.PI / 2}>
+            <ringGeometry args={[radius + 0.1, radius + 0.27, 36]} />
+            <meshBasicMaterial color="#FFD740" transparent opacity={0.85} />
+          </mesh>
+        )}
+      </group>
+    )
+  }
 
   return (
     <group ref={ref} position={[0, halfH, 0]}>

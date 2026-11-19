@@ -24,6 +24,7 @@ import { snapshotBodies, createPhysicsWorld, resetToKickoff, placeBallAt, deOver
 import { massScale } from '../game/squad'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
 import { useMatchStore, PHASE, isAuthority, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
+import { teamHomeDir } from '../game/rules'
 
 /** The number on a cap's shirt: the team's own, else the default squad number. */
 function squadNumber(config, team, capId) {
@@ -284,6 +285,10 @@ function GameWorld() {
   const sc = STADIUMS[stadiumId] || STADIUMS.arena
   const team1 = teamConfig.team1
   const team2 = teamConfig.team2
+  // Each keeper stands with his hollow towards the players and his printed side
+  // towards the goal he defends (ends swap at half time)
+  const team1Side = useMatchStore((s) => s.team1Side) || 'left'
+  const face1 = teamHomeDir('team1', team1Side)
   const team1Caps = CAP_ROLES.map((r) => `team1_${r}`)
   const team2Caps = CAP_ROLES.map((r) => `team2_${r}`)
 
@@ -303,15 +308,16 @@ function GameWorld() {
             ref={setMeshRef(id)}
             id={id}
             color={team1.primary}
-            edgeColor={team1.edge}
+            edgeColor={team1.traits?.[id.slice(6)] ? "#ffcf57" : team1.edge}
             isGk={id.endsWith('_gk')}
+            faceDir={face1}
             isSelected={selectedCapId === id || freeKickCapId === id}
             badge={team1.badge}
             number={squadNumber(team1, 'team1', id)}
             pattern={team1.pattern}
             capText={capLabel(team1, id.slice(6))}
             textColor={team1.textColor}
-            skirtColor={team1.skirtColor}
+            skirtColor={team1.traits?.[id.slice(6)] ? "#b8862e" : team1.skirtColor}
             finish={team1.finish}
             band={bandColor(team1.bands?.[id.slice(6)])}
             art={team1.art}
@@ -326,15 +332,16 @@ function GameWorld() {
             ref={setMeshRef(id)}
             id={id}
             color={team2.primary}
-            edgeColor={team2.edge}
+            edgeColor={team2.traits?.[id.slice(6)] ? "#ffcf57" : team2.edge}
             isGk={id.endsWith('_gk')}
+            faceDir={-face1}
             isSelected={selectedCapId === id || freeKickCapId === id}
             badge={team2.badge}
             number={squadNumber(team2, 'team2', id)}
             pattern={team2.pattern}
             capText={capLabel(team2, id.slice(6))}
             textColor={team2.textColor}
-            skirtColor={team2.skirtColor}
+            skirtColor={team2.traits?.[id.slice(6)] ? "#b8862e" : team2.skirtColor}
             finish={team2.finish}
             band={bandColor(team2.bands?.[id.slice(6)])}
             art={team2.art}

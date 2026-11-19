@@ -1,6 +1,8 @@
+import { playerOf } from '../game/commentary'
 import { onlineInterrupted } from '../multiplayer/reconnect'
 import { create } from 'zustand'
 import { otherTeam, shootoutStatus, nextShooter, matchWinner } from '../game/rules'
+import { FORMATIONS } from '../data/TeamData'
 
 // App screens
 export const SCREEN = {
@@ -157,6 +159,14 @@ export function isAuthority(state) {
   return state.gameMode !== 'anytime' && (state.gameMode !== 'online' || state.onlineMyTeam === 'team1')
 }
 
+/** Each side picks only its own formation (the remote guest's choices arrive on the host with its own seat). */
+export function canPickFormation(state, team, seat = state.onlineMyTeam) {
+  if (team !== 'team1' && team !== 'team2') return false
+  if (state.gameMode === 'ai') return team !== state.aiTeam
+  if (state.gameMode === 'online') return team === seat
+  return state.gameMode === 'local'
+}
+
 export const useMatchStore = create((set, get) => ({
   // --- App navigation ---
   screen: SCREEN.SPLASH,
@@ -214,7 +224,9 @@ export const useMatchStore = create((set, get) => ({
   setTeam1Side: (side) => set({ chosenTeam1Side: side, team1Side: side }),
 
   formations: { team1: 'default', team2: 'default' },
-  setFormation: (team, formation) => set((s) => ({ formations: { ...s.formations, [team]: formation } })),
+  setFormation: (team, formation, seat) => set((s) =>
+    canPickFormation(s, team, seat) && Object.hasOwn(FORMATIONS, formation)
+      ? { formations: { ...s.formations, [team]: formation } } : s),
 
   // --- Match clock ---
   matchDuration: 180, // seconds per half
@@ -463,7 +475,8 @@ export const useMatchStore = create((set, get) => ({
   cancelAim: () => { if (get().phase === PHASE.AIM) set({ selectedCapId: null, phase: PHASE.SELECT, dragPower: 0 }) },
 
   /** A flick has been applied to the physics world — watch it play out. */
-  commitFlick: (capId) => set({
+  commitFlick: (capId, fromOwnHalf = false) => set({
+    fromOwnHalf,
     selectedCapId: capId,
     lastFlickedCapId: capId,
     phase: PHASE.RESOLVE,
@@ -547,7 +560,7 @@ export const useMatchStore = create((set, get) => ({
       lastScorer: scoringTeam,
       lastGoalOwn: !!ownGoal,
       lastGoalCap: cap,
-      goalLog: [...(get().goalLog || []), { team: scoringTeam, cap, own: !!ownGoal, shootout: !!get().penaltyShootout, half: get().half, t: Math.round(get().timeRemaining) }],
+      goalLog: [...(get().goalLog || []), { team: scoringTeam, cap, playerName: playerOf(get().teamConfig, cap)?.name, own: !!ownGoal, shootout: !!get().penaltyShootout, fromOwnHalf: !!get().fromOwnHalf, half: get().half, t: Math.round(get().timeRemaining) }],
       lastConceded: concedingTeam,
     })
     // First to N: that goal wins it

@@ -159,7 +159,7 @@ export function stakedOutcome(reports, players) {
    goes, and the errors players hit. One small document a day, kept through the
    saves function under a reserved name no real player id can take. Counts only:
    players are remembered as a short one-way hash, to count different people. */
-export const COUNT_EVENTS = ['open', 'match_start', 'match_end', 'find', 'find_ok', 'paired', 'find_cancel', 'pitch_lost', 'pitch_back', 'pitch_dead', 'error']
+export const COUNT_EVENTS = ['open', 'menu', 'match_start', 'match_end', 'find', 'find_ok', 'paired', 'find_cancel', 'pitch_lost', 'pitch_back', 'pitch_dead', 'error']
 const DETAIL = /^[a-z0-9_]{1,40}$/
 const statsKey = (day) => `__stats__:${day}`
 export const dayOf = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)
@@ -266,6 +266,7 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
   if (input?.action === 'loadSave' || input?.action === 'putSave') {
     if (!saves) fail('shop-not-configured')
     const { playerId, mode } = await whoIs(api, input.session)
+    if (input.expectedPlayerId != null && input.expectedPlayerId !== playerId) fail('bad-session')
     if (input.action === 'loadSave') {
       const r = await saves('get', mode, playerId)
       return { ok: true, data: cleanSave(r?.data) }

@@ -5,6 +5,16 @@ import Icon from './Icon'
 
 const SECTIONS = [
   {
+    title: 'Managing your club',
+    items: [
+      'Season shows your next opponent, the venue and the last meeting. Read the match report after the final whistle for scorers, player ratings and ten-minute spells of pressure.',
+      'Your interview backs the whole squad, your bench or your top performer for one fixture. Each answer shows its passing bonus before you choose.',
+      'Open Transfers, then the market, to scout a player or see the two season legends. Sign a legend in an open window, then move him from reserves into your side. Each gold-rimmed cap has a different playing trait.',
+      'Green prices on the season page are within your club budget. Daily rewards can pay for transfers and facilities. Day three includes a scout report, day six rests your squad, and day seven pays club money and unlocks a design until you own the collection.',
+      'The bell shows three weekly goals. Each pays into your club budget. Complete all three in the same week for the featured cap. Unclaimed daily rewards wait until your next visit.',
+    ],
+  },
+  {
     title: 'Live voice chat',
     items: [
       'In a live online or LAN match, open the match menu and choose Join voice. Each player must join and allow microphone access before you can talk.',
@@ -33,6 +43,7 @@ const SECTIONS = [
       'Press on a cap, drag back like a slingshot, and let go. Longer drag = more power. (Prefer swiping forward? Switch it in Settings → Aiming.)',
       'The arrow shows where your cap goes; the blue ring shows where the ball will be hit.',
       'Your turn ends when everything stops moving.',
+      'Hit the ball first. If your cap hits one of your own caps first, the flick is wasted and the turn passes.',
       'If the shot clock is on and runs out, you lose the turn (or the free kick or penalty).',
     ],
   },
@@ -42,6 +53,7 @@ const SECTIONS = [
       'The whole ball must cross the goal line between the posts. A ball resting on the line is not a goal yet — you can still clear it.',
       'A rebound off a goalpost can count. The post is not a pitch-edge cushion; the other scoring restrictions still apply.',
       'Your cap touching the pitch edge after it has struck the ball does not disallow a goal.',
+      'A goal belongs to whoever flicked. If your shot deflects in off an opponent’s cap, it’s your goal. If a team flicks the ball into its own net, it’s an own goal.',
       'In timed matches, most goals at full time wins and teams swap ends at half time. In first-to-score matches, reach the target to win.',
     ],
   },
@@ -80,11 +92,12 @@ const SECTIONS = [
     ],
   },
   {
-    title: 'Fouls',
+    title: 'Fouls and restarts',
     items: [
       'Hitting an opponent’s cap before the ball is a foul. Bouncing off the side cushion first is fine.',
       'A foul gives the other team a free kick from that spot, with a defensive wall.',
       'If the ball gets stuck in a corner: corner kick if the defenders touched it last, otherwise a goal kick.',
+      'At a goal kick everyone takes up a position: the keeper takes it, and the other team waits outside the penalty area.',
       'A foul in your own penalty area gives away a penalty.',
       'Only the designated taker can take a free kick or penalty.',
     ],

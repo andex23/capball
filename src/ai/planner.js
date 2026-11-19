@@ -1,5 +1,6 @@
 import Matter from 'matter-js'
 import { createSimulationWorld, radiusOf } from '../physics/PhysicsWorld'
+import { keeperShape, sweepCapsule, lastSweepNormal } from '../game/predict'
 import { PITCH, PHYSICS, BALL_RADIUS } from '../data/TeamData'
 import { teamHomeDir, teamOf, otherTeam, isGoalkeeper, classifyContact, judgeGoal, isInPenaltyArea, keeperCanPlay, keeperZone } from '../game/rules'
 
@@ -80,17 +81,27 @@ export function firstHit(positions, capId, dir, maxDist = Infinity) {
   const c = positions[capId]
   if (!c) return null
   const d = unit(dir.x, dir.y)
-  const rc = radiusOf(capId)
+  const me = keeperShape(capId)
   let best = null
   for (const [id, o] of Object.entries(positions)) {
     if (id === capId) continue
-    const R = rc + radiusOf(id) + (id === 'ball' ? 0 : BODY_MARGIN)
-    const ox = o.x - c.x
-    const oy = o.y - c.y
-    const along = ox * d.x + oy * d.y
-    const perp2 = ox * ox + oy * oy - along * along
-    if (along <= 0 || perp2 >= R * R) continue
-    const t = along - Math.sqrt(R * R - perp2) - (id === 'ball' ? 0 : CONTACT_TIE)
+    // A standing keeper is a capsule (see GK_CAPSULE); everything else is round
+    const them = id === 'ball' ? { hl: 0, r: BALL_RADIUS } : keeperShape(id)
+    const R = me.r + them.r + (id === 'ball' ? 0 : BODY_MARGIN)
+    const hl = me.hl + them.hl
+    let t
+    if (hl > 0) {
+      t = sweepCapsule(c.x, c.y, d.x, d.y, o.x, o.y, R, hl)
+      if (t < 0) continue
+      if (id !== 'ball') t -= CONTACT_TIE
+    } else {
+      const ox = o.x - c.x
+      const oy = o.y - c.y
+      const along = ox * d.x + oy * d.y
+      const perp2 = ox * ox + oy * oy - along * along
+      if (along <= 0 || perp2 >= R * R) continue
+      t = along - Math.sqrt(R * R - perp2) - (id === 'ball' ? 0 : CONTACT_TIE)
+    }
     if (t > maxDist) continue
     if (!best || t < best.t) best = { id, t }
   }
@@ -109,9 +120,16 @@ function reachable(ctx, capId, x, y) {
 function aimFor(positions, capId, u, ctx = null) {
   const c = positions[capId]
   const b = positions.ball
-  const reach = radiusOf(capId) + BALL_RADIUS
-  const px = b.x - u.x * reach
-  const py = b.y - u.y * reach
+  const shape = keeperShape(capId)
+  const reach = shape.r + BALL_RADIUS
+  // A standing keeper meets the ball with its flat face (which sends it straight
+  // up the pitch) or one of its round ends (any other way): line that part up
+  // behind the ball. Its centre is then off to one side by the straight middle.
+  const gk = isGoalkeeper(capId)
+  const flatFace = gk && Math.abs(u.y) < 0.05
+  const end = gk && !flatFace ? Math.sign(u.y) * shape.hl : 0
+  const px = flatFace ? b.x - Math.sign(u.x) * reach : b.x - u.x * reach
+  const py = flatFace ? b.y : b.y - u.y * reach - end
   // The cap can't get between the ball and a cushion
   const lim = radiusOf(capId) + 0.05 // cap fully on the pitch, not grazing the cushion
   if (Math.abs(px) > PITCH.halfW - lim || Math.abs(py) > PITCH.halfH - lim) return null
@@ -122,6 +140,15 @@ function aimFor(positions, capId, u, ctx = null) {
   const dir = { x: (px - c.x) / dist, y: (py - c.y) / dist }
   const cut = dir.x * u.x + dir.y * u.y
   if (cut < MIN_CUT) return null
+  if (gk) {
+    // Off a round end, a slight miss sends the ball a very different way: the
+    // keeper only tries it running straight through the line he wants
+    if (!flatFace && cut < 0.9) return null
+    // A capsule on the move can touch the ball with a side before the part
+    // lined up: check what it really meets first, and that the ball goes the right way
+    const t = sweepCapsule(c.x, c.y, dir.x, dir.y, b.x, b.y, reach, shape.hl)
+    if (t < 0 || -(lastSweepNormal.nx * u.x + lastSweepNormal.ny * u.y) < 0.94) return null
+  }
   return { dir, dist, cut }
 }
 
@@ -274,6 +301,8 @@ export function generateCandidates(ctx, { powers = [1.5], banks = false, blocks 
 
 /** Aim at the ball with a sideways offset k (-1..1 of the combined radius). */
 function aimAcross(positions, capId, k, ctx = null) {
+  // A standing keeper's glancing hits aren't modelled here: it plays straight aims (aimFor) only
+  if (isGoalkeeper(capId)) return null
   const c = positions[capId]
   const b = positions.ball
   const R = radiusOf(capId) + BALL_RADIUS
@@ -440,6 +469,9 @@ export function heuristicScore(ctx, c) {
   }
   const territory = (p) => hyp(p.x - ownLine, p.y) - hyp(p.x - theirLine, p.y)
   s += (territory(end) - territory(ball)) * (0.25 + danger * 0.35)
+  // A cap standing just along the ball's path stops it dead: barely a clearance at all
+  const near = { x: ball.x + c.u.x * Math.min(travel, 6), y: ball.y + c.u.y * Math.min(travel, 6) }
+  if (blockersOnLine(positions, c.capId, ball, near) > 0) s -= 6
 
   // Clearing: under pressure, anything that moves the ball away from our goal is gold
   if (danger > 0) s += danger * 8 * (c.u.x * ctx.attackDir)
@@ -624,27 +656,58 @@ function jitter(c, noise, rng) {
 }
 
 /**
- * Medium: best heuristic candidate, with aim noise that is re-checked so it
- * can't turn a clean shot into a foul.
+ * Medium (and easy): best heuristic candidate, with aim noise that is
+ * re-checked so it can't turn a clean shot into a foul or into our own net.
+ * Easy plays the same way with more human mistakes: a looser choice
+ * (scoreNoise: sometimes the second-best play), shakier aim and power
+ * (powerJitter), but never a flick that misses the ball or heads for its own goal.
  */
-export function chooseHeuristic(ctx, { aimNoise = 0.2, powerMult = 1, rng = Math.random } = {}) {
+export function chooseHeuristic(ctx, { aimNoise = 0.2, powerMult = 1, scoreNoise = 1.5, powerJitter = 0, rng = Math.random } = {}) {
   const cands = generateCandidates(ctx, {
     powers: [1.6], blocks: true, maxPower: PHYSICS.maxFlickVelocity * powerMult,
   })
   if (!cands.length) return null
+  // Never choose a play that sends the ball at our own net: with nothing else on, hold off
+  const safe = cands.filter((c) => !towardsOwnGoal(ctx, c))
+  if (!safe.length) return null
   let best = null
-  for (const c of cands) {
-    const score = heuristicScore(ctx, c) + (rng() - 0.5) * 1.5
+  for (const c of safe) {
+    const score = heuristicScore(ctx, c) + (rng() - 0.5) * scoreNoise
     if (!best || score > best.score) best = { ...c, score }
+  }
+  // A shaky hand: a little too soft or too hard, but always enough to reach what it aims at
+  if (powerJitter > 0) {
+    const reach = Math.sqrt(2 * CAP_DECEL * ((best.capDist || 1) + 0.6))
+    const now = hyp(best.velocity.x, best.velocity.y) || 1
+    const want = Math.max(reach, Math.min(PHYSICS.maxFlickVelocity, now * (1 + (rng() - 0.6) * 2 * powerJitter)))
+    best = { ...best, velocity: { x: best.velocity.x / now * want, y: best.velocity.y / now * want } }
   }
   for (let noise = aimNoise; noise > 0.01; noise /= 2) {
     const j = jitter(best, noise, rng)
-    if (safeFlick(ctx, j)) return j
+    if (safeFlick(ctx, j) && !towardsOwnGoal(ctx, j)) return j
   }
   return best
 }
 
-/** The noisy flick still hits what the clean one was meant to hit (ball, or nothing for blocks). */
+/** Would this flick send the ball at our own goal? (Where the cap meets it decides where it goes.) */
+export function towardsOwnGoal(ctx, c) {
+  const ball = ctx.positions.ball
+  const cap = ctx.positions[c.capId]
+  if (!ball || !cap || c.kind === 'block' || c.kind === 'position' || c.kind === 'keeper') return false
+  const v = c.velocity
+  const speed = hyp(v.x, v.y) || 1
+  const hit = firstHit(ctx.positions, c.capId, v)
+  if (!hit || hit.id !== 'ball') return false
+  const at = { x: cap.x + v.x / speed * hit.t, y: cap.y + v.y / speed * hit.t }
+  // The keeper's contact normal starts at the nearest point on its upright
+  // segment. Across its flat face the ball travels straight along x.
+  const { hl } = keeperShape(c.capId)
+  const dy = ball.y - at.y
+  const u = unit(ball.x - at.x, dy - Math.max(-hl, Math.min(hl, dy)))
+  const own = crossing(ball, u, ctx.ownGoal.x)
+  return !!own && Math.abs(own.y) < PITCH.goalWidth / 2 + 1.5
+}
+
 function safeFlick(ctx, c) {
   const move = c.kind === 'block' || c.kind === 'position' || c.kind === 'keeper'
   const hit = firstHit(ctx.positions, c.capId, c.velocity, move ? c.capDist + c.runout : Infinity)
@@ -666,7 +729,7 @@ export function chooseBySimulation(ctx, { budgetMs = 70, maxSims = 40, aimNoise 
   // the outcome we score is the flick we'll actually play.
   const ranked = cands
     .map((c) => ({ ...jitter(c, aimNoise, rng), h: heuristicScore(ctx, c) }))
-    .filter((c) => safeFlick(ctx, c))
+    .filter((c) => safeFlick(ctx, c) && !towardsOwnGoal(ctx, c))
     .sort((a, b) => b.h - a.h)
   if (!ranked.length) return null
 

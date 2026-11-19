@@ -1,0 +1,74 @@
+.cs-matchday .career-next { margin: 0; border: 3px solid #fff; background: linear-gradient(160deg,#284bbc,#15297f); box-shadow: 4px 4px #080d2c; }
+.cs-matchday .career-vs { justify-content: space-between; margin: 15px 0 8px; }
+.cs-matchday .career-vs .t-team { flex: 1; }
+.cs-preview-line, .cs-next-line { margin: 8px 0 12px; line-height: 1.45; }
+.cs-next-line b { display: block; }
+.cs-form { display: flex; justify-content: space-between; }
+.cs-form span { display: flex; gap: 3px; }
+.cs-form i { font: 700 10px/18px var(--font-pixel); width: 18px; text-align: center; font-style: normal; background: #49547c; color: white; }
+.cs-form i[data-form="W"] { background: #0b6240; }
+.cs-form i[data-form="L"] { background: #983834; }
+.cs-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cs-heading h2 { margin: 0; }
+.cs-heading .btn { min-height: 34px; font-size: 14px; }
+.cs-table table, .cs-figures table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.cs-table td, .cs-table th, .cs-figures td, .cs-figures th { padding: 6px 5px; border-bottom: 1px solid #ffffff30; }
+.cs-table td, .cs-table th { text-align: right; }
+.cs-table th:nth-child(2) { text-align: left; }
+.cs-table thead, .cs-figures thead { color: #c7d4ff; }
+.cs-table tr[data-mine="true"] { background: #112b79; color: #ffe38a; }
+.cs-table small { margin-left: 6px; font-size: 10px; }
+.cs-spend button, .cs-news { width: 100%; padding: 11px 5px; display: flex; justify-content: space-between; gap: 8px; align-items: center; text-align: left; color: white; cursor: pointer; font: inherit; }
+.cs-spend button { border: 0; border-top: 1px solid #ffffff44; background: transparent; }
+.cs-spend button:first-of-type { margin-top: 10px; }
+.cs-spend button b { color: #c5cce1; }
+.cs-spend button b[data-ready="true"] { color: #a1f69e; }
+.cs-news { background: #162b78; border: 2px solid #c3d3ff; padding: 12px; }
+.cs-news i { font: bold 24px/1 var(--font-ui); }
+.season-details summary { cursor: pointer; padding: 8px 3px; font-weight: 700; }
+.legend-offer { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; padding: 14px 0; border-top: 1px solid #ffffff44; }
+.legend-offer h4 { font: bold 22px/1.05 var(--font-display); margin: 0; color: #ffe289; }
+.legend-offer p { margin: 6px 0; }
+.legend-offer button { grid-column: 1 / -1; }
+.cs-board { overflow: hidden; background: linear-gradient(150deg,#203d9a,#111f60); color: #fff; border: 3px solid #fafcff; }
+.cs-board header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 12px; background: #0c164b; font: 700 10px/1.4 var(--font-pixel); color: #ffdf73; }
+.cs-score { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 7px; align-items: start; padding: 18px 10px 10px; }
+.cs-side, .cs-digits { display: grid; justify-items: center; gap: 5px; text-align: center; min-width: 0; }
+.cs-side strong { font: 800 21px/1.05 var(--font-display); text-transform: uppercase; overflow-wrap: anywhere; }
+.cs-side ul { list-style: none; margin: 0; padding: 0; color: #e4eaff; font-size: 13px; }
+.cs-digits { margin-top: 8px; }
+.cs-digits small, .cs-facts dt { font: 700 9px/1.4 var(--font-pixel); text-transform: uppercase; color: #c1d1ff; }
+.cs-digits b { font: 800 clamp(38px,9vw,70px)/1 var(--font-display); color: #ffe06b; text-shadow: 3px 3px #090e2c; font-variant-numeric: tabular-nums; }
+.cs-board h2 { text-align: center; margin: 5px 12px 15px; font: 800 italic clamp(23px,5vw,36px)/1 var(--font-display); }
+.cs-facts { display: flex; margin: 0; padding: 12px 4px; border-top: 2px solid #fff; background: #0e1953; }
+.cs-facts div { flex: 1; text-align: center; padding: 0 4px; min-width: 0; }
+.cs-facts div + div { border-left: 1px solid #67759d; }
+.cs-facts dd { margin: 4px 0 0; font-weight: 800; overflow-wrap: anywhere; }
+.cs-facts dd b { color: #ffe06b; }
+.corner-scrim { position: fixed; inset: 0; z-index: 28; background: #080f29a6; border: 0; }
+.cs-whistle { display: grid; grid-template-columns: minmax(0,1fr); place-items: center; padding: var(--gutter); overflow-y: auto; }
+.cs-whistle > div { display: grid; gap: 10px; width: min(560px,100%); margin: auto; }
+.cs-figures table { text-align: center; table-layout: fixed; }
+.cs-figures tbody th { font-weight: 500; color: #c9d5ff; }
+.cs-figures figure { margin: 15px 0 0; }
+.cs-figures figcaption { font-weight: 800; margin-bottom: 6px; }
+.cs-figures small, .cs-axis { color: #d0dafa; font-size: 12px; }
+.cs-bars { height: 78px; display: flex; gap: 3px; background: linear-gradient(to bottom,#09143a 49%,#aab5c9 49%,#aab5c9 51%,#09143a 51%); }
+.cs-bars span { position: relative; flex: 1; border-left: 1px solid #ffffff20; }
+.cs-bars i { position: absolute; bottom: 50%; left: 2px; right: 1px; background: #ffd769; }
+.cs-bars i[data-away="true"] { background: #99baff; top: 50%; bottom: auto; }
+.cs-axis { display: flex; justify-content: space-between; }
+.cs-press p { margin: 6px 0 12px; }
+.cs-press > div { display: grid; grid-template-columns: minmax(0,1fr); gap: 6px; }
+.cs-press button { min-width: 0; white-space: normal; overflow-wrap: anywhere; justify-content: space-between; flex-wrap: wrap; text-align: left; font-family: inherit; font-size: 15px; }
+.cs-press small { font-size: 12px; color: #e2eaff; }
+@media (max-width: 480px) {
+  .cs-matchday .career-vs .t-team { flex-direction: column; text-align: center; }
+  .cs-matchday .career-vs .t-team-name { white-space: normal; }
+  .cs-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px 0; padding: 9px 10px; }
+  .cs-facts dt { font: 700 11px/1.35 var(--font-ui); }
+  .cs-facts div:nth-child(3) { grid-column: 1 / -1; display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap; gap: 3px 8px; border-left: 0; border-top: 1px solid #67759d; padding-top: 6px; }
+  .cs-facts div:nth-child(3) dd { margin: 0; }
+  .cs-press button { display: grid; grid-template-columns: minmax(0,1fr); justify-items: start; gap: 3px; padding-block: 8px; }
+  .cs-facts dd { font-size: 13px; }
+}

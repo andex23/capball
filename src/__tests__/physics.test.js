@@ -258,10 +258,33 @@ describe('set pieces', () => {
       for (const id of capIds()) {
         if (!id.startsWith('team2') || id.endsWith('_gk')) continue
         expect(Math.hypot(pos(id).x - b.x, pos(id).y - b.y), id).toBeGreaterThanOrEqual(5.9)
+        // ...and out of the box
+        expect(pos(id).x > -PITCH.halfW + PITCH.penAreaW || Math.abs(pos(id).y) > PITCH.penAreaH / 2, id).toBe(true)
       }
       expectNoOverlaps()
       expectInsidePitch()
     }
+  })
+
+  it('goal kicks: nobody is left where they stopped', () => {
+    useMatchStore.setState({ team1Side: 'left' })
+    resetToKickoff('team1')
+    // Two very different scrambles end in the same set-up
+    const layout = []
+    for (const seed of [1, 2]) {
+      for (const id of capIds()) {
+        if (id.endsWith('_gk')) continue
+        Matter.Body.setPosition(getBodies()[id], { x: -10 + ((seed * 7 + id.length * 3) % 9), y: -6 + ((seed * 5 + id.charCodeAt(6)) % 12) })
+      }
+      setupGoalKick('team1', -1, 1)
+      layout.push(capIds().map((id) => [id, Math.round(pos(id).x), Math.round(pos(id).y)]))
+      expectNoOverlaps()
+      expectInsidePitch()
+    }
+    expect(layout[1]).toEqual(layout[0])
+    // The kicking side spreads out; the strikers wait over halfway
+    expect(pos('team1_atk1').x).toBeGreaterThan(0)
+    expect(Math.sign(pos('team1_def1').y)).not.toBe(Math.sign(pos('team1_def2').y))
   })
 
   it('free kick right by the wall still keeps the ball on the pitch', () => {
