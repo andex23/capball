@@ -81,6 +81,12 @@ export function designPatch(design) {
   return { ...Object.fromEntries(DESIGN_FIELDS.map((k) => [k, design[k]])), textColor: '', skirtColor: '', art: hasArt(design.key) ? design.key : '' }
 }
 
+/** Editing the print by hand takes off any pre-printed artwork. */
+export function editKit(kit, patch) {
+  const handEdit = kit.art && !('art' in patch) && ['primary', 'edge', 'pattern', 'badge', 'capText', 'textColor'].some((key) => key in patch)
+  return { ...kit, ...patch, ...(handEdit ? { art: '' } : {}) }
+}
+
 /** Is this kit exactly the given design? */
 export function isDesign(config, design) {
   if (hasArt(design.key)) return config.art === design.key

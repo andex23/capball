@@ -9,7 +9,7 @@ import Icon from './Icon'
  * Online footer for the setup screens. Both players ready up; the host then
  * moves the match on and the guest follows via state sync.
  */
-export default function OnlineReadyBar({ onBothReady }) {
+export default function OnlineReadyBar({ onBothReady, disabled = false }) {
   const myTeam = useMatchStore((s) => s.onlineMyTeam)
   const onlineReady = useMatchStore((s) => s.onlineReady)
   const teamConfig = useMatchStore((s) => s.teamConfig)
@@ -51,7 +51,7 @@ export default function OnlineReadyBar({ onBothReady }) {
           <span className="team-dot" style={{ '--team': opponentReady ? 'var(--good)' : 'var(--text-3)' }} />
           <span className="ready-text"><span className="ready-name">{teamConfig[opponent]?.name || 'Opponent'} · </span>{opponentReady ? 'Ready' : 'Choosing…'}</span>
         </span>
-        <button className={`btn btn-lg ${iAmReady ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleReady} aria-pressed={iAmReady}>
+        <button className={`btn btn-lg ${iAmReady ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleReady} aria-pressed={iAmReady} disabled={disabled && !iAmReady}>
           {bothReady ? 'Starting…' : iAmReady ? <><Icon name="check" size={18} /> Ready</> : 'Ready up'}
         </button>
       </div>

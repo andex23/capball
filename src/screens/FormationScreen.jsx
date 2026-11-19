@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useTournamentStore } from '../state/tournamentStore'
-import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useMatchStore, SCREEN, canPickFormation } from '../state/MatchStore'
 import { FORMATIONS, PITCH, getFormationPositions } from '../data/TeamData'
 import { STADIUMS } from '../data/StadiumData'
+import { otherTeam } from '../game/rules'
 import { playButtonSelect, playWhistle, playHoverTick } from '../audio/SoundManager'
 import { fadeOutMenuMusic } from '../audio/MusicManager'
 import { sendFormation } from '../multiplayer/MultiplayerManager'
@@ -57,7 +59,7 @@ function PitchPreview({ team, formationKey, color, edge }) {
   )
 }
 
-function FormationCard({ team, config, formation, onSelect, locked, tag }) {
+export function FormationCard({ team, config, formation, onSelect, locked, tag }) {
   const color = displayColor(config.primary)
   return (
     <section className="card team-card" style={{ '--team': color }} aria-label={`${config.name} formation`}>
@@ -67,13 +69,12 @@ function FormationCard({ team, config, formation, onSelect, locked, tag }) {
       </div>
       <div className="card-pad formation-body">
         <PitchPreview team={team} formationKey={formation} color={config.primary} edge={config.edge} />
-        <div className="formation-options" role="group" aria-label="Formation">
+        {locked ? <p className="muted">{FORMATIONS[formation].name} · {FORMATIONS[formation].description}</p> : <div className="formation-options" role="group" aria-label="Formation">
           {FORMATION_KEYS.map((key) => (
             <button
               key={key}
               className="list-option"
               aria-pressed={formation === key}
-              disabled={locked}
               onMouseEnter={playHoverTick}
               onClick={() => { playButtonSelect(); onSelect(key) }}
             >
@@ -81,7 +82,7 @@ function FormationCard({ team, config, formation, onSelect, locked, tag }) {
               <small>{FORMATIONS[key].description}</small>
             </button>
           ))}
-        </div>
+        </div>}
       </div>
     </section>
   )
@@ -96,6 +97,7 @@ export default function FormationScreen() {
   const gameMode = useMatchStore((s) => s.gameMode)
   const myTeam = useMatchStore((s) => s.onlineMyTeam)
   const aiTeam = useMatchStore((s) => s.aiTeam)
+  const [localSeat, setLocalSeat] = useState('team1')
   const isOnline = gameMode === 'online'
   const inTournament = useTournamentStore((s) => !!s.playing)
   // Career fixtures: set the time per half and pick the starting six here
@@ -120,8 +122,12 @@ export default function FormationScreen() {
   const tagFor = (team) => {
     if (isOnline) return team === myTeam ? 'You' : 'Opponent'
     if (gameMode === 'ai') return team === aiTeam ? 'CPU' : 'You'
-    return null
+    return team === 'team1' ? 'Player 1' : 'Player 2'
   }
+  const ownTeam = isOnline ? myTeam || 'team1' : gameMode === 'ai' ? otherTeam(aiTeam) : localSeat
+  const card = (team) => <FormationCard team={team} config={teamConfig[team]} formation={formations[team]}
+    onSelect={(key) => choose(team, key)} tag={tagFor(team)}
+    locked={team !== ownTeam || !canPickFormation({ gameMode, aiTeam, onlineMyTeam: myTeam }, team)} />
 
   return (
     <SetupShell
@@ -143,10 +149,13 @@ export default function FormationScreen() {
           <MatchLengthPicker disabled={!canSetLength || inTournament} compact />
         </div>
       )}
+      {gameMode === 'local' && <div className="segmented" role="group" aria-label="Player choosing a formation">
+        {['team1', 'team2'].map((team, i) => <button key={team} aria-pressed={localSeat === team} onClick={() => setLocalSeat(team)}>Player {i + 1}</button>)}
+      </div>}
       <div className="versus">
-        <FormationCard team="team1" config={teamConfig.team1} formation={formations.team1} onSelect={(k) => choose('team1', k)} locked={isOnline && myTeam !== 'team1'} tag={tagFor('team1')} />
+        {card(ownTeam)}
         <div className="vs-badge" aria-hidden>VS</div>
-        <FormationCard team="team2" config={teamConfig.team2} formation={formations.team2} onSelect={(k) => choose('team2', k)} locked={isOnline && myTeam !== 'team2'} tag={tagFor('team2')} />
+        {card(otherTeam(ownTeam))}
       </div>
     </SetupShell>
   )

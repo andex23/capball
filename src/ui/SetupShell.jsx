@@ -18,18 +18,18 @@ export default function SetupShell({ step, title, subtitle, onBack, next, onBoth
       <div className="shell">
         <header className="shell-head">
           <div>
-            <div className="eyebrow shell-eyebrow">Match setup · Step {step + 1} of {STEPS.length}</div>
+            {step != null && <div className="eyebrow shell-eyebrow">Match setup · Step {step + 1} of {STEPS.length}</div>}
             <h1 className="display shell-title">{title}</h1>
             {subtitle && <p className="muted shell-sub">{subtitle}</p>}
           </div>
-          <ol className="stepper" aria-label="Setup progress">
+          {step != null && <ol className="stepper" aria-label="Setup progress">
             {STEPS.map((label, i) => (
               <li key={label} data-state={i < step ? 'done' : i === step ? 'current' : 'todo'} aria-current={i === step ? 'step' : undefined}>
                 <span className="dot">{i < step ? <Icon name="check" size={13} strokeWidth={3} /> : i + 1}</span>
                 <span className="label">{label}</span>
               </li>
             ))}
-          </ol>
+          </ol>}
         </header>
 
         <main className="shell-body">{children}</main>
@@ -37,7 +37,7 @@ export default function SetupShell({ step, title, subtitle, onBack, next, onBoth
         <footer className="shell-foot">
           <div className="shell-foot-inner">
             {isOnline ? (
-              <OnlineReadyBar onBothReady={onBothReady} />
+              <OnlineReadyBar onBothReady={onBothReady} disabled={next.disabled} />
             ) : (
               <>
                 <button className="btn btn-secondary" onClick={() => { playButtonSelect(); onBack() }} onMouseEnter={playHoverTick}>
