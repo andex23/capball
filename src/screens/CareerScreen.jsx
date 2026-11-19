@@ -25,6 +25,8 @@ import LeagueClubs from '../ui/LeagueClubs'
 import MatchReport from '../ui/MatchReport'
 import CupPage from '../ui/CupPage'
 import { inboxOffers, seasonAwards } from '../game/clubLife'
+import { SeasonNumbers, SummerReview } from '../ui/SeasonReview'
+import '../ui/careerSeason.css'
 import RatingsGuide from '../ui/RatingsGuide'
 import ClubPanel, { CLUB_PAGES } from '../ui/ClubPanel'
 
@@ -231,6 +233,7 @@ function SeasonEnd({ career }) {
       <p className="career-end-pos">Finished <b>{ordinal(pos)}</b> of {count}{row ? ` · ${row.w}W ${row.d}D ${row.l}L · ${row.pts} pts` : ''}</p>
       <p className="muted">{o.line(DIVISIONS[nextLevel].name)}</p>
       {career.target && <p className="career-target-line" data-met={met ? 'true' : undefined}>Board target: {TARGETS[career.target]} · <b>{met ? 'Met' : 'Missed'}</b></p>}
+      <SeasonNumbers career={career} awards={seasonAwards(career)} />
       <Awards awards={seasonAwards(career)} />
       {cup && <p className="career-target-line">{CUP_NAME}: <b>{cup === 'won' ? 'Winners!' : cup === 'final' ? 'Runners-up' : cup === 'semi' ? 'Semi-finals' : 'Quarter-finals'}</b></p>}
       {warned && <p className="t-note career-warning"><b>Final warning.</b> The board isn’t happy. Miss next season’s target too and you’re sacked.</p>}
@@ -702,6 +705,8 @@ export default function CareerScreen() {
         />
       )}
       {guide && <RatingsGuide onClose={() => setGuide(false)} />}
+      {/* A new season has just started: the summer review, once */}
+      {career.lastSummer?.season === career.season && !career.lastSummer.seen && played === 0 && <SummerReview career={career} />}
       {confirmRetire && (
         <Modal title="Retire?" onClose={() => setConfirmRetire(false)}>
           <p>This ends {career.club.name}’s career for good: season {career.season}, {career.promotions} promotions, {career.titles} titles and {career.cups || 0} {CUP_NAME}s.</p>

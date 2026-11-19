@@ -346,6 +346,21 @@ export function nextMatch(league) {
   return allFixtures(league).find((f) => !f.result && (f.home === ME || f.away === ME)) || null
 }
 
+/** Your season so far in the league: matches won, goals scored, clean sheets. */
+export function seasonRecord(league) {
+  let w = 0; let gf = 0; let cs = 0
+  for (const f of allFixtures(league)) {
+    if (!f.result || (f.home !== ME && f.away !== ME)) continue
+    const h = f.home === ME
+    const mine = h ? f.result.home : f.result.away
+    const theirs = h ? f.result.away : f.result.home
+    if (mine > theirs) w++
+    gf += mine
+    if (theirs === 0) cs++
+  }
+  return { w, gf, cs }
+}
+
 /** Your league position (1-based). */
 export function myPosition(league) {
   return standings(league).findIndex((r) => r.id === ME) + 1
@@ -475,7 +490,7 @@ export function finishSeason(career, now = Date.now()) {
       retired: [...summer.retired, ...benchSummer.retired, ...resSummer.retired.map((r) => ({ ...r, role: `res${r.role}`, left: true }))],
       changes: [...summer.changes, ...benchSummer.changes, ...resSummer.changes.map((c) => ({ ...c, role: `res${c.role}` }))],
       loansBack: sq.loansBack.map((p) => ({ name: p.name, rating: p.rating })),
-      youthIn: sq.youthIn.map((p) => ({ name: p.name, pos: p.pos, rating: p.rating })),
+      youthIn: sq.youthIn.map((p) => ({ name: p.name, pos: p.pos, rating: p.rating, age: p.age, pot: p.pot })),
       youthOut: sq.youthOut.map((p) => ({ name: p.name })),
       world: ws.news.slice(0, 8),
     },
@@ -547,6 +562,8 @@ export function sanitizeCareer(input) {
       changes: Array.isArray(input.lastSummer.changes) ? input.lastSummer.changes.filter(isObj).slice(0, MAX_SQUAD) : [],
       loansBack: Array.isArray(input.lastSummer.loansBack) ? input.lastSummer.loansBack.filter(isObj).slice(0, MAX_SQUAD) : [],
       youthIn: Array.isArray(input.lastSummer.youthIn) ? input.lastSummer.youthIn.filter(isObj).slice(0, YOUTH_MAX) : [],
+      // The summer review has been shown (it opens once, when the new season starts)
+      seen: input.lastSummer.seen === true,
       youthOut: Array.isArray(input.lastSummer.youthOut) ? input.lastSummer.youthOut.filter(isObj).slice(0, YOUTH_MAX) : [],
       world: Array.isArray(input.lastSummer.world) ? input.lastSummer.world.filter(isObj).slice(0, 8).map(cleanNews) : [],
       left: Array.isArray(input.lastSummer.left) ? input.lastSummer.left.filter((x) => typeof x === 'string').slice(0, MAX_SQUAD) : [],

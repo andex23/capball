@@ -143,6 +143,15 @@ export const useCareerStore = create((set, get) => ({
     useAccountStore.getState().save({ force: true })
   },
 
+  /** The summer review has been read: don't open it again this season. */
+  seeSummer() {
+    const { career } = get()
+    if (!career?.lastSummer || career.lastSummer.seen) return
+    const next = { ...career, lastSummer: { ...career.lastSummer, seen: true } }
+    save(next)
+    set({ career: next })
+  },
+
   /** Switch between a solo career and playing a friend (online or LAN). */
   setMode(mode) {
     const { career } = get()

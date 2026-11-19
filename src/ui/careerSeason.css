@@ -72,3 +72,30 @@
   .cs-press button { display: grid; grid-template-columns: minmax(0,1fr); justify-items: start; gap: 3px; padding-block: 8px; }
   .cs-facts dd { font-size: 13px; }
 }
+
+/* ── Season review: the numbers on the season-end card, and the summer review ── */
+.sr-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0; }
+.sr-tiles div { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.25); }
+.sr-tiles b { font: 800 22px/1 var(--font-ui); color: var(--iss-yellow, #ffd23f); }
+.sr-tiles small { font: 700 9px/1 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: #8f9bc4; }
+.sr-pots { display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-align: left; background: #0b1236; border: 2px solid var(--iss-yellow, #ffd23f); }
+.sr-pots-badge { flex: none; display: grid; place-items: center; width: 44px; height: 44px; font-size: 22px; color: #1b1400; background: var(--iss-yellow, #ffd23f); border: 2px solid #000; }
+.sr-pots div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sr-pots small { font: 700 9px/1.2 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.sr-pots b { font-size: 16px; }
+.sr-pots span { font-size: 12px; color: #aab3d6; }
+.sr-overlay { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: calc(var(--safe-top, 0px) + 16px) 16px 16px; background: rgba(4, 8, 30, 0.86); animation: fade-in 0.2s ease; overflow-y: auto; }
+.sr-sheet { position: relative; width: min(440px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 26px 14px 16px; background: linear-gradient(180deg, #1f3cb0, #142a85); border: 3px solid var(--iss-yellow, #ffd23f); box-shadow: 0 0 0 3px #050a2e, 6px 6px 0 3px rgba(0, 0, 0, 0.5); }
+.sr-tab { position: absolute; top: -13px; left: 12px; padding: 5px 9px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.12em; text-transform: uppercase; color: #1b1400; background: var(--iss-yellow, #ffd23f); border: 2px solid #050a2e; }
+.sr-title { margin: 0; font: italic 800 34px/1 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #000; }
+.sr-sub { margin: -4px 0 4px; font-size: 13px; color: #c4cbe4; }
+.sr-news { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.sr-news li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: start; padding: 9px 2px; font-size: 14px; line-height: 1.35; border-bottom: 1px solid rgba(255, 255, 255, 0.12); animation: sr-in 0.35s ease both; }
+.sr-news li:nth-child(2) { animation-delay: 0.08s; } .sr-news li:nth-child(3) { animation-delay: 0.16s; } .sr-news li:nth-child(4) { animation-delay: 0.24s; }
+.sr-news li:nth-child(5) { animation-delay: 0.32s; } .sr-news li:nth-child(n+6) { animation-delay: 0.4s; }
+.sr-news li > span { font-size: 18px; line-height: 1.2; }
+.sr-news li[data-tone='gold'] b { color: var(--iss-yellow, #ffd23f); }
+.sr-news li[data-tone='good'] b { color: #7dff95; }
+.sr-news li[data-tone='bad'] b { color: #ff8c84; }
+@keyframes sr-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .sr-news li { animation: none; } }
