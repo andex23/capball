@@ -67,9 +67,9 @@ describe('camera fitting', () => {
 
 describe('whose end the view faces', () => {
   it('pass-and-play follows the turn; vs CPU the human; online this device', () => {
-    expect(facingTeam({ gameMode: 'local', turnView: true, activeTeam: 'team2' })).toBe('team2')
-    expect(facingTeam({ gameMode: 'local', turnView: true, activeTeam: 'team1' })).toBe('team1')
-    expect(facingTeam({ gameMode: 'local', turnView: false, activeTeam: 'team2' })).toBeNull()
+    expect(facingTeam({ gameMode: 'local', spinView: true, activeTeam: 'team2' })).toBe('team2')
+    expect(facingTeam({ gameMode: 'local', spinView: true, activeTeam: 'team1' })).toBe('team1')
+    expect(facingTeam({ gameMode: 'local', spinView: false, activeTeam: 'team2' })).toBeNull()
     expect(facingTeam({ gameMode: 'ai', aiTeam: 'team2', activeTeam: 'team2' })).toBe('team1')
     expect(facingTeam({ gameMode: 'online', onlineMyTeam: 'team2', activeTeam: 'team1' })).toBe('team2')
     expect(facingTeam({ gameMode: 'online', onlineMyTeam: null })).toBeNull()

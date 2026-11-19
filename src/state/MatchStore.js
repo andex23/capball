@@ -176,7 +176,13 @@ export const useMatchStore = create((set, get) => ({
   gameMode: 'local', // 'local', 'ai', or 'online'
   aiTeam: 'team2',
   aiDifficulty: 'medium', // 'easy', 'medium', 'hard'
-  setGameMode: (mode) => set({ gameMode: mode }),
+  // Two players on one phone default to "first to 3" (a timed match is long with one phone
+  // to pass round); whatever the computer matches were set to comes back afterwards
+  setGameMode: (mode) => set((s) => {
+    if (mode === 'local' && s.aiGoalTarget === undefined) return { gameMode: mode, aiGoalTarget: s.goalTarget, goalTarget: s.localGoalTarget ?? 3 }
+    if (mode !== 'local' && s.gameMode === 'local' && s.aiGoalTarget !== undefined) return { gameMode: mode, localGoalTarget: s.goalTarget, goalTarget: s.aiGoalTarget, aiGoalTarget: undefined }
+    return { gameMode: mode }
+  }),
   setAiDifficulty: (d) => set({ aiDifficulty: d }),
   // The easiest level this match has been played on, so dropping to Easy and
   // back to Hard near the end still counts as an Easy win. Belongs to one match.
@@ -247,8 +253,9 @@ export const useMatchStore = create((set, get) => ({
 
   tickShotClock: (dt) => {
     if (onlineInterrupted(get())) return
-    const { shotClock, shotClockRemaining, paused, phase, tutorialHold, challenge } = get()
-    if (!shotClock || challenge || paused || tutorialHold || !INPUT_PHASES.includes(phase)) return
+    const { shotClock, shotClockRemaining, paused, phase, tutorialHold, challenge, gameMode } = get()
+    // No shot clock with two players on one phone: passing it across mustn't cost the turn
+    if (!shotClock || challenge || gameMode === 'local' || paused || tutorialHold || !INPUT_PHASES.includes(phase)) return
     const next = Math.max(0, shotClockRemaining - dt)
     set({ shotClockRemaining: next })
     if (next === 0) get().shotClockExpired()
@@ -750,8 +757,8 @@ export const useMatchStore = create((set, get) => ({
   toggleVibration: () => set((s) => ({ vibration: !s.vibration })),
   // Two players on one device: turn the view round each turn so the player
   // whose turn it is sees the pitch from their own end
-  turnView: true,
-  toggleTurnView: () => set((s) => ({ turnView: !s.turnView })),
+  spinView: false, // two players on one phone: swing the pitch round each turn (off: it stays put)
+  toggleSpinView: () => set((s) => ({ spinView: !s.spinView })),
   // The camera glides along with the ball while it rolls, then settles back
   followBall: true,
   toggleFollowBall: () => set((s) => ({ followBall: !s.followBall })),

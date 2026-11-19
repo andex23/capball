@@ -259,6 +259,14 @@ describe('penalty shootout', () => {
 })
 
 describe('shot clock', () => {
+  // Against the computer (two players on one phone have no shot clock)
+  beforeEach(() => useMatchStore.setState({ gameMode: 'ai' }))
+  it('two players on one phone: no clock, so passing it across never costs the turn', () => {
+    useMatchStore.setState({ gameMode: 'local', phase: PHASE.SELECT, shotClock: 15, shotClockRemaining: 15 })
+    get().tickShotClock(20)
+    expect(get().shotClockRemaining).toBe(15)
+    expect(get().phase).toBe(PHASE.SELECT)
+  })
   it('waits while a tutorial coach mark is up', () => {
     startAndKickOff()
     get().setTutorialHold(true)
@@ -414,5 +422,25 @@ describe('first to N goals', () => {
     expect(s().phase).toBe(PHASE.MATCH_OVER)
     expect(s().matchResult.winner).toBe('team1')
     s().setGoalTarget(0)
+  })
+})
+
+describe('two players on one phone', () => {
+  it('default to first to 3, and the computer matches keep their own setting', () => {
+    useMatchStore.setState({ gameMode: 'ai', goalTarget: 0 })
+    get().setGameMode('local')
+    expect(get().goalTarget).toBe(3)
+    get().setGoalTarget(5)
+    get().setGameMode('ai')
+    expect(get().goalTarget).toBe(0)
+    get().setGameMode('local')
+    expect(get().goalTarget).toBe(5) // their last pick for two-player matches
+  })
+  it('also when the game opens in two-player mode', () => {
+    useMatchStore.setState({ gameMode: 'local', goalTarget: 0 })
+    get().setGameMode('local')
+    expect(get().goalTarget).toBe(3)
+    get().setGameMode('ai')
+    expect(get().goalTarget).toBe(0)
   })
 })

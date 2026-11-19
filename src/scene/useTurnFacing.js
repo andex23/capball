@@ -13,7 +13,7 @@ import { setFacing } from './camera'
 export function facingTeam(s) {
   if (s.gameMode === 'online' || s.gameMode === 'anytime') return s.onlineMyTeam || null
   if (s.gameMode === 'ai') return otherTeam(s.aiTeam || 'team2')
-  if (s.gameMode === 'local') return s.turnView ? s.activeTeam || null : null
+  if (s.gameMode === 'local') return s.spinView ? s.activeTeam || null : null
   return null
 }
 
