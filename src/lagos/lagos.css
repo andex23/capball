@@ -28,3 +28,13 @@
 .bet-note { border-color: #ff6b6b; color: #ffd0d0; }
 .bet-offer { margin: 0; text-align: center; font-size: 16px; }
 .bet-big { font-size: 40px; margin: 0; }
+
+/* Pitch-side LED board on the menu: the top players run past */
+.tk { position: fixed; z-index: 20; left: 0; right: 0; bottom: calc(var(--safe-bottom) + 28px); height: 36px; display: flex; align-items: stretch; padding: 0; overflow: hidden; color: inherit; background: #07070a; border: 0; border-top: 3px solid #fff; border-bottom: 3px solid #fff; box-shadow: 0 0 0 3px #0b0830; cursor: pointer; }
+.tk-tag { flex: none; z-index: 1; display: flex; align-items: center; padding: 0 9px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: #fff; background: #e8261f; border-right: 3px solid #fff; }
+.tk-track { display: flex; align-items: center; white-space: nowrap; animation: tk-run var(--tk-time, 24s) linear infinite; }
+.tk-run { display: inline-flex; align-items: center; padding-left: 12px; font: 700 12px/1 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: #ffb21f; text-shadow: 0 0 6px rgba(255, 170, 30, 0.7); }
+.tk-run b { color: #fff; font-weight: 700; text-shadow: 0 0 6px rgba(255, 255, 255, 0.55); }
+.tk-run i { font-style: normal; margin: 0 12px; color: #ffd23f; }
+@keyframes tk-run { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .tk-track { animation: none; } }
