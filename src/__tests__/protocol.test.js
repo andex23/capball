@@ -50,8 +50,7 @@ describe('validateGuestMessage', () => {
     expect(validateGuestMessage(msg('teamConfig', { config: { bogus: 1 } }), { screen: 'TEAM_SELECT' })).toBeNull()
   })
 
-  it('accepts known formations only during team selection and formation setup', () => {
-    expect(validateGuestMessage(msg('formation', { key: 'line' }), { screen: 'TEAM_SELECT' })).toEqual({ type: 'formation', key: 'line' })
+  it('only accepts known formations on the formation screen', () => {
     expect(validateGuestMessage(msg('formation', { key: 'diamond' }), { screen: 'FORMATION' })).toEqual({ type: 'formation', key: 'diamond' })
     expect(validateGuestMessage(msg('formation', { key: 'toString' }), { screen: 'FORMATION' })).toBeNull()
     expect(validateGuestMessage(msg('formation', { key: 'diamond' }), playing)).toBeNull()

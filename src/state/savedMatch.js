@@ -102,7 +102,6 @@ export function saveCurrentMatch() {
   const save = {
     v: 1,
     savedAt: new Date().toISOString(),
-    ...(s.quickMatchPrefs ? { quickMatch: true } : {}),
     match: Object.fromEntries(MATCH_FIELDS.map((k) => [k, s[k]])),
     // The rules of the flick about to be taken: a kick-off can't score
     // straight in, only the taker may take a free kick or penalty
@@ -159,7 +158,6 @@ export function resumeSavedMatch() {
   const penalty = !!turn.penaltyKick && !!taker && (turn.keeperDive === 'auto' || [-1, 0, 1].includes(turn.keeperDive))
   useMatchStore.setState({
     ...save.match,
-    quickMatchPrefs: save.quickMatch ? { teamConfig: s.teamConfig, formations: s.formations } : null,
     screen: SCREEN.PLAYING,
     matchKey: s.matchKey + 1,
     phase: PHASE.SELECT,

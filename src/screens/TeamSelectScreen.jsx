@@ -69,7 +69,7 @@ function DesignStrip({ teamKey, config, onPick }) {
 }
 
 /** The side you're designing: one big cap, its name, a strip of designs and the finer controls. */
-export function CapStudio({ teamKey, config, onUpdate }) {
+function CapStudio({ teamKey, config, onUpdate }) {
   const [tab, setTab] = useState(null)
   const [draftName, setDraftName] = useState(null)
   const [draftText, setDraftText] = useState(null)
@@ -168,36 +168,11 @@ function OtherSide({ teamKey, config, tag, locked, onOpen }) {
   )
 }
 
-export function MatchBallPicker() {
-  const ballColor = useMatchStore((s) => s.ballColor)
-  const setBallColor = useMatchStore((s) => s.setBallColor)
-  const isGuest = useMatchStore((s) => s.gameMode === 'online' && s.onlineMyTeam === 'team2')
-  return (
-  <div className="card card-pad" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-    <div className="eyebrow">Match ball</div>
-    <div className="chip-row" role="group" aria-label="Match ball colour">
-      {BALL_COLORS.map(({ color, label }) => (
-        <button
-          key={color}
-          className="swatch"
-          style={{ background: color, width: 32 }}
-          aria-pressed={ballColor === color}
-          aria-label={`${label} ball`}
-          title={label}
-          disabled={isGuest}
-          onMouseEnter={playHoverTick}
-          onClick={() => { playButtonSelect(); setBallColor(color) }}
-        />
-      ))}
-    </div>
-    {isGuest && <span className="muted" style={{ fontSize: 13 }}>The host picks the ball.</span>}
-  </div>
-  )
-}
-
 export default function TeamSelectScreen() {
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const setTeamConfig = useMatchStore((s) => s.setTeamConfig)
+  const ballColor = useMatchStore((s) => s.ballColor)
+  const setBallColor = useMatchStore((s) => s.setBallColor)
   const goToScreen = useMatchStore((s) => s.goToScreen)
   const gameMode = useMatchStore((s) => s.gameMode)
   const myTeam = useMatchStore((s) => s.onlineMyTeam)
@@ -244,7 +219,25 @@ export default function TeamSelectScreen() {
       <div className="vs-badge cap-studio-vs" aria-hidden>VS</div>
       <OtherSide teamKey={other} config={teamConfig[other]} tag={tagFor(other)} locked={isOnline && myTeam !== other} onOpen={() => setActive(other)} />
 
-      <MatchBallPicker />
+      <div className="card card-pad" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div className="eyebrow">Match ball</div>
+        <div className="chip-row" role="group" aria-label="Match ball colour">
+          {BALL_COLORS.map(({ color, label }) => (
+            <button
+              key={color}
+              className="swatch"
+              style={{ background: color, width: 32 }}
+              aria-pressed={ballColor === color}
+              aria-label={`${label} ball`}
+              title={label}
+              disabled={isGuest}
+              onMouseEnter={playHoverTick}
+              onClick={() => { playButtonSelect(); setBallColor(color) }}
+            />
+          ))}
+        </div>
+        {isGuest && <span className="muted" style={{ fontSize: 13 }}>The host picks the ball.</span>}
+      </div>
     </SetupShell>
   )
 }

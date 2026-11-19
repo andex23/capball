@@ -97,7 +97,7 @@ export function validateGuestMessage(msg, state) {
       return Object.keys(config).length ? { type: 'teamConfig', config } : null
     }
     case 'formation':
-      if (state.screen !== 'FORMATION' && state.screen !== 'TEAM_SELECT') return null
+      if (state.screen !== 'FORMATION') return null
       return Object.hasOwn(FORMATIONS, data.key) ? { type: 'formation', key: data.key } : null
     case 'ready': {
       const ready = data.ready === true

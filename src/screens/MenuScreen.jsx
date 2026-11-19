@@ -11,7 +11,7 @@ import { useAccountStore } from '../state/accountStore'
 import InstallGuide from '../pwa/InstallGuide'
 import { isLagos } from '../platform'
 import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
-import { playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
+import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
 import { useSavedStore, resumeSavedMatch, describeSave } from '../state/savedMatch'
 import { useTournamentStore } from '../state/tournamentStore'
@@ -33,7 +33,8 @@ import { useLagosStore } from '../lagos/lagosStore'
 
 // The menu is a few short pages, like an old console game: the main page,
 // and one page each for quick matches, tournaments and options
-const PAGE_TITLES = { main: 'Main menu', play: 'Multiplayer', tournament: 'Tournament', options: 'Options' }
+const PAGE_TITLES = { main: 'Main menu', play: 'Quick match', tournament: 'Tournament', options: 'Options' }
+const DIFFICULTIES = ['easy', 'medium', 'hard']
 
 // The title card shows once per visit; coming back from a match goes straight to the menu
 let pressedStart = false
@@ -55,6 +56,8 @@ function CapCursor() {
 export default function MenuScreen() {
   const goToScreen = useMatchStore((s) => s.goToScreen)
   const setGameMode = useMatchStore((s) => s.setGameMode)
+  const aiDifficulty = useMatchStore((s) => s.aiDifficulty)
+  const setAiDifficulty = useMatchStore((s) => s.setAiDifficulty)
   const username = useAccountStore((s) => s.username)
   const canInstall = useCanInstall()
   const lagos = isLagos()
@@ -88,6 +91,13 @@ export default function MenuScreen() {
     setCursor(i)
   }
 
+  const shiftLevel = (step) => {
+    const i = DIFFICULTIES.indexOf(aiDifficulty)
+    const next = DIFFICULTIES[(i + step + DIFFICULTIES.length) % DIFFICULTIES.length]
+    playButtonSelect()
+    setAiDifficulty(next)
+  }
+
   const go = (p) => { playMenuNavigate(); setPage(p); setCursor(0) }
   const openDialog = (d) => { playMenuNavigate(); setDialog(d) }
   const play = (mode) => { playConfirm(); setGameMode(mode); goToScreen(SCREEN.TEAM_SELECT) }
@@ -96,15 +106,15 @@ export default function MenuScreen() {
     useTournamentStore.getState().setSetupFormat(format)
     goToScreen(SCREEN.TOURNAMENT_HOME)
   }
+  const level = aiDifficulty[0].toUpperCase() + aiDifficulty.slice(1)
   const openT = localT && !localT.championId ? localT : null
   const back = { key: 'back', title: '◄ Back', small: true, action: () => go('main') }
 
   // Each item: key, title, optional sub (a line under it), right (a tag or picker), action
   const PAGES = {
     main: [
-      { key: 'play', title: 'Quick Match', sub: 'Pick your team and play the computer', action: () => play('ai') },
-      { key: 'multiplayer', title: 'Multiplayer', sub: lagos ? 'Lagos players or two on one phone' : 'One phone, LAN or online', action: () => go('play') },
-      ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
+      // Something saved shows on its own button; the choice to carry on or start again is one tap in
+      { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? 'Computer, Lagos players or one phone' : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Sunday League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
@@ -113,10 +123,14 @@ export default function MenuScreen() {
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
     play: lagos ? [
+      { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
       { key: 'online', title: 'Vs Lagos Players', sub: 'Another Lagos Life player · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
+      ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
       { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
       back,
     ] : [
+      ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
+      { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
       { key: 'lan', title: 'LAN Match', sub: 'Same Wi-Fi or hotspot · no internet', tag: 'LAN', action: () => { playConfirm(); goToScreen(SCREEN.LAN) } },
       { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
       { key: 'online', title: 'Online Match', sub: 'Play a friend on their own phone', tag: 'NET', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
@@ -155,7 +169,9 @@ export default function MenuScreen() {
       const item = items[Math.min(cursor, n - 1)]
       if (e.key === 'ArrowDown') { e.preventDefault(); playMenuNavigate(); setCursor((c) => (c + 1) % n) }
       else if (e.key === 'ArrowUp') { e.preventDefault(); playMenuNavigate(); setCursor((c) => (c - 1 + n) % n) }
-      else if ((e.key === 'Escape' || e.key === 'Backspace') && page !== 'main') {
+      else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && item?.picker === 'level') {
+        e.preventDefault(); shiftLevel(e.key === 'ArrowLeft' ? -1 : 1)
+      } else if ((e.key === 'Escape' || e.key === 'Backspace') && page !== 'main') {
         e.preventDefault(); go('main')
       } else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) {
         e.preventDefault(); item?.action()
@@ -187,7 +203,13 @@ export default function MenuScreen() {
                     {m.title}
                     {m.sub && (cursor === i || m.tag === 'SAVE') && <small className="iss-sub">{m.sub}</small>}
                   </button>
-                  {m.tag ? (
+                  {m.picker === 'level' ? (
+                    <span className="iss-level" role="group" aria-label="Computer level">
+                      <button className="iss-arrow" aria-label="Easier" onClick={() => { setCursor(i); shiftLevel(-1) }}>◄</button>
+                      <span className="iss-level-name" data-level={aiDifficulty}>{level}</span>
+                      <button className="iss-arrow" aria-label="Harder" onClick={() => { setCursor(i); shiftLevel(1) }}>►</button>
+                    </span>
+                  ) : m.tag ? (
                     <span className="iss-tag" data-done={m.done ? 'true' : undefined} data-arrow={m.tag === '►' ? 'true' : undefined}>{m.tag}</span>
                   ) : null}
                 </li>

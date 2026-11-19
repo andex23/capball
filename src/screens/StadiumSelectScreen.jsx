@@ -51,7 +51,7 @@ function SurfacePreview({ stadium, size = 180, pitchStyle = 'table' }) {
   )
 }
 
-export function TableSettings({ compact = false, teams }) {
+export default function StadiumSelectScreen() {
   const stadium = useMatchStore((s) => s.stadium)
   const setStadium = useMatchStore((s) => s.setStadium)
   const chosenTeam1Side = useMatchStore((s) => s.chosenTeam1Side)
@@ -59,6 +59,7 @@ export function TableSettings({ compact = false, teams }) {
   const shotClock = useMatchStore((s) => s.shotClock)
   const setShotClock = useMatchStore((s) => s.setShotClock)
   const teamConfig = useMatchStore((s) => s.teamConfig)
+  const goToScreen = useMatchStore((s) => s.goToScreen)
   const pitchStyle = useMatchStore((s) => s.pitchStyle)
   const setPitchStyle = useMatchStore((s) => s.setPitchStyle)
   const isGuest = useMatchStore((s) => s.gameMode === 'online' && s.onlineMyTeam === 'team2')
@@ -66,21 +67,23 @@ export function TableSettings({ compact = false, teams }) {
   const pick = (fn) => () => { playButtonSelect(); fn() }
 
   return (
-    <>
-      {compact && <label className="quick-field">Table
-        <select aria-label="Table" value={stadium} disabled={isGuest} onChange={(e) => setStadium(e.target.value)}>
-          {STADIUM_KEYS.map((key) => <option key={key} value={key}>{STADIUMS[key].name}</option>)}
-        </select>
-      </label>}
+    <SetupShell
+      step={1}
+      title="Choose the table"
+      subtitle={isGuest ? 'The host picks the venue, time per half and shot clock.' : 'Pick where you play, the ends, and how long.'}
+      onBack={() => goToScreen(SCREEN.TEAM_SELECT)}
+      next={{ label: 'Formations', onClick: () => goToScreen(SCREEN.FORMATION) }}
+      onBothReady={() => goToScreen(SCREEN.FORMATION)}
+    >
       <div className="pitch-style">
         <div className="eyebrow">Playing surface</div>
         <div className="segmented" role="group" aria-label="Playing surface">
-          <button aria-pressed={pitchStyle === 'table'} disabled={isGuest} onClick={pick(() => setPitchStyle('table'))}>Table top</button>
-          <button aria-pressed={pitchStyle === 'grass'} disabled={isGuest} onClick={pick(() => setPitchStyle('grass'))}>Green pitch</button>
+          <button aria-pressed={pitchStyle === 'table'} onClick={pick(() => setPitchStyle('table'))}>Table top</button>
+          <button aria-pressed={pitchStyle === 'grass'} onClick={pick(() => setPitchStyle('grass'))}>Green pitch</button>
         </div>
         <small className="muted">{pitchStyle === 'table' ? 'Lines chalked or taped straight onto the table.' : 'A painted green pitch on every table.'}</small>
       </div>
-      {!compact && <div className="venue-grid">
+      <div className="venue-grid">
         {STADIUM_KEYS.map((key) => {
           const st = STADIUMS[key]
           const selected = stadium === key
@@ -102,15 +105,15 @@ export function TableSettings({ compact = false, teams }) {
             </button>
           )
         })}
-      </div>}
+      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 14, marginTop: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 16 }}>
         <div className="card card-pad">
           <div className="eyebrow" style={{ marginBottom: 10 }}>First-half ends</div>
           <div className="segmented stretch" role="group" aria-label="Which end the home team defends">
             {['left', 'right'].map((side) => (
               <button key={side} aria-pressed={chosenTeam1Side === side} disabled={isGuest} onClick={pick(() => setTeam1Side(side))}>
-                {(teams || teamConfig).team1.name} {side === 'left' ? 'on the left' : 'on the right'}
+                {teamConfig.team1.name} {side === 'left' ? 'on the left' : 'on the right'}
               </button>
             ))}
           </div>
@@ -134,23 +137,6 @@ export function TableSettings({ compact = false, teams }) {
           </p>
         </div>
       </div>
-    </>
-  )
-}
-
-export default function StadiumSelectScreen() {
-  const goToScreen = useMatchStore((s) => s.goToScreen)
-  const isGuest = useMatchStore((s) => s.gameMode === 'online' && s.onlineMyTeam === 'team2')
-  return (
-    <SetupShell
-      step={1}
-      title="Choose the table"
-      subtitle={isGuest ? 'The host picks the venue, time per half and shot clock.' : 'Pick where you play, the ends, and how long.'}
-      onBack={() => goToScreen(SCREEN.TEAM_SELECT)}
-      next={{ label: 'Formations', onClick: () => goToScreen(SCREEN.FORMATION) }}
-      onBothReady={() => goToScreen(SCREEN.FORMATION)}
-    >
-      <TableSettings />
     </SetupShell>
   )
 }
