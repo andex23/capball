@@ -2,6 +2,7 @@ import { playerOf } from '../game/commentary'
 import { onlineInterrupted } from '../multiplayer/reconnect'
 import { create } from 'zustand'
 import { otherTeam, shootoutStatus, nextShooter, matchWinner } from '../game/rules'
+import { FORMATIONS } from '../data/TeamData'
 
 // App screens
 export const SCREEN = {
@@ -158,6 +159,14 @@ export function isAuthority(state) {
   return state.gameMode !== 'anytime' && (state.gameMode !== 'online' || state.onlineMyTeam === 'team1')
 }
 
+/** Each side picks only its own formation (the remote guest's choices arrive on the host with its own seat). */
+export function canPickFormation(state, team, seat = state.onlineMyTeam) {
+  if (team !== 'team1' && team !== 'team2') return false
+  if (state.gameMode === 'ai') return team !== state.aiTeam
+  if (state.gameMode === 'online') return team === seat
+  return state.gameMode === 'local'
+}
+
 export const useMatchStore = create((set, get) => ({
   // --- App navigation ---
   screen: SCREEN.SPLASH,
@@ -215,7 +224,9 @@ export const useMatchStore = create((set, get) => ({
   setTeam1Side: (side) => set({ chosenTeam1Side: side, team1Side: side }),
 
   formations: { team1: 'default', team2: 'default' },
-  setFormation: (team, formation) => set((s) => ({ formations: { ...s.formations, [team]: formation } })),
+  setFormation: (team, formation, seat) => set((s) =>
+    canPickFormation(s, team, seat) && Object.hasOwn(FORMATIONS, formation)
+      ? { formations: { ...s.formations, [team]: formation } } : s),
 
   // --- Match clock ---
   matchDuration: 180, // seconds per half

@@ -168,7 +168,7 @@ function handleAsHost(msg) {
   if (!action) return
   switch (action.type) {
     case 'teamConfig': store.setTeamConfig(GUEST_TEAM, action.config); break
-    case 'formation': store.setFormation(GUEST_TEAM, action.key); break
+    case 'formation': store.setFormation(GUEST_TEAM, action.key, GUEST_TEAM); break
     case 'ready': store.setOnlineReady(GUEST_TEAM, action.choice || action.ready); break
     case 'pause': store.setPaused(action.paused); break
     case 'select': store.selectCap(action.capId); break
