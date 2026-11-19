@@ -2717,6 +2717,60 @@ button.other-side { cursor: pointer; }
 .tour-winners span { flex: 1; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tour-winners svg { color: var(--iss-yellow, #ffd23f); flex: none; }
 
+/* ── The Weekly Cup: poster, road to the final, the draw ── */
+.wc-poster { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 22px 14px 16px; margin-top: 10px; background: radial-gradient(120% 80% at 100% 0%, rgba(255, 210, 63, 0.28), transparent 60%), linear-gradient(180deg, #3a1f6e, #1a1648); border: 3px solid var(--iss-yellow, #ffd23f); box-shadow: 0 0 0 3px var(--ink, #050a2e), 4px 4px 0 3px rgba(0, 0, 0, 0.45); }
+.wc-tab { position: absolute; top: -13px; left: 12px; padding: 5px 9px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.12em; text-transform: uppercase; color: #1b1400; background: var(--iss-yellow, #ffd23f); border: 2px solid var(--ink, #050a2e); }
+.wc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wc-head small { display: block; font-size: 12px; color: #c9c2ee; }
+.wc-head h2 { margin: 4px 0 0; font: 700 22px/1.1 var(--font-pixel); letter-spacing: 0.04em; text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #000; }
+.wc-head > :last-child { flex: none; filter: drop-shadow(0 0 10px rgba(255, 210, 63, 0.55)); animation: wc-glow 2.4s ease-in-out infinite; }
+@keyframes wc-glow { 50% { filter: drop-shadow(0 0 18px rgba(255, 210, 63, 0.9)); transform: translateY(-2px); } }
+.wc-teams { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; list-style: none; }
+.wc-teams li { display: grid; place-items: center; padding: 3px 0; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.25); }
+.wc-teams li > * { max-width: 100%; }
+.wc-teams li[data-me='true'] { border-color: var(--iss-yellow, #ffd23f); background: #2a2350; }
+.wc-road { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; counter-reset: wc; }
+.wc-road li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 4px; text-align: center; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.3); }
+.wc-road li + li { border-left: 0; }
+.wc-road li + li::before { content: ''; position: absolute; left: -7px; top: 50%; width: 10px; height: 10px; margin-top: -5px; background: inherit; border: 2px solid rgba(255, 255, 255, 0.3); border-left: 0; border-bottom: 0; transform: rotate(45deg); }
+.wc-road b { font: 700 9px/1.2 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
+.wc-road span { padding: 3px 7px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: #06210f; background: #4cd964; }
+.wc-road li[data-level='medium'] span { color: #2a1700; background: #ffb020; }
+.wc-road li[data-level='hard'] span { color: #fff; background: #e8261f; }
+.wc-road li[data-level='hard'] { background: linear-gradient(180deg, #3a2a05, #0b1236); border-color: var(--iss-yellow, #ffd23f); }
+.wc-road li[data-done='true'] { opacity: 0.5; }
+.wc-road li[data-done='true'] b::before { content: '✓ '; color: #4cd964; }
+.wc-road li[data-now='true'] { outline: 3px solid var(--iss-yellow, #ffd23f); outline-offset: -3px; z-index: 1; }
+.wc-road-hub { margin-top: 10px; }
+.wc-prize { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: #fff; }
+.wc-prize svg { flex: none; color: var(--iss-yellow, #ffd23f); }
+.wc-prize b { color: var(--iss-yellow, #ffd23f); }
+.tour-or { display: flex; align-items: center; gap: 10px; margin-top: 4px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.1em; text-transform: uppercase; color: #8f9bc4; }
+.tour-or::before, .tour-or::after { content: ''; flex: 1; height: 2px; background: rgba(255, 255, 255, 0.2); }
+.t-next[data-final='true'] { border: 3px solid var(--iss-yellow, #ffd23f); background: radial-gradient(100% 70% at 50% 0%, rgba(255, 210, 63, 0.3), transparent 70%), var(--surface, #101a4a); box-shadow: 0 0 24px rgba(255, 210, 63, 0.45), var(--shadow); }
+.t-next[data-final='true'] .t-next-head .eyebrow:first-child { color: var(--iss-yellow, #ffd23f); }
+.t-next[data-final='true'] .t-next-head .eyebrow:first-child::before { content: '★ '; }
+.wc-draw { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(4, 8, 30, 0.82); animation: fade-in 0.2s ease; }
+.wc-draw-box { position: relative; width: min(440px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 24px 14px 16px; background: linear-gradient(180deg, #3a1f6e, #1a1648); border: 3px solid var(--iss-yellow, #ffd23f); box-shadow: 0 0 0 3px var(--ink, #050a2e), 6px 6px 0 3px rgba(0, 0, 0, 0.5); }
+.wc-draw-box h2 { margin: 0; font: 700 22px/1.1 var(--font-pixel); text-align: center; text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #000; }
+.wc-draw-k { margin: 0; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.12em; text-align: center; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.wc-draw-ties { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.wc-draw-ties li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; padding: 6px 8px; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.3); opacity: 0; transform: translateY(8px) scale(0.96); transition: opacity 0.25s ease, transform 0.25s cubic-bezier(.2, 1.6, .4, 1); }
+.wc-draw-ties li[data-shown='true'] { opacity: 1; transform: none; }
+.wc-draw-ties li[data-mine='true'] { border-color: var(--iss-yellow, #ffd23f); background: #2a2350; }
+.wc-draw-ties i { font: 700 10px/1 var(--font-pixel); font-style: normal; color: var(--iss-yellow, #ffd23f); }
+.wc-draw-side { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.wc-draw-side b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: #fff; }
+.wc-draw-away { justify-content: flex-end; text-align: right; }
+.wc-draw-side > :not(b) { flex: none; }
+.finale-prize { margin: 4px 0 0; font-size: 14px; line-height: 1.45; text-align: center; }
+.finale-prize svg { vertical-align: -2px; color: var(--iss-yellow, #ffd23f); }
+.finale-prize b { color: var(--iss-yellow, #ffd23f); }
+.corner-cups { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: #0b1236; border: 2px solid var(--iss-yellow, #ffd23f); }
+.corner-cups > span { display: flex; align-items: center; gap: 6px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: var(--iss-yellow, #ffd23f); }
+.corner-cups ul { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+@media (prefers-reduced-motion: reduce) { .wc-head > :last-child { animation: none; } .wc-draw-ties li { transition: none; } }
+
 /* ── The 3D pitch went away (phone took the graphics back) ── */
 .pitch-lost { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; color: #fff; pointer-events: none; }
 .pitch-lost p { margin: 0; max-width: 300px; font-size: 14px; line-height: 1.4; }

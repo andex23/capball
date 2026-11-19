@@ -3,6 +3,10 @@ import { tournamentStory } from '../game/tournamentStory'
 import { playButtonSelect, playCrowdRoar, playCrowdGroan, playFinalWhistle } from '../audio/SoundManager'
 import CapPreview from './CapPreview'
 import Icon from './Icon'
+import { useRewardsStore } from '../state/rewardsStore'
+import { useAccountStore } from '../state/accountStore'
+import { CUP_PRIZE } from '../game/weeklyCup'
+import { money } from '../game/squad'
 import { displayColor, inkOn } from './color'
 
 /** A plain gold cup, drawn here (generic trophy shape). */
@@ -44,6 +48,8 @@ function Confetti({ colors }) {
 
 /** The end of a tournament, told from the player's side. */
 export default function TournamentFinale({ t, mine, onClose, onNew }) {
+  const cupsWon = useRewardsStore((s) => s.cups)
+  const signedIn = !!useAccountStore((s) => s.username)
   const story = useMemo(() => tournamentStory(t, mine), [t, mine])
   const outcome = story?.outcome
   useEffect(() => {
@@ -53,6 +59,7 @@ export default function TournamentFinale({ t, mine, onClose, onNew }) {
     else playFinalWhistle()
   }, [outcome])
   if (!story) return null
+  const won = t.weekly && cupsWon.find((c) => c.key === t.weekly.key)?.id === t.id
   const hero = story.team || story.champ
   const color = displayColor(hero.primary)
   const win = outcome === 'champion' || outcome === 'watched'
@@ -85,6 +92,9 @@ export default function TournamentFinale({ t, mine, onClose, onNew }) {
           <p className="finale-scorer">
             <Icon name="ball" size={16} /> Golden Cap: <b>{story.scorer.number != null ? `#${story.scorer.number} ` : ''}{story.scorer.name}</b> ({story.scorer.team}) · {story.scorer.goals} goal{story.scorer.goals === 1 ? '' : 's'}
           </p>
+        )}
+        {t.weekly && outcome === 'champion' && (
+          <p className="finale-prize"><Icon name="trophy" size={16} /> {won ? <>Prize: <b>{money(CUP_PRIZE)}</b> and the <b>{t.weekly.name}</b> cap. Pick it in Edit team.</> : !signedIn ? <>Sign in to collect the {t.weekly.name} prize next time.</> : <>You already won the {t.weekly.name} this week. A new cup comes on Monday.</>}</p>
         )}
         {outcome !== 'champion' && outcome !== 'watched' && <p className="finale-champ"><Icon name="trophy" size={16} /> {story.champ.name} are the {t.format === 'league' ? 'champions' : 'cup winners'}</p>}
         <div className="finale-actions">

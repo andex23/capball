@@ -11,6 +11,8 @@ import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
 import TournamentFinale from '../ui/TournamentFinale'
+import { CupDraw, CupRoad } from '../ui/WeeklyCup'
+import { levelForRound } from '../game/weeklyCup'
 import { TeamTag, scoreText, ProgressBar } from '../ui/TournamentBits'
 import { KitEditor } from './TournamentSetupScreen'
 import { displayColor } from '../ui/color'
@@ -31,7 +33,7 @@ function modeLabel(t, f, action) {
   const away = teamById(t, f.away)
   if (t.playMode === 'anytime') return 'Play anytime · saved turns'
   const cpu = home?.cpu ? home : away?.cpu ? away : null
-  if (cpu) return `Against the computer · ${DIFF_LABEL[cpu.difficulty] || 'Medium'}`
+  if (cpu) return `Against the computer · ${DIFF_LABEL[t.weekly && t.rounds ? levelForRound(f.round, t.rounds.length) : cpu.difficulty] || 'Medium'}`
   if (action?.kind === 'host' || action?.kind === 'join' || action?.reason === 'home-to-start') return 'Live · phone v phone'
   if (action?.reason === 'open-seat') return 'Needs a player'
   return 'Pass and play on this phone'
@@ -46,7 +48,7 @@ function NextMatch({ t, fixture, action, onAct, lan = false }) {
   const home = teamById(t, fixture.home)
   const away = teamById(t, fixture.away)
   return (
-    <section className="card t-next" aria-label="Next match">
+    <section className="card t-next" aria-label="Next match" data-final={t.weekly && t.format !== 'league' && fixture.round === t.rounds.length - 1 ? 'true' : undefined}>
       <div className="t-next-head">
         <span className="eyebrow">Up next · {fixtureLabel(t, fixture)}</span>
         <span className="eyebrow t-next-mode">{lan ? 'LAN · two devices' : modeLabel(t, fixture, action)}</span>
@@ -445,6 +447,8 @@ export default function TournamentHubScreen() {
   const withActions = ready.map((f) => ({ f, a: actionFor(f) })).filter((x) => x.a)
   const next = withActions.find((x) => x.a.kind !== 'wait') || withActions[0] || null
   const p = progress(t)
+  const weekly = !!t.weekly && !isOnline && !guestLan
+  const again = () => (weekly ? store.startWeeklyCup() : store.startSetup(kind))
 
   const act = (f, action) => {
     playConfirm()
@@ -474,9 +478,9 @@ export default function TournamentHubScreen() {
         <header className="shell-head">
           <div>
             <div className="eyebrow shell-eyebrow">
-              {guestLan || useLan ? 'LAN · ' : isOnline ? 'Online · ' : ''}{league ? `League${t.legs === 2 ? ' · home & away' : ''}` : 'Knockout cup'} · {t.teams.length} teams
+              {weekly ? 'Weekly Cup' : <>{guestLan || useLan ? 'LAN · ' : isOnline ? 'Online · ' : ''}{league ? `League${t.legs === 2 ? ' · home & away' : ''}` : 'Knockout cup'}</>} · {t.teams.length} teams
             </div>
-            <h1 className="display shell-title">{league ? 'The League' : 'The Cup'}</h1>
+            <h1 className="display shell-title">{weekly ? t.weekly.name : league ? 'The League' : 'The Cup'}</h1>
           </div>
           <span className="mode-icon"><Icon name={isOnline ? 'globe' : 'trophy'} size={24} /></span>
         </header>
@@ -494,16 +498,17 @@ export default function TournamentHubScreen() {
           {storeError && !playing && <p className="t-warn t-hub-error" role="alert">{storeError}</p>}
 
           {t.championId
-            ? <Champion t={t} onNew={guestLan ? null : () => { playButtonSelect(); store.startSetup(kind) }} onReplay={() => { playButtonSelect(); setFinale(true) }} />
+            ? <Champion t={t} onNew={guestLan ? null : () => { playButtonSelect(); again() }} onReplay={() => { playButtonSelect(); setFinale(true) }} />
             : (
               <div className="t-hub-top">
                 {next && <NextMatch t={t} fixture={next.f} action={next.a} onAct={act} lan={!isOnline && useLan} />}
                 <div className="card card-pad t-hub-progress">
                   <ProgressBar played={p.played} total={p.total} label={league ? 'Season' : 'Cup'} />
+                  {weekly && <CupRoad t={t} round={next?.f.round ?? 0} />}
                   <p className="muted t-note">
                     {league
                       ? 'Win 3 pts · draw 1. Play one matchday at a time. Computer results follow when its player matches finish.'
-                      : 'Lose and you’re out. Level at full time goes to penalties.'}
+                      : weekly ? 'Lose and you’re out. The computer gets harder every round.' : 'Lose and you’re out. Level at full time goes to penalties.'}
                   </p>
                   {isOnline && !next && mine.length > 0 && <p className="muted t-note">No match for you right now — waiting on other results.</p>}
                 </div>
@@ -577,8 +582,11 @@ export default function TournamentHubScreen() {
           t={t}
           mine={mine}
           onClose={() => { store.markFinaleSeen(t.id); setFinale(false) }}
-          onNew={() => { store.markFinaleSeen(t.id); setFinale(false); if (guestLan) goToScreen(SCREEN.MENU); else store.startSetup(kind) }}
+          onNew={() => { store.markFinaleSeen(t.id); setFinale(false); if (guestLan) goToScreen(SCREEN.MENU); else again() }}
         />
+      )}
+      {weekly && !t.championId && !finaleSeen.includes(`draw:${t.id}`) && (
+        <CupDraw t={t} onDone={() => store.markFinaleSeen(`draw:${t.id}`)} />
       )}
       {isOnline && <LiveWait t={t} playing={playing} onCancel={() => { playButtonSelect(); store.cancelLive() }} />}
     </div>

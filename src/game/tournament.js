@@ -182,8 +182,14 @@ export function sanitizeTeam(input, i = 0) {
   }
 }
 
+/** The Weekly Cup's tag on a tournament: { weekly: { key, name } }, or nothing. */
+function cleanWeekly(w) {
+  if (!isObj(w) || !/^\d{4}-W\d{2}$/.test(String(w.key)) || typeof w.name !== 'string') return {}
+  return { weekly: { key: w.key, name: w.name.slice(0, 24) } }
+}
+
 /** A brand-new tournament, ready to play. Throws on an impossible set-up. */
-export function createTournament({ format, legs = 1, teams, matchDuration = 180, playMode = 'live', turnsPerPlayer = 20, deadlineHours = 0, rng = Math.random, now = Date.now() }) {
+export function createTournament({ format, legs = 1, teams, matchDuration = 180, playMode = 'live', turnsPerPlayer = 20, deadlineHours = 0, rng = Math.random, now = Date.now(), weekly = null }) {
   if (!FORMATS.includes(format)) throw new Error(`Unknown format: ${format}`)
   if (!Array.isArray(teams) || teams.length < MIN_TEAMS || teams.length > MAX_TEAMS) {
     throw new Error(`A tournament needs ${MIN_TEAMS}–${MAX_TEAMS} teams`)
@@ -203,6 +209,7 @@ export function createTournament({ format, legs = 1, teams, matchDuration = 180,
     teams: clean,
     championId: null,
     runnerUpId: null,
+    ...cleanWeekly(weekly),
   }
   if (format === 'league') return { ...base, fixtures: leagueFixtures(ids, base.legs), rounds: null }
   return { ...base, fixtures: null, rounds: knockoutRounds(ids, rng) }
@@ -495,6 +502,7 @@ export function sanitizeTournament(input) {
     teams,
     championId: ids.has(input.championId) ? input.championId : null,
     runnerUpId: ids.has(input.runnerUpId) ? input.runnerUpId : null,
+    ...cleanWeekly(input.weekly),
   }
   if (input.format === 'league') {
     if (!Array.isArray(input.fixtures)) return null

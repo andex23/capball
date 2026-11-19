@@ -8,10 +8,11 @@ import Icon from '../ui/Icon'
 import Modal from '../ui/Modal'
 import { displayColor } from '../ui/color'
 import { useOnline } from '../pwa/useOnline'
+import { WeeklyCupPoster } from '../ui/WeeklyCup'
 
 const CODE_LENGTH = 6
 
-const formatLabel = (t) => (t.format === 'league'
+const formatLabel = (t) => (t.weekly ? t.weekly.name : t.format === 'league'
   ? `League${t.legs === 2 ? ' · home & away' : ''}`
   : 'Knockout cup')
 
@@ -26,7 +27,7 @@ export default function TournamentHomeScreen() {
   const abandonLocal = useTournamentStore((s) => s.abandonLocal)
   const recentOnline = useTournamentStore((s) => s.recentOnline)
   const { startSetup, openHub, openOnline, forgetOnline } = useTournamentStore.getState()
-  const [confirm, setConfirm] = useState(null) // 'new' | 'abandon'
+  const [confirm, setConfirm] = useState(null) // 'new' | 'abandon' | 'weekly'
   const [joining, setJoining] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [joinBusy, setJoinBusy] = useState(false)
@@ -104,6 +105,11 @@ export default function TournamentHomeScreen() {
         </header>
 
         <main className="shell-body t-home tour-home">
+          {/* This week's ready-made cup: one tap to enter */}
+          <WeeklyCupPoster onReplace={() => { playButtonSelect(); setConfirm('weekly') }} />
+
+          <div className="tour-or"><span>or make your own</span></div>
+
           {/* The cup-draw poster */}
           <section className="tour-poster">
             <div className="tour-poster-k">Cup or league · 3 to 8 teams</div>
@@ -229,7 +235,7 @@ export default function TournamentHomeScreen() {
 
       {confirm && (
         <Modal
-          title={confirm === 'new' ? 'Start again?' : 'Abandon it?'}
+          title={confirm === 'abandon' ? 'Abandon it?' : 'Start again?'}
           onClose={() => setConfirm(null)}
           footer={(
             <>
@@ -241,9 +247,10 @@ export default function TournamentHomeScreen() {
                   if (confirm === 'abandon') abandonLocal()
                   setConfirm(null)
                   if (confirm === 'new') startSetup('local')
+                  if (confirm === 'weekly') { playConfirm(); useTournamentStore.getState().startWeeklyCup() }
                 }}
               >
-                {confirm === 'new' ? 'Set up a new one' : 'Abandon'}
+                {confirm === 'new' ? 'Set up a new one' : confirm === 'weekly' ? 'Enter the cup' : 'Abandon'}
               </button>
             </>
           )}
@@ -251,6 +258,8 @@ export default function TournamentHomeScreen() {
           <p className="muted">
             {confirm === 'new'
               ? 'Your tournament in progress is replaced once you create the new one.'
+              : confirm === 'weekly'
+              ? 'Entering the Weekly Cup replaces the tournament you have going.'
               : `The ${local?.format === 'league' ? 'league' : 'cup'} in progress and its results are deleted.`}
           </p>
         </Modal>

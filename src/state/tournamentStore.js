@@ -23,6 +23,9 @@ import { createRoom, joinRoom, disconnect, isConnected, flushLanState } from '..
 import { careerNext, opponentSix } from '../game/career'
 import { matchAttrs } from '../game/clubLife'
 import { buildStory } from '../game/matchStory'
+import { weeklyCup, cupTeams, levelForRound } from '../game/weeklyCup'
+import { weekKey } from '../game/rewards'
+import { useRewardsStore } from './rewardsStore'
 import { pressBoost } from '../game/careerBrief'
 import { legendById } from '../data/Legends'
 import { reportExtras } from '../game/matchReport'
@@ -183,8 +186,16 @@ export const useTournamentStore = create((set, get) => ({
     useMatchStore.getState().goToScreen(SCREEN.TOURNAMENT_HUB)
   },
 
-  createLocal({ format, legs, teams, matchDuration }) {
-    const t = settleCpu(createTournament({ format, legs, teams, matchDuration }))
+  /** This week's cup, ready to play: you and seven computer clubs, two-minute halves. */
+  startWeeklyCup() {
+    const cup = weeklyCup(weekKey())
+    const t = get().createLocal({ format: 'knockout', teams: cupTeams(cup, useMatchStore.getState().teamConfig.team1), matchDuration: 120, weekly: { key: cup.key, name: cup.name } })
+    get().openHub('local')
+    return t
+  },
+
+  createLocal({ format, legs, teams, matchDuration, weekly = null }) {
+    const t = settleCpu(createTournament({ format, legs, teams, matchDuration, weekly }))
     set({ local: t, error: null, hubKind: 'local' })
     get().noteChampion(t)
     save(get())
@@ -209,6 +220,8 @@ export const useTournamentStore = create((set, get) => ({
     // Your own team (a human side) lifting it earns the badge
     const champ = t.teams.find((x) => x.id === t.championId)
     if (champ && !champ.cpu) useAchievementStore.getState().award([t.format === 'league' ? 'league' : 'cup'])
+    // The Weekly Cup: the prize money and that cup's cap (once a week)
+    if (champ && !champ.cpu && t.weekly) useRewardsStore.getState().winCup({ ...t.weekly, id: t.id })
     const entry = historyEntry(t)
     if (!entry) return
     set((s) => ({ history: [entry, ...s.history].slice(0, HISTORY_MAX), seenChampions: [...s.seenChampions, t.id].slice(-50) }))
@@ -376,7 +389,9 @@ export const useTournamentStore = create((set, get) => ({
       gameMode: cpuSide ? 'ai' : 'local',
       aiTeam: cpuSide || ms.aiTeam,
       // Career settings can fix the computer's level and the time per half
-      aiDifficulty: (career && career.difficulty && career.difficulty !== 'auto' ? career.difficulty : null) || cpuTeam?.difficulty || ms.aiDifficulty,
+      // The Weekly Cup gets harder each round: easy, medium, then hard in the final
+      aiDifficulty: (t.weekly && t.rounds ? levelForRound(allFixtures(t).find((f) => f.id === fixture.id)?.round ?? 0, t.rounds.length) : null)
+        || (career && career.difficulty && career.difficulty !== 'auto' ? career.difficulty : null) || cpuTeam?.difficulty || ms.aiDifficulty,
       matchDuration: (career?.matchDuration) || t.matchDuration || ms.matchDuration,
       chosenTeam1Side: 'left',
       team1Side: 'left',
