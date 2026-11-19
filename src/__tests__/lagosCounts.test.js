@@ -69,3 +69,12 @@ describe('Lagos Life usage counts', () => {
     expect(statsAllowed(undefined, { LAGOS_STATS_KEY: 'abc' })).toBe(false)
   })
 })
+
+describe('the Lagos Life board', () => {
+  it('players on the same wins share a place, as Lagos Life counts your rank', async () => {
+    const { tiedRank } = await import('../lagos/LagosPanels')
+    const top = [{ score: 5 }, { score: 3 }, { score: 3 }, { score: 3 }, { score: 1 }]
+    const s = (r) => r.score
+    expect(top.map((_, i) => tiedRank(top, i, s))).toEqual([1, 2, 2, 2, 5])
+  })
+})
