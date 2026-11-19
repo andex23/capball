@@ -21,6 +21,17 @@ describe('a saved match keeps the rules of the flick about to be taken', () => {
     createPhysicsWorld()
   })
 
+  it('resumes an exhibition with the picked clubs and hands the current personal kits back on exit', () => {
+    const match = useMatchStore.getState()
+    const custom = match.teamConfig
+    const selected = { ...custom, team1: { ...custom.team1, name: 'Park Rangers' } }
+    match.startQuickMatch(selected)
+    const resumed = saveAndResume({ phase: PHASE.SELECT })
+    expect(resumed.teamConfig.team1.name).toBe('Park Rangers')
+    resumed.quitMatch()
+    expect(useMatchStore.getState().teamConfig).toEqual(custom)
+  })
+
   it('saved at kick-off: the first flick still can’t score', () => {
     expect(saveAndResume({ phase: PHASE.KICKOFF }).kickoffGuard).toBe(true)
     expect(saveAndResume({ phase: PHASE.SELECT, kickoffGuard: true }).kickoffGuard).toBe(true)

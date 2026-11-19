@@ -17,6 +17,7 @@ import { fadeOutMenuMusic } from './audio/MusicManager'
 import SplashScreen from './screens/SplashScreen'
 import MenuScreen, { markStarted } from './screens/MenuScreen'
 import TeamSelectScreen from './screens/TeamSelectScreen'
+import QuickMatchScreen from './screens/QuickMatchScreen'
 import OnlineScreen from './screens/OnlineScreen'
 import StadiumSelectScreen from './screens/StadiumSelectScreen'
 import FormationScreen from './screens/FormationScreen'
@@ -87,6 +88,7 @@ function ConnectionLost() {
 
 function Screen({ screen }) {
   const anytime = useMatchStore(s => s.gameMode === 'anytime')
+  const inFixture = useTournamentStore((s) => !!s.playing)
   switch (screen) {
     case SCREEN.SPLASH: return <SplashScreen />
     case SCREEN.PLAYING:
@@ -103,7 +105,7 @@ function Screen({ screen }) {
     case SCREEN.LAN: return isLagos() ? <MenuScreen /> : <LanScreen />
     case SCREEN.ANYTIME: return isLagos() ? <MenuScreen /> : <AnytimeScreen />
     case SCREEN.ONLINE: return isLagos() ? <Suspense fallback={null}><LagosFriendScreen /></Suspense> : <OnlineScreen />
-    case SCREEN.TEAM_SELECT: return <TeamSelectScreen />
+    case SCREEN.TEAM_SELECT: return inFixture ? <TeamSelectScreen /> : <QuickMatchScreen />
     case SCREEN.STADIUM_SELECT: return <StadiumSelectScreen />
     case SCREEN.FORMATION: return <FormationScreen />
     case SCREEN.MATCH_END: return <MatchEndScreen />
