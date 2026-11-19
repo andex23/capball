@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { clubOvr } from '../game/world'
+import { squadRatings, averageRating } from '../game/squad'
 import { squadRank, newCareer, nextMatch, recordCareerResult, seasonOver, finishSeason, outcomeFor, myPosition, sanitizeCareer, DIVISIONS, ME } from '../game/career'
 
 const club = { name: 'Lions', primary: '#D32F2F', edge: '#FFFFFF' }
@@ -21,12 +23,14 @@ describe('career mode', () => {
     expect(c.league.teams.filter((t) => t.cpu)).toHaveLength(7)
     expect(nextMatch(c.league)).toBeTruthy()
   })
-  it('a new squad is competitive: in the Street League promotion race, behind the favourites', () => {
+  it('a new squad is in a real title race: several clubs close to it, nobody running away', () => {
     for (let s = 0; s < 12; s++) {
       const c = newCareer({ ...club, name: `Club ${s}` }, { now: s * 977 })
-      const rank = squadRank(0, c.squad, c.world)
-      expect(rank).toBeGreaterThanOrEqual(2)
-      expect(rank).toBeLessThanOrEqual(3)
+      const mine = averageRating(squadRatings(c.squad))
+      const others = c.world.clubs.filter((x) => x.level === 0).map(clubOvr)
+      expect(squadRank(0, c.squad, c.world)).toBeLessThanOrEqual(5)  // in the top pack
+      expect(Math.max(...others) - mine).toBeLessThanOrEqual(4)       // no runaway favourite
+      expect(others.filter((o) => Math.abs(o - mine) <= 3).length).toBeGreaterThanOrEqual(3) // at least three real rivals
     }
   })
   it('winning every game finishes top and goes up', () => {

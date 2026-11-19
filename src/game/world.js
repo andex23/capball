@@ -25,8 +25,8 @@ import {
 import { CAP_ROLES } from '../data/TeamOptions'
 
 /** Each division's clubs, best to worst, sit this far above or below its usual level. */
-export const TIER_OFFSET = [6, 3, 0, -2, -5, -3, -4]
-export const TIER_LABEL = ['Title favourites', 'Contenders', 'Mid-table', 'Battling', 'Strugglers', 'Battling', 'Strugglers']
+export const TIER_OFFSET = [4, 3, 3, 2, -1, -3, -5]
+export const TIER_LABEL = ['Title contenders', 'Title contenders', 'Title contenders', 'Title contenders', 'Mid-table', 'Battling', 'Strugglers']
 export const AI_SQUAD = 12
 const AI_MIN = 10
 const AI_MAX = 13
