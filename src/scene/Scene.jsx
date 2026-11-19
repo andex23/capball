@@ -18,7 +18,7 @@ import { usePhysicsSync } from '../physics/PhysicsSync'
 import { useFlickController } from '../input/FlickController'
 import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
-import { applyPendingBodies, setPendingBodies } from '../state/savedMatch'
+import { applyPendingBodies, setPendingBodies, saveCurrentMatch } from '../state/savedMatch'
 import { isLagos } from '../platform'
 import { snapshotBodies, createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick, applyCapMasses } from '../physics/PhysicsWorld'
 import { massScale } from '../game/squad'
@@ -427,6 +427,9 @@ function CameraRefCapture() {
 const RESTORE_WAIT_MS = 1200
 const MAX_REBUILDS = 4
 const STABLE_MS = 15000
+// A rebuilt canvas that hasn't started drawing by now never will: try again (or give up)
+const REBUILD_TIMEOUT_MS = 3500
+const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden'
 
 /** Catches a canvas that couldn't be created at all (no graphics available). */
 class PitchBoundary extends Component {
@@ -447,12 +450,19 @@ export default function Scene() {
   const [state, setState] = useState('ok')
   const rebuilds = useRef(0)
   const timers = useRef({})
-  useEffect(() => () => { clearTimeout(timers.current.wait); clearTimeout(timers.current.stable) }, [])
+  useEffect(() => () => { clearTimeout(timers.current.wait); clearTimeout(timers.current.stable); clearTimeout(timers.current.check) }, [])
+  const stateRef = useRef('ok')
+  stateRef.current = state
 
   const rebuild = useCallback(() => {
     clearTimeout(timers.current.wait)
+    clearTimeout(timers.current.check)
+    // The app is in the background: a phone won't hand out graphics now. Wait until it's back on screen.
+    if (hidden()) { timers.current.waitVisible = true; return }
     if (rebuilds.current >= MAX_REBUILDS) { setState('dead'); globalThis.__counterballCount?.('pitch_dead'); return }
     rebuilds.current++
+    // If the new canvas never starts drawing (the phone refused it), try again rather than wait forever
+    timers.current.check = setTimeout(() => { if (stateRef.current === 'lost') rebuild() }, REBUILD_TIMEOUT_MS)
     current.current = null // the old canvas is on its way out
     // Keep every cap where it is: the new scene lays out a fresh world, then restores these
     if (isAuthority(useMatchStore.getState())) { const snap = snapshotBodies(); if (Object.keys(snap).length) setPendingBodies(snap) }
@@ -467,23 +477,49 @@ export default function Scene() {
       // Not a real loss: an old canvas being put away (a rebuild), or the match closing
       if (canvas !== current.current || useMatchStore.getState().screen !== SCREEN.PLAYING) return
       e.preventDefault() // lets the phone give it back
-      globalThis.__counterballCount?.('pitch_lost')
+      globalThis.__counterballCount?.('pitch_lost', hidden() ? 'hidden' : 'shown')
       setState('lost')
       clearTimeout(timers.current.stable)
       clearTimeout(timers.current.wait)
       timers.current.wait = setTimeout(rebuild, RESTORE_WAIT_MS)
     }
-    const onRestored = () => { clearTimeout(timers.current.wait); setState('ok'); globalThis.__counterballCount?.('pitch_back') }
+    const onRestored = () => { clearTimeout(timers.current.wait); clearTimeout(timers.current.check); setState('ok'); globalThis.__counterballCount?.('pitch_back', 'restored') }
     canvas.addEventListener('webglcontextlost', onLost)
     canvas.addEventListener('webglcontextrestored', onRestored)
     // Drawing again: once it has held for a while, forget the earlier failures
-    if (rebuilds.current > 0) globalThis.__counterballCount?.('pitch_back')
+    clearTimeout(timers.current.check)
+    if (rebuilds.current > 0) globalThis.__counterballCount?.('pitch_back', 'rebuilt')
     setState('ok')
     clearTimeout(timers.current.stable)
     timers.current.stable = setTimeout(() => { rebuilds.current = 0 }, STABLE_MS)
   }, [rebuild])
 
   const retry = () => { rebuilds.current = 0; rebuild() }
+
+  // Back on screen after the phone took the graphics away in the background: rebuild now
+  useEffect(() => {
+    const onVisible = () => {
+      if (hidden() || !timers.current.waitVisible) return
+      timers.current.waitVisible = false
+      rebuild()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [rebuild])
+
+  // three.js throws "Error creating WebGL context" outside React when a phone refuses a new canvas:
+  // treat it as a failed rebuild straight away instead of waiting for the timeout
+  useEffect(() => {
+    const onError = (e) => {
+      if (stateRef.current !== 'lost' || !/WebGL context/i.test(String(e?.message || e?.reason?.message || ''))) return
+      e.preventDefault?.()
+      clearTimeout(timers.current.check)
+      timers.current.check = setTimeout(rebuild, 600)
+    }
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onError)
+    return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onError) }
+  }, [rebuild])
 
   return (
     <>
@@ -520,7 +556,8 @@ export default function Scene() {
               <p><b>The pitch couldn’t be drawn.</b></p>
               <p>Your phone is low on graphics memory. Closing other tabs or apps usually fixes it.</p>
               <button className="btn btn-gold" onClick={retry}>Try again</button>
-              <button className="btn btn-secondary" onClick={() => window.location.reload()}>Reload the game</button>
+              <button className="btn btn-secondary" onClick={() => { try { saveCurrentMatch() } catch { /* nothing to save */ } window.location.reload() }}>Save and reload</button>
+              <p className="pitch-lost-note">Your match is saved first, so you can carry on from Quick Match.</p>
             </>
           )}
         </div>
