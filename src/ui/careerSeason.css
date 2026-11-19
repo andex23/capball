@@ -148,3 +148,5 @@
 .ccl-group li i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
 .ccl-group li[data-through='true'] { box-shadow: inset 2px 0 #4cd964; }
 .ccl-group li[data-mine='true'] { background: rgba(255, 210, 63, 0.16); font-weight: 800; }
+.sr-news li > div { display: flex; flex-direction: column; gap: 2px; }
+.sr-news li > div > span { font-size: 13px; color: #d6dcf5; }

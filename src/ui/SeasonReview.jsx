@@ -42,10 +42,12 @@ export function summerItems(career) {
   if (!s) return []
   const items = []
   const kid = (s.youthIn || []).slice().sort((a, b) => (b.pot || 0) - (a.pot || 0))[0]
-  if (kid) items.push({ icon: 'star', tone: 'gold', title: kid.pot >= 75 ? 'Wonderkid from the academy' : 'New from the academy', text: `${kid.name}, ${kid.age || 16}, ${kid.pos} · ${kid.rating} now${kid.pot ? `, potential ${kid.pot}` : ''}` })
-  const ups = (s.changes || []).filter((c) => c.to > c.from).sort((a, b) => (b.to - b.from) - (a.to - a.from))[0]
-  if (ups) items.push({ icon: 'up', tone: 'good', title: 'Big summer for', text: `${ups.name}: ${ups.from} → ${ups.to}` })
-  for (const r of (s.retired || []).slice(0, 2)) items.push({ icon: 'wave', tone: '', title: `${r.name} retires`, text: `at ${r.age}${r.left ? '' : '. A youth player takes his place.'}` })
+  if (kid) items.push({ icon: 'star', tone: 'gold', title: kid.pot >= 75 ? 'Wonderkid from the academy' : 'New from the academy', text: `${kid.name}, ${kid.age || 16}, ${kid.pos}. Rated ${kid.rating} now${kid.pot ? `, potential ${kid.pot}` : ''}.` })
+  // (not someone who's just left)
+  const gone = new Set([...(s.left || []), ...(s.retired || []).map((r) => r.name)])
+  const ups = (s.changes || []).filter((c) => c.to > c.from && !gone.has(c.name)).sort((a, b) => (b.to - b.from) - (a.to - a.from))[0]
+  if (ups) items.push({ icon: 'up', tone: 'good', title: `${ups.name} kicks on`, text: `Rating ${ups.from} → ${ups.to} over the summer.` })
+  for (const r of (s.retired || []).slice(0, 2)) items.push({ icon: 'wave', tone: '', title: `${r.name} retires`, text: `At ${r.age}.${r.left ? '' : ' A youth player takes his place.'}` })
   for (const n of (s.left || []).slice(0, 2)) items.push({ icon: 'out', tone: 'bad', title: `${n} has left`, text: 'His contract ran out and he went on a free.' })
   for (const n of (s.unhappy || []).slice(0, 1)) items.push({ icon: 'out', tone: 'bad', title: `${n} wants out`, text: 'He’s unhappy with his game time.' })
   for (const p of (s.loansBack || []).slice(0, 1)) items.push({ icon: 'back', tone: '', title: `${p.name} is back from loan`, text: `Now rated ${p.rating}.` })
@@ -72,13 +74,13 @@ export function SummerReview({ career }) {
           {items.map((it, i) => (
             <li key={i} data-tone={it.tone || undefined}>
               <span aria-hidden>{ICON[it.icon]}</span>
-              <div><b>{it.title}</b> {it.text}</div>
+              <div><b>{it.title}</b><span>{it.text}</span></div>
             </li>
           ))}
           {career.target && (
             <li data-tone="gold">
               <span aria-hidden>{ICON.board}</span>
-              <div><b>The board’s goal:</b> {TARGETS[career.target]}.{career.warning ? ' You’re on a final warning.' : ''}</div>
+              <div><b>The board’s goal</b><span>{TARGETS[career.target]}.{career.warning ? ' You’re on a final warning.' : ''}</span></div>
             </li>
           )}
         </ul>
