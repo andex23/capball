@@ -38,3 +38,15 @@
 .tk-run i { font-style: normal; margin: 0 12px; color: #ffd23f; }
 @keyframes tk-run { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .tk-track { animation: none; } }
+
+/* The top three: gold, silver and bronze, on the pitch-side board and the leaderboard */
+.tk-run [data-medal='gold'] b, .rankings-list li[data-medal='gold'] .rankings-rank, .rankings-list li[data-medal='gold'] .rankings-name { color: #ffd23f; text-shadow: 0 0 8px rgba(255, 210, 63, 0.75); }
+.tk-run [data-medal='silver'] b, .rankings-list li[data-medal='silver'] .rankings-rank, .rankings-list li[data-medal='silver'] .rankings-name { color: #b9c7d6; text-shadow: 0 0 8px rgba(185, 199, 214, 0.8); }
+.tk-run [data-medal='bronze'] b, .rankings-list li[data-medal='bronze'] .rankings-rank, .rankings-list li[data-medal='bronze'] .rankings-name { color: #e8964a; text-shadow: 0 0 8px rgba(232, 150, 74, 0.7); }
+.rankings-list li[data-medal='gold'] { border-color: #ffd23f; }
+.rankings-list li[data-medal='silver'] { border-color: #b9c7d6; }
+.rankings-list li[data-medal='bronze'] { border-color: #e8964a; }
+.tk-run [data-medal] .tk-star { font-size: 14px; }
+.tk-run [data-medal='gold'] .tk-star { color: #ffd23f; } .tk-run [data-medal='silver'] .tk-star { color: #b9c7d6; } .tk-run [data-medal='bronze'] .tk-star { color: #e8964a; }
+.tk-run > span:not([data-medal]) b { color: #8e939c; text-shadow: none; }
+.rankings-list li:not([data-medal]) .rankings-rank, .rankings-list li:not([data-medal]) .rankings-name { color: #8e939c; }
