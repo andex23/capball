@@ -48,4 +48,5 @@
 .rankings-list li[data-medal='bronze'] { border-color: #e8964a; }
 .tk-run [data-medal] .tk-star { font-size: 14px; }
 .tk-run [data-medal='gold'] .tk-star { color: #ffd23f; } .tk-run [data-medal='silver'] .tk-star { color: #b9c7d6; } .tk-run [data-medal='bronze'] .tk-star { color: #e8964a; }
-.tk-run > span:not([data-medal]) b { color: #fff; }
+.tk-run > span:not([data-medal]) b { color: #8e939c; text-shadow: none; }
+.rankings-list li:not([data-medal]) .rankings-rank, .rankings-list li:not([data-medal]) .rankings-name { color: #8e939c; }
