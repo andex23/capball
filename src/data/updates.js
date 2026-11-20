@@ -5,6 +5,12 @@
  * icon: an Icon name. date: YYYY-MM-DD.
  */
 export const UPDATES = [
+  { id: 'career-ladder', date: '2026-11-20', icon: 'trophy', title: 'Career: a bigger ladder', text: 'New careers start in the Street League. Five divisions, eight clubs each, a 14-match season, and four clubs fighting for the title in every league. Top two go up, bottom two go down.' },
+  { id: 'canta-champions-league', date: '2026-11-20', icon: 'trophy', title: 'The Canta Champions League', text: 'Finish in the top two of the Premier Cap League to face the best clubs from abroad: two groups, semi-finals and a final on midweek nights. ₦25m to the winners.' },
+  { id: 'derbies-jobs', date: '2026-11-20', icon: 'ball', title: 'Derby days and job offers', text: 'Every league has your rival: beat them for double prize money. Win big and bigger clubs will offer you the job. After each season, a summer review shows who’s new, who left and what your rivals signed.' },
+  { id: 'transfer-market', date: '2026-11-20', icon: 'users', title: 'A new transfer market', text: 'The Market tab now shows players first. “For you” finds players who’d start for you and fit your budget. Each player has one total price and three offers: Cheeky, Fair or Asking.' },
+  { id: 'weekly-cup', date: '2026-11-20', icon: 'trophy', title: 'The Weekly Cup', text: 'A new cup every Monday under Tournament: eight clubs, harder every round. Win it for ₦1.5m and that cup’s cap.' },
+  { id: 'two-players-one-phone', date: '2026-11-20', icon: 'users', title: 'Two players, one phone', text: 'No shot clock when you pass the phone, the pitch stays still, and a big banner shows whose turn it is. Matches are first to 3.' },
   { id: 'career-matchday-report', date: '2026-11-18', icon: 'ball', title: 'Inside your matchday', text: 'Read who scored, see when pressure swung and back a player in the post-match interview. Find the season’s two legend caps in the transfer market.' },
   { id: 'weekly-cap-rewards', date: '2026-11-18', icon: 'trophy', title: 'Play for this week’s cap', text: 'Your profile has three weekly goals. Open the daily reward for club money, a scout report and cap designs.' },
   { id: 'easy-computer', date: '2026-11-18', icon: 'cpu', title: 'A smarter easy computer', text: 'On easy the computer still makes mistakes, but it always plays the ball and never towards its own goal.' },
