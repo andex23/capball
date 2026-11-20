@@ -1,11 +1,11 @@
 /**
  * How a mode works: a few swipeable cards (a real screenshot, a title, a line
- * or two), shown once to players new to the mode and any time from its "?".
+ * or two), opened from a mode's "?" or the pause menu.
  * Mounted once in App; opened through useIntroStore.
  */
 import { useState, useEffect, useRef } from 'react'
 import { useIntroStore } from '../state/introStore'
-import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useMatchStore } from '../state/MatchStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import { MODE_INTROS } from '../data/modeIntros'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
@@ -81,14 +81,4 @@ export function modeOfMatch(ms = useMatchStore.getState(), playing = useTourname
     return null
   }
   return ms.gameMode === 'local' ? 'local' : null
-}
-
-/** The daily challenge and two players on one phone: their cards show as the first match kicks off. */
-export function MatchIntros() {
-  useEffect(() => useMatchStore.subscribe((s, prev) => {
-    if (s.screen !== SCREEN.PLAYING || prev.screen === SCREEN.PLAYING) return
-    const mode = modeOfMatch(s)
-    if (mode === 'daily' || mode === 'local') useIntroStore.getState().maybeShow(mode)
-  }), [])
-  return null
 }

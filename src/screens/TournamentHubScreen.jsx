@@ -13,7 +13,6 @@ import CapPreview from '../ui/CapPreview'
 import TournamentFinale from '../ui/TournamentFinale'
 import { CupDraw, CupRoad } from '../ui/WeeklyCup'
 import { IntroButton } from '../ui/ModeIntro'
-import { useIntroStore } from '../state/introStore'
 import { levelForRound } from '../game/weeklyCup'
 import { TeamTag, scoreText, ProgressBar } from '../ui/TournamentBits'
 import { KitEditor } from './TournamentSetupScreen'
@@ -420,9 +419,6 @@ export default function TournamentHubScreen() {
   }, [isOnline, code, waiting])
 
   const back = () => { playButtonSelect(); goToScreen(SCREEN.TOURNAMENT_HOME) }
-  // New to the Weekly Cup: how it works, once (before the draw)
-  const isWeekly = !!(t?.weekly && !isOnline && !guestLan)
-  useEffect(() => { if (isWeekly) useIntroStore.getState().maybeShow('weekly') }, [isWeekly])
 
   if (!t) {
     const loading = isOnline && onlineView?.loading

@@ -10,7 +10,6 @@ import { displayColor } from '../ui/color'
 import { useOnline } from '../pwa/useOnline'
 import { WeeklyCupPoster } from '../ui/WeeklyCup'
 import { IntroButton } from '../ui/ModeIntro'
-import { useIntroStore } from '../state/introStore'
 
 const CODE_LENGTH = 6
 
@@ -35,8 +34,6 @@ export default function TournamentHomeScreen() {
   const [joinBusy, setJoinBusy] = useState(false)
   const [joinError, setJoinError] = useState(null)
   const online = useOnline()
-  // New to tournaments: how they work, once
-  useEffect(() => { useIntroStore.getState().maybeShow('tournament') }, [])
 
   const join = async (raw) => {
     const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '')

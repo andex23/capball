@@ -29,7 +29,6 @@ import { inboxOffers, seasonAwards } from '../game/clubLife'
 import { SeasonNumbers, SummerReview } from '../ui/SeasonReview'
 import { JobOfferCard } from '../ui/JobOffer'
 import { IntroButton } from '../ui/ModeIntro'
-import { useIntroStore } from '../state/introStore'
 import { CclMatchCard, CclPanel } from '../ui/ChampionsLeague'
 import { isDerby, derbyName, headToHead, DERBY_PRIZE } from '../game/rivals'
 import '../ui/careerSeason.css'
@@ -376,8 +375,6 @@ export default function CareerScreen() {
   // After a match: open its report first
   const reportId = career?.lastMatch && !career.lastMatch.seen ? career.lastMatch.fixtureId : null
   useEffect(() => { if (reportId) setPage('report') }, [reportId])
-  // New to Career: how it works, once
-  useEffect(() => { useIntroStore.getState().maybeShow('career') }, [])
   const season = career?.season
   useLayoutEffect(() => {
     if (!mainRef.current) return
