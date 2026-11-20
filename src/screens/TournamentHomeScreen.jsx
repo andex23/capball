@@ -9,6 +9,7 @@ import Modal from '../ui/Modal'
 import { displayColor } from '../ui/color'
 import { useOnline } from '../pwa/useOnline'
 import { WeeklyCupPoster } from '../ui/WeeklyCup'
+import { IntroButton } from '../ui/ModeIntro'
 
 const CODE_LENGTH = 6
 
@@ -102,6 +103,7 @@ export default function TournamentHomeScreen() {
             <h1 className="display tour-title">Tournaments</h1>
             <div className="tour-sub">Cups and leagues, 3 to 8 teams</div>
           </div>
+          <IntroButton mode="tournament" className="tour-help" />
         </header>
 
         <main className="shell-body t-home tour-home">

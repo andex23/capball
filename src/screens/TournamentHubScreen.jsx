@@ -12,6 +12,7 @@ import Modal from '../ui/Modal'
 import CapPreview from '../ui/CapPreview'
 import TournamentFinale from '../ui/TournamentFinale'
 import { CupDraw, CupRoad } from '../ui/WeeklyCup'
+import { IntroButton } from '../ui/ModeIntro'
 import { levelForRound } from '../game/weeklyCup'
 import { TeamTag, scoreText, ProgressBar } from '../ui/TournamentBits'
 import { KitEditor } from './TournamentSetupScreen'
@@ -482,7 +483,7 @@ export default function TournamentHubScreen() {
             </div>
             <h1 className="display shell-title">{weekly ? t.weekly.name : league ? 'The League' : 'The Cup'}</h1>
           </div>
-          <span className="mode-icon"><Icon name={isOnline ? 'globe' : 'trophy'} size={24} /></span>
+          {weekly ? <IntroButton mode="weekly" /> : <span className="mode-icon"><Icon name={isOnline ? 'globe' : 'trophy'} size={24} /></span>}
         </header>
 
         <main className="shell-body t-hub" data-format={t.format}>
