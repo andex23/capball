@@ -159,7 +159,7 @@ export function stakedOutcome(reports, players) {
    goes, and the errors players hit. One small document a day, kept through the
    saves function under a reserved name no real player id can take. Counts only:
    players are remembered as a short one-way hash, to count different people. */
-export const COUNT_EVENTS = ['open', 'menu', 'match_start', 'match_end', 'find', 'find_ok', 'paired', 'find_cancel', 'pitch_lost', 'pitch_back', 'pitch_dead', 'error']
+export const COUNT_EVENTS = ['open', 'menu', 'match_start', 'match_end', 'find', 'find_ok', 'paired', 'find_cancel', 'pitch_lost', 'pitch_back', 'pitch_dead', 'board', 'error']
 const DETAIL = /^[a-z0-9_]{1,40}$/
 const statsKey = (day) => `__stats__:${day}`
 export const dayOf = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)

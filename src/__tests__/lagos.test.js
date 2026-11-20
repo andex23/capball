@@ -68,6 +68,19 @@ describe('win counting', () => {
     await vi.advanceTimersByTimeAsync(25_000)
     expect(sdk.submitScore).toHaveBeenLastCalledWith(1005)
   })
+  it('a score from before goals counted is sent again in the new form as soon as the board loads', async () => {
+    // Alex's best on the board is 25 (25 wins, sent before goals counted): it ranks below anyone with 1 win since
+    sdk.leaderboard.mockResolvedValueOnce({ top: [{ rank: 1, name: 'Someone', score: 3004 }, { rank: 2, name: 'Me', score: 25 }], me: { rank: 2, score: 25 } })
+    await useLagosStore.getState().loadBoard()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(sdk.submitScore).toHaveBeenCalledWith(25000) // 25 wins × 1000, no goals known yet
+    // Already in the new form: nothing is sent
+    sdk.submitScore.mockClear()
+    sdk.leaderboard.mockResolvedValueOnce({ top: [], me: { rank: 1, score: 25000 } })
+    await useLagosStore.getState().loadBoard()
+    await vi.advanceTimersByTimeAsync(25_000)
+    expect(sdk.submitScore).not.toHaveBeenCalled()
+  })
   it('ignores losses, draws and two-player matches on one phone', () => {
     finish('team2')
     finish(null, 2)
