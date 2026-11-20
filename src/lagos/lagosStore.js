@@ -61,6 +61,7 @@ let scoreTimer = null
 let lastScoreAt = 0
 let resultSent = new Set()
 let matchPoll = null
+let boardCounted = false
 
 /** Make or join the bet's match; if Lagos Life says you're already in one, leave the free match and try again. */
 async function openStaked(make) {
@@ -226,6 +227,17 @@ export const useLagosStore = create((set, get) => ({
       const board = await sdk.leaderboard()
       const raw = Number(board?.me?.score ?? board?.me?.best ?? 0) || 0
       set((s) => ({ board, boardError: null, best: Math.max(s.best, winsOf(raw)), bestGoals: Math.max(s.bestGoals || 0, goalsOf(raw)) }))
+      // A score from before goals counted (wins only, under 1000) ranks below everyone who has
+      // played since, and can drop off the board: send it again in today's form straight away.
+      if (raw > 0 && raw < GOAL_SLOT) get().sendScore()
+      // How long a list Lagos Life sends, and how many old-form scores are in it (once a session)
+      if (!boardCounted) {
+        boardCounted = true
+        const top = Array.isArray(board?.top) ? board.top : []
+        get().count('board', `top_${top.length}`)
+        const legacy = top.filter((r) => { const n = Number(r?.score) || 0; return n > 0 && n < GOAL_SLOT }).length
+        if (legacy) get().count('board', `legacy_${legacy}`)
+      }
     } catch (e) {
       set({ boardError: sdkMessage(e) })
     }
@@ -575,5 +587,5 @@ export function watchMatches() {
 }
 
 /** For tests. */
-export function _resetLagos() { sdk = null; clearTimeout(scoreTimer); scoreTimer = null; lastScoreAt = 0; resultSent = new Set() }
+export function _resetLagos() { sdk = null; boardCounted = false; clearTimeout(scoreTimer); scoreTimer = null; lastScoreAt = 0; resultSent = new Set() }
 export function _setSdk(s) { sdk = s }
