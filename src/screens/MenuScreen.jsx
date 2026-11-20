@@ -14,6 +14,8 @@ import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
 import { useSavedStore, resumeSavedMatch, describeSave } from '../state/savedMatch'
+import { weeklyCup } from '../game/weeklyCup'
+import { weekKey } from '../game/rewards'
 import { useTournamentStore } from '../state/tournamentStore'
 import { allFixtures } from '../game/tournament'
 import { RetroBackdrop, RetroLogo } from '../ui/Retro'
@@ -152,6 +154,8 @@ export default function MenuScreen() {
         sub: `${openT.teams.length} teams · ${localDone}/${localTotal} played`, tag: 'SAVE',
         action: () => { playConfirm(); useTournamentStore.getState().openHub('local') },
       }] : []),
+      // This week's ready-made cup, one tap away (its poster sits at the top of the Tournaments page)
+      { key: 'weekly', title: 'Weekly Cup', sub: `${weeklyCup(weekKey()).name} · 8 clubs, new every Monday`, tag: 'NEW', action: () => { playConfirm(); goToScreen(SCREEN.TOURNAMENT_HOME) } },
       { key: 'league', title: openT ? 'New league' : 'League', sub: 'Everyone plays everyone; most points wins', action: () => tournament('league') },
       { key: 'cup', title: openT ? 'New cup' : 'Cup', sub: 'Knockout ties; lose and you’re out', action: () => tournament('knockout') },
       back,
