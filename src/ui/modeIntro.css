@@ -1,0 +1,22 @@
+/* ── How a mode works: the first-time cards and the "?" ── */
+.mi-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: calc(var(--safe-top, 0px) + 18px) 14px 14px; background: rgba(4, 8, 30, 0.86); animation: fade-in 0.2s ease; overflow-y: auto; touch-action: pan-y; }
+.mi-card { position: relative; width: min(420px, 100%); display: flex; flex-direction: column; padding: 26px 14px 14px; background: linear-gradient(180deg, #1f3cb0, #142a85); border: 3px solid var(--iss-yellow, #ffd23f); box-shadow: 0 0 0 3px #050a2e, 6px 6px 0 3px rgba(0, 0, 0, 0.5); }
+.mi-tab { position: absolute; top: -13px; left: 12px; padding: 5px 9px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.12em; text-transform: uppercase; color: #1b1400; background: var(--iss-yellow, #ffd23f); border: 2px solid #050a2e; }
+.mi-skip { position: absolute; top: 6px; right: 8px; padding: 4px 6px; font: 700 9px/1 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; color: #c4cbe4; background: none; border: 0; cursor: pointer; }
+.mi-shot { display: block; width: 100%; max-height: 42vh; object-fit: cover; object-position: top; margin-bottom: 12px; border: 2px solid rgba(255, 255, 255, 0.35); background: #0b1236; user-select: none; }
+.mi-title { margin: 0 0 6px; font: italic 800 28px/1 var(--font-display); text-transform: uppercase; color: #fff; text-shadow: 3px 3px 0 #000; }
+.mi-text { margin: 0; min-height: 4.2em; font-size: 14px; line-height: 1.45; color: #dbe1ff; }
+.mi-text b { color: var(--iss-yellow, #ffd23f); font-weight: 700; }
+.mi-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.mi-dots { display: flex; gap: 6px; }
+.mi-dots button { width: 11px; height: 11px; padding: 0; background: #2a3570; border: 2px solid #fff; cursor: pointer; }
+.mi-dots button[aria-current='true'] { background: var(--iss-yellow, #ffd23f); }
+.mi-btns { display: flex; gap: 8px; }
+.mi-back { display: grid; place-items: center; width: 44px; color: #fff; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.4); cursor: pointer; }
+.mi-next { min-width: 120px; }
+.mi-help { display: grid; place-items: center; width: 40px; height: 40px; flex: none; padding: 0; font: 700 18px/1 var(--font-pixel); color: var(--iss-yellow, #ffd23f); background: #0b1236; border: 3px solid #fff; box-shadow: 3px 3px 0 #000; cursor: pointer; }
+.mi-help:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+.career-top .career-top-help { width: 36px; height: 36px; font-size: 16px; margin-left: 8px; }
+.tour-top .tour-help { margin-left: auto; }
+/* A screen header with a "?": title on the left, "?" on the right */
+.shell .shell-head:has(> .mi-help) { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }

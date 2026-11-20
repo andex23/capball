@@ -12,6 +12,7 @@ import TournamentHubScreen from './screens/TournamentHubScreen'
 import CareerScreen from './screens/CareerScreen'
 import AchievementToast from './ui/AchievementToast'
 import UnlockToast from './ui/UnlockToast'
+import ModeIntro, { MatchIntros } from './ui/ModeIntro'
 import { disconnect, isConnected } from './multiplayer/MultiplayerManager'
 import { fadeOutMenuMusic } from './audio/MusicManager'
 import SplashScreen from './screens/SplashScreen'
@@ -162,6 +163,8 @@ export default function App() {
         {!isLagos() && <PwaUpdateToast />}
         {!isLagos() && <RecoveryCodePrompt />}
         <UnlockToast />
+        <ModeIntro />
+        <MatchIntros />
         {isLagos() && <><PurchaseToast /><BetToast /><BetBar /></>}
         <AchievementToast />
       </ErrorBoundary>

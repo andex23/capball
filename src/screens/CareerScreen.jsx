@@ -28,6 +28,8 @@ import CupPage from '../ui/CupPage'
 import { inboxOffers, seasonAwards } from '../game/clubLife'
 import { SeasonNumbers, SummerReview } from '../ui/SeasonReview'
 import { JobOfferCard } from '../ui/JobOffer'
+import { IntroButton } from '../ui/ModeIntro'
+import { useIntroStore } from '../state/introStore'
 import { CclMatchCard, CclPanel } from '../ui/ChampionsLeague'
 import { isDerby, derbyName, headToHead, DERBY_PRIZE } from '../game/rivals'
 import '../ui/careerSeason.css'
@@ -374,6 +376,8 @@ export default function CareerScreen() {
   // After a match: open its report first
   const reportId = career?.lastMatch && !career.lastMatch.seen ? career.lastMatch.fixtureId : null
   useEffect(() => { if (reportId) setPage('report') }, [reportId])
+  // New to Career: how it works, once
+  useEffect(() => { useIntroStore.getState().maybeShow('career') }, [])
   const season = career?.season
   useLayoutEffect(() => {
     if (!mainRef.current) return
@@ -419,6 +423,7 @@ export default function CareerScreen() {
               <div className="eyebrow shell-eyebrow">Career mode</div>
               <h1 className="display shell-title">Start your career</h1>
             </div>
+            <IntroButton mode="career" />
           </header>
           <main className="shell-body"><StartCareer /><HallOfFame /></main>
           <footer className="shell-foot"><div className="shell-foot-inner">
@@ -500,6 +505,7 @@ export default function CareerScreen() {
             <div className="career-top-sub">{done ? `Season ${career.season} over` : played ? ordinal(pos) : 'Season ' + career.season} · {division.name}</div>
           </div>
           {page !== 'club' && <div className="career-top-money">{money(career.coins)}</div>}
+          <IntroButton mode="career" className="career-top-help" />
         </header>
 
         <main className="shell-body career-body" ref={mainRef}>

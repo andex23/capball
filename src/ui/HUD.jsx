@@ -16,6 +16,9 @@ import { onlineInterrupted } from '../multiplayer/reconnect'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer } from '../audio/SoundManager'
 import Icon from './Icon'
+import { modeOfMatch } from './ModeIntro'
+import { useIntroStore } from '../state/introStore'
+import { MODE_INTROS } from '../data/modeIntros'
 import MatchScoreboard from './MatchScoreboard'
 import CameraStick from './CameraStick'
 import Modal from './Modal'
@@ -222,6 +225,11 @@ function PauseMenu({ onClose }) {
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('settings') }}><Icon name="settings" size={18} /> Settings</button>
         <button className="btn btn-secondary" onClick={() => { playButtonSelect(); setView('rules') }}><Icon name="help" size={18} /> Rules</button>
       </div>
+      {modeOfMatch() && (
+        <button className="btn btn-secondary btn-block" onClick={() => { playButtonSelect(); onClose(); useIntroStore.getState().show(modeOfMatch()) }}>
+          <Icon name="help" size={18} /> How {MODE_INTROS[modeOfMatch()].label.toLowerCase()} works
+        </button>
+      )}
       <VoiceChat />
       <ShareGame />
       {authority && gameMode !== 'online' && (
