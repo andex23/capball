@@ -33,8 +33,8 @@ export const MODE_INTROS = {
   daily: {
     label: 'Daily challenge',
     cards: [
-      { img: 'd-play', title: 'One puzzle a day', text: 'The same set-up for everyone today. **Score in the flicks you’re given**: the count is at the top. Try as often as you like.' },
-      { img: 'd-play', title: 'Keep your streak', text: 'Beat it **days in a row** to grow your streak. Seven in a row wins the **Seven Straight** cap.' },
+      { img: 'd-play', title: 'One puzzle a day', text: 'The same set-up for everyone today, and **a different one each day of the week**, harder towards the weekend. **Score in the flicks you’re given**: the count is at the top. Try as often as you like.' },
+      { img: 'd-play', title: 'Keep your streak', text: 'Beat it **days in a row** to grow your streak. Seven in a row wins the **Seven Straight** cap. Beat the **Sunday Special** for ₦250k.' },
     ],
   },
   local: {

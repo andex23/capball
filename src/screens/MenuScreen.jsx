@@ -20,7 +20,8 @@ import { useTournamentStore } from '../state/tournamentStore'
 import { allFixtures } from '../game/tournament'
 import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 import { useDailyStore, playDaily, liveStreak } from '../state/dailyStore'
-import { challengeFor, dayKey } from '../game/daily'
+import { challengeFor, challengeName, dayKey, nextDay, weekDays, WEEK, SPECIAL_BONUS } from '../game/daily'
+import { money } from '../game/squad'
 import { useCareerStore } from '../state/careerStore'
 import { DIVISIONS } from '../game/career'
 import ShopPanel from '../lagos/ShopPanel'
@@ -128,7 +129,7 @@ export default function MenuScreen() {
       { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? (LAGOS_PLAYERS ? 'Computer, Lagos players or one phone' : 'Computer or two on one phone') : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Street League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
-      { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? 'Beaten today — back tomorrow' : 'A new puzzle every day', tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
+      { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? `Beaten today · Tomorrow: ${challengeName(nextDay(dayKey()))}` : `Today: ${challengeName(dayKey())} · Tomorrow: ${challengeName(nextDay(dayKey()))}`, tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       ...(lagos ? [{ key: 'board', title: 'Leaderboard', sub: lagosWins ? `Your wins: ${lagosWins}${lagosRank ? ` · ranked #${lagosRank}` : ''}` : 'Most wins in Lagos Life', tag: lagosRank ? `#${lagosRank}` : 'TOP', action: () => openDialog('records') }] : []),
       ...(lagos ? [{ key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => openDialog('shop') }] : []),
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
@@ -138,13 +139,13 @@ export default function MenuScreen() {
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
       ...(LAGOS_PLAYERS ? [{ key: 'online', title: 'Vs Lagos Players', sub: 'Another Lagos Life player · free or a bet', tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } }] : []),
       ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
-      { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
+      { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => openDialog('local') },
       back,
     ] : [
       ...(saved ? [{ key: 'continue', title: 'Continue match', sub: describeSave(saved), tag: 'SAVE', action: () => { playConfirm(); resumeSavedMatch() } }] : []),
       { key: 'ai', title: 'Vs Computer', picker: 'level', action: () => play('ai') },
       { key: 'lan', title: 'LAN Match', sub: 'Same Wi-Fi or hotspot · no internet', tag: 'LAN', action: () => { playConfirm(); goToScreen(SCREEN.LAN) } },
-      { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => play('local') },
+      { key: 'local', title: 'Local Match', sub: 'Two players, one phone', tag: '2P', action: () => openDialog('local') },
       { key: 'online', title: 'Online Match', sub: 'Play a friend on their own phone', tag: 'NET', action: () => { playConfirm(); goToScreen(SCREEN.ONLINE) } },
       back,
     ],
@@ -269,6 +270,17 @@ export default function MenuScreen() {
           <AccountPanel />
         </Modal>
       )}
+      {dialog === 'local' && (
+        <Modal title="Local Match" onClose={() => setDialog(null)}>
+          <div className="daily-panel local-check">
+            <div className="local-check-art" aria-hidden="true"><span>P1</span><Icon name="users" size={34} /><span>P2</span></div>
+            <h3 className="display daily-name">Grab a friend</h3>
+            <p>You take turns on <b>this phone</b>: flick, then pass it over to your friend.</p>
+            <button className="btn btn-gold btn-lg btn-block" onClick={() => { setDialog(null); play('local') }}>Start: we’re two</button>
+            <button className="btn btn-secondary btn-block" onClick={() => { setDialog(null); play('ai') }}>On your own? Play the computer</button>
+          </div>
+        </Modal>
+      )}
       {dialog === 'daily' && (() => {
         const c = challengeFor(dayKey())
         return (
@@ -280,15 +292,32 @@ export default function MenuScreen() {
               </div>
             ) : (
             <div className="daily-panel">
+              <div className="eyebrow">This week</div>
+              <div className="daily-week" role="list">
+                {weekDays(dayKey()).map((d) => {
+                  const today = d === dayKey()
+                  const beaten = (daily.won || []).includes(d) || (today && doneToday)
+                  const state = today ? 'today' : beaten ? 'done' : d < dayKey() ? 'missed' : 'later'
+                  const w = WEEK[new Date(`${d}T12:00`).getDay()]
+                  return (
+                    <div key={d} role="listitem" className="daily-day" data-state={state} data-special={w.template == null ? 'true' : undefined} aria-label={`${w.day}: ${challengeName(d)}${beaten ? ', beaten' : state === 'missed' ? ', missed' : ''}`}>
+                      <span className="daily-day-name">{w.day}</span>
+                      <span className="daily-day-mark" aria-hidden="true">{beaten ? '✓' : today ? '▶' : state === 'missed' ? '–' : w.template == null ? '★' : '?'}</span>
+                      <span className="daily-day-what">{challengeName(d).replace('Breakaway', 'Break\u00ADaway').replace('Crowded', 'Crowd\u00ADed')}</span>
+                    </div>
+                  )
+                })}
+              </div>
               <div className="eyebrow">Today · {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-              <h3 className="display daily-name">{c.name}</h3>
-              <p>{c.text} Score with your caps in <b>{c.flicks} flick{c.flicks === 1 ? '' : 's'}</b>. Everyone gets the same one today.</p>
+              <h3 className="display daily-name">{c.name} <span className="daily-level" data-level={c.level.toLowerCase()}>{c.level}</span></h3>
+              <p>{c.text} Score with your caps in <b>{c.flicks} flick{c.flicks === 1 ? '' : 's'}</b>. Everyone gets the same one today.{c.special && <> Beat it for a <b>{money(SPECIAL_BONUS)}</b> bonus.</>}</p>
               <div className="career-grid daily-stats">
                 <div className="career-stat" data-tone="gold"><b>{streak}</b><small>Day streak</small></div>
                 <div className="career-stat"><b>{daily.best}</b><small>Best streak</small></div>
                 <div className="career-stat" data-tone={doneToday ? 'good' : undefined}><b>{doneToday ? '✓' : daily.tries?.[dayKey()]?.tries || 0}</b><small>{doneToday ? 'Beaten' : 'Tries today'}</small></div>
               </div>
-              <p className="muted t-note">Beat it 7 days running to unlock the Lucky Seven cap.</p>
+              <div className="daily-next">Tomorrow: <b>{challengeName(nextDay(dayKey()))}</b>{new Date().getDay() === 0 ? ' · a new week' : ''}</div>
+              <p className="muted t-note">Beat it 7 days running to unlock the Seven Straight cap.</p>
               <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); setDialog(null); playDaily() }}>Play today’s challenge</button>
             </div>
             )}
