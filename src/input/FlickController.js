@@ -21,7 +21,10 @@ const TOUCH_REACH_PX = 30
 const TOUCH_REACH_MAX = 2.4
 const DOT_FADE_LEN = 40 // dots fade out over this distance along a path
 const DOUBLE_TAP_MS = 400
-const CHIP_HINT_LEN = 2.5 // how much of the ball's line a chip's aim shows
+// A chip's aim: an arc this long at no power, growing with power (world units)
+const CHIP_ARC_MIN = 3
+const CHIP_ARC_GROW = 7
+const CHIP_ARC_SHOWN = 0.72 // how much of the arc is drawn (it fades out before it comes down)
 
 const CHIP_NO = {
   'own-half': 'Chips only in the half you’re attacking',
@@ -70,6 +73,32 @@ function layDots(t, path, points, skip, i, size, r, g, b, alpha) {
       next += DOT_SPACING
     }
     along += len
+  }
+  return i
+}
+
+// Gold dots along an arc from (x0, z0) in direction (ux, uz), `len` long, drawn up to
+// CHIP_ARC_SHOWN of the way and fading out. Returns the next free dot index.
+function layArc(t, x0, z0, ux, uz, len, i) {
+  const m = t.dots.instanceMatrix.array
+  const c = t.dotColors.array
+  const peak = len * 0.28
+  // From the camera above, height alone barely shows: bow the arc towards the top of the
+  // screen too (sideways to the shot, on the side away from the player)
+  let px = -uz, pz = ux
+  if (pz > 0 || (pz === 0 && px < 0)) { px = -px; pz = -pz }
+  const n = Math.floor((len * CHIP_ARC_SHOWN) / DOT_SPACING)
+  for (let k = 1; k <= n && i < t.maxDots; k++) {
+    const f = (k * DOT_SPACING) / len
+    const h = 4 * peak * f * (1 - f)
+    const fade = Math.min(1, (CHIP_ARC_SHOWN - f) / 0.25)
+    const s = (0.1 + h * 0.03) * (0.7 + 0.3 * fade)
+    const o = i * 16
+    m[o] = s; m[o + 5] = s; m[o + 10] = s
+    m[o + 12] = x0 + ux * f * len + px * h * 0.55; m[o + 13] = 0.07 + h; m[o + 14] = z0 + uz * f * len + pz * h * 0.55
+    const q = i * 4
+    c[q] = 1; c[q + 1] = 0.82; c[q + 2] = 0.25; c[q + 3] = 0.95 * Math.max(0.1, fade)
+    i++
   }
   return i
 }
@@ -396,12 +425,12 @@ export function useFlickController(meshRefs, trajectoryRef) {
     // A chip: only which way the ball goes, not where it lands (judge the distance yourself)
     const chipping = state.chipArmed === capId
     if (ballOnPath && chipping) {
-      let n = 1, along = 0
-      while (n < pred.ballPoints && along < CHIP_HINT_LEN) {
-        along += Math.hypot(pred.ballPath[n * 2] - pred.ballPath[n * 2 - 2], pred.ballPath[n * 2 + 1] - pred.ballPath[n * 2 - 1])
-        n++
-      }
-      dots = layDots(t, pred.ballPath, n, BALL_RADIUS + 0.15, dots, 0.11, 1, 0.82, 0.25, 0.95)
+      // An arc up off the ball, the way it's going: longer and higher with more power, fading
+      // out on the way down so it never marks where the ball will land
+      const x0 = pred.ballPath[0], z0 = pred.ballPath[1]
+      const dx = pred.ballPath[2] - x0, dz = pred.ballPath[3] - z0
+      const dl = Math.hypot(dx, dz) || 1
+      dots = layArc(t, x0, z0, dx / dl, dz / dl, CHIP_ARC_MIN + power * CHIP_ARC_GROW, dots)
     } else if (ballOnPath) {
       let r = 0.3, g = 0.95, b = 1
       if (goal === 'score') { r = 1; g = 0.78; b = 0.16 }
