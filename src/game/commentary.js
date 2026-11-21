@@ -142,6 +142,9 @@ const LINES = {
   post: ['Off the post! So close from {p}.', '{p} hits the woodwork!', 'Rattled the post — {p} can’t believe it.'],
   wide: ['Just wide! {p} was inches away.', '{p} drags it past the post.', 'Wide! {p} had the keeper beaten.'],
   save: ['What a save from {k}!', '{k} keeps it out — denied, {p}!', 'Big stop by {k}!', '{k} gets down well to save from {p}.'],
+  chipSave: ['{k} backs up and plucks the chip out of the air!', 'Too much air on it — {k} gathers {p}’s chip.', 'The chip is read by {k}. Easy catch.'],
+  overBar: ['{p} chips it… and it sails over the bar!', 'Too much on the chip from {p}. Over!', 'Ambitious from {p} — but it clears the bar.'],
+  tipped: ['{k} tips {p}’s chip over the bar!', 'Fingertips! {k} just gets to the chip.', 'What a stretch from {k} to tip it over!'],
   block: ['Blocked! {k} throws themselves in the way.', '{k} gets a vital block on {p}’s shot.', 'Great defending from {k}!'],
   shootoutOver: ['{winner} win it on penalties!', 'The shootout goes to {winner}!'],
 }

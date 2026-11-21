@@ -8,7 +8,7 @@ import { useMatchStore } from '../state/MatchStore'
  * rings on top and a rounded edge — white or black, like the real thing
  * people flick bottle caps at.
  */
-const COIN_H = 0.2     // a carrom coin is about a quarter as thick as it is wide
+export const COIN_H = 0.2 // a carrom coin is about a quarter as thick as it is wide
 const EDGE_R = 0.05    // how rounded the rim is
 
 /** Profile of the coin's side, turned round the axis: flat top and bottom, rounded rim. */
@@ -80,6 +80,11 @@ const BallMesh = forwardRef(function BallMesh(props, ref) {
       <mesh position={[0, COIN_H / 2 + 0.001, 0]} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[BALL_RADIUS - EDGE_R, 48]} />
         <meshPhysicalMaterial map={top} roughness={0.3} metalness={0} clearcoat={1} clearcoatRoughness={0.1} />
+      </mesh>
+      {/* Its shadow on the grass while it's in the air (a chip); PhysicsSync moves it */}
+      <mesh name="ball-shadow" position={[0, -COIN_H / 2 + 0.005, 0]} rotation-x={-Math.PI / 2} visible={false} renderOrder={1}>
+        <circleGeometry args={[BALL_RADIUS * 1.05, 32]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.35} depthWrite={false} />
       </mesh>
     </group>
   )

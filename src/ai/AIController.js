@@ -3,7 +3,8 @@ import { useMatchStore, PHASE } from '../state/MatchStore'
 import { getBodies } from '../physics/PhysicsWorld'
 import { performFlick, capSelectable } from '../game/flick'
 import { CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, PITCH } from '../data/TeamData'
-import { makeContext, readPositions, firstHit, chooseHeuristic, chooseBySimulation, towardsOwnGoal } from './planner'
+import { makeContext, readPositions, firstHit, chooseHeuristic, chooseBySimulation, chooseChip, towardsOwnGoal } from './planner'
+import { chipError } from '../game/chip'
 import { penaltyFlick } from '../game/penalty'
 import { teamHomeDir } from '../game/rules'
 import { reflexOptions } from '../game/keeper'
@@ -26,8 +27,9 @@ import { reflexOptions } from '../game/keeper'
 export const DIFFICULTY = {
   // Easy plays the same sensible game as medium, less well: looser choices, shakier aim and power, weaker shots
   easy:   { thinkDelay: 1200, aimDelay: 600, aimNoise: 0.32, powerMult: 0.62, planner: 'heuristic', scoreNoise: 6, powerJitter: 0.22, passChance: 0.1 },
-  medium: { thinkDelay: 800,  aimDelay: 400, aimNoise: 0.2, powerMult: 0.75, planner: 'heuristic' },
-  hard:   { thinkDelay: 500,  aimDelay: 250, aimNoise: 0.03, powerMult: 1, planner: 'simulate', budgetMs: 70 },
+  // chipChance: how often it looks for a chip when the way to goal is blocked; chipNoise: how cleanly it strikes one
+  medium: { thinkDelay: 800,  aimDelay: 400, aimNoise: 0.2, powerMult: 0.75, planner: 'heuristic', chipChance: 0.3, chipNoise: 0.12 },
+  hard:   { thinkDelay: 500,  aimDelay: 250, aimNoise: 0.03, powerMult: 1, planner: 'simulate', budgetMs: 70, chipChance: 0.7, chipNoise: 0 },
 }
 
 export function useAIController() {
@@ -65,11 +67,12 @@ export function useAIController() {
         return
       }
       state.selectCap(decision.capId)
+      if (decision.chip) useMatchStore.setState({ chipArmed: decision.capId })
       aimTimer.current = setTimeout(() => {
         aimTimer.current = null
         const s = useMatchStore.getState()
         if (s.phase !== PHASE.AIM || s.activeTeam !== aiTeam) return
-        if (performFlick(decision.capId, decision.velocity) !== null) s.switchTurn()
+        if (performFlick(decision.capId, decision.velocity, null, !!decision.chip) !== null) s.switchTurn()
       }, diff.aimDelay)
     }, diff.thinkDelay)
 
@@ -110,6 +113,15 @@ export function computeSmartDecision(aiTeam, level = 'medium', requiredCapId = n
       reflex: reflexOptions(state)?.reflex || null,
       requiredCapId,
     })
+    // Way to goal blocked (a wall at a free kick, a crowded box) and chips left: sometimes look for a chip over it
+    if (diff.chipChance && rng() < diff.chipChance) {
+      const ball = bodies.ball.position
+      const chip = chooseChip(ctx, {
+        canChip: (id) => chipError(state, id, ball, bodies[id]?.position) === null,
+        aimNoise: diff.aimNoise, postNoise: diff.chipNoise, rng,
+      })
+      if (chip) return chip
+    }
     const pick = diff.planner === 'simulate'
       ? chooseBySimulation(ctx, { budgetMs: diff.budgetMs, aimNoise: diff.aimNoise, rng })
       : chooseHeuristic(ctx, { aimNoise: diff.aimNoise, powerMult: diff.powerMult, scoreNoise: diff.scoreNoise, powerJitter: diff.powerJitter, rng })

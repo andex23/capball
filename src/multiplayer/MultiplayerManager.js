@@ -174,7 +174,7 @@ function handleAsHost(msg) {
     case 'select': store.selectCap(action.capId); break
     case 'cancel': store.cancelAim(); break
     case 'keeperDive': store.pickKeeperDive(action.dive); break
-    case 'flick': performFlick(action.capId, action.velocity, GUEST_TEAM); break
+    case 'flick': performFlick(action.capId, action.velocity, GUEST_TEAM, !!action.chip); break
     case 'bye': connectionLost('bye'); break
   }
 }
@@ -631,7 +631,7 @@ export function sendTeamConfig(config) { send('teamConfig', { config }) }
 export function sendBet(data) { send('bet', data) }
 export function sendFormation(key) { send('formation', { key }) }
 export function sendSelect(capId) { send('select', { capId }) }
-export function sendFlick(capId, velocity) { send('flick', { capId, velocity }) }
+export function sendFlick(capId, velocity, chip = false) { send('flick', { capId, velocity, ...(chip ? { chip: true } : {}) }) }
 export function sendCancel() { send('cancel', {}) }
 export function sendKeeperDive(dive) { send('keeperDive', { dive }) }
 export function sendPause(paused) { send('pause', { paused }) }
