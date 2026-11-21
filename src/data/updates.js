@@ -5,6 +5,7 @@
  * icon: an Icon name. date: YYYY-MM-DD.
  */
 export const UPDATES = [
+  { id: 'daily-week', date: '2026-11-21', icon: 'check', title: 'A daily challenge for every day of the week', text: 'Each day has its own set-up, getting harder towards the weekend, so no two days in a row are the same. Sunday is the Sunday Special: an extra defender and one flick fewer, worth ₦250k.' },
   { id: 'career-ladder', date: '2026-11-20', icon: 'trophy', title: 'Career: a bigger ladder', text: 'New careers start in the Street League. Five divisions, eight clubs each, a 14-match season, and four clubs fighting for the title in every league. Top two go up, bottom two go down.' },
   { id: 'canta-champions-league', date: '2026-11-20', icon: 'trophy', title: 'The Canta Champions League', text: 'Finish in the top two of the Premier Cap League to face the best clubs from abroad: two groups, semi-finals and a final on midweek nights. ₦25m to the winners.' },
   { id: 'derbies-jobs', date: '2026-11-20', icon: 'ball', title: 'Derby days and job offers', text: 'Every league has your rival: beat them for double prize money. Win big and bigger clubs will offer you the job. After each season, a summer review shows who’s new, who left and what your rivals signed.' },

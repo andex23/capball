@@ -2875,3 +2875,25 @@ button.other-side { cursor: pointer; }
 .turn-banner small { font: 600 12px/1 var(--font-ui); color: #cfd8ff; }
 @keyframes turn-banner { 0% { opacity: 0; transform: scaleY(0.2); } 12% { opacity: 1; transform: none; } 82% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .turn-banner { animation: none; } }
+/* The daily challenge's week: Monday to Sunday */
+.daily-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.daily-day { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 62px; padding: 6px 1px 5px; text-align: center; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.25); }
+.daily-day-name { font: 700 9px/1 var(--font-pixel); text-transform: uppercase; color: #aab3d6; }
+.daily-day-mark { font-size: 15px; line-height: 18px; color: #6c76a3; }
+.daily-day-what { font-size: 8.5px; line-height: 1.1; font-weight: 600; color: #c4cbe4; hyphens: manual; }
+.daily-day[data-state='done'] { border-color: #3ddc84; }
+.daily-day[data-state='done'] .daily-day-mark { color: #3ddc84; }
+.daily-day[data-state='today'] { border-color: var(--accent); background: #2a2a10; box-shadow: 0 0 0 2px #000; }
+.daily-day[data-state='today'] .daily-day-name, .daily-day[data-state='today'] .daily-day-mark { color: var(--accent); }
+.daily-day[data-state='later'] { opacity: 0.55; }
+.daily-day[data-special='true'] { border-style: dashed; }
+.daily-level { display: inline-block; margin-left: 6px; padding: 3px 6px; vertical-align: middle; font: normal 700 9px/1 var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; text-shadow: none; color: #1b1400; background: #8fd16a; border: 2px solid #000; }
+.daily-level[data-level='medium'] { background: var(--accent); }
+.daily-level[data-level='hard'] { background: #ff7a3d; }
+.daily-level[data-level='hardest'] { background: #ff4d6d; }
+.daily-next { padding: 8px 10px; font-size: 13px; background: #0b1236; border: 2px dashed rgba(255, 255, 255, 0.35); }
+.daily-next b { color: var(--accent); }
+/* Local Match: check there are two of you */
+.local-check-art { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 0 4px; color: var(--accent); }
+.local-check-art span { display: grid; place-items: center; width: 44px; height: 44px; font: 700 12px/1 var(--font-pixel); color: #fff; background: #0b1236; border: 3px solid #fff; border-radius: 50%; box-shadow: 3px 3px 0 #000; }
+.local-check-art span:last-child { border-color: var(--accent); }

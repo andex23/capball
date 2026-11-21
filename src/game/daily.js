@@ -3,7 +3,7 @@
  * the date. Your caps against a few defenders and a keeper — score within the
  * flicks you're given. Team 1 attacks the right-hand goal (x = +15).
  */
-import { PITCH } from '../data/TeamData'
+import { PITCH, CAP_RADIUS as CAP_R, GK_RADIUS as GK_R, BALL_RADIUS as BALL_R } from '../data/TeamData'
 import { seededRng } from './tournament'
 
 const GK_X = PITCH.halfW - 1.12
@@ -103,12 +103,73 @@ export function previousDay(key) {
   return dayKey(new Date(y, m - 1, d - 1))
 }
 
+/**
+ * The week's schedule: the same set-up on the same day each week, getting
+ * harder towards the weekend, so it never repeats from one day to the next.
+ * Positions still change week to week. Sunday is the Sunday Special.
+ * Indexed by getDay(): 0 = Sunday.
+ */
+export const WEEK = [
+  { day: 'Sun', template: null, level: 'Hardest' },
+  { day: 'Mon', template: 0, level: 'Easy' }, // Free kick
+  { day: 'Tue', template: 2, level: 'Easy' }, // Breakaway
+  { day: 'Wed', template: 1, level: 'Medium' }, // Corner
+  { day: 'Thu', template: 4, level: 'Medium' }, // Long range
+  { day: 'Fri', template: 3, level: 'Hard' }, // Tight angle
+  { day: 'Sat', template: 5, level: 'Hard' }, // Crowded box
+]
+export const SPECIAL_NAME = 'Sunday Special'
+/** Beating the Sunday Special pays this into your club budget (₦250k). */
+export const SPECIAL_BONUS = 25
+
+const dateOf = (key) => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d) }
+export const weekdayOf = (key) => dateOf(key).getDay()
+export const nextDay = (key) => { const d = dateOf(key); return dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) }
+/** Monday to Sunday of the week `key` is in. */
+export function weekDays(key) {
+  const d = dateOf(key)
+  const back = (d.getDay() + 6) % 7
+  return Array.from({ length: 7 }, (_, i) => dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - back + i)))
+}
+/** What a day's challenge is called, without building it. */
+export function challengeName(key) {
+  const w = WEEK[weekdayOf(key)]
+  return w.template == null ? SPECIAL_NAME : TEMPLATES[w.template](() => 0.5).name
+}
+
+const R = { ball: BALL_R, cap: CAP_R, gk: GK_R }
+/** An extra defender for the Sunday Special: in the way, but leaving a gap. */
+function extraDefender(c, r) {
+  const free = Object.keys(PARK_THEIRS).find((role) => !c.theirs[role])
+  if (!free) return c
+  const taken = [[...c.ball, R.ball], ...Object.values(c.mine).map((p) => [...p, R.cap]), ...Object.values(c.theirs).map((p) => [...p, R.cap]), [GK_X, c.keeperY || 0, R.gk]]
+  const [bx, by] = c.ball
+  const side = r() < 0.5 ? -1 : 1
+  const fits = (x, y) => Math.abs(x) <= PITCH.halfW - R.cap && Math.abs(y) <= PITCH.halfH - R.cap && taken.every(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) > tr + R.cap + 0.15)
+  const put = (x, y) => ({ ...c, theirs: { ...c.theirs, [free]: [x, y] } })
+  // Between the ball and the goal, a little to one side
+  for (const t of [0.55, 0.45, 0.65, 0.35, 0.75]) {
+    for (const off of [1.1, -1.1, 1.8, -1.8, 0.4, -0.4].map((o) => o * side)) {
+      const x = bx + (GK_X - 1.5 - bx) * t
+      const y = by * (1 - t) + off
+      if (fits(x, y)) return put(x, y)
+    }
+  }
+  // Somewhere in front of goal, then anywhere goal-side of the ball
+  for (let x = GK_X - 2.2; x > bx; x -= 0.6) for (const y of [0, 1.2, -1.2, 2.4, -2.4, 3.6, -3.6, 4.8, -4.8].map((v) => v * side)) if (fits(x, y)) return put(x, y)
+  return c
+}
+
 /** The challenge for a given day. */
 export function challengeFor(key) {
   const r = seededRng(`daily:${key}`)
+  const w = WEEK[weekdayOf(key)]
+  if (w.template != null) return { id: key, template: w.template, level: w.level, ...TEMPLATES[w.template](r) }
+  // Sunday Special: one of the week's set-ups, an extra defender, one flick fewer
   const n = Math.floor(r() * TEMPLATES.length) % TEMPLATES.length
-  const c = TEMPLATES[n](r)
-  return { id: key, template: n, ...c }
+  const base = TEMPLATES[n](r)
+  const c = extraDefender(base, r)
+  return { id: key, template: n, level: w.level, special: true, ...c, name: SPECIAL_NAME, base: base.name, flicks: Math.max(1, base.flicks - 1), text: `${base.name} with an extra defender and one flick fewer.` }
 }
 
 /** Body positions for a challenge: { id: [x, y] } for every cap and the ball. */

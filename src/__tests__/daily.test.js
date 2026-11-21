@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { challengeFor, challengeBodies, dayKey, previousDay, nextStreak } from '../game/daily'
+import { challengeFor, challengeBodies, challengeName, dayKey, previousDay, nextDay, nextStreak, weekDays, SPECIAL_NAME } from '../game/daily'
 import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { useMatchStore, PHASE, TIMING, clearMatchTimers } from '../state/MatchStore'
 
@@ -25,6 +25,31 @@ describe('daily challenge set-ups', () => {
         const [x1, y1] = b[ids[a]], [x2, y2] = b[ids[c]]
         expect(Math.hypot(x1 - x2, y1 - y2)).toBeGreaterThan(radius(ids[a]) + radius(ids[c]) - 0.05)
       }
+    }
+  })
+  it('follows the week: never the same set-up two days running, harder towards Sunday', () => {
+    let prev = null
+    for (let i = 0; i < 365; i++) {
+      const key = dayKey(new Date(2026, 0, i + 1))
+      const c = challengeFor(key)
+      expect(c.name).toBe(challengeName(key))
+      if (prev) expect(c.name).not.toBe(prev)
+      prev = c.name
+    }
+    // 2026-11-16 is a Monday
+    expect(weekDays('2026-11-20')).toEqual(['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-21', '2026-11-22'])
+    expect(weekDays('2026-11-20').map(challengeName)).toEqual(['Free kick', 'Breakaway', 'Corner', 'Long range', 'Tight angle', 'Crowded box', SPECIAL_NAME])
+    expect(challengeFor('2026-11-16').level).toBe('Easy')
+    expect(nextDay('2026-11-30')).toBe('2026-12-01')
+  })
+  it('the Sunday Special has an extra defender and one flick fewer', () => {
+    for (let w = 0; w < 52; w++) {
+      const key = dayKey(new Date(2026, 0, 4 + w * 7)) // Sundays
+      const c = challengeFor(key)
+      expect(c).toMatchObject({ special: true, name: SPECIAL_NAME, level: 'Hardest' })
+      const plain = { 'Free kick': [2, 2], Corner: [3, 2], Breakaway: [3, 2], 'Tight angle': [2, 1], 'Long range': [2, 1], 'Crowded box': [3, 4] }[c.base]
+      expect(c.flicks).toBe(Math.max(1, plain[0] - 1))
+      expect(Object.keys(c.theirs).length).toBe(plain[1] + 1)
     }
   })
   it('streaks build day by day and restart after a gap', () => {

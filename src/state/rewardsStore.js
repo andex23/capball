@@ -9,7 +9,7 @@ import { platformHooks } from '../platformHooks'
 import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WEEK_BONUS, CUP_CAPS } from '../game/rewards'
 import { CUP_PRIZE } from '../game/weeklyCup'
 import { money } from '../game/squad'
-import { dayKey } from '../game/daily'
+import { dayKey, SPECIAL_BONUS } from '../game/daily'
 import { useCareerStore } from './careerStore'
 import { isSignedIn, useAccountStore } from './accountStore'
 
@@ -92,6 +92,16 @@ export const useRewardsStore = create((set, get) => ({
     if (cap && !s.caps.includes(cap.key)) s.caps = [...s.caps, cap.key]
     s = pay(CUP_PRIZE, s)
     s.news = [{ id: `cup:${weekly.key}`, title: `You won the ${weekly.name}!`, text: `+${money(CUP_PRIZE)} and the ${weekly.name} cap. Pick it in Edit team.`, cap: cap?.key, coins: CUP_PRIZE, date: today }, ...s.news].slice(0, 30)
+    get()._save(s)
+    return true
+  },
+
+  /** Beat the Sunday Special: its bonus, once that day. */
+  sundayBonus(today = dayKey()) {
+    const id = `sunday:${today}`
+    if (!isSignedIn() || get().news.some((n) => n.id === id)) return false
+    let s = pay(SPECIAL_BONUS, { ...get() })
+    s.news = [{ id, title: 'Sunday Special beaten!', text: `+${money(SPECIAL_BONUS)} into your club budget.`, coins: SPECIAL_BONUS, date: today }, ...s.news].slice(0, 30)
     get()._save(s)
     return true
   },
