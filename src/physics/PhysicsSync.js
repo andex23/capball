@@ -9,8 +9,11 @@ import {
 } from './PhysicsWorld'
 import { COIN_H } from '../scene/BallMesh'
 
-// How high a chip looks: world units on screen per unit of chip height
-const LIFT_SCALE = 0.75
+// How high a chip looks: world units on screen per unit of chip height. Matched
+// to the models: at the keeper's reach (CHIP.reach) the coin's underside just
+// clears the standing keeper (~1.55 tall); at the bar height (CHIP.bar) it's
+// over the crossbar (GOAL_BAR_HEIGHT). So what you see is what happened.
+const LIFT_SCALE = 1.25
 import { ballInCorner, cornerRestart, otherTeam, isOwnGoal } from '../game/rules'
 import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
@@ -125,13 +128,13 @@ export function usePhysicsSync(meshRefs) {
         const h = (authority ? getBallHeight() : getGuestBallHeight()) * LIFT_SCALE
         mesh.position.y += (COIN_H / 2 + h - mesh.position.y) * (authority ? 1 : blend)
         const lift = mesh.position.y - COIN_H / 2
-        mesh.rotation.x = Math.min(0.5, lift * 0.35)
+        mesh.rotation.x = Math.min(0.3, lift * 0.15)
         // From above, height is hard to read: the coin grows as it rises and its shadow falls away from it
-        mesh.scale.setScalar(1 + lift * 0.3)
+        mesh.scale.setScalar(1 + lift * 0.12)
         const shadow = mesh.getObjectByName('ball-shadow')
         if (shadow) {
           shadow.visible = lift > 0.02
-          const k = 1 / (1 + lift * 0.3)
+          const k = 1 / (1 + lift * 0.12)
           shadow.position.set(lift * 0.45 * k, (-lift - COIN_H / 2 + 0.005) * k, lift * 0.3 * k)
           shadow.rotation.x = -Math.PI / 2 - mesh.rotation.x
           shadow.scale.setScalar((1 + lift * 0.1) * k)
