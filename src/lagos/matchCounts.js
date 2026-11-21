@@ -25,7 +25,8 @@ export function watchMatchCounts(store, count, kindOf, now = () => Date.now()) {
     const entered = s.screen === SCREEN.PLAYING && (prev.screen !== SCREEN.PLAYING || s.matchKey !== prev.matchKey)
     if (entered) {
       // Extra time and penalties carry on the match already counted
-      const goesOn = (s.extraTime || s.penaltyShootout) && live
+      // ...and so do the Training Ground's tries (one visit is one count)
+      const goesOn = ((s.extraTime || s.penaltyShootout) && live) || (live?.kind === 'training' && kindOf(s) === 'training')
       if (!goesOn) {
         quit()
         live = { kind: kindOf(s), at: now(), ended: false }

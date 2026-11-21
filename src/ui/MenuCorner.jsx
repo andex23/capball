@@ -19,6 +19,9 @@ import { teamById } from '../game/tournament'
 import { playButtonSelect, playMenuNavigate } from '../audio/SoundManager'
 import CapPreview from './CapPreview'
 import { DailyReward, WeeklyGoals } from './Rewards'
+import Cone from './Cone'
+import { useTrainingStore } from '../state/trainingStore'
+import './training.css'
 import { useRewardsStore } from '../state/rewardsStore'
 import { weekProgress, weekKey, dailyStatus, CUP_CAPS } from '../game/rewards'
 import { money } from '../game/squad'
@@ -96,6 +99,7 @@ function WhatsNew({ items, onClose, onPick }) {
 }
 
 function Profile({ onClose, onOpen, onSheet }) {
+  const [wobble, setWobble] = useState(false)
   const username = useAccountStore((s) => s.username)
   const kit = useMatchStore((s) => s.teamConfig.team1)
   const totals = useSavedStore((s) => s.career) || {}
@@ -121,6 +125,11 @@ function Profile({ onClose, onOpen, onSheet }) {
         <div className="corner-who">
           <CapPreview config={kit} size={78} number={kit.numbers?.atk1 ?? 10} />
           <div><div className="corner-name">{username || 'Guest'}</div><small>{username ? kit.name : 'Sign in to keep your records'}</small></div>
+          {/* The way into the Training Ground: just a little cone, no label */}
+          <button className="corner-cone" data-wobble={wobble ? 'true' : undefined} aria-label="Training Ground"
+            onClick={() => { playButtonSelect(); setWobble(true); setTimeout(() => { onClose(); useTrainingStore.getState().open() }, 420) }}>
+            <Cone size={26} />
+          </button>
         </div>
         <div className="corner-stats">
           <div><b>{totals.played || 0}</b><span>Played</span></div>

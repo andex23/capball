@@ -1,7 +1,7 @@
 import { useMatchStore, INPUT_PHASES } from '../state/MatchStore'
 import { PHYSICS, PITCH } from '../data/TeamData'
 import { flickScale, aimWobble, powerScale, flickWobble } from './squad'
-import { applyFlick, getBody, diveKeeper, radiusOf, setShotStray } from '../physics/PhysicsWorld'
+import { applyFlick, getBody, diveKeeper, radiusOf, setShotStray, snapshotBodies } from '../physics/PhysicsWorld'
 import { strikeDirection, crossingY, cpuDive } from './penalty'
 import { playDive } from '../audio/SoundManager'
 import { teamOf, isGoalkeeper, keeperCanPlay, teamHomeDir } from './rules'
@@ -87,6 +87,11 @@ export function wobble(velocity, maxDeg, rng = Math.random) {
   return { x: velocity.x * c - velocity.y * s, y: velocity.x * s + velocity.y * c }
 }
 
+/** Where everything stood before the last Training Ground flick (for Undo), or null. */
+let lastSnapshot = null
+export const lastFlickSnapshot = () => lastSnapshot
+export const forgetFlickSnapshot = () => { lastSnapshot = null }
+
 /** Validate and apply a flick. Returns null on success or the reason it was refused. `chip`: chip the ball (if this cap may). */
 export function performFlick(capId, velocity, byTeam = null, chip = undefined) {
   const state = useMatchStore.getState()
@@ -101,8 +106,10 @@ export function performFlick(capId, velocity, byTeam = null, chip = undefined) {
   // A chip if this cap was armed (or the guest asked for one) and may still chip
   const wantsChip = chip ?? state.chipArmed === capId
   const chipped = !!wantsChip && chipError(state, capId, getBody('ball')?.position, getBody(capId)?.position) === null
+  // The Training Ground can undo a flick: remember where everything stood
+  if (state.training) lastSnapshot = snapshotBodies()
   applyFlick(capId, { x: v.x * scale, y: v.y * scale }, PHYSICS.maxFlickVelocity * scale, chipped) // clamps to max power
-  if (chipped) state.useChip(teamOf(capId))
+  if (chipped && !state.training) state.useChip(teamOf(capId))
   // ...and the further out a hard shot is struck, the more the ball can drift off
   // its line as it leaves the cap (not penalties or the daily puzzle)
   const ball = getBody('ball')?.position
@@ -144,7 +151,7 @@ export function capSelectable(state, capId, ball) {
 
 /** Teams this client may control with the mouse/touch. */
 export function controllableTeams(state) {
-  if (state.challenge) return ['team1']
+  if (state.challenge || state.training) return ['team1']
   if (state.gameMode === 'online' || state.gameMode === 'anytime') return state.onlineMyTeam ? [state.onlineMyTeam] : []
   if (state.gameMode === 'ai') return [state.aiTeam === 'team1' ? 'team2' : 'team1']
   return ['team1', 'team2']

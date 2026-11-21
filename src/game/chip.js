@@ -19,7 +19,8 @@ export function chipError(state, capId, ball, cap) {
   const team = teamOf(capId)
   if (!team || team !== state.activeTeam) return 'not-your-cap'
   if (isGoalkeeper(capId)) return 'keeper'
-  if ((state.chipsLeft?.[team] ?? CHIPS_PER_HALF) <= 0) return 'none-left'
+  // (unlimited in the Training Ground)
+  if (!state.training && (state.chipsLeft?.[team] ?? CHIPS_PER_HALF) <= 0) return 'none-left'
   if (!ball || !cap) return 'no-ball'
   // Only in the half you attack
   if (ball.x * teamHomeDir(team, state.team1Side || 'left') > 0) return 'own-half'

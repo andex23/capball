@@ -5,10 +5,12 @@ import * as THREE from 'three'
 import { useMatchStore, PHASE, INPUT_PHASES } from '../state/MatchStore'
 import { performFlick, flickScaleFor, flickError, controllableTeams, capSelectable, powerFraction, MIN_FLICK_PX, aimWobbleFor, longShotWobble, distanceToGoal } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
-import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
+import { PHYSICS, PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
 import { playFlick, playButtonSelect } from '../audio/SoundManager'
 import { chipError } from '../game/chip'
-import { getBody } from '../physics/PhysicsWorld'
+import { getBody, getBodies, radiusOf, deOverlapBodies } from '../physics/PhysicsWorld'
+import Matter from 'matter-js'
+import { useTrainingStore } from '../state/trainingStore'
 import { haptic } from './haptics'
 import { classifyContact } from '../game/rules'
 import { predictShot, createShot, createPrediction, capBounds, goalFor, ownGoalRisk, keeperShape } from '../game/predict'
@@ -125,6 +127,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
   const capScreen = useRef(new THREE.Vector3())
   const shotRef = useRef(null)  // reused predictShot input/output (no per-frame allocation)
   const predRef = useRef(null)
+  const movingId = useRef(null) // Training Ground: the body being dragged with "Move caps"
   const lastTap = useRef(null) // { capId, t }: a second tap on the same cap soon after switches it to a chip
 
   // Convert clientX/clientY to world position on the pitch plane
@@ -204,6 +207,18 @@ export function useFlickController(meshRefs, trajectoryRef) {
       if (!worldPos) return
       lastClient.current = { x: e.clientX, y: e.clientY }
 
+      // Training Ground, Free play with "Move caps" on: drag any cap or the ball where you like
+      if (state.training?.mode === 'free' && useTrainingStore.getState().moving) {
+        const B = getBodies()
+        let best = null, bestD = Infinity
+        for (const [id, body] of Object.entries(B)) {
+          const d = Math.hypot(body.position.x - worldPos.x, body.position.y - worldPos.z)
+          if (d < radiusOf(id) + 0.6 && d < bestD) { best = id; bestD = d }
+        }
+        if (best) { movingId.current = best; holdCamera(true) }
+        return
+      }
+
       // Fingers get a pick-up area at least a thumb-tip wide, whatever the zoom
       const reach = e.pointerType === 'touch' ? touchReach(e.clientX, e.clientY, worldPos) : 0
       let capId = findCapAtPosition(worldPos, reach)
@@ -230,6 +245,16 @@ export function useFlickController(meshRefs, trajectoryRef) {
     }
 
     const handlePointerMove = (e) => {
+      if (movingId.current) {
+        const p = getWorldPos(e.clientX, e.clientY)
+        const body = getBodies()[movingId.current]
+        if (p && body) {
+          const r = radiusOf(movingId.current) + 0.1
+          Matter.Body.setPosition(body, { x: Math.max(-PITCH.halfW + r, Math.min(PITCH.halfW - r, p.x)), y: Math.max(-PITCH.halfH + r, Math.min(PITCH.halfH - r, p.z)) })
+          Matter.Body.setVelocity(body, { x: 0, y: 0 })
+        }
+        return
+      }
       if (!dragCapId.current) return
       if (!e.isPrimary) return
       lastClient.current = { x: e.clientX, y: e.clientY }
@@ -238,6 +263,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
     }
 
     const handlePointerUp = () => {
+      if (movingId.current) { movingId.current = null; holdCamera(false); deOverlapBodies(); return }
       const capId = dragCapId.current
       const dragPos = dragCurrent.current
       endDrag()

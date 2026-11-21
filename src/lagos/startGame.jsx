@@ -28,6 +28,7 @@ export function startGame(connection) {
   const kindOf = (s) => {
     const p = useTournamentStore.getState().playing
     if (s.challenge) return 'daily'
+    if (s.training) return 'training'
     if (['career', 'careerCup', 'careerCcl'].includes(p?.kind)) return 'career'
     const mode = { ai: 'computer', local: 'local', online: 'online', anytime: 'anytime' }[s.gameMode] ?? 'local'
     if (p) return `tournament_${mode}`

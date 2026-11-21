@@ -13,6 +13,8 @@ export function reflexForRating(rating) {
 
 /** This team's keeper reflex in this match. */
 export function keeperReflex(state, team) {
+  // The Training Ground: the keeper you face is at the level you picked
+  if (state?.training && team === 'team2') return REFLEX_LEVEL[state.training.level] ?? DEFAULT_REFLEX
   if (state?.teamConfig?.[team]?.traits?.gk === 'reflex') return 0.97
   const rating = state?.teamConfig?.[team]?.ratings?.gk
   if (Number.isFinite(rating)) return reflexForRating(rating)

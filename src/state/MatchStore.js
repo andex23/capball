@@ -21,6 +21,7 @@ export const SCREEN = {
   TOURNAMENT_SETUP: 'TOURNAMENT_SETUP',
   TOURNAMENT_HUB: 'TOURNAMENT_HUB',
   CAREER: 'CAREER',
+  TRAINING: 'TRAINING', // the Training Ground (from the cone in your profile)
 }
 
 // Turn phases
@@ -130,6 +131,11 @@ const emptyStats = () => ({
   team1: { goals: 0, shots: 0, fouls: 0, turns: 0, onTarget: 0, saves: 0 },
   team2: { goals: 0, shots: 0, fouls: 0, turns: 0, onTarget: 0, saves: 0 },
 })
+
+// The Training Ground decides what happens after each flick (state/trainingStore.js registers this)
+let trainingHandler = null
+export function setTrainingHandler(fn) { trainingHandler = fn }
+const trainingEnd = (outcome) => { trainingHandler?.(outcome) }
 
 const clearTurn = {
   selectedCapId: null,
@@ -426,7 +432,7 @@ export const useMatchStore = create((set, get) => ({
   quitMatch: (screen = SCREEN.MENU) => {
     if (get().challenge) { get().leaveChallenge(screen); return }
     clearMatchTimers()
-    set({ ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false, challenge: null })
+    set({ ...clearTurn, screen, timerRunning: false, paused: false, penaltyShootout: false, challenge: null, training: null })
   },
 
   lastGoalOwn: false,
@@ -513,6 +519,36 @@ export const useMatchStore = create((set, get) => ({
     dragPower: 0,
   }),
 
+  // --- Training Ground (see state/trainingStore.js) ---
+  training: null, // { mode: 'skill' | 'free', skill, n, results, round, level, last }
+  /** Put the pitch up for a training try (bodies come from setPendingBodies, if any). */
+  startTraining: (training) => {
+    clearMatchTimers()
+    set({
+      ...clearTurn,
+      training,
+      challenge: null,
+      screen: SCREEN.PLAYING,
+      matchKey: get().matchKey + 1,
+      gameMode: 'local',
+      team1Side: 'left',
+      penaltyShootout: false,
+      penaltyKick: false,
+      score: { team1: 0, team2: 0 },
+      goalLog: [],
+      matchEvents: [],
+      stats: emptyStats(),
+      activeTeam: 'team1',
+      phase: PHASE.SELECT,
+      kickoffGuard: false,
+      goalKickGuard: false,
+      timerRunning: false,
+      paused: false,
+      matchResult: null,
+      shotClockRemaining: 0,
+    })
+  },
+
   // --- Daily challenge: your caps only, score within so many flicks ---
   challenge: null, // { id, name, text, flicks, flicksLeft, won }
   startChallenge: (c) => {
@@ -561,6 +597,7 @@ export const useMatchStore = create((set, get) => ({
 
   switchTurn: () => {
     if (get().challenge) { get().challengeFlickUsed(); return }
+    if (get().training) { trainingEnd(get().shotCalled ? get().shotCall?.type || 'none' : 'none'); return }
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'turns')
     set({ ...clearTurn, activeTeam: otherTeam(activeTeam), phase: PHASE.SELECT, kickoffGuard: false, shotClockRemaining: get().shotClock })
@@ -570,6 +607,11 @@ export const useMatchStore = create((set, get) => ({
   scoreGoal: (scoringTeam, { ownGoal = false, decision = null } = {}) => {
     const { score } = get()
     const replayDecision = decision || { outcome: 'goal' }
+    if (get().training) {
+      set({ ...clearTurn, phase: PHASE.GOAL, replayDecision, lastScorer: scoringTeam, lastGoalOwn: !!ownGoal, lastConceded: otherTeam(scoringTeam) })
+      scheduleDecision(() => trainingEnd(scoringTeam === 'team1' ? 'goal' : 'own'), TIMING.goal)
+      return
+    }
     if (get().challenge) {
       // Celebrate, then the challenge is done (into your own net is a fail)
       set({ ...clearTurn, score: { ...score, [scoringTeam]: score[scoringTeam] + 1 }, phase: PHASE.GOAL, replayDecision, lastScorer: scoringTeam, lastGoalOwn: !!ownGoal, lastConceded: otherTeam(scoringTeam) })
@@ -631,6 +673,7 @@ export const useMatchStore = create((set, get) => ({
     const restart = get().pendingNoGoalRestart
     set({ pendingNoGoalRestart: null })
     if (get().challenge) { get().challengeFlickUsed(); return }
+    if (get().training) { trainingEnd('none'); return }
     if (restart) get().awardRestart(restart)
     else get().switchTurn()
   },
@@ -650,6 +693,7 @@ export const useMatchStore = create((set, get) => ({
   restart: null, // { kind: 'corner' | 'goalKick', team, ex, ey }
   awardRestart: ({ kind, team, ex, ey, reason = null }) => {
     if (get().challenge) { get().challengeFlickUsed(); return }
+    if (get().training) { trainingEnd(get().shotCall && get().shotCalled ? get().shotCall.type : 'none'); return }
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'turns')
     set({
@@ -672,6 +716,7 @@ export const useMatchStore = create((set, get) => ({
   // --- Fouls ---
   callFoul: (foulSpot, fouledTeam, inPenaltyBox) => {
     if (get().challenge) { get().challengeFlickUsed(); return }
+    if (get().training) { trainingEnd('foul'); return }
     const { activeTeam } = get()
     get().bumpStat(activeTeam, 'fouls')
     set({

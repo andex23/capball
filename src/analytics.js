@@ -8,7 +8,7 @@ const PATHS = {
   [SCREEN.TEAM_SELECT]: '/setup/teams', [SCREEN.STADIUM_SELECT]: '/setup/venue',
   [SCREEN.FORMATION]: '/setup/formation', [SCREEN.MATCH_END]: '/match/result',
   [SCREEN.TOURNAMENT_HOME]: '/tournaments', [SCREEN.TOURNAMENT_SETUP]: '/tournaments/setup',
-  [SCREEN.TOURNAMENT_HUB]: '/tournaments/fixtures', [SCREEN.CAREER]: '/career',
+  [SCREEN.TOURNAMENT_HUB]: '/tournaments/fixtures', [SCREEN.CAREER]: '/career', [SCREEN.TRAINING]: '/training',
 }
 const modeName = mode => ({ ai: 'computer', local: 'local', online: 'online' }[mode] ?? 'local')
 
