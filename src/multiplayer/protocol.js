@@ -23,6 +23,7 @@ export const SYNC_KEYS = [
   'foulData', 'penaltyShootout', 'penaltyScores', 'penaltyKicks', 'matchResult',
   'selectedCapId', 'freeKickCapId', 'paused', 'ballColor', 'lastScorer', 'lastGoalOwn', 'noGoalReason', 'penaltyKick',
   'replayDecision', 'lastGoalCap', 'goalLog', 'restart', 'kickoffGuard', 'goalKickGuard', 'shotClock', 'shotClockRemaining',
+  'chipsLeft',
 ]
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i
@@ -133,7 +134,7 @@ export function validateGuestMessage(msg, state) {
       if (!CAP_ROLES.includes(data.capId.slice(GUEST_TEAM.length + 1))) return null
       const v = data.velocity
       if (!isObj(v) || !Number.isFinite(v.x) || !Number.isFinite(v.y)) return null
-      return { type: 'flick', capId: data.capId, velocity: { x: v.x, y: v.y } }
+      return { type: 'flick', capId: data.capId, velocity: { x: v.x, y: v.y }, ...(data.chip === true ? { chip: true } : {}) }
     }
     default:
       return null

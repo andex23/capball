@@ -30,9 +30,9 @@
 import Matter from 'matter-js'
 import { createLayouts } from './Layouts'
 export { FREE_KICK_WALL_DISTANCE, FREE_KICK_WALL_MIN, FREE_KICK_TWO_CAP_WALL_WITHIN, FK_TUNE } from './Layouts'
-import { createWallBodies, makeDynamicBody, applyStepFriction, attachKeeperGrip, attachKeeperReflex, clampBodyMap } from './WorldCore'
+import { createWallBodies, makeDynamicBody, applyStepFriction, attachKeeperGrip, attachKeeperReflex, attachChipFlight, clampBodyMap } from './WorldCore'
 import { reflexOptions } from '../game/keeper'
-export { CIRCLE_SIDES, KEEPER_GRIP, radiusOf, createSimulationWorld } from './WorldCore'
+export { CIRCLE_SIDES, KEEPER_GRIP, CHIP, radiusOf, createSimulationWorld } from './WorldCore'
 import { PITCH, CAP_RADIUS, GK_RADIUS, BALL_RADIUS, PHYSICS, getFormationPositions } from '../data/TeamData'
 import { playFoulWhistle, playBallHit, playCapHit, playWallHit } from '../audio/SoundManager'
 import { shotCall } from '../game/shots'
@@ -43,6 +43,7 @@ const { Engine, World, Body, Events } = Matter
 
 let layouts = null
 let engine = null
+let chip = null // the chip flight (see WorldCore.attachChipFlight)
 let bodies = {}
 let lastBallTeam = null // 'team1' | 'team2' | null — last side to touch the ball
 // Has the ball come off a cushion since a cap last touched it? A goal that
@@ -101,7 +102,7 @@ export function createPhysicsWorld() {
   createTeamBodies('team2')
   createBallBody()
   layouts = createLayouts(bodies, useMatchStore.getState, useMatchStore.setState, {
-    onBallPlaced: () => { ballBanked = false; capBanked = false; flickedMetBall = false; goalEvidence = {} },
+    onBallPlaced: () => { ballBanked = false; capBanked = false; flickedMetBall = false; goalEvidence = {}; chip?.reset() },
     onKickoff: () => { lastBallTeam = null; ballBanked = false },
   })
 
@@ -236,6 +237,8 @@ export function createPhysicsWorld() {
   attachShotStray(engine)
   // Keepers react to hard shots on goal (not penalties: those have their own dive)
   attachKeeperReflex(engine, () => bodies, () => reflexOptions(useMatchStore.getState()))
+  // Chips: the ball's height, and the keeper backing up for it
+  chip = attachChipFlight(engine, () => bodies, () => reflexOptions(useMatchStore.getState()))
 
   return engine
 }
@@ -318,10 +321,12 @@ function attachShotStray(eng) {
   })
 }
 
-/** Apply shot impulse to a cap */
-export function applyFlick(capId, velocity, maxSpeed = PHYSICS.maxFlickVelocity) {
+/** Apply shot impulse to a cap. With `chipped`, the cap chips the ball if it strikes it first. */
+export function applyFlick(capId, velocity, maxSpeed = PHYSICS.maxFlickVelocity, chipped = false) {
   const body = bodies[capId]
   if (!body) return
+  chip?.reset()
+  if (chipped) chip?.arm(capId)
   shotStray = null
   capBanked = false
   flickedMetBall = false
@@ -357,7 +362,13 @@ export function resetBallToCenter() {
   if (ball) { Body.setPosition(ball, { x: 0, y: 0 }); Body.setVelocity(ball, { x: 0, y: 0 }) }
 }
 
+/** How high the ball is (0 on the ground), what a chip came to, and whether one is in the air. */
+export const getBallHeight = () => chip?.height() || 0
+export const getChipOutcome = () => chip?.outcome() || null
+export const chipInFlight = () => !!chip?.flight()
+
 export function stopAllBodies() {
+  chip?.reset()
   for (const key in bodies) {
     Body.setVelocity(bodies[key], { x: 0, y: 0 })
     Body.setAngularVelocity(bodies[key], 0)
@@ -416,6 +427,9 @@ const round3 = (n) => Math.round(n * 1000) / 1000
 export function snapshotBodies() {
   const snap = {}
   for (const [id, b] of Object.entries(bodies)) snap[id] = [round3(b.position.x), round3(b.position.y)]
+  // A chip's height rides along with the ball (older guests ignore it)
+  const h = getBallHeight()
+  if (h > 0 && snap.ball) snap.ball.push(round3(h))
   return snap
 }
 
@@ -431,4 +445,9 @@ export function applyBodySnapshot(snap) {
     Body.setPosition(b, { x: p[0], y: p[1] })
     Body.setVelocity(b, { x: vx, y: vy })
   }
+  const h = Array.isArray(snap.ball) && Number.isFinite(snap.ball[2]) ? Math.max(0, Math.min(10, snap.ball[2])) : 0
+  guestHeight = h
 }
+let guestHeight = 0
+/** The ball's height as the host last sent it (an online guest doesn't simulate). */
+export const getGuestBallHeight = () => guestHeight

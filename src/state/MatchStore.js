@@ -3,6 +3,7 @@ import { onlineInterrupted } from '../multiplayer/reconnect'
 import { create } from 'zustand'
 import { otherTeam, shootoutStatus, nextShooter, matchWinner } from '../game/rules'
 import { FORMATIONS } from '../data/TeamData'
+import { chipError, CHIPS_PER_HALF } from '../game/chip'
 
 // App screens
 export const SCREEN = {
@@ -132,6 +133,7 @@ const emptyStats = () => ({
 
 const clearTurn = {
   selectedCapId: null,
+  chipArmed: null,
   lastFlickedCapId: null,
   shotCalled: false,
   firstCollisionTracked: false,
@@ -320,6 +322,7 @@ export const useMatchStore = create((set, get) => ({
       paused: false,
       half: 1,
       extraTime: false,
+      chipsLeft: { team1: CHIPS_PER_HALF, team2: CHIPS_PER_HALF },
       matchResult: null,
       penaltyShootout: false,
       penaltyKicks: { team1: 0, team2: 0 },
@@ -364,6 +367,7 @@ export const useMatchStore = create((set, get) => ({
       ...clearTurn,
       team1Side: team1Side === 'left' ? 'right' : 'left',
       half: 2,
+      chipsLeft: { team1: CHIPS_PER_HALF, team2: CHIPS_PER_HALF },
       timeRemaining: matchDuration,
       timerRunning: false,
       phase: PHASE.KICKOFF,
@@ -386,6 +390,7 @@ export const useMatchStore = create((set, get) => ({
       extraTime: true,
       team1Side: team1Side === 'left' ? 'right' : 'left',
       half: 3,
+      chipsLeft: { team1: CHIPS_PER_HALF, team2: CHIPS_PER_HALF },
       timeRemaining: Math.max(30, Math.round((matchDuration * 2) / 3)),
       timerRunning: false,
       paused: false,
@@ -427,7 +432,7 @@ export const useMatchStore = create((set, get) => ({
   lastGoalOwn: false,
   lastGoalCap: null, // the cap that scored the last goal (its flick put the ball in)
   goalLog: [],       // this match's goals: { team, cap, own, shootout }
-  matchEvents: [],   // shots that nearly went in: { type: 'post'|'wide'|'save'|'block', cap, by }
+  matchEvents: [],   // shots that nearly went in: { type: 'post'|'wide'|'save'|'block'|'chipSave'|'tipped'|'overBar', cap, by }
   shotCall: null,    // the latest near-miss call for the HUD: { type, cap, by, key }
   matchResult: null,
   score: { team1: 0, team2: 0 },
@@ -453,8 +458,9 @@ export const useMatchStore = create((set, get) => ({
       matchEvents: [...(s.matchEvents || []), { type, cap, by, half: s.half, t: s.timeRemaining }],
       shotCall: { type, cap, by, key: (s.shotCall?.key || 0) + 1 },
     })
-    if (team && (type === 'save' || type === 'post' || type === 'block')) get().bumpStat(team, 'onTarget')
-    if (type === 'save' && other) get().bumpStat(other, 'saves')
+    const saved = type === 'save' || type === 'chipSave' || type === 'tipped'
+    if (team && (saved || type === 'post' || type === 'block')) get().bumpStat(team, 'onTarget')
+    if (saved && other) get().bumpStat(other, 'saves')
   },
 
   // --- Turn state ---
@@ -481,9 +487,23 @@ export const useMatchStore = create((set, get) => ({
   // Only while aiming: a late release after the turn has moved on must not rewind it
   cancelAim: () => { if (get().phase === PHASE.AIM) set({ selectedCapId: null, phase: PHASE.SELECT, dragPower: 0 }) },
 
+  // --- Chips (see game/chip.js) ---
+  chipArmed: null, // the cap that will chip on its next flick
+  chipsLeft: { team1: CHIPS_PER_HALF, team2: CHIPS_PER_HALF },
+  /** Double-tap: arm (or disarm) a chip on this cap. Returns true if it's now armed. */
+  toggleChip: (capId, ball, cap) => {
+    const s = get()
+    if (s.chipArmed === capId) { set({ chipArmed: null }); return false }
+    if (chipError(s, capId, ball, cap)) return false
+    set({ chipArmed: capId })
+    return true
+  },
+  useChip: (team) => set({ chipsLeft: { ...get().chipsLeft, [team]: Math.max(0, (get().chipsLeft?.[team] ?? CHIPS_PER_HALF) - 1) } }),
+
   /** A flick has been applied to the physics world — watch it play out. */
   commitFlick: (capId, fromOwnHalf = false) => set({
     fromOwnHalf,
+    chipArmed: null,
     selectedCapId: capId,
     lastFlickedCapId: capId,
     phase: PHASE.RESOLVE,

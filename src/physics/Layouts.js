@@ -199,7 +199,8 @@ function setupFreeKick(foulSpot, fouledTeam) {
   const gkX = defHome * (halfW - 1.2)
   const gkGap = GK_RADIUS + BALL_RADIUS + 0.3
   const gkDx = Math.abs(gkX - bx)
-  const gkY = gkDx >= gkGap ? 0 : by + (by >= 0 ? -1 : 1) * Math.sqrt(gkGap * gkGap - gkDx * gkDx)
+  // Only when the ball is right in front of his spot (not out wide by the corner flag)
+  const gkY = Math.hypot(gkDx, by) >= gkGap ? 0 : by + (by >= 0 ? -1 : 1) * Math.sqrt(gkGap * gkGap - gkDx * gkDx)
   safePlace(`${defTeam}_gk`, gkX, Math.abs(gkY) < 0.01 ? 0 : gkY)
   // Right back on his line when there's room (safePlace keeps him off the
   // wall), leaning to the near post: standing out would cover far too much
@@ -393,7 +394,21 @@ function narrowAngles() {
     const dir = getTeamDir(team)
     const gx = dir * PITCH.halfW
     const toBall = Math.hypot(b.x - gx, b.y)
-    if (b.x * dir <= 0 || toBall > ANGLE_BALL_RANGE || toBall < 0.5) continue
+    const clearAt = (nx, ny) => Object.entries(bodies).every(([other, o]) => other === id
+      || Math.hypot(o.position.x - nx, o.position.y - ny) >= radiusOf(other) + GK_RADIUS + 0.15)
+    // Pushed into his own net, or left out of position with the ball away: back to his line
+    const lineX = dir * (PITCH.halfW - GK_HALF_D - 0.1)
+    const inNet = gk.position.x * dir > PITCH.halfW - GK_HALF_D + 0.05
+    const quiet = b.x * dir <= 0 || toBall > ANGLE_BALL_RANGE || toBall < 0.5
+    if (inNet || quiet) {
+      const lim = PITCH.goalWidth / 2 - 0.3
+      const y0 = Math.max(-lim, Math.min(lim, quiet ? gk.position.y * 0.3 : gk.position.y))
+      // Straight back; if the ball or a cap is there, a little along the line
+      const spot = [0, 0.8, -0.8, 1.6, -1.6, 2.4, -2.4].map((d) => [lineX, Math.max(-lim, Math.min(lim, y0 + d))]).find(([nx, ny]) => clearAt(nx, ny))
+      const off = Math.hypot(gk.position.x - lineX, gk.position.y - y0)
+      if (spot && (inNet || off > 0.3)) { Body.setPosition(gk, { x: spot[0], y: spot[1] }); Body.setVelocity(gk, { x: 0, y: 0 }) }
+      if (quiet) continue
+    }
     const p = gk.position
     if (Math.hypot(b.x - p.x, b.y - p.y) < GK_RADIUS + BALL_RADIUS + 0.4) continue
     const ux = (b.x - gx) / toBall, uy = b.y / toBall
@@ -407,9 +422,7 @@ function narrowAngles() {
     // Full step if it's clear, else half a step, else stay
     for (const f of [1, 0.5]) {
       const nx = p.x + mx * f, ny = p.y + my * f
-      const clear = Object.entries(bodies).every(([other, o]) => other === id
-        || Math.hypot(o.position.x - nx, o.position.y - ny) >= radiusOf(other) + GK_RADIUS + 0.15)
-      if (clear) { Body.setPosition(gk, { x: nx, y: ny }); Body.setVelocity(gk, { x: 0, y: 0 }); break }
+      if (clearAt(nx, ny)) { Body.setPosition(gk, { x: nx, y: ny }); Body.setVelocity(gk, { x: 0, y: 0 }); break }
     }
   }
 }

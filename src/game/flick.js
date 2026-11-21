@@ -5,6 +5,7 @@ import { applyFlick, getBody, diveKeeper, radiusOf, setShotStray } from '../phys
 import { strikeDirection, crossingY, cpuDive } from './penalty'
 import { playDive } from '../audio/SoundManager'
 import { teamOf, isGoalkeeper, keeperCanPlay, teamHomeDir } from './rules'
+import { chipError } from './chip'
 
 /**
  * Why a flick isn't allowed right now, or null if it is.
@@ -86,8 +87,8 @@ export function wobble(velocity, maxDeg, rng = Math.random) {
   return { x: velocity.x * c - velocity.y * s, y: velocity.x * s + velocity.y * c }
 }
 
-/** Validate and apply a flick. Returns null on success or the reason it was refused. */
-export function performFlick(capId, velocity, byTeam = null) {
+/** Validate and apply a flick. Returns null on success or the reason it was refused. `chip`: chip the ball (if this cap may). */
+export function performFlick(capId, velocity, byTeam = null, chip = undefined) {
   const state = useMatchStore.getState()
   const err = flickError(state, { capId, velocity, byTeam, ball: getBody('ball')?.position || null })
   if (err) return err
@@ -97,7 +98,11 @@ export function performFlick(capId, velocity, byTeam = null) {
   // ...and aims steadier: a lower-rated player's flick can stray a degree or two (never a penalty)
   const power = Math.min(1, Math.hypot(velocity.x, velocity.y) / PHYSICS.maxFlickVelocity)
   const v = state.penaltyKick ? velocity : wobble(velocity, aimWobbleFor(state, capId, power))
-  applyFlick(capId, { x: v.x * scale, y: v.y * scale }, PHYSICS.maxFlickVelocity * scale) // clamps to max power
+  // A chip if this cap was armed (or the guest asked for one) and may still chip
+  const wantsChip = chip ?? state.chipArmed === capId
+  const chipped = !!wantsChip && chipError(state, capId, getBody('ball')?.position, getBody(capId)?.position) === null
+  applyFlick(capId, { x: v.x * scale, y: v.y * scale }, PHYSICS.maxFlickVelocity * scale, chipped) // clamps to max power
+  if (chipped) state.useChip(teamOf(capId))
   // ...and the further out a hard shot is struck, the more the ball can drift off
   // its line as it leaves the cap (not penalties or the daily puzzle)
   const ball = getBody('ball')?.position

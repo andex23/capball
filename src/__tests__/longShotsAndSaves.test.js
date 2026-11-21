@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createSimulationWorld, keeperRead, crossingAt, REFLEX } from '../physics/WorldCore'
 import { createLayouts } from '../physics/Layouts'
 import { makeDynamicBody } from '../physics/WorldCore'
-import { PITCH, PHYSICS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
+import { PITCH, PHYSICS, GK_RADIUS, GK_HALF_D, BALL_RADIUS } from '../data/TeamData'
 import { longShotWobble, distanceToGoal, LONG_SHOT } from '../game/flick'
 import { keeperReflex, reflexForRating, reflexOptions, REFLEX_LEVEL, DEFAULT_REFLEX } from '../game/keeper'
 
@@ -99,11 +99,11 @@ describe('narrowing the angle', () => {
     expect(gk.position.x).toBeLessThan(PITCH.halfW - GK_RADIUS - 0.2) // came off his line
     expect(gk.position.y).toBeGreaterThan(0) // towards the ball's side
   })
-  it('stays put when the ball is in the other half or he would land on a cap', () => {
+  it('goes back to his line when the ball is in the other half, and stays put if he would land on a cap', () => {
     const gk = makeDynamicBody('team2_gk', PITCH.halfW - 1.5, 0)
     const ball = makeDynamicBody('ball', -3, 0)
     layouts({ team2_gk: gk, ball }).narrowAngles()
-    expect(gk.position.x).toBeCloseTo(PITCH.halfW - 1.5)
+    expect(gk.position.x).toBeCloseTo(PITCH.halfW - GK_HALF_D - 0.1)
     const gk2 = makeDynamicBody('team2_gk', PITCH.halfW - 1.5, 0)
     const ball2 = makeDynamicBody('ball', PITCH.halfW - 8, 0)
     const blocker = makeDynamicBody('team1_atk1', PITCH.halfW - 2.6, 0)

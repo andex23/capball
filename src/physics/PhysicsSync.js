@@ -5,7 +5,15 @@ import { useFrame } from '@react-three/fiber'
 import {
   stepPhysics, getBodies, allBodiesSettled, clampAllBodies, stopBall,
   stopAllBodies, getLastBallTeam, getGoalEvidence, clearKeeperDive, getFoulPending, narrowAngles,
+  getChipOutcome, getBallHeight, getGuestBallHeight,
 } from './PhysicsWorld'
+import { COIN_H } from '../scene/BallMesh'
+
+// How high a chip looks: world units on screen per unit of chip height. Matched
+// to the models: at the keeper's reach (CHIP.reach) the coin's underside just
+// clears the standing keeper (~1.55 tall); at the bar height (CHIP.bar) it's
+// over the crossbar (GOAL_BAR_HEIGHT). So what you see is what happened.
+const LIFT_SCALE = 1.25
 import { ballInCorner, cornerRestart, otherTeam, isOwnGoal } from '../game/rules'
 import { checkGoal } from './GoalDetector'
 import { useMatchStore, PHASE, isAuthority } from '../state/MatchStore'
@@ -40,6 +48,7 @@ export function usePhysicsSync(meshRefs) {
   const interp = useRef(0)
   const replayFrame = useGoalReplay(meshRefs)
   const rolling = useRef(false)
+  const chipSeen = useRef(null)
 
   useFrame((_, delta) => {
     const store = useMatchStore.getState()
@@ -114,6 +123,24 @@ export function usePhysicsSync(meshRefs) {
       const b = authority && id.endsWith('_gk') && store.phase !== PHASE.RESOLVE ? Math.min(1, delta * 9) : blend
       mesh.position.x += (x - mesh.position.x) * b
       mesh.position.z += (y - mesh.position.z) * b
+      // A chip in the air: the coin rises (and tips a little), its shadow stays on the grass
+      if (id === 'ball') {
+        const h = (authority ? getBallHeight() : getGuestBallHeight()) * LIFT_SCALE
+        mesh.position.y += (COIN_H / 2 + h - mesh.position.y) * (authority ? 1 : blend)
+        const lift = mesh.position.y - COIN_H / 2
+        mesh.rotation.x = Math.min(0.3, lift * 0.15)
+        // From above, height is hard to read: the coin grows as it rises and its shadow falls away from it
+        mesh.scale.setScalar(1 + lift * 0.12)
+        const shadow = mesh.getObjectByName('ball-shadow')
+        if (shadow) {
+          shadow.visible = lift > 0.02
+          const k = 1 / (1 + lift * 0.12)
+          shadow.position.set(lift * 0.45 * k, (-lift - COIN_H / 2 + 0.005) * k, lift * 0.3 * k)
+          shadow.rotation.x = -Math.PI / 2 - mesh.rotation.x
+          shadow.scale.setScalar((1 + lift * 0.1) * k)
+          shadow.material.opacity = Math.max(0.12, 0.38 - lift * 0.12)
+        }
+      }
       // How fast it moved on screen this frame (teleports for set pieces don't count)
       const moved = Math.hypot(mesh.position.x - ox, mesh.position.z - oz)
       // Keepers lean into a dive and settle back upright
@@ -146,6 +173,31 @@ export function usePhysicsSync(meshRefs) {
     if (!authority || suspended || resolved.current || getFoulPending()) return
     const s = useMatchStore.getState()
     if (s.phase !== PHASE.RESOLVE) return
+
+    // ── A chip: caught, over the bar, tipped over or out ──
+    const chipEnd = getChipOutcome()
+    if (chipEnd && chipSeen.current !== chipEnd) {
+      chipSeen.current = chipEnd
+      const shooter = s.lastFlickedCapId
+      const attackers = shooter?.split('_')[0]
+      const ex = chipEnd.x < 0 ? -1 : 1
+      const ey = chipEnd.y < 0 ? -1 : 1
+      if (chipEnd.kind === 'caught') s.callShot('chipSave', shooter, chipEnd.by)
+      else if (attackers === 'team1' || attackers === 'team2') {
+        resolved.current = true
+        stopAllBodies()
+        playWhistle()
+        if (chipEnd.kind === 'tipped') {
+          const keeper = `${otherTeam(attackers)}_gk`
+          s.callShot('tipped', shooter, keeper)
+          s.awardRestart({ kind: 'corner', team: attackers, ex, ey })
+        } else {
+          if (chipEnd.kind === 'overBar') s.callShot('overBar', shooter)
+          s.awardRestart({ kind: 'goalKick', team: otherTeam(attackers), ex, ey })
+        }
+        return
+      }
+    }
 
     // ── Goal? ──
     const verdict = checkGoal(bodies.ball)

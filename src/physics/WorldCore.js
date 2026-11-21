@@ -6,6 +6,12 @@ const { Engine, World, Bodies, Body, Events } = Matter
 const PEN_AREA_W = PITCH.penAreaW
 const PEN_AREA_H = PITCH.penAreaH
 const CAT_DEFAULT = 0x0001
+// Collision groups, so a chipped ball can fly over caps (see attachChipFlight)
+export const CAT_WALL = 0x0001
+export const CAT_CAP = 0x0002
+export const CAT_GK = 0x0004
+export const CAT_BALL = 0x0008
+const MASK_ALL = 0xffff
 
 // Matter.js is built for pixel-sized worlds: below this closing speed it
 // treats a contact as "resting" and kills the bounce. Our pitch is ~30 units
@@ -141,8 +147,8 @@ export function applyStepFriction(bodies) {
       speed = MAX_SPEED
     }
 
-    // Linear friction — constant deceleration per step
-    const friction = key === 'ball' ? BALL_FRICTION_PER_STEP : CAP_FRICTION_PER_STEP
+    // Linear friction — constant deceleration per step (none for a chip in the air)
+    const friction = key === 'ball' ? (body.chipping ? 0 : BALL_FRICTION_PER_STEP) : CAP_FRICTION_PER_STEP
 
     if (speed <= friction) {
       // Below threshold — stop completely
@@ -233,7 +239,7 @@ export function attachKeeperReflex(eng, bodyMap, getOpts) {
     const opts = getOpts()
     const bodies = bodyMap()
     const ball = bodies.ball
-    if (!opts || !ball) { shot = null; return }
+    if (!opts || !ball || ball.chipping) { shot = null; return }
     const { x, y } = ball.position
     const { x: vx, y: vy } = ball.velocity
     const speed = Math.hypot(vx, vy)
@@ -270,7 +276,7 @@ export function makeDynamicBody(id, x, y) {
     restitution: isBall ? PHYSICS.ballRestitution : PHYSICS.restitution,
     label: id,
     slop: 0.001,  // very tight — prevents sinking into walls
-    collisionFilter: { category: CAT_DEFAULT, mask: CAT_DEFAULT },
+    collisionFilter: { category: isBall ? CAT_BALL : id.endsWith('_gk') ? CAT_GK : CAT_CAP, mask: MASK_ALL },
   }
   // The keeper stands up: a thin wall across the goal (a capsule along y,
   // facing the pitch). It never turns (inertia Infinity below), so it always
@@ -391,6 +397,8 @@ export function createSimulationWorld(snapshot, { team1Side = 'left', reflex = n
   const reflexNow = typeof reflex === 'function' ? reflex : () => reflex
   const forgetShot = reflex ? attachKeeperReflex(simEngine, () => simBodies, () => { const r = reflexNow(); return r ? { team1Side, reflex: r } : null }) : () => {}
 
+  const chip = attachChipFlight(simEngine, () => simBodies, () => { const r = reflexNow(); return r ? { team1Side, reflex: r } : null })
+
   function step(frameMs = 16, shouldStop = null) {
     for (let i = 0; i < SUB_STEPS; i++) {
       Engine.update(simEngine, frameMs / SUB_STEPS)
@@ -410,7 +418,168 @@ export function createSimulationWorld(snapshot, { team1Side = 'left', reflex = n
     }
     Matter.Pairs.clear(simEngine.pairs) // forget contacts from the last run
     forgetShot()
+    chip.reset()
   }
-  return { engine: simEngine, bodies: simBodies, step, reset }
+  return { engine: simEngine, bodies: simBodies, step, reset, chip }
 }
 
+
+/* ── Chip shots ─────────────────────────────────────────────
+   A chip is armed on one cap before the flick. When that cap strikes the
+   ball (before touching anything else) the ball lifts off: it flies a
+   parabola whose length and height grow with how hard it was struck, over
+   caps while it's high enough, then lands and rolls. Physics stays 2D:
+   height is tracked here and decides what the ball can hit (collision
+   groups). The keeper defending the goal it's heading for backs up towards
+   where it will come down within his reach, and catches it if he gets
+   there; one high enough to clear him and low enough to clear the bar is a
+   goal; a better keeper sometimes tips one over; too high at the goal line
+   is over the bar. Everything follows from the chip itself (no Math.random)
+   so the live match, the computer's look-ahead and a replay agree. */
+export const CHIP = {
+  carry: 0.85,     // the ball's speed off a chip, as a share of a driven strike
+  airPerSpeed: 2,  // physics frames in the air per unit of that speed
+  peakPerFrame: 0.6, // how high it goes: per frame in the air
+  capClear: 0.6,   // above this it goes over outfield caps
+  reach: 1.3,      // a keeper can catch it below this
+  tipBand: 0.7,    // ...and may tip one over up to this much higher
+  bar: 2.0,        // above this at the goal line: over the bar
+  cushion: 0.5,    // above this over the end line: out of play
+  landKeep: 0.6,   // speed kept when it lands
+  wobble: 5,       // degrees the line can stray, at full power
+  keeperDelay: 0.4, // frames before the keeper moves
+  keeperSpeed: 0.35, // units a frame he backs up/across at reflex 0 (doubles at 1)
+}
+const STEP_FRAMES = 1 / SUB_STEPS
+
+/** Height of a chip `t` frames into a flight lasting `T` frames that peaks at `H`. */
+export const chipHeight = (t, T, H) => (t <= 0 || t >= T ? 0 : (4 * H * t * (T - t)) / (T * T))
+
+/**
+ * Attach chip flight to an engine. getOpts() gives { team1Side, reflex: { team1, team2 } } (or null:
+ * the keeper doesn't react). Returns { arm(capId), flight(), height(), outcome(), reset() }.
+ * outcome() is null, or { kind: 'overBar' | 'tipped' | 'out' | 'caught', x, y } once it's decided.
+ */
+export function attachChipFlight(eng, bodyMap, getOpts = () => null) {
+  let armed = null // cap id
+  let pending = false
+  let fl = null // { t, T, H, vx, vy, toward, gk, wait, target }
+  let result = null
+  const goalHalf = PITCH.goalWidth / 2
+  const ballFilter = () => bodyMap().ball?.collisionFilter
+  const setMask = (m) => { const f = ballFilter(); if (f) f.mask = m }
+  const end = () => { fl = null; setMask(MASK_ALL); const b = bodyMap().ball; if (b) b.chipping = false }
+
+  Events.on(eng, 'collisionStart', (event) => {
+    for (const pair of event.pairs) {
+      const a = pair.bodyA.label
+      const b = pair.bodyB.label
+      if (fl && (a === 'ball' || b === 'ball')) {
+        // In the air it only meets what it's low enough to meet: a keeper catches it
+        const other = a === 'ball' ? b : a
+        if (other?.endsWith?.('_gk')) {
+          const ball = bodyMap().ball
+          result = { kind: 'caught', x: ball.position.x, y: ball.position.y, by: other }
+          Body.setVelocity(ball, { x: 0, y: 0 })
+          end()
+          return
+        }
+      }
+      if (!armed || pending) continue
+      if ((a === 'ball' && b === armed) || (b === 'ball' && a === armed)) pending = 2 // lift off once the strike has resolved
+      else if (a === armed || b === armed) armed = null // met something else first: no chip
+    }
+  })
+
+  Events.on(eng, 'afterUpdate', () => {
+    const bodies = bodyMap()
+    const ball = bodies.ball
+    if (!ball) return
+    if (pending && --pending > 0) return
+    if (pending === 0 && armed) {
+      pending = false
+      armed = null
+      const v = ball.velocity
+      const speed = Math.hypot(v.x, v.y) * CHIP.carry
+      if (speed < 0.3) return // barely touched: it just rolls
+      // A little off the intended line, more the harder it's struck
+      const power = Math.min(1, speed / (PHYSICS.maxFlickVelocity * 1.4))
+      const turn = (shotNoise(ball.position.x, ball.position.y) * 2 - 1) * CHIP.wobble * power * Math.PI / 180
+      const dir = Math.atan2(v.y, v.x) + turn
+      const vx = Math.cos(dir) * speed
+      const vy = Math.sin(dir) * speed
+      Body.setVelocity(ball, { x: vx, y: vy })
+      const T = CHIP.airPerSpeed * speed
+      fl = { t: 0, T, H: CHIP.peakPerFrame * T, toward: Math.sign(vx), gk: null, wait: CHIP.keeperDelay, moved: false }
+      result = null
+      ball.chipping = true
+      setMask(CAT_WALL)
+      return
+    }
+    if (!fl) return
+    fl.t += STEP_FRAMES
+    const h = chipHeight(fl.t, fl.T, fl.H)
+    // What it can meet at this height
+    setMask(CAT_WALL | (h < CHIP.reach ? CAT_GK : 0) | (h < CHIP.capClear ? CAT_CAP : 0))
+    const { x, y } = ball.position
+    // Over the end line in the air: over the bar, a tip over, or out
+    if (Math.abs(x) >= PITCH.halfW - BALL_RADIUS - 0.05 && Math.sign(x) === fl.toward && h > CHIP.cushion) {
+      const inMouth = Math.abs(y) <= goalHalf
+      const gk = fl.gk && bodies[fl.gk]
+      const opts = getOpts()
+      const team = fl.gk?.startsWith('team1') ? 'team1' : 'team2'
+      const reflex = Math.max(0, Math.min(1, opts?.reflex?.[team] ?? 0))
+      if (!inMouth) result = { kind: 'out', x, y }
+      else if (h > CHIP.bar) result = { kind: 'overBar', x, y }
+      else if (gk && h < CHIP.reach + CHIP.tipBand && Math.abs(gk.position.y - y) < GK_RADIUS + 0.4 && shotNoise(y, h) < reflex * 0.45) result = { kind: 'tipped', x, y }
+      if (result) { Body.setVelocity(ball, { x: 0, y: 0 }); end(); return }
+      // Under the bar and past him: let it go in (no more chip, the net stops it)
+      end()
+      return
+    }
+    // Landed: it bounces on, slower, and is a normal ball again
+    if (h <= 0 && fl.t >= fl.T) {
+      Body.setVelocity(ball, { x: ball.velocity.x * CHIP.landKeep, y: ball.velocity.y * CHIP.landKeep })
+      end()
+      return
+    }
+    // The keeper of the goal it's heading for backs up towards where it'll come down within reach
+    const opts = getOpts()
+    if (!opts) return
+    if (!fl.gk) {
+      const team = teamHomeDir('team1', opts.team1Side) === fl.toward ? 'team1' : 'team2'
+      fl.gk = bodies[`${team}_gk`] ? `${team}_gk` : null
+      fl.reflex = Math.max(0, Math.min(1, opts.reflex?.[team] ?? 0))
+    }
+    const k = fl.gk && bodies[fl.gk]
+    if (!k) return
+    if (fl.wait > 0) { fl.wait -= STEP_FRAMES; return }
+    // Where it drops below his reach (on the way down), along its line
+    const { T, H } = fl
+    const disc = 1 - CHIP.reach / H
+    const tReach = disc > 0 ? T * (1 + Math.sqrt(disc)) / 2 : T
+    const ahead = Math.max(0, tReach - fl.t)
+    const vx = ball.velocity.x, vy = ball.velocity.y
+    let tx = x + vx * ahead
+    let ty = y + vy * ahead
+    // He won't go behind his own line for it, and stays in his area
+    const line = fl.toward * (PITCH.halfW - GK_HALF_D - 0.1)
+    if (Math.abs(tx) > Math.abs(line)) { const s = (line - x) / (tx - x || 1e-9); tx = line; ty = y + (ty - y) * s }
+    ty = Math.max(-goalHalf - 1, Math.min(goalHalf + 1, ty))
+    const dx = tx - k.position.x, dy = ty - k.position.y
+    const d = Math.hypot(dx, dy)
+    const sp = CHIP.keeperSpeed * (1 + fl.reflex) * STEP_FRAMES
+    if (d < 0.05) { Body.setVelocity(k, { x: 0, y: 0 }); return }
+    const m = Math.min(sp, d)
+    // Velocity is per frame: this many units a frame towards the spot
+    Body.setVelocity(k, { x: (dx / d) * m * SUB_STEPS, y: (dy / d) * m * SUB_STEPS })
+  })
+
+  return {
+    arm(capId) { armed = capId || null; pending = false },
+    flight: () => fl,
+    height: () => (fl ? chipHeight(fl.t, fl.T, fl.H) : 0),
+    outcome: () => result,
+    reset() { armed = null; pending = false; result = null; end() },
+  }
+}

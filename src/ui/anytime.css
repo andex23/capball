@@ -133,3 +133,7 @@
 @keyframes goal-splash-show { 0% { opacity: 0; transform: scale(.85); } 15%, 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; visibility: hidden; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .goal-splash { animation-name: goal-splash-quiet; } }
 @keyframes goal-splash-quiet { 0%, 85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+/* Chips left this half: three small dots after HOME / AWAY / YOU */
+.at-chips { display: inline-flex; gap: 2px; margin-left: 5px; vertical-align: middle; }
+.at-chips i { width: 4px; height: 4px; border-radius: 50%; background: #3a4680; }
+.at-chips i[data-left='true'] { background: #ffd23f; }
