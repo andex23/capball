@@ -1,7 +1,9 @@
 /**
  * What's new in the game, newest first. Each entry shows once in the bell's
  * "What's new" and counts as unread until the player opens the bell.
- * Add a new entry at the top whenever a feature ships; keep its id forever.
+ * Only for important updates (a new mode, a new way to play, a big change):
+ * small touches (a crown on the leaderboard, a new icon) are left for players
+ * to find. Add a new entry at the top; keep its id forever.
  * icon: an Icon name. date: YYYY-MM-DD.
  */
 export const UPDATES = [
