@@ -2051,9 +2051,12 @@ button { cursor: pointer; background: none; border: 0; }
   .shell-head, .shell-body, .shell-foot-inner { zoom: 1.1; }
   .hud-top, .hud-corner, .banner, .keeper-pick, .hud-notice { zoom: 1.15; }
 }
-/* Tablets: the same scaling, so menus and the scoreboard aren't phone-sized in the middle of the screen */
+/* Tablets held upright have the height for a bigger menu; on their side (and inside Lagos Life's frame) they don't */
+@media (min-width: 760px) and (min-height: 1050px) and (pointer: coarse) {
+  .iss-layout { zoom: 1.25; min-height: 80%; }
+}
+/* Tablets: the same scaling, so pages and the scoreboard aren't phone-sized in the middle of the screen */
 @media (min-width: 760px) and (min-height: 900px) and (pointer: coarse), (min-width: 1000px) and (min-height: 700px) and (pointer: coarse) {
-  .iss-layout { zoom: 1.35; min-height: 74%; }
   .shell-head, .shell-body, .shell-foot-inner { zoom: 1.15; }
   .hud-top, .hud-corner, .banner, .keeper-pick, .hud-notice { zoom: 1.25; }
   .menu-corner { zoom: 1.2; }
@@ -2388,6 +2391,20 @@ button { cursor: pointer; background: none; border: 0; }
 /* Short screens: no keyboard hints under the menu */
 @media (max-height: 720px) { .iss-keys { display: none; } }
 .iss-menu.is-lagos .iss-layout { padding-bottom: calc(var(--safe-bottom) + 14px); gap: 16px; }
+/* Lagos Life on a wide, short screen (a tablet on its side, a laptop): logo on the left, the menu on the right,
+   and both clear of the leaderboard ticker along the bottom */
+@media (min-width: 900px) and (max-height: 820px) {
+  .iss-menu.is-lagos .iss-layout {
+    display: grid; grid-template-columns: 1fr minmax(0, 440px); grid-template-rows: 1fr auto;
+    align-items: center; gap: 10px 32px;
+    padding-top: calc(var(--safe-top) + 70px); padding-bottom: calc(var(--safe-bottom) + 76px);
+  }
+  .iss-menu.is-lagos .iss-brand { grid-row: 1; grid-column: 1; }
+  .iss-menu.is-lagos .iss-window { grid-row: 1; grid-column: 2; justify-self: center; }
+  .iss-menu.is-lagos .iss-foot { display: none; }
+  .iss-menu.is-lagos .iss-row { min-height: 40px; }
+  .iss-menu.is-lagos .iss-item { padding: 6px 0; }
+}
 /* The backdrop never makes the page scroll */
 .iss-backdrop { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
 
