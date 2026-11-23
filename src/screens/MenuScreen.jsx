@@ -10,6 +10,7 @@ import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import InstallGuide from '../pwa/InstallGuide'
 import { isLagos } from '../platform'
+import FeedbackPanel from '../ui/FeedbackPanel'
 import { useWeekendStore } from '../state/weekendStore'
 import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weekendRules'
 import { timeLeft } from './WeekendScreen'
@@ -147,7 +148,7 @@ export default function MenuScreen() {
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? `Beaten today · Tomorrow: ${challengeName(nextDay(dayKey()))}` : `Today: ${challengeName(dayKey())} · Tomorrow: ${challengeName(nextDay(dayKey()))}`, tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       ...(lagos ? [{ key: 'board', title: 'Leaderboard', sub: lagosWins ? `Your wins: ${lagosWins}${lagosRank ? ` · ranked #${lagosRank}` : ''}` : 'Most wins in Lagos Life', tag: lagosRank ? `#${lagosRank}` : 'TOP', action: () => openDialog('records') }] : []),
       ...(lagos ? [{ key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => { globalThis.__counterballCount?.('shop', 'open'); openDialog('shop') } }] : []),
-      { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play', tag: '►', action: () => go('options') },
+      { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play, feedback', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
     play: lagos ? [
@@ -181,6 +182,7 @@ export default function MenuScreen() {
       { key: 'account', title: username ? `My games · ${username}` : 'My games', sub: username || lagos ? 'Saved match, career totals, results' : 'Save your games to an account', action: () => openDialog('account') },
       { key: 'settings', title: 'Settings', sub: 'Controls, camera, sound', action: () => openDialog('settings') },
       { key: 'rules', title: 'How to play', action: () => openDialog('rules') },
+      { key: 'feedback', title: 'Feedback', action: () => openDialog('feedback') },
       back,
     ],
   }
@@ -273,6 +275,11 @@ export default function MenuScreen() {
       {dialog === 'shop' && (
         <Modal title="Shop" onClose={() => { setDialog(null); useLagosStore.getState().clearShopNote() }}>
           <ShopPanel />
+        </Modal>
+      )}
+      {dialog === 'feedback' && (
+        <Modal title="Feedback" onClose={() => setDialog(null)}>
+          <FeedbackPanel onDone={() => setDialog(null)} />
         </Modal>
       )}
       {dialog === 'records' && (

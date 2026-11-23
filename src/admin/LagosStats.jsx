@@ -76,6 +76,7 @@ export default function LagosStats() {
   const [key, setKey] = useState(readKey)
   const [range, setRange] = useState(14)
   const [data, setData] = useState(null)
+  const [feedback, setFeedback] = useState([])
   const [error, setError] = useState('')
   const [at, setAt] = useState(null)
 
@@ -87,6 +88,8 @@ export default function LagosStats() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json()
       const next = j.live || []
+      const fb = Array.isArray(j.feedback) ? j.feedback : []
+      setFeedback((prev) => (JSON.stringify(prev) === JSON.stringify(fb) ? prev : fb))
       setData((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
       setError('')
       setAt(Date.now())
@@ -119,7 +122,7 @@ export default function LagosStats() {
         </div>
       </header>
       {error && <p className="adm-error" role="alert">{error}</p>}
-      {days.length > 0 && <Dashboard days={days} />}
+      {days.length > 0 && <Dashboard days={days} feedback={feedback} />}
     </section>
   )
 }
@@ -149,7 +152,7 @@ function KeyGate({ error, onKey }) {
   )
 }
 
-function Dashboard({ days }) {
+function Dashboard({ days, feedback = [] }) {
   const today = days.at(-1)
   const yday = days.at(-2)
   const part = dayProgress()
@@ -257,6 +260,9 @@ function Dashboard({ days }) {
         </ul>
       )}
       <div className="sd-grid">
+        <Panel title="What players say" sub={`Feedback from Options · last ${days.length} days`} span={3}>
+          <PlayersSay items={feedback} />
+        </Panel>
         <Panel title="Day by day" sub="Players, plays and matches each day" span={3}>
           <ChartBox type="bar" data={daily} options={{ interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }} height={260} />
           <div className="sd-days">
@@ -336,6 +342,43 @@ function Dashboard({ days }) {
         </Panel>
       </div>
     </>
+  )
+}
+
+const MOODS = [{ key: 'love', face: '😍', label: 'Love it' }, { key: 'ok', face: '🙂', label: 'It’s OK' }, { key: 'meh', face: '😕', label: 'Not great' }]
+const ABOUT_NAMES = { too_hard: 'Too hard', controls: 'Controls confusing', crash: 'It froze or crashed', slow: 'Slow on my phone', boring: 'Boring after a while', idea: 'Idea for the game', other: 'Other' }
+const ABOUT_COLORS = ['#ff5468', '#ff8a4c', '#4fb3ff', '#a78bfa', '#ffc83d', '#34d27b', '#a8b2cc']
+
+/** Options → Feedback: the faces, what it's about, and the latest suggestions. */
+function PlayersSay({ items }) {
+  const [all, setAll] = useState(false)
+  if (!items.length) return <p className="sd-empty">No feedback yet. It shows here as soon as players send some from Options → Feedback.</p>
+  const moods = MOODS.map((m) => ({ ...m, n: items.filter((x) => x.mood === m.key).length }))
+  const about = Object.keys(ABOUT_NAMES).map((k) => ({ k, n: items.filter((x) => x.about?.includes(k)).length })).filter((x) => x.n).sort((a, b) => b.n - a.n)
+  const top = Math.max(1, ...about.map((x) => x.n))
+  const notes = items.filter((x) => x.text)
+  const when = (at) => new Date(at).toLocaleString('en-NG', { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+  return (
+    <div className="sd-say">
+      <div className="sd-moods">{moods.map((m) => <div key={m.key}><b><span aria-hidden>{m.face}</span> {m.n}</b><span>{m.label}</span></div>)}</div>
+      {about.length > 0 && (
+        <ul className="sd-about">
+          {about.map((x, i) => <li key={x.k}><span>{ABOUT_NAMES[x.k]}</span><i style={{ width: `${(x.n / top) * 100}%`, background: ABOUT_COLORS[i % ABOUT_COLORS.length] }} /><b>{x.n}</b></li>)}
+        </ul>
+      )}
+      <div className="sd-notes-h">Suggestions ({notes.length})</div>
+      {notes.length === 0 ? <p className="sd-empty">No written suggestions yet.</p> : (
+        <ul className="sd-msgs">
+          {(all ? notes : notes.slice(0, 8)).map((x, i) => (
+            <li key={`${x.at}-${i}`}>
+              <q>{x.text}</q>
+              <small>{MOODS.find((m) => m.key === x.mood)?.face} · {(x.about || []).map((k) => ABOUT_NAMES[k]).join(', ') || 'No topic'} · {when(x.at)} · {x.from === 'lagos' ? 'Lagos Life' : 'counterball.fun'}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+      {notes.length > 8 && <button className="sd-ghost" onClick={() => setAll((v) => !v)}>{all ? 'Show fewer' : `Show all ${notes.length}`}</button>}
+    </div>
   )
 }
 

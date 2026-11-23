@@ -1,0 +1,17 @@
+/* ── Options → Feedback ── */
+.fb { display: flex; flex-direction: column; gap: 10px; }
+.fb-moods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fb-moods button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; color: #fff; background: #141d4a; border: 2px solid rgba(255, 255, 255, 0.25); cursor: pointer; }
+.fb-moods button span { font-size: 28px; line-height: 1; }
+.fb-moods button small { font-size: 12px; font-weight: 600; color: #cfd6ff; }
+.fb-moods button[aria-checked='true'] { border-color: var(--accent); background: #2a2a10; }
+.fb-label { font: 700 10px/1.2 var(--font-pixel); letter-spacing: 0.08em; text-transform: uppercase; color: #aab3d6; margin-top: 2px; }
+.fb-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.fb-chips button { padding: 7px 11px; font-size: 13px; color: #fff; background: #141d4a; border: 2px solid rgba(255, 255, 255, 0.25); cursor: pointer; }
+.fb-chips button[aria-pressed='true'] { border-color: var(--accent); background: #3a3311; }
+.fb textarea { width: 100%; min-height: 76px; padding: 9px; font: 15px var(--font-ui); color: #fff; background: #060b26; border: 2px solid rgba(255, 255, 255, 0.25); resize: vertical; }
+.fb-note { margin: 0; font-size: 13px; color: #ffb4bd; }
+.fb .btn[disabled] { opacity: 0.5; }
+.fb-thanks { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0 4px; text-align: center; }
+.fb-thanks > div { font-size: 46px; line-height: 1; }
+.fb-thanks h3 { margin: 0; font-size: 32px; }
