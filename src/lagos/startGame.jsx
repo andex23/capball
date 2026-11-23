@@ -35,7 +35,8 @@ export function startGame(connection) {
   }
   watchMatchCounts(useMatchStore, (event, detail) => useLagosStore.getState().count(event, detail), kindOf)
   // ...and how often a phone takes the pitch away (see Scene.jsx)
-  globalThis.__counterballCount = (event) => useLagosStore.getState().count(event)
+  // (with the detail: lost while on screen or in the background, given back or rebuilt)
+  globalThis.__counterballCount = (event, detail) => useLagosStore.getState().count(event, detail)
 
   // Cap artwork is drawn with the game's fonts: have them ready first (they're local, so this is quick)
   Promise.race([loadArtFonts(), new Promise((r) => setTimeout(r, 1500))]).finally(() => {

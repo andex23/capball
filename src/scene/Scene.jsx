@@ -20,6 +20,7 @@ import { useAIController } from '../ai/AIController'
 import { useCrowdReaction } from './useCrowdReaction'
 import { applyPendingBodies, setPendingBodies, saveCurrentMatch } from '../state/savedMatch'
 import { isLagos } from '../platform'
+import { SHADOWS, SHADOW_MAP, DPR } from './gpuBudget'
 import { snapshotBodies, createPhysicsWorld, resetToKickoff, placeBallAt, deOverlapBodies, setupFreeKick, setupPenalty, setupCorner, setupGoalKick, applyCapMasses } from '../physics/PhysicsWorld'
 import { massScale } from '../game/squad'
 import { playWhistle, playFreeKick, playPenalty } from '../audio/SoundManager'
@@ -357,8 +358,8 @@ function GameWorld() {
         position={[6, 28, 6]}
         intensity={sc.keyLightIntensity}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={SHADOW_MAP}
+        shadow-mapSize-height={SHADOW_MAP}
         shadow-camera-left={-20}
         shadow-camera-right={20}
         shadow-camera-top={15}
@@ -441,7 +442,6 @@ class PitchBoundary extends Component {
 
 /** Inside Lagos Life the game shares the phone's graphics with the host app: draw a little lighter there. */
 const GL_OPTIONS = isLagos() ? { antialias: true, powerPreference: 'default' } : { antialias: true, preserveDrawingBuffer: true }
-const DPR = isLagos() ? [1, 1.5] : [1, 2]
 
 export default function Scene() {
   const matchKey = useMatchStore((s) => s.matchKey)
@@ -526,7 +526,7 @@ export default function Scene() {
       {state !== 'dead' && (
         <PitchBoundary key={gen} onFail={() => { timers.current.wait = setTimeout(rebuild, RESTORE_WAIT_MS) }}>
           <Canvas
-            shadows
+            shadows={SHADOWS}
             dpr={DPR}
             camera={{
               position: [0, 30, 5],

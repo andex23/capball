@@ -3,6 +3,7 @@ import { drawCapArt, drawNumberSticker, stickerSpot } from '../game/capArt'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CAP_RADIUS, GK_RADIUS, GK_HALF_D } from '../data/TeamData'
+import { CAP_TEXTURE_SCALE, SHADOWS } from './gpuBudget'
 
 /* ========================================
    A CROWN BOTTLE CAP, lying top up
@@ -64,9 +65,10 @@ function createSkirtTexture(color) {
   const w = 1024
   const h = 64
   const c = document.createElement('canvas')
-  c.width = w
+  c.width = Math.round(w * CAP_TEXTURE_SCALE)
   c.height = h
   const ctx = c.getContext('2d')
+  ctx.scale(CAP_TEXTURE_SCALE, 1)
   ctx.fillStyle = color
   ctx.fillRect(0, 0, w, h)
   for (let i = 0; i < PLEATS; i++) {
@@ -97,11 +99,12 @@ function createSkirtTexture(color) {
 /** The printed top: paint and pattern, a thin printed ring near the edge, then badge and number. */
 function createTopTexture(color, edgeColor, badge, number, pattern, capText = '', textColor = '', art = '') {
   const ink = textColor || (edgeColor === color ? '#ffffff' : edgeColor)
-  const size = 512
+  const size = 512 // drawing units; the canvas itself may be smaller (gpuBudget)
   const c = document.createElement('canvas')
-  c.width = size
-  c.height = size
+  c.width = Math.round(size * CAP_TEXTURE_SCALE)
+  c.height = Math.round(size * CAP_TEXTURE_SCALE)
   const ctx = c.getContext('2d')
+  ctx.scale(CAP_TEXTURE_SCALE, CAP_TEXTURE_SCALE)
   // Printed artwork: the whole top, plus the number on a sticker
   if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2)) {
     const s = stickerSpot(size / 2)
@@ -604,6 +607,14 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
         <mesh position={[0, -0.03, 0]} rotation-x={Math.PI / 2}>
           <torusGeometry args={[radius * 0.985, 0.034, 8, 48]} />
           <meshStandardMaterial color={band} emissive={band} emissiveIntensity={0.35} roughness={0.75} metalness={0} toneMapped={false} fog={false} />
+        </mesh>
+      )}
+
+      {/* No real shadows on this phone (gpuBudget): a soft dark circle grounds the cap instead */}
+      {!SHADOWS && (
+        <mesh position={[0, -halfH + 0.004, 0]} rotation-x={-Math.PI / 2} renderOrder={-1}>
+          <circleGeometry args={[radius * 1.12, 32]} />
+          <meshBasicMaterial color="#000000" transparent opacity={0.3} depthWrite={false} />
         </mesh>
       )}
 
