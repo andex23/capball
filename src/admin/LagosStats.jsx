@@ -39,13 +39,17 @@ function ChartBox({ type, data, options, plugins, height = 260 }) {
     chart.current = new Chart(ref.current, { type, data, options: { responsive: true, maintainAspectRatio: false, ...options }, plugins })
     return () => chart.current?.destroy()
   }, [type]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Redraw only when the numbers or labels actually change, and without the grow-in animation
+  const sig = JSON.stringify([data.labels, data.datasets.map((d) => d.data)])
+  const seen = useRef(sig)
   useEffect(() => {
     const c = chart.current
-    if (!c) return
+    if (!c || seen.current === sig) return
+    seen.current = sig
     c.data = data
     c.options = { responsive: true, maintainAspectRatio: false, ...options }
-    c.update()
-  }, [data, options])
+    c.update('none')
+  }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="sd-chart" style={{ height }}><canvas ref={ref} /></div>
 }
 
@@ -74,7 +78,6 @@ export default function LagosStats() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [at, setAt] = useState(null)
-  const [, tick] = useState(0)
 
   const load = useCallback(async () => {
     if (!key) return
@@ -83,7 +86,8 @@ export default function LagosStats() {
       if (r.status === 404) { setError('That stats key isn’t right. Enter it again.'); saveKey(''); setKey(''); return }
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json()
-      setData(j.live || [])
+      const next = j.live || []
+      setData((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
       setError('')
       setAt(Date.now())
     } catch {
@@ -94,8 +98,7 @@ export default function LagosStats() {
   useEffect(() => {
     load()
     const t = setInterval(load, REFRESH_MS)
-    const s = setInterval(() => tick((n) => n + 1), 5000)
-    return () => { clearInterval(t); clearInterval(s) }
+    return () => clearInterval(t)
   }, [load])
 
   if (!key) return <KeyGate error={error} onKey={(k) => { saveKey(k); setError(''); setKey(k) }} />
@@ -106,7 +109,7 @@ export default function LagosStats() {
         <div>
           <div className="sd-kicker"><span className="sd-dot" />Live from Lagos Life</div>
           <h1>Counterball pulse</h1>
-          <p>{at ? `Updated ${Math.max(0, Math.round((Date.now() - at) / 1000))}s ago · refreshes every minute` : 'Loading the numbers…'}</p>
+          <p>{at ? <Since at={at} /> : 'Loading the numbers…'}</p>
         </div>
         <div className="sd-hero-ctl">
           <div className="sd-pills" role="group" aria-label="Days shown">
@@ -119,6 +122,14 @@ export default function LagosStats() {
       {days.length > 0 && <Dashboard days={days} />}
     </section>
   )
+}
+
+/** "Updated 12s ago": ticks on its own, so nothing else on the page redraws. */
+function Since({ at }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 5000); return () => clearInterval(t) }, [])
+  const secs = Math.max(0, Math.round((now - at) / 1000))
+  return <>Updated {secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`} ago · refreshes every minute</>
 }
 
 function KeyGate({ error, onKey }) {
