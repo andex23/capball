@@ -475,7 +475,11 @@ function fallback() {
 }
 /** Registered last, so it only runs when every earlier frame callback got through. */
 function FrameBeat() {
-  useFrame(() => { lastBeat = performance.now() })
+  useFrame(() => {
+    lastBeat = performance.now()
+    // The pitch is up for this match (lets the counts tell a slow load from a quit)
+    globalThis.__counterballPitchDrawn = useMatchStore.getState().matchKey
+  })
   return null
 }
 

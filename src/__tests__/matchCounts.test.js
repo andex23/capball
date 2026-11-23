@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { create } from 'zustand'
 import { SCREEN, PHASE } from '../state/MatchStore'
-import { watchMatchCounts, quitBucket } from '../lagos/matchCounts'
+import { watchMatchCounts, quitBucket, matchStage } from '../lagos/matchCounts'
 
 function setup() {
   const store = create(() => ({ screen: SCREEN.MENU, matchKey: 0, challenge: null, phase: PHASE.SELECT, extraTime: false, penaltyShootout: false, gameMode: 'local' }))
@@ -47,5 +47,42 @@ describe('match counts', () => {
   })
   it('buckets quit times', () => {
     expect([30e3, 90e3, 300e3, 900e3].map(quitBucket)).toEqual(['0m', '1m', '3m', '6m'])
+  })
+
+  it('counts a live match going off screen and coming back, with how far it had got', () => {
+    const store = create(() => ({ screen: SCREEN.MENU, matchKey: 0, challenge: null, phase: PHASE.SELECT, gameMode: 'ai', stats: { team1: { turns: 0 } } }))
+    const log = []
+    let t = 0
+    const doc = new EventTarget()
+    doc.visibilityState = 'visible'
+    const flip = (v) => { doc.visibilityState = v; doc.dispatchEvent(new Event('visibilitychange')) }
+    watchMatchCounts(store, (e, d) => log.push(`${e}:${d}`), (s) => s.gameMode, () => t, doc)
+    store.setState({ screen: SCREEN.PLAYING, matchKey: 1 })
+    globalThis.__counterballPitchDrawn = 0
+    flip('hidden') // pitch never drew
+    flip('hidden') // counted once
+    flip('visible')
+    globalThis.__counterballPitchDrawn = 1
+    flip('hidden') // drawn, no flick yet
+    flip('visible')
+    store.setState({ stats: { team1: { turns: 3 } } })
+    t = 200e3
+    flip('hidden')
+    expect(log).toEqual(['match_start:ai', 'match_hidden:ai_loading', 'match_back:ai_loading', 'match_hidden:ai_first_turn', 'match_back:ai_first_turn', 'match_hidden:ai_3m'])
+    // Off screen on a menu isn't a match being left
+    flip('visible')
+    store.setState({ screen: SCREEN.MENU })
+    log.length = 0
+    flip('hidden')
+    expect(log).toEqual([])
+    delete globalThis.__counterballPitchDrawn
+  })
+
+  it('names the stage of a match', () => {
+    globalThis.__counterballPitchDrawn = 4
+    expect(matchStage({ matchKey: 3 }, 0, 0)).toBe('loading')
+    expect(matchStage({ matchKey: 4, stats: { team1: { turns: 0 } } }, 0, 0)).toBe('first_turn')
+    expect(matchStage({ matchKey: 4, stats: { team1: { turns: 1 } } }, 0, 400e3)).toBe('6m')
+    delete globalThis.__counterballPitchDrawn
   })
 })
