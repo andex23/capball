@@ -8,7 +8,7 @@ import CapPreview from './CapPreview'
  * moment each time the turn changes hands, in that side's colour.
  */
 export default function TurnBanner() {
-  const local = useMatchStore((s) => s.gameMode === 'local' && !s.challenge && !s.penaltyShootout)
+  const local = useMatchStore((s) => s.gameMode === 'local' && !s.challenge && !s.training && !s.penaltyShootout)
   const active = useMatchStore((s) => s.activeTeam)
   const ready = useMatchStore((s) => INPUT_PHASES.includes(s.phase) && !s.paused && !s.replaying)
   const kit = useMatchStore((s) => s.teamConfig[s.activeTeam])

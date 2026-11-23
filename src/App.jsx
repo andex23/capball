@@ -9,6 +9,7 @@ import { useTournamentStore } from './state/tournamentStore'
 import TournamentHomeScreen from './screens/TournamentHomeScreen'
 import TournamentSetupScreen from './screens/TournamentSetupScreen'
 import TournamentHubScreen from './screens/TournamentHubScreen'
+import TrainingScreen from './screens/TrainingScreen'
 import CareerScreen from './screens/CareerScreen'
 import AchievementToast from './ui/AchievementToast'
 import UnlockToast from './ui/UnlockToast'
@@ -112,6 +113,7 @@ function Screen({ screen }) {
     case SCREEN.TOURNAMENT_SETUP: return <TournamentSetupScreen />
     case SCREEN.TOURNAMENT_HUB: return <TournamentHubScreen />
     case SCREEN.CAREER: return <CareerScreen />
+    case SCREEN.TRAINING: return <TrainingScreen />
     default: return <MenuScreen />
   }
 }

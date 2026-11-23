@@ -33,6 +33,7 @@ import { isCoached, markCoached, COACH_FLICKS } from '../game/tutorial'
 import { cantSaveReason, saveCurrentMatch } from '../state/savedMatch'
 import KeeperPick from './KeeperPick'
 import ChallengeHud from './ChallengeHud'
+import TrainingHud from './TrainingHud'
 import { playDaily } from '../state/dailyStore'
 
 const NO_GOAL_TEXT = {
@@ -81,12 +82,14 @@ function useTurnText() {
   const s = useMatchStore(useShallow((st) => ({
     phase: st.phase, activeTeam: st.activeTeam, teamConfig: st.teamConfig, gameMode: st.gameMode,
     aiTeam: st.aiTeam, onlineMyTeam: st.onlineMyTeam, freeKickCapId: st.freeKickCapId,
-    foulData: st.foulData, penaltyShootout: st.penaltyShootout, challenge: st.challenge,
+    foulData: st.foulData, penaltyShootout: st.penaltyShootout, challenge: st.challenge, training: !!st.training,
   })))
   const name = s.teamConfig[s.activeTeam]?.name || 'Team'
   const isCpu = s.gameMode === 'ai' && s.activeTeam === s.aiTeam
   const isOpp = s.gameMode === 'online' && s.activeTeam !== s.onlineMyTeam
   const who = isCpu ? 'CPU' : isOpp ? name : s.gameMode === 'online' || s.gameMode === 'ai' ? 'Your' : `${name}’s`
+  // The Training Ground has its own strip at the top
+  if (s.training) return null
   if (s.challenge && [PHASE.SELECT, PHASE.AIM, PHASE.RESOLVE].includes(s.phase)) {
     return s.phase === PHASE.RESOLVE ? 'Waiting for everything to stop…' : `${s.challenge.flicksLeft} flick${s.challenge.flicksLeft === 1 ? '' : 's'} left — score!`
   }
@@ -294,6 +297,7 @@ export default function HUD() {
   // Dropped / reconnecting online: the connection overlay replaces the pause menu
   const connectionLost = useMatchStore(onlineInterrupted)
   const turnText = useTurnText()
+  const training = useMatchStore((st) => !!st.training)
   const timeUp = useMatchStore(timedOut)
   const [camLabel, setCamLabel] = useState(null)
   const camTimer = useRef(null)
@@ -374,7 +378,7 @@ export default function HUD() {
       <GoalSplash />
       <TurnBanner />
       <div className="hud-top">
-        <ScoreBug />
+        {!training && <ScoreBug />}
         <AimWarning />
         {!paused && <MatchEvent />}
         {notice && !paused && <div className="match-event" role="status">{notice}</div>}
@@ -412,6 +416,7 @@ export default function HUD() {
 
       <KeeperPick />
       <ChallengeHud />
+      <TrainingHud />
 
       {!coached && <div className="hint">
         <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn · Scroll to zoom · C camera · F full screen · P pause</span>

@@ -22,7 +22,7 @@ const PARK_THEIRS = { def1: [-2, 8.6], def2: [-4, 8.6], mid: [-6, 8.6], atk1: [-
  * Each template builds a puzzle from a 0..1 random source. Returns
  * { name, text, flicks, ball:[x,y], mine:{role:[x,y]}, theirs:{role:[x,y]}, keeperY }
  */
-const TEMPLATES = [
+export const TEMPLATES = [
   (r) => {
     const y = (r() - 0.5) * 6
     const bx = 6.5 + r() * 1.5
