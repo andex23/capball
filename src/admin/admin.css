@@ -155,3 +155,53 @@ input[type='search'] { width: 220px; }
 .adm-cap-fields label { display: grid; gap: 3px; font-size: 12px; color: var(--text-2); }
 .adm-cap-fields .adm-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .adm-check input { width: 16px; height: 16px; accent-color: var(--gold); }
+
+/* ── Counterball pulse: the Lagos Life stats dashboard ── */
+.sd { --sd-card: linear-gradient(180deg, rgba(23, 32, 64, 0.92), rgba(13, 19, 37, 0.96)); }
+.sd-hero { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin: -4px 0 18px; padding: 24px 24px 22px; overflow: hidden; border: 1px solid rgba(255, 200, 61, 0.25); border-radius: 18px;
+  background: radial-gradient(120% 140% at 100% 0%, rgba(255, 200, 61, 0.22), transparent 55%), radial-gradient(90% 120% at 0% 100%, rgba(79, 179, 255, 0.18), transparent 60%), #0b1124; }
+.sd-hero h1 { margin: 4px 0 2px; font: 800 44px/1 var(--display); letter-spacing: 0.01em; text-transform: uppercase; }
+.sd-hero p { margin: 0; color: var(--text-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sd-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.sd-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 rgba(52, 210, 123, 0.6); animation: sd-pulse 2s infinite; }
+@keyframes sd-pulse { 70% { box-shadow: 0 0 0 9px rgba(52, 210, 123, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 210, 123, 0); } }
+@media (prefers-reduced-motion: reduce) { .sd-dot { animation: none; } }
+.sd-hero-ctl { display: flex; align-items: center; gap: 12px; }
+.sd-pills { display: inline-flex; padding: 4px; gap: 4px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line-2); border-radius: 999px; }
+.sd-pills button { padding: 7px 14px; border: 0; border-radius: 999px; color: var(--text-2); background: none; font: 700 13px var(--ui); cursor: pointer; }
+.sd-pills button[aria-pressed='true'] { color: var(--gold-ink); background: var(--gold); }
+.sd-ghost { padding: 8px 12px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); background: none; font: 600 12px var(--ui); cursor: pointer; }
+.sd-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 980px) { .sd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sd-kpi { display: flex; flex-direction: column; gap: 4px; padding: 16px 16px 8px; background: var(--sd-card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+.sd-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sd-kpi-k { color: var(--text-2); font-size: 12px; font-weight: 600; }
+.sd-kpi-v { font: 800 40px/1 var(--display); font-variant-numeric: tabular-nums; }
+.sd-kpi-sub { color: var(--text-3); font-size: 12px; min-height: 16px; }
+.sd-chip { white-space: nowrap; padding: 3px 8px; border-radius: 999px; font: 700 11px var(--ui); font-variant-numeric: tabular-nums; }
+.sd-chip[data-up='true'] { color: #0b2a18; background: var(--good); }
+.sd-chip[data-up='false'] { color: #2a0a0f; background: var(--bad); }
+.sd-notes { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; padding: 0; }
+.sd-notes li { padding: 8px 14px; border-radius: 999px; font-size: 13px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line-2); }
+.sd-notes li[data-tone='good'] { border-color: rgba(52, 210, 123, 0.6); background: rgba(52, 210, 123, 0.1); }
+.sd-notes li[data-tone='bad'] { border-color: rgba(255, 84, 104, 0.6); background: rgba(255, 84, 104, 0.1); }
+.sd-notes li[data-tone='info'] { border-color: rgba(255, 200, 61, 0.5); background: rgba(255, 200, 61, 0.08); }
+.sd-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.sd-panel { min-width: 0; padding: 18px 18px 14px; background: var(--sd-card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+.sd-panel[data-span='2'] { grid-column: span 2; }
+.sd-panel[data-span='3'] { grid-column: 1 / -1; }
+@media (max-width: 980px) { .sd-grid { grid-template-columns: minmax(0, 1fr); } .sd-panel[data-span] { grid-column: auto; } }
+.sd-panel-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; margin-bottom: 10px; }
+.sd-panel-h h2 { margin: 0; font: 800 22px/1.1 var(--display); text-transform: uppercase; letter-spacing: 0.02em; }
+.sd-panel-h span { color: var(--text-3); font-size: 12px; }
+.sd-chart { position: relative; width: 100%; }
+.sd-empty { color: var(--text-3); }
+.sd-gate { max-width: 480px; margin: 40px auto; padding: 28px; text-align: center; background: var(--sd-card); border: 1px solid rgba(255, 200, 61, 0.25); border-radius: 18px; }
+.sd-gate h1 { margin: 6px 0; font: 800 40px/1 var(--display); text-transform: uppercase; }
+.sd-gate p { color: var(--text-2); }
+.sd-gate form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.sd-gate input { flex: 1 1 220px; padding: 11px 14px; color: var(--text); background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line-2); border-radius: 999px; font: inherit; }
+.sd-gate button { padding: 11px 18px; border: 0; border-radius: 999px; color: var(--gold-ink); background: var(--gold); font: 700 14px var(--ui); cursor: pointer; }
+.sd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (max-width: 600px) { .sd-hero { padding: 18px; } .sd-hero h1 { font-size: 34px; } .sd-kpi-v { font-size: 32px; } }
+@media (max-width: 600px) { .sd-kpi-top { flex-direction: column-reverse; align-items: flex-start; } .sd-kpis { gap: 10px; } }

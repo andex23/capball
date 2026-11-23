@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import LagosStats from './LagosStats'
 import { call, callAds, callCaps, callHelp, login, logout, setup, status, messageFor, readSession, saveSession, summariseSave } from './adminApi'
 import { DIVISIONS } from '../game/divisions'
 import { DEFAULT_ADS, AD_MAX, ADS_MAX, cleanAds } from '../game/arenaAds'
@@ -8,6 +9,7 @@ import { capArtUrl, setCapLabels, loadArtFonts } from '../game/capArt'
 
 const SECTIONS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'stats', label: 'Lagos Life stats' },
   { key: 'help', label: 'Help requests' },
   { key: 'players', label: 'Players' },
   { key: 'tournaments', label: 'Tournaments' },
@@ -84,6 +86,7 @@ export default function AdminApp() {
       </nav>
       <main className="adm-main">
         {section === 'overview' && <Overview api={api} go={go} />}
+        {section === 'stats' && <LagosStats />}
         {section === 'help' && <HelpRequests token={session.token} api={api} />}
         {section === 'players' && <Players api={api} />}
         {section === 'tournaments' && <Tournaments api={api} />}
