@@ -409,6 +409,12 @@ export const useLagosStore = create((set, get) => ({
 
   /* ── Friend matches ── */
 
+  /** The Weekend Cup on our server: 'weekendSubmit' (a run's progress) or 'weekendTable'. */
+  weekend(action, body = {}) {
+    if (!sdk) return Promise.reject(Object.assign(new Error('off'), { code: 'not_lagos' }))
+    return server({ action, ...body })
+  },
+
   /** Count something that happened (opens, matches, how finding a player went). Our server only; never shown to players. */
   count(event, detail) {
     if (!sdk) return

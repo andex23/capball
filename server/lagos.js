@@ -18,6 +18,7 @@
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { isProduct } from '../src/data/shop.js'
+import { weekendKey, lastWeekendKey, acceptsResults, cleanRun, extends_, runPoints, RUNS } from '../src/game/weekendRules.js'
 
 const DATABASE_URL = 'https://tmbittgluvbpuoygrrqb.supabase.co'
 
@@ -260,6 +261,65 @@ async function claim({ session, purchaseId }, api, db) {
   return { ok: true, productId: buy.productId, owned }
 }
 
+/* ── The Weekend Cup table ──
+   One document per weekend holds the table (name and best run for each player,
+   by a one-way hash), and one per player holds their runs, so a run can only
+   ever carry on, never be rewritten. Results come from players' phones, so each
+   is checked (see weekendRules.js) before it counts. */
+const wkdTableKey = (key) => `__weekend__:${key}`
+const wkdPlayerKey = (key, playerId) => `__weekend__:${key}:${playerId}`
+const playerHash = (playerId) => createHash('sha256').update(`wkd:${playerId}`).digest('hex').slice(0, 12)
+const WEEKEND_KEY = /^\d{4}-\d{2}-\d{2}$/
+export const cleanName = (name) => (typeof name === 'string' ? name.replace(/[^\p{L}\p{N} ._'-]/gu, '').trim().slice(0, 18) : '') || 'Player'
+const cleanTable = (d) => (d && d.v === 1 && d.rows && typeof d.rows === 'object' ? d : { v: 1, rows: {} })
+const cleanMine = (d) => (d && d.v === 1 && Array.isArray(d.runs) ? d : { v: 1, runs: [] })
+
+/** The table: top `limit`, how many are playing, and this player's place. */
+export function tableView(table, me, limit = 20) {
+  const rows = Object.entries(table.rows).map(([id, r]) => ({ id, name: r.name, points: r.best, at: r.at || 0 }))
+  // Higher points first; level on points, whoever got there first
+  rows.sort((a, b) => b.points - a.points || a.at - b.at)
+  const rank = me ? rows.findIndex((r) => r.id === me) + 1 : 0
+  return {
+    players: rows.length,
+    top: rows.slice(0, limit).map((r, i) => ({ rank: i + 1, name: r.name, points: r.points, me: r.id === me || undefined })),
+    me: rank ? { rank, points: rows[rank - 1].points } : null,
+  }
+}
+
+/** A run's progress, after each match: checked, stored, and the table updated. */
+export async function weekendSubmit(saves, mode, playerId, input, now = Date.now()) {
+  const key = weekendKey(now - 3 * 3600000) // just after midnight on Monday still means the weekend just gone
+  if (input.key !== key || !acceptsResults(key, now)) fail('bad-request')
+  const run = Number(input.run)
+  const matches = cleanRun(input.matches)
+  if (!Number.isInteger(run) || run < 1 || run > RUNS || !matches) fail('bad-request')
+  const mine = cleanMine((await saves('get', mode, wkdPlayerKey(key, playerId)))?.data)
+  const runs = mine.runs.map((r) => cleanRun(r) || [])
+  // Runs are played in order, and one already started can only carry on, never be rewritten
+  if (run > runs.length + 1) fail('bad-request')
+  if (run <= runs.length && !extends_(runs[run - 1], matches)) fail('bad-request')
+  runs[run - 1] = matches
+  await saves('put', mode, wkdPlayerKey(key, playerId), { v: 1, runs })
+  const best = Math.max(...runs.map(runPoints))
+  const table = cleanTable((await saves('get', mode, wkdTableKey(key)))?.data)
+  const id = playerHash(playerId)
+  const row = table.rows[id]
+  if (!row || best > row.best || row.name !== cleanName(input.name)) {
+    table.rows[id] = { name: cleanName(input.name), best: Math.max(best, row?.best || 0), at: !row || best > row.best ? now : row.at }
+    if (Object.keys(table.rows).length <= 20000) await saves('put', mode, wkdTableKey(key), table)
+  }
+  return { ok: true, points: runPoints(matches), best, ...tableView(table, id) }
+}
+
+/** This weekend's table (or last weekend's, for Monday's result). */
+export async function weekendTable(saves, mode, playerId, which, now = Date.now()) {
+  const key = which === 'last' ? lastWeekendKey(now) : weekendKey(now)
+  if (!WEEKEND_KEY.test(key)) fail('bad-request')
+  const table = cleanTable((await saves('get', mode, wkdTableKey(key)))?.data)
+  return { ok: true, key, ...tableView(table, playerHash(playerId)) }
+}
+
 export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), saves = makeSaveDb(), reports = makeReportDb()) {
   if (!api) fail('not-configured')
   // The player's save: always the verified player's own, never anyone else's
@@ -291,6 +351,14 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
     const { playerId, mode } = await whoIs(api, input.session)
     await countEvent(saves, mode, playerId, input.event, input.detail)
     return { ok: true }
+  }
+  // The Weekend Cup: a run's progress, and the shared table
+  if (input?.action === 'weekendSubmit' || input?.action === 'weekendTable') {
+    if (!saves) fail('shop-not-configured')
+    const { playerId, mode } = await whoIs(api, input.session)
+    return input.action === 'weekendSubmit'
+      ? weekendSubmit(saves, mode, playerId, input)
+      : weekendTable(saves, mode, playerId, input.which === 'last' ? 'last' : 'now')
   }
   if (input?.action === 'claim') return claim(input, api, db)
   if (input?.action === 'owned') {

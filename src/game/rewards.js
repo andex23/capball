@@ -163,3 +163,16 @@ export const WEEKLY_CUPS = [
 /** A winner's cap for each cup (hidden in the picker until won). */
 export const CUP_CAPS = WEEKLY_CUPS.map((c, i) => ({ ...c.cap, key: `cup-${i + 1}`, name: c.name, finish: 'chrome', capText: c.name.replace(/ Cup$/, '').toUpperCase() }))
 
+
+/* ── The Weekend Cup's caps (Lagos Life): the top three each weekend win that weekend's ── */
+export const WEEKEND_CAPS = [
+  { key: 'wkd-1', name: 'Weekend Cup · Eko', primary: '#0A2A66', edge: '#FFC83D', pattern: 'rays', badge: 'crown', finish: 'chrome', capText: 'EKO' },
+  { key: 'wkd-2', name: 'Weekend Cup · Third Mainland', primary: '#00695C', edge: '#FFE082', pattern: 'wave', badge: 'star', finish: 'chrome', capText: '3RD MAINLAND' },
+  { key: 'wkd-3', name: 'Weekend Cup · Danfo', primary: '#F9C80E', edge: '#111111', pattern: 'stripe', badge: 'bolt', finish: 'gloss', capText: 'DANFO' },
+  { key: 'wkd-4', name: 'Weekend Cup · Owambe', primary: '#6A1B9A', edge: '#FFD54F', pattern: 'dots', badge: 'crown', finish: 'chrome', capText: 'OWAMBE' },
+]
+/** The cap a weekend ('2026-11-27') is played for. */
+export const weekendCap = (key) => {
+  const days = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86400000)
+  return WEEKEND_CAPS[(Math.floor(days / 7) % WEEKEND_CAPS.length + WEEKEND_CAPS.length) % WEEKEND_CAPS.length]
+}
