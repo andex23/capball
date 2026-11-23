@@ -11,6 +11,7 @@ import { useAccountStore } from '../state/accountStore'
 import InstallGuide from '../pwa/InstallGuide'
 import { isLagos } from '../platform'
 import FeedbackPanel from '../ui/FeedbackPanel'
+import CloudNotice from '../lagos/CloudNotice'
 import { useWeekendStore } from '../state/weekendStore'
 import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weekendRules'
 import { timeLeft } from './WeekendScreen'
@@ -261,6 +262,7 @@ export default function MenuScreen() {
       {/* Top right once past "press start": what's new, and the player's profile */}
       {started && <MenuCorner onOpen={openDialog} />}
       {started && lagos && page === 'main' && !dialog && <LagosTicker onOpen={() => openDialog('records')} />}
+      {lagos && <CloudNotice />}
 
       {started && !lagos && <button className="icon-btn iss-share" aria-label="Share game" title="Share game" onClick={() => openDialog('share')}>
         <Icon name="share" size={22} />

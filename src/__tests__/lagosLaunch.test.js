@@ -35,6 +35,22 @@ describe('opening Counterball inside Lagos Life', () => {
     expect(location.reload).not.toHaveBeenCalled()
   })
 
+  it('keeps the career on this phone when another device saved progress without it', async () => {
+    const careerKey = 'capball:career-mode:v1'
+    const { newCareer } = await import('../game/career')
+    const mine = JSON.stringify(newCareer({ name: 'Eko FC' }, { now: 5 }))
+    items.set('counterball:lagos:owner', 'returning')
+    items.set(careerKey, mine)
+    const { prepareLagosLaunch } = await import('../lagos/launch')
+    const connection = await prepareLagosLaunch()
+    expect(items.get(careerKey)).toBe(mine)
+    expect(items.get(rewardsKey)).toBe(save.items[rewardsKey])
+    expect(connection.keptCareer).toBe(true)
+    // ...and the next save sends it up: the baseline is what the cloud had, not this phone
+    expect(JSON.parse(connection.cloudBaseline).items[careerKey]).toBeUndefined()
+    expect(items.get('counterball:lagos:career-backup:returning')).toBe(mine)
+  })
+
   it('restores and collects real progress when the frame has no disk access', async () => {
     vi.stubGlobal('localStorage', undefined)
     const { prepareLagosLaunch } = await import('../lagos/launch')
@@ -57,7 +73,7 @@ describe('opening Counterball inside Lagos Life', () => {
     expect(items.get(rewardsKey)).toBe(save.items[rewardsKey])
     const previous = JSON.parse(items.get('counterball:lagos:save:other'))
     expect(JSON.parse(previous.items[rewardsKey]).bank).toBe(99)
-    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledTimes(2) // a second, longer try before the game opens
     expect(location.reload).not.toHaveBeenCalled()
   })
 
