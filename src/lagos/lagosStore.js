@@ -4,13 +4,13 @@
  * match they're in. The game itself is untouched — this only listens to the
  * match store and talks to the SDK.
  */
-import { collectSave, getSaveStorage as storage } from '../utils/playerSave'
+import { collectSave, applySave, getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { sdkMessage } from './sdk'
 import { acknowledgeClaims, pendingClaims, rememberClaim } from './rewardClaims'
 import { useRewardsStore, REWARDS_KEY } from '../state/rewardsStore'
 import { lagosRequest, readCloudSave } from './launch'
-import { applySave } from '../utils/playerSave'
+import { mergeIntoPhone } from './keepCareer'
 import { useMatchStore, SCREEN, DEFAULT_TEAM_CONFIG } from '../state/MatchStore'
 import { useAccountStore } from '../state/accountStore'
 import { holdAudio } from '../audio/SoundManager'
@@ -156,7 +156,7 @@ export const useLagosStore = create((set, get) => ({
   owns: (designKey) => get().owned.includes(productIdFor(designKey)),
 
   /** Attach the host callbacks after the game has opened the selected save. */
-  async boot({ sdk: client, launch, cloudBaseline, localAtLaunch, error }) {
+  async boot({ sdk: client, launch, cloudBaseline, localAtLaunch, error, keptCareer = false }) {
     if (error) {
       useAccountStore.setState({ username: null, token: null })
       set({ status: 'error', error: sdkMessage(error) })
@@ -194,7 +194,8 @@ export const useLagosStore = create((set, get) => ({
       for (const day of pending) {
         if (!rewards().daily?.last || rewards().daily.last < day) rewards().claim(day)
       }
-      if (cloudReady && (pending.length || cloudBaseline === '')) get().saveCloud()
+      if (keptCareer) get().count('cloud', 'kept_career')
+      if (cloudReady && (pending.length || cloudBaseline === '' || keptCareer)) get().saveCloud()
       // Caps bought before: from our server, and any paid but not yet unlocked
       // Leftovers from earlier visits unlock quietly: a note only if something new actually arrives
       await get().loadOwned()
@@ -357,7 +358,10 @@ export const useLagosStore = create((set, get) => ({
     const remote = get().cloudWaiting
     if (!remote) return
     get().count('cloud', 'loaded_late')
-    applySave(remote)
+    // Never at the cost of a career that got further on this phone
+    let backup = null
+    try { backup = storage()?.getItem(`counterball:lagos:career-backup:${get().player?.id}`) ?? null } catch { /* none */ }
+    applySave(mergeIntoPhone(collectSave(), remote, backup).save)
     window.location.reload()
   },
 
