@@ -7,8 +7,8 @@
  * icon: an Icon name. date: YYYY-MM-DD.
  */
 export const UPDATES = [
-  { id: 'training-ground', date: '2026-11-21', icon: 'help', title: 'Psst… there’s a training ground', text: 'Open your profile and look for the little cone. Practise chips, free kicks and one-on-ones, or set up anything you like. Nothing counts.' },
-  { id: 'chip-shot', date: '2026-11-21', icon: 'ball', title: 'Chip shots', text: 'Double-tap a cap next to the ball, then flick: the ball flies over the wall. Keepers back up for chips, so float one and it’s caught, overdo it and it’s over the bar. Three a half, in the half you’re attacking.' },
+  { id: 'training-ground', date: '2026-11-23', icon: 'help', title: 'Psst… there’s a training ground', text: 'Open your profile and look for the little cone. Practise chips, free kicks and one-on-ones, or set up anything you like. Nothing counts.' },
+  { id: 'chip-shot', date: '2026-11-23', icon: 'ball', title: 'Chip shots', text: 'Double-tap a cap next to the ball, then flick: the ball flies over the wall. Keepers back up for chips, so float one and it’s caught, overdo it and it’s over the bar. Three a half, in the half you’re attacking.' },
   { id: 'daily-week', date: '2026-11-21', icon: 'check', title: 'A daily challenge for every day of the week', text: 'Each day has its own set-up, getting harder towards the weekend, so no two days in a row are the same. Sunday is the Sunday Special: an extra defender and one flick fewer, worth ₦250k.' },
   { id: 'career-ladder', date: '2026-11-20', icon: 'trophy', title: 'Career: a bigger ladder', text: 'New careers start in the Street League. Five divisions, eight clubs each, a 14-match season, and four clubs fighting for the title in every league. Top two go up, bottom two go down.' },
   { id: 'canta-champions-league', date: '2026-11-20', icon: 'trophy', title: 'The Canta Champions League', text: 'Finish in the top two of the Premier Cap League to face the best clubs from abroad: two groups, semi-finals and a final on midweek nights. ₦25m to the winners.' },
