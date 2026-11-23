@@ -2057,6 +2057,13 @@ button { cursor: pointer; background: none; border: 0; }
   .shell-head, .shell-body, .shell-foot-inner { zoom: 1.15; }
   .hud-top, .hud-corner, .banner, .keeper-pick, .hud-notice { zoom: 1.25; }
   .menu-corner { zoom: 1.2; }
+  /* The coach card grows by size, not zoom: it's placed next to a cap by its exact position */
+  .tut-card { width: min(440px, calc(100vw - 48px)); padding: 18px 20px; gap: 8px; }
+  .tut-eyebrow { font-size: 13px; }
+  .tut-title { font-size: 32px; }
+  .tut-body { font-size: 18px; }
+  .tut-actions .btn { min-height: 48px; font-size: 20px; padding: 0 20px; }
+  .tut-actions .tut-skip { font-size: 17px; }
 }
 @media (min-width: 1600px) and (min-height: 960px) and (hover: hover) and (pointer: fine) {
   .iss-layout { zoom: 1.5; min-height: 66.67%; }
