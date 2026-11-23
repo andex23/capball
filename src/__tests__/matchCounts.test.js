@@ -43,7 +43,7 @@ describe('match counts', () => {
     store.setState({ phase: PHASE.CHALLENGE_DONE, challenge: { won: false } })
     play({ challenge: { won: null }, phase: PHASE.SELECT }) // try again
     store.setState({ screen: SCREEN.MENU, challenge: null }) // gave up mid-try
-    expect(log).toEqual(['match_start:daily', 'match_end:daily', 'match_start:daily', 'match_quit:daily_0m'])
+    expect(log).toEqual(['match_start:daily', 'match_end:daily', 'feature:daily_lost', 'match_start:daily', 'match_quit:daily_0m'])
   })
   it('buckets quit times', () => {
     expect([30e3, 90e3, 300e3, 900e3].map(quitBucket)).toEqual(['0m', '1m', '3m', '6m'])
