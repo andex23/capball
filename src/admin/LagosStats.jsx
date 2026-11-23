@@ -225,6 +225,16 @@ function Dashboard({ days }) {
     if (ev === 'error' && ERROR_NAMES[detail]) return ERROR_NAMES[detail]
     return detail ? `${COUNT_NAMES[ev] || ev} · ${detail.replace(/_/g, ' ')}` : COUNT_NAMES[ev] || ev
   }
+  // Day by day: players, plays (the game opened) and matches, side by side
+  const daily = {
+    labels,
+    datasets: [
+      { label: 'Players', data: days.map((d) => d.players), backgroundColor: '#ffc83d', borderRadius: 6, barPercentage: 0.9, categoryPercentage: 0.7 },
+      { label: 'Plays (game opened)', data: days.map((d) => d.opens), backgroundColor: '#4fb3ff', borderRadius: 6, barPercentage: 0.9, categoryPercentage: 0.7 },
+      { label: 'Matches', data: days.map((d) => d.started), backgroundColor: '#a78bfa', borderRadius: 6, barPercentage: 0.9, categoryPercentage: 0.7 },
+    ],
+  }
+  const dayRows = days.map((d, i) => ({ ...d, prev: days[i - 1] || null })).reverse()
   const closed = closedByStage(days)
   const hasClosed = closed.some((n) => n > 0)
   const closedChart = { labels: STAGES.map((k) => STAGE_LABELS[k]), datasets: [{ label: 'Closed', data: closed, backgroundColor: ['#ff5468', '#ff8a4c', '#ffc83d', '#34d27b', '#4fb3ff', '#a78bfa'], borderRadius: 8, barThickness: 22 }] }
@@ -247,6 +257,27 @@ function Dashboard({ days }) {
         </ul>
       )}
       <div className="sd-grid">
+        <Panel title="Day by day" sub="Players, plays and matches each day" span={3}>
+          <ChartBox type="bar" data={daily} options={{ interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }} height={260} />
+          <div className="sd-days">
+            <table>
+              <thead><tr><th>Day</th><th>Players</th><th>Plays</th><th>Matches</th><th>Finished</th><th>Plays a player</th><th>Matches a player</th></tr></thead>
+              <tbody>
+                {dayRows.map((d, i) => (
+                  <tr key={d.day}>
+                    <td>{new Date(`${d.day}T12:00:00Z`).toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' })}{i === 0 && <small> so far</small>}</td>
+                    <td>{fmt(d.players)}<Delta now={d.players} was={d.prev?.players} /></td>
+                    <td>{fmt(d.opens)}<Delta now={d.opens} was={d.prev?.opens} /></td>
+                    <td>{fmt(d.started)}<Delta now={d.started} was={d.prev?.started} /></td>
+                    <td>{finishRate(d.started, d.finished) ?? '—'}{d.started ? '%' : ''}</td>
+                    <td>{d.players ? (d.opens / d.players).toFixed(1) : '—'}</td>
+                    <td>{d.players ? (d.started / d.players).toFixed(1) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
         <Panel title="Players per day" sub={hasReturn ? 'Who came back, who’s new' : `Today is ${Math.round(part * 100)}% through, so it’s dashed`} span={2}>
           <ChartBox type="line" data={playersChart} options={lineOpts(hasReturn, hasReturn)} height={280} />
         </Panel>
@@ -306,6 +337,13 @@ function Dashboard({ days }) {
       </div>
     </>
   )
+}
+
+/** Change on the day before, as a small ▲/▼ percentage. */
+function Delta({ now, was }) {
+  const c = change(now, was)
+  if (c === null) return null
+  return <span className="sd-delta" data-up={c >= 0 ? 'true' : 'false'}>{c >= 0 ? '▲' : '▼'}{Math.abs(c)}%</span>
 }
 
 function Panel({ title, sub, span = 1, children }) {

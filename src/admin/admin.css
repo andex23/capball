@@ -216,3 +216,12 @@ input[type='search'] { width: 220px; }
 .sd-all th, .sd-all td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); }
 .sd-all th:first-child, .sd-all td:first-child { text-align: left; }
 .sd-all th { color: var(--text-3); font-weight: 600; }
+.sd-days { overflow-x: auto; margin-top: 12px; }
+.sd-days table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.sd-days th, .sd-days td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sd-days th:first-child, .sd-days td:first-child { text-align: left; }
+.sd-days th { color: var(--text-3); font-weight: 600; }
+.sd-days td small { color: var(--text-3); }
+.sd-delta { margin-left: 6px; font-size: 11px; font-weight: 700; }
+.sd-delta[data-up='true'] { color: var(--good); }
+.sd-delta[data-up='false'] { color: var(--bad); }
