@@ -183,7 +183,8 @@ export const useMatchStore = create((set, get) => ({
   // --- Game mode ---
   gameMode: 'local', // 'local', 'ai', or 'online'
   aiTeam: 'team2',
-  aiDifficulty: 'medium', // 'easy', 'medium', 'hard'
+  // New players start on easy (anyone who has played already keeps their saved level)
+  aiDifficulty: 'easy', // 'easy', 'medium', 'hard'
   // Two players on one phone default to "first to 3" (a timed match is long with one phone
   // to pass round); whatever the computer matches were set to comes back afterwards
   setGameMode: (mode) => set((s) => {

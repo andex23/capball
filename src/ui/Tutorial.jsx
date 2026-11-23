@@ -68,11 +68,16 @@ function placeCard(card, a) {
   const vh = window.innerHeight
   const w = card.offsetWidth
   const h = card.offsetHeight
-  const gap = a.r + 14
   const bottomReserve = 72 // bottom corner buttons / hint
-  const below = a.y + gap + h <= vh - bottomReserve
-  const above = a.y - gap - h >= EDGE
-  let top = below ? a.y + gap : a.y - gap - h
+  // Keep clear of the ghost finger's pull: sit on the other side of the cap, or past its end
+  const pullDown = a.pull ? Math.max(0, a.pull.dy) + 34 : 0
+  const pullUp = a.pull ? Math.max(0, -a.pull.dy) + 34 : 0
+  const gapBelow = Math.max(a.r + 14, pullDown)
+  const gapAbove = Math.max(a.r + 14, pullUp)
+  const below = a.y + gapBelow + h <= vh - bottomReserve
+  const above = a.y - gapAbove - h >= EDGE
+  const preferAbove = above && pullDown > pullUp
+  let top = below && !preferAbove ? a.y + gapBelow : a.y - gapAbove - h
   let left = a.x - w / 2
   if (!below && !above) {
     // Short screens (a phone on its side): there is no room above or below the
@@ -112,6 +117,7 @@ export default function Tutorial() {
   const [anchored, setAnchored] = useState(false)
   const cardRef = useRef(null)
   const ringRef = useRef(null)
+  const handRef = useRef(null)
   const primaryRef = useRef(null)
 
   const update = useCallback((next) => {
@@ -203,6 +209,25 @@ export default function Tutorial() {
         ring.style.transform = `translate(${a.x - a.r}px, ${a.y - a.r}px)`
         ring.style.width = ring.style.height = `${a.r * 2}px`
       }
+      // The ghost finger: presses the cap and pulls it straight back, away from the goal it attacks
+      const hand = handRef.current
+      if (hand && step === STEP.PRESS) {
+        const dir = attackDir(tut.team, useMatchStore.getState().team1Side)
+        const goal = projectToScreen(dir * PITCH.halfW, 0, 0)
+        let dx = goal ? a.x - goal.x : 0
+        let dy = goal ? a.y - goal.y : 1
+        const len = Math.hypot(dx, dy) || 1
+        const pull = Math.min(90, Math.max(60, a.r * 2.4))
+        dx = (dx / len) * pull
+        dy = (dy / len) * pull
+        hand.style.left = `${a.x}px`
+        hand.style.top = `${a.y}px`
+        hand.style.setProperty('--dx', `${dx}px`)
+        hand.style.setProperty('--dy', `${dy}px`)
+        hand.style.setProperty('--len', `${pull}px`)
+        hand.style.setProperty('--ang', `${Math.atan2(dy, dx)}rad`)
+        a.pull = { dx, dy }
+      }
       if (cardRef.current) placeCard(cardRef.current, a)
     }
     tick()
@@ -227,6 +252,12 @@ export default function Tutorial() {
   return (
     <div className="tut" aria-live="polite">
       {isAnchored && <div className="tut-ring" ref={ringRef} aria-hidden />}
+      {isAnchored && step === STEP.PRESS && !useMatchStore.getState().swipeAim && (
+        <div className="tut-hand" ref={handRef} aria-hidden>
+          <span className="tut-pull" />
+          <span className="tut-finger" />
+        </div>
+      )}
       <div
         className="card tut-card"
         ref={cardRef}
