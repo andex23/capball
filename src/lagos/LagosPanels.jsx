@@ -69,6 +69,17 @@ export function tickerItems(board, wins = 0, max = 5) {
   return { items, me: me?.rank ? { rank: me.rank, wins: Math.max(wins, winsOf(rawOf(me))) } : null }
 }
 
+/** The crown on the board's leader (everyone tied for first gets one). */
+export function Crown({ size = 16 }) {
+  return (
+    <svg className="lb-crown" width={size} height={size * 0.8} viewBox="0 0 20 16" aria-label="Top of the board" role="img">
+      <path d="M2 13 L1 4 L6 8 L10 2 L14 8 L19 4 L18 13 Z" fill="#ffd23f" stroke="#7a5200" strokeWidth="1.2" strokeLinejoin="round" />
+      <rect x="2" y="13" width="16" height="2.4" rx="0.6" fill="#e6b51f" stroke="#7a5200" strokeWidth="1" />
+      <circle cx="10" cy="2" r="1.3" fill="#ff5a5a" /><circle cx="1" cy="4" r="1.1" fill="#5ab8ff" /><circle cx="19" cy="4" r="1.1" fill="#5ab8ff" />
+    </svg>
+  )
+}
+
 /** A pitch-side LED board on the menu: the top players run past, right to left. Tap for the full board. */
 export function LagosTicker({ onOpen }) {
   const board = useLagosStore((s) => s.board)
@@ -77,7 +88,7 @@ export function LagosTicker({ onOpen }) {
   if (!items.length) return null
   const run = (
     <span className="tk-run">
-      {items.map((x) => <span key={`${x.rank}-${x.name}`} data-medal={medal(x.rank)}><span className="tk-rank">{x.rank}</span><b>{x.name}</b><small>{x.wins} {x.wins === 1 ? 'win' : 'wins'}</small><i>◆</i></span>)}
+      {items.map((x) => <span key={`${x.rank}-${x.name}`} data-medal={medal(x.rank)}><span className="tk-rank">{x.rank}</span>{x.rank === 1 && <Crown size={15} />}<b>{x.name}</b><small>{x.wins} {x.wins === 1 ? 'win' : 'wins'}</small><i>◆</i></span>)}
       {me && <span data-me="true"><span className="tk-rank">{me.rank}</span><b>You</b><small>{me.wins} {me.wins === 1 ? 'win' : 'wins'}</small><i>◆</i></span>}
     </span>
   )
@@ -114,7 +125,7 @@ export function LagosBoard() {
                 {top.map((r, i) => (
                   <li key={`${i}-${r.name}`} data-medal={medal(tiedRank(top, i, scoreOf))} data-me={player && r.name === player.name && scoreOf(r) === scoreOf(me) ? 'true' : undefined}>
                     <span className="rankings-rank">{tiedRank(top, i, scoreOf)}</span>
-                    <span className="rankings-name">{r.name}</span>
+                    <span className="rankings-name">{tiedRank(top, i, scoreOf) === 1 && <Crown />}{r.name}</span>
                     <span className="rankings-num"><b>{winsOf(rawOf(r))}</b><small>wins</small></span>
                   </li>
                 ))}

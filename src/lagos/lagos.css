@@ -81,3 +81,6 @@
 .tk-run [data-me] .tk-rank { background: #36d16b; }
 .tk-run > span[data-me] b { color: #fff; }
 .tk-run small { font: 700 9px/1 var(--font-pixel); color: #ffb21f; opacity: 0.85; }
+/* The leader's crown */
+.lb-crown { display: inline-block; flex: none; vertical-align: -1px; margin-right: 5px; filter: drop-shadow(0 0 4px rgba(255, 210, 63, 0.7)); }
+.tk-run .lb-crown { margin: 0 2px 0 4px; }
