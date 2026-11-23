@@ -117,7 +117,7 @@ export function performanceByPlayer({ side, startLineup, subs, goalLog, matchEve
   return out
 }
 
-function kitFor(team, side, ratings = null, players = null, attrs = null) {
+export function kitFor(team, side, ratings = null, players = null, attrs = null) {
   const base = DEFAULT_TEAM_CONFIG[side]
   return {
     ratings,

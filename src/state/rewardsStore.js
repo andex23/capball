@@ -6,8 +6,9 @@
 import { getSaveStorage as storage } from '../utils/playerSave'
 import { create } from 'zustand'
 import { platformHooks } from '../platformHooks'
-import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WEEK_BONUS, CUP_CAPS } from '../game/rewards'
+import { claimDaily, dailyStatus, noteWeek, weekCap, nextMysteryCap, weekKey, WEEK_BONUS, CUP_CAPS, weekendCap } from '../game/rewards'
 import { CUP_PRIZE } from '../game/weeklyCup'
+import { TOP_PRIZE, RUN_PRIZE, PRIZE_PLACES } from '../game/weekendRules'
 import { money } from '../game/squad'
 import { dayKey, SPECIAL_BONUS } from '../game/daily'
 import { useCareerStore } from './careerStore'
@@ -93,6 +94,40 @@ export const useRewardsStore = create((set, get) => ({
     s = pay(CUP_PRIZE, s)
     s.news = [{ id: `cup:${weekly.key}`, title: `You won the ${weekly.name}!`, text: `+${money(CUP_PRIZE)} and the ${weekly.name} cap. Pick it in Edit team.`, cap: cap?.key, coins: CUP_PRIZE, date: today }, ...s.news].slice(0, 30)
     get()._save(s)
+    return true
+  },
+
+  /** Weekend Cup: through all five in a run, ₦100k (the store pays once a run). */
+  weekendRun(key, now = new Date()) {
+    const today = dayKey(now)
+    let s = pay(RUN_PRIZE, { ...get() })
+    s.news = [{ id: `wkd-run:${key}:${Date.now()}`, title: 'Weekend Cup: all five played!', text: `+${money(RUN_PRIZE)} into your club budget. Your best run counts on the table.`, coins: RUN_PRIZE, date: today }, ...s.news].slice(0, 30)
+    get()._save(s)
+    useAccountStore.getState().save()
+  },
+
+  /** Weekend Cup, Monday: where you finished (and, top three, that weekend's cap and ₦1m). Once a weekend. */
+  weekendResult({ key, rank, players, points }, now = new Date()) {
+    const id = `wkd:${key}`
+    if (get().news.some((n) => n.id === id)) return false
+    const today = dayKey(now)
+    let s = { ...get() }
+    const top = rank <= PRIZE_PLACES
+    const cap = weekendCap(key)
+    if (top) {
+      if (!s.caps.includes(cap.key)) s.caps = [...s.caps, cap.key]
+      s = pay(TOP_PRIZE, s)
+    }
+    const place = `#${rank} of ${players} with ${points} ${points === 1 ? 'point' : 'points'}`
+    s.news = [{
+      id,
+      title: top ? `Weekend Cup: you finished ${place.split(' with')[0]}!` : 'Weekend Cup: your result',
+      text: top ? `+${money(TOP_PRIZE)} and the ${cap.name} cap. Pick it in Edit team.` : `You finished ${place}. The next Weekend Cup starts Friday.`,
+      ...(top ? { cap: cap.key, coins: TOP_PRIZE } : {}),
+      date: today,
+    }, ...s.news].slice(0, 30)
+    get()._save(s)
+    useAccountStore.getState().save()
     return true
   },
 

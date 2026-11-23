@@ -22,6 +22,7 @@ export const SCREEN = {
   TOURNAMENT_HUB: 'TOURNAMENT_HUB',
   CAREER: 'CAREER',
   TRAINING: 'TRAINING', // the Training Ground (from the cone in your profile)
+  WEEKEND: 'WEEKEND', // the Weekend Cup (Lagos Life, Friday to Sunday)
 }
 
 // Turn phases

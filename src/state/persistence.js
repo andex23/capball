@@ -16,6 +16,7 @@ import { useMatchStore } from './MatchStore'
 import { getStorage, loadSaved, pickPrefs, prefsToState, syncedPrefs, serialize, writeRaw, PREF_KEYS, OPTIONAL_PREF_KEYS } from '../utils/storage'
 import { emptyRecords, matchEntry, applyMatch, resetRecords as clearRecords } from '../game/records'
 import { inTournamentPlay } from './tournamentStore'
+import { inWeekendPlay } from './weekendStore'
 
 /** Records for the UI. lastUpdate: { matchKey, newBests } of the latest recorded match. */
 export const useRecordsStore = create(() => ({ records: emptyRecords(), lastUpdate: null }))
@@ -55,8 +56,8 @@ export function initPersistence({ storage = getStorage(), debounceMs = 300 } = {
   function flush() {
     if (timer) { clearTimeout(timer); timer = null }
     const state = useMatchStore.getState()
-    if (inTournamentPlay()) {
-      // A tournament fixture borrows the teams and CPU level; those aren't the player's choices
+    if (inTournamentPlay() || inWeekendPlay()) {
+      // A tournament fixture (or Weekend Cup match) borrows the teams and CPU level; those aren't the player's choices
       const { aiDifficulty: _skip, ...own } = pickPrefs(state, { localOnly: true })
       savedPrefs = { ...savedPrefs, ...own }
     } else {

@@ -10,6 +10,9 @@ import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import InstallGuide from '../pwa/InstallGuide'
 import { isLagos } from '../platform'
+import { useWeekendStore } from '../state/weekendStore'
+import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weekendRules'
+import { timeLeft } from './WeekendScreen'
 import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
@@ -88,6 +91,16 @@ export default function MenuScreen() {
   const streak = liveStreak(daily)
   const [page, setPage] = useState('main')
   useEffect(() => { startMenuMusic() }, [])
+  // Lagos Life: the Weekend Cup's place on the menu, and Monday's result in the bell
+  const weekendRank = useWeekendStore((s) => s.table?.me?.rank ?? null)
+  const weekendPlayers = useWeekendStore((s) => s.table?.players ?? null)
+  const weekendLive = lagos && weekendOpen()
+  useEffect(() => {
+    if (!lagos) return
+    const w = useWeekendStore.getState()
+    w.checkLast()
+    if (weekendOpen()) { w.roll(); w.refreshTable() }
+  }, [lagos])
 
   const start = useCallback(() => {
     if (pressedStart) return
@@ -125,6 +138,8 @@ export default function MenuScreen() {
   // Each item: key, title, optional sub (a line under it), right (a tag or picker), action
   const PAGES = {
     main: [
+      // Friday to Sunday in Lagos Life: the Weekend Cup goes first
+      ...(weekendLive ? [{ key: 'weekend', title: 'Weekend Cup', sub: `Live now · ${timeLeft(weekendWindow(weekendKey()).end - Date.now())} left${weekendPlayers ? ` · ${weekendPlayers} playing` : ''}${weekendRank ? ` · you #${weekendRank}` : ''}`, tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.WEEKEND) } }] : []),
       // Something saved shows on its own button; the choice to carry on or start again is one tap in
       { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? (LAGOS_PLAYERS ? 'Computer, Lagos players or one phone' : 'Computer or two on one phone') : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Street League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
