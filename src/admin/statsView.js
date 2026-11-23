@@ -50,6 +50,9 @@ export function dayView(d) {
   const finished = Object.values(byMode).reduce((s, m) => s + Math.min(m.finished, m.started), 0)
   return {
     day: d?.day || '', players: d?.players || 0, opens: counts.open || 0, menus: counts.menu || 0,
+    // (from the server once it counts them; null before)
+    returning: Number.isFinite(d?.returning) ? d.returning : null,
+    newPlayers: Number.isFinite(d?.newPlayers) ? d.newPlayers : null,
     started, finished, byMode, pitch, errors, board,
   }
 }
@@ -95,5 +98,17 @@ export function headlines(days, now = new Date()) {
   else if (today.pitch.lost === 0) out.push({ tone: 'good', text: 'No pitch drops today.' })
   const errs = Object.values(today.errors).reduce((s, v) => s + v, 0)
   if (errs) out.push({ tone: 'bad', text: `${errs} online match error${errs === 1 ? '' : 's'} from Lagos Life.` })
+  return out
+}
+
+/** Every day in the range added up by mode: { mode: { started, finished, quits } }. */
+export function rangeByMode(days) {
+  const out = Object.fromEntries(MODES.map((m) => [m.key, { started: 0, finished: 0, quits: 0 }]))
+  for (const d of days) for (const m of MODES) {
+    const v = d.byMode[m.key]
+    out[m.key].started += v.started
+    out[m.key].finished += Math.min(v.finished, v.started)
+    out[m.key].quits += Object.values(v.quits).reduce((a, b) => a + b, 0)
+  }
   return out
 }
