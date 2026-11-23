@@ -1568,6 +1568,8 @@ button { cursor: pointer; background: none; border: 0; }
   .iss-opt .iss-item { font-size: 12px; padding: 4px 0; }
   .iss-rule { margin: 6px 2px; }
   .iss-pitch { height: 50%; }
+  /* The bell and profile move to the top-left, over the logo's side, clear of the menu window */
+  .menu-corner { right: auto; left: calc(var(--safe-left) + 12px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .iss-press, .iss-cursor, .iss-window { animation: none; }
@@ -2048,6 +2050,20 @@ button { cursor: pointer; background: none; border: 0; }
   .iss-layout { zoom: 1.25; min-height: 80%; }
   .shell-head, .shell-body, .shell-foot-inner { zoom: 1.1; }
   .hud-top, .hud-corner, .banner, .keeper-pick, .hud-notice { zoom: 1.15; }
+}
+/* Tablets: the same scaling, so menus and the scoreboard aren't phone-sized in the middle of the screen */
+@media (min-width: 760px) and (min-height: 900px) and (pointer: coarse), (min-width: 1000px) and (min-height: 700px) and (pointer: coarse) {
+  .iss-layout { zoom: 1.35; min-height: 74%; }
+  .shell-head, .shell-body, .shell-foot-inner { zoom: 1.15; }
+  .hud-top, .hud-corner, .banner, .keeper-pick, .hud-notice { zoom: 1.25; }
+  .menu-corner { zoom: 1.2; }
+  /* The coach card grows by size, not zoom: it's placed next to a cap by its exact position */
+  .tut-card { width: min(440px, calc(100vw - 48px)); padding: 18px 20px; gap: 8px; }
+  .tut-eyebrow { font-size: 13px; }
+  .tut-title { font-size: 32px; }
+  .tut-body { font-size: 18px; }
+  .tut-actions .btn { min-height: 48px; font-size: 20px; padding: 0 20px; }
+  .tut-actions .tut-skip { font-size: 17px; }
 }
 @media (min-width: 1600px) and (min-height: 960px) and (hover: hover) and (pointer: fine) {
   .iss-layout { zoom: 1.5; min-height: 66.67%; }

@@ -62,6 +62,17 @@ function computeAnchor(step, team) {
   return null
 }
 
+/** The highest a card spanning [left, left + w] can sit without covering the scoreboard or turn prompt. */
+function belowHud(left, w) {
+  let top = EDGE
+  for (const el of document.querySelectorAll('.hud-top > *')) {
+    const r = el.getBoundingClientRect()
+    if (!r.height || r.top > window.innerHeight / 2 || r.right < left || r.left > left + w) continue
+    top = Math.max(top, r.bottom + 8)
+  }
+  return top
+}
+
 /** Put the card next to the anchor, inside the screen, without covering it. */
 function placeCard(card, a) {
   const vw = window.innerWidth
@@ -87,7 +98,7 @@ function placeCard(card, a) {
     left = vw - a.x >= a.x ? a.x + sideGap : a.x - sideGap - w
     top = a.y - h / 2
     left = Math.min(Math.max(left, EDGE), Math.max(EDGE, vw - w - EDGE))
-    top = Math.min(Math.max(top, EDGE), Math.max(EDGE, vh - h - EDGE))
+    top = Math.min(Math.max(top, belowHud(left, w)), Math.max(EDGE, vh - h - EDGE))
     card.style.left = `${Math.round(left)}px`
     card.style.top = `${Math.round(top)}px`
     return
