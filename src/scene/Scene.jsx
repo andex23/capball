@@ -225,6 +225,7 @@ function GameWorld() {
   const phase = useMatchStore((s) => s.phase)
   const selectedCapId = useMatchStore((s) => s.selectedCapId)
   const freeKickCapId = useMatchStore((s) => s.freeKickCapId)
+  const chipArmed = useMatchStore((s) => s.chipArmed)
 
   // Fresh physics world for every match (GameWorld is keyed by matchKey)
   // Also lays the caps out for whatever is happening right now — the scene can
@@ -312,6 +313,7 @@ function GameWorld() {
             isGk={id.endsWith('_gk')}
             faceDir={face1}
             isSelected={selectedCapId === id || freeKickCapId === id}
+            chip={chipArmed === id}
             badge={team1.badge}
             number={squadNumber(team1, 'team1', id)}
             pattern={team1.pattern}
@@ -336,6 +338,7 @@ function GameWorld() {
             isGk={id.endsWith('_gk')}
             faceDir={-face1}
             isSelected={selectedCapId === id || freeKickCapId === id}
+            chip={chipArmed === id}
             badge={team2.badge}
             number={squadNumber(team2, 'team2', id)}
             pattern={team2.pattern}

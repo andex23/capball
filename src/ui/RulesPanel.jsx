@@ -48,6 +48,16 @@ const SECTIONS = [
     ],
   },
   {
+    title: 'Chips',
+    items: [
+      'Double-tap a cap next to the ball to chip with it. A small ⤴ shows over the cap; double-tap again to go back to a normal flick.',
+      'A chipped ball flies over caps, then drops and rolls on. Your aim shows only which way it goes: judge the distance yourself, and the line can stray a little on a hard chip.',
+      'Keepers back up for a chip. A floated one is caught; a quick one over a keeper off his line, or into a corner under the bar, can go in. A good keeper may tip it over for a corner.',
+      'Too much power and it goes over the bar: goal kick to the other side.',
+      'Three chips a half for each side (the dots by your name), only in the half you’re attacking. Not for keepers, penalties or the daily challenge.',
+    ],
+  },
+  {
     title: 'Goals that count',
     items: [
       'The whole ball must cross the goal line between the posts. A ball resting on the line is not a goal yet — you can still clear it.',

@@ -42,7 +42,7 @@ export function buildStory({ goalLog = [], matchEvents = [], teamConfig, score, 
     out.push({ min, kind: 'goal', team: g.team, text })
   })
   // A few of the chances that didn't go in
-  const chances = matchEvents.filter((e) => ['save', 'post', 'block', 'wide'].includes(e.type)).slice(0, 3)
+  const chances = matchEvents.filter((e) => ['save', 'post', 'block', 'wide', 'chipSave', 'tipped', 'overBar'].includes(e.type)).slice(0, 3)
   chances.forEach((e, i) => {
     const team = String(e.cap || '').startsWith('team2') ? 'team2' : 'team1'
     const min = Number.isInteger(e.half) && Number.isFinite(e.t) ? eventMinute(e, matchDuration) : null

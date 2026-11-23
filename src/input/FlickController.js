@@ -6,7 +6,9 @@ import { useMatchStore, PHASE, INPUT_PHASES } from '../state/MatchStore'
 import { performFlick, flickScaleFor, flickError, controllableTeams, capSelectable, powerFraction, MIN_FLICK_PX, aimWobbleFor, longShotWobble, distanceToGoal } from '../game/flick'
 import { getIsHost, sendFlick, sendSelect, sendCancel } from '../multiplayer/MultiplayerManager'
 import { PHYSICS, CAP_RADIUS, GK_RADIUS, BALL_RADIUS } from '../data/TeamData'
-import { playFlick } from '../audio/SoundManager'
+import { playFlick, playButtonSelect } from '../audio/SoundManager'
+import { chipError } from '../game/chip'
+import { getBody } from '../physics/PhysicsWorld'
 import { haptic } from './haptics'
 import { classifyContact } from '../game/rules'
 import { predictShot, createShot, createPrediction, capBounds, goalFor, ownGoalRisk, keeperShape } from '../game/predict'
@@ -18,6 +20,32 @@ const TOUCH_REACH_PX = 30
 // …but never from further than this across the pitch (world units), however far out the camera is
 const TOUCH_REACH_MAX = 2.4
 const DOT_FADE_LEN = 40 // dots fade out over this distance along a path
+const DOUBLE_TAP_MS = 400
+// A chip's aim: an arc this long at no power, growing with power (world units)
+const CHIP_ARC_MIN = 3
+const CHIP_ARC_GROW = 7
+const CHIP_ARC_SHOWN = 0.72 // how much of the arc is drawn (it fades out before it comes down)
+
+const CHIP_NO = {
+  'own-half': 'Chips only in the half you’re attacking',
+  'too-far': 'Chip with a cap right next to the ball',
+  'none-left': 'No chips left this half',
+  keeper: 'Keepers can’t chip',
+}
+/** Double-tap on a cap: arm a chip (or disarm it), or say why not. */
+function toggleChipOn(state, capId) {
+  const ball = getBody('ball')?.position
+  const cap = getBody(capId)?.position
+  if (state.chipArmed === capId) { state.toggleChip(capId); haptic('select'); return }
+  const why = chipError(state, capId, ball, cap)
+  if (why) {
+    if (CHIP_NO[why]) window.dispatchEvent(new CustomEvent('capball:notice', { detail: CHIP_NO[why] }))
+    return
+  }
+  state.toggleChip(capId, ball, cap)
+  haptic('select')
+  playButtonSelect()
+}
 
 // Lay dots along a predicted path (flat [x, y, ...] in physics coords, y → z)
 // into the instanced dot mesh, starting `skip` in from its start and fading
@@ -49,6 +77,32 @@ function layDots(t, path, points, skip, i, size, r, g, b, alpha) {
   return i
 }
 
+// Gold dots along an arc from (x0, z0) in direction (ux, uz), `len` long, drawn up to
+// CHIP_ARC_SHOWN of the way and fading out. Returns the next free dot index.
+function layArc(t, x0, z0, ux, uz, len, i) {
+  const m = t.dots.instanceMatrix.array
+  const c = t.dotColors.array
+  const peak = len * 0.28
+  // From the camera above, height alone barely shows: bow the arc towards the top of the
+  // screen too (sideways to the shot, on the side away from the player)
+  let px = -uz, pz = ux
+  if (pz > 0 || (pz === 0 && px < 0)) { px = -px; pz = -pz }
+  const n = Math.floor((len * CHIP_ARC_SHOWN) / DOT_SPACING)
+  for (let k = 1; k <= n && i < t.maxDots; k++) {
+    const f = (k * DOT_SPACING) / len
+    const h = 4 * peak * f * (1 - f)
+    const fade = Math.min(1, (CHIP_ARC_SHOWN - f) / 0.25)
+    const s = (0.1 + h * 0.03) * (0.7 + 0.3 * fade)
+    const o = i * 16
+    m[o] = s; m[o + 5] = s; m[o + 10] = s
+    m[o + 12] = x0 + ux * f * len + px * h * 0.55; m[o + 13] = 0.07 + h; m[o + 14] = z0 + uz * f * len + pz * h * 0.55
+    const q = i * 4
+    c[q] = 1; c[q + 1] = 0.82; c[q + 2] = 0.25; c[q + 3] = 0.95 * Math.max(0.1, fade)
+    i++
+  }
+  return i
+}
+
 function hidePreview(t) {
   t.group.visible = false
   t.dots.count = 0
@@ -71,6 +125,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
   const capScreen = useRef(new THREE.Vector3())
   const shotRef = useRef(null)  // reused predictShot input/output (no per-frame allocation)
   const predRef = useRef(null)
+  const lastTap = useRef(null) // { capId, t }: a second tap on the same cap soon after switches it to a chip
 
   // Convert clientX/clientY to world position on the pitch plane
   const getWorldPos = useCallback((clientX, clientY) => {
@@ -201,6 +256,12 @@ export function useFlickController(meshRefs, trajectoryRef) {
       const pull = pullOf(capMesh)
 
       if (pull.px < MIN_FLICK_PX || dragDist < 0.05) {
+        // A tap. Two quick taps on the same cap: chip (or back to a normal flick)
+        const now = performance.now()
+        if (lastTap.current?.capId === capId && now - lastTap.current.t < DOUBLE_TAP_MS) {
+          lastTap.current = null
+          toggleChipOn(state, capId)
+        } else lastTap.current = { capId, t: now }
         state.cancelAim()
         if (state.gameMode === 'online' && !getIsHost()) sendCancel()
         return
@@ -222,7 +283,8 @@ export function useFlickController(meshRefs, trajectoryRef) {
         if (flickError(state, { capId, velocity, ball }) === null) {
           playFlick(pull.power)
           haptic('flick')
-          sendFlick(capId, velocity)
+          sendFlick(capId, velocity, state.chipArmed === capId)
+          useMatchStore.setState({ chipArmed: null })
         }
         state.setDragPower(0)
         return
@@ -360,7 +422,16 @@ export function useFlickController(meshRefs, trajectoryRef) {
     const ownRisk = ownGoalRisk(pred, capId, team1Side)
     if (state.aimOwnGoal !== ownRisk) useMatchStore.setState({ aimOwnGoal: ownRisk })
     const ballOnPath = pred.contact === 'ball' && pred.ballPoints >= 2
-    if (ballOnPath) {
+    // A chip: only which way the ball goes, not where it lands (judge the distance yourself)
+    const chipping = state.chipArmed === capId
+    if (ballOnPath && chipping) {
+      // An arc up off the ball, the way it's going: longer and higher with more power, fading
+      // out on the way down so it never marks where the ball will land
+      const x0 = pred.ballPath[0], z0 = pred.ballPath[1]
+      const dx = pred.ballPath[2] - x0, dz = pred.ballPath[3] - z0
+      const dl = Math.hypot(dx, dz) || 1
+      dots = layArc(t, x0, z0, dx / dl, dz / dl, CHIP_ARC_MIN + power * CHIP_ARC_GROW, dots)
+    } else if (ballOnPath) {
       let r = 0.3, g = 0.95, b = 1
       if (goal === 'score') { r = 1; g = 0.78; b = 0.16 }
       else if (ownRisk) { r = 1; g = 0.2; b = 0.2 }
@@ -373,7 +444,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
     }
     // How far the shot may drift: a faint wedge along the ball's path, wider for long hard shots
     const spreadDeg = state.penaltyKick ? 0 : aimWobbleFor(state, capId, power) + (state.challenge ? 0 : longShotWobble(distanceToGoal(state, capId, { x: cx, y: cz }), power, state.teamConfig?.[capId.slice(0, 5)]?.traits?.[capId.slice(6)]))
-    t.spread.visible = ballOnPath && spreadDeg >= 0.5
+    t.spread.visible = ballOnPath && !chipping && spreadDeg >= 0.5
     if (t.spread.visible) {
       const sx = pred.ballPath[0], sz = pred.ballPath[1]
       const e = (pred.ballPoints - 1) * 2
@@ -387,7 +458,7 @@ export function useFlickController(meshRefs, trajectoryRef) {
     t.dots.count = dots
     t.dots.instanceMatrix.needsUpdate = true
     t.dotColors.needsUpdate = true
-    t.goalRing.visible = ballOnPath && goal !== null
+    t.goalRing.visible = ballOnPath && !chipping && goal !== null
 
     // Foul (opponent first) = red marker; teammate first (wasted turn) = amber
     const blocked = pred.contact === 'foul' || pred.contact === 'teammate'

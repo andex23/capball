@@ -494,10 +494,11 @@ export function heuristicScore(ctx, c) {
  * @returns {{ first, foulAt, verdict, frames, positions }}
  *   first: 'ball' | 'teammate' | 'foul' | null
  */
-export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline = Infinity, sim = null } = {}) {
+export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline = Infinity, sim = null, chip = false } = {}) {
   if (sim) sim.world.reset(ctx.positions)
   else sim = createPlannerWorld(ctx)
   const { world, track } = sim
+  if (chip) world.chip.arm(capId)
   const cap = world.bodies[capId]
   const ball = world.bodies.ball
   if (!cap || !ball) return null
@@ -514,6 +515,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
   track.otherCapTouched = false
 
   let verdict = null
+  let chipEnd = null
   let frames = 0
   let prev = { x: ball.position.x, y: ball.position.y }
   let ballVel = { x: 0, y: 0 }
@@ -528,6 +530,9 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
       kickoffGuard: ctx.kickoffGuard, goalKickGuard: ctx.goalKickGuard && !track.otherCapTouched, lastFlickedCapId: capId, banked: track.banked, capBanked: track.capBanked,
     })
     if (verdict) break
+    // A chip over the bar, out, or tipped over ends it there
+    const ch = world.chip.outcome()
+    if (ch && ch.kind !== 'caught') { chipEnd = ch.kind; break }
     if (frames > 5 && settled(world.bodies)) break
     if (frames % 10 === 0 && now() > deadline) break
   }
@@ -540,7 +545,7 @@ export function simulateFlick(ctx, capId, velocity, { maxFrames = 150, deadline 
     positions.ball.x = Math.max(-PITCH.halfW + 0.5, Math.min(PITCH.halfW - 0.5, positions.ball.x + (ballVel.x / v) * roll))
     positions.ball.y = Math.max(-PITCH.halfH + 0.5, Math.min(PITCH.halfH - 0.5, positions.ball.y + (ballVel.y / v) * roll))
   }
-  return { first: track.first, foulAt: track.foulAt, verdict, frames, positions }
+  return { first: track.first, foulAt: track.foulAt, verdict, frames, positions, chipEnd }
 }
 
 /**
@@ -603,6 +608,8 @@ export function scoreOutcome(ctx, out) {
     // A foul in our own box is a penalty
     return isInPenaltyArea(out.foulAt.x, out.foulAt.y, ctx.homeDir) ? -900 : -600
   }
+  if (out.chipEnd === 'tipped') return 8 // a corner to us
+  if (out.chipEnd) return -40 // over the bar or out: their goal kick
   if (out.verdict) {
     if (out.verdict.outcome !== 'goal') return -60 // disallowed: ball back to the centre, turn lost
     if (out.verdict.scorer === ctx.team) return 1000 - out.frames * 0.2
@@ -764,4 +771,42 @@ export function chooseBySimulation(ctx, { budgetMs = 70, maxSims = 40, aimNoise 
   // Nothing simulated came out better than the first ranked guess
   const pick = best || pool[0]
   return { capId: pick.capId, velocity: pick.velocity, kind: pick.kind, score: pick.score, simulated, ms: now() - start }
+}
+
+/**
+ * A chip at goal, when a straight shot is blocked: for each cap close enough,
+ * a few aims and powers are played forward with the ball chipped, and the
+ * first that scores is kept. `postNoise` then shakes the aim and power (a
+ * medium computer finds the chip but doesn't always strike it cleanly).
+ * Returns { capId, velocity, kind: 'chip', chip: true } or null.
+ */
+export function chooseChip(ctx, { canChip, aimNoise = 0.03, postNoise = 0, rng = Math.random, budgetMs = 40, maxFrames = 150 } = {}) {
+  const start = now()
+  const b = ctx.positions.ball
+  const goal = ctx.theirGoal
+  // Only worth it when outfield caps crowd the way to goal (the keeper is always there)
+  const outfield = Object.fromEntries(Object.entries(ctx.positions).filter(([id]) => !isGoalkeeper(id)))
+  if (blockersOnLine(outfield, null, b, goal) === 0) return null
+  const caps = eligibleCaps(ctx).filter((id) => !isGoalkeeper(id) && canChip(id))
+  if (!caps.length) return null
+  const sim = createPlannerWorld(ctx)
+  for (const capId of caps) {
+    for (const off of [0, -1.6, 1.6]) {
+      const u = unit(goal.x - b.x, goal.y + off - b.y)
+      const aim = aimFor(ctx.positions, capId, u, ctx)
+      if (!aim || firstHit(ctx.positions, capId, aim.dir)?.id !== 'ball') continue
+      for (const p of [0.45, 0.52, 0.6, 0.68, 0.76]) {
+        if (now() - start > budgetMs) return null
+        const sp = p * PHYSICS.maxFlickVelocity
+        const c = jitter({ capId, velocity: { x: aim.dir.x * sp, y: aim.dir.y * sp }, kind: 'chip' }, aimNoise, rng)
+        const out = simulateFlick(ctx, capId, c.velocity, { maxFrames, sim, chip: true })
+        if (scoreOutcome(ctx, out) >= 900) {
+          const shaken = postNoise ? jitter(c, postNoise, rng) : c
+          const k = postNoise ? 1 + (rng() * 2 - 1) * postNoise * 0.6 : 1
+          return { capId, velocity: { x: shaken.velocity.x * k, y: shaken.velocity.y * k }, kind: 'chip', chip: true }
+        }
+      }
+    }
+  }
+  return null
 }

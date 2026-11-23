@@ -519,10 +519,14 @@ function GoalPosts({ postColor = '#e8e8e8' }) {
   )
 }
 
+/** How high the crossbar stands (the chip's on-screen height is matched to it, see PhysicsSync). */
+export const GOAL_BAR_HEIGHT = 2.8
+
 function GoalFrame({ x, goalHalf, flip, postColor = '#e8e8e8' }) {
   const dir = flip ? 1 : -1
   const postRadius = 0.18
-  const postHeight = 1.8         // taller goal posts — more visible and realistic
+  // Tall enough that a chip can clear the standing keeper (~1.55) and still drop under the bar
+  const postHeight = GOAL_BAR_HEIGHT
   const goalDepth = PITCH.goalDepth // match the playable net pocket
   const goalW = goalHalf * 2
 

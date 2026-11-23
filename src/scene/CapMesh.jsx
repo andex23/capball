@@ -503,7 +503,26 @@ function StandingKeeper({ color, skirtTexture, topTexture, faceDir }) {
   )
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, faceDir = 1, isSelected, badge, number, pattern, finish, capText, band, art }, ref) {
+/** The ⤴ that floats over a cap set to chip: a small yellow disc, drawn once. */
+let chipTex = null
+function chipTexture() {
+  if (chipTex) return chipTex
+  const c = document.createElement('canvas')
+  c.width = c.height = 128
+  const g = c.getContext('2d')
+  g.fillStyle = '#ffd23f'; g.strokeStyle = '#000'; g.lineWidth = 10
+  g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.fill(); g.stroke()
+  // An arc with an arrowhead: up and over
+  g.strokeStyle = '#1b1400'; g.lineWidth = 12; g.lineCap = 'round'
+  g.beginPath(); g.moveTo(30, 88); g.quadraticCurveTo(52, 22, 92, 54); g.stroke()
+  g.fillStyle = '#1b1400'
+  g.beginPath(); g.moveTo(104, 64); g.lineTo(80, 66); g.lineTo(98, 40); g.closePath(); g.fill()
+  chipTex = new THREE.CanvasTexture(c)
+  chipTex.colorSpace = THREE.SRGBColorSpace
+  return chipTex
+}
+
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, faceDir = 1, isSelected, chip = false, badge, number, pattern, finish, capText, band, art }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -619,6 +638,13 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
           <ringGeometry args={[radius + 0.1, radius + 0.27, 36]} />
           <meshBasicMaterial color="#FFD740" transparent opacity={0.85} />
         </mesh>
+      )}
+
+      {/* Set to chip: a small ⤴ floating over the cap */}
+      {chip && (
+        <sprite position={[0, halfH + 0.75, 0]} scale={[0.75, 0.75, 0.75]} renderOrder={5}>
+          <spriteMaterial map={chipTexture()} depthTest={false} transparent />
+        </sprite>
       )}
 
       {/* Keeper: a printed hexagon round the centre */}

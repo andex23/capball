@@ -61,6 +61,8 @@ function ScoreBug() {
   const onlineMyTeam = useMatchStore((s) => s.onlineMyTeam)
   const lan = useMatchStore((s) => s.onlineTransport === 'lan')
   const aiTeam = useMatchStore((s) => s.aiTeam)
+  const chipsLeft = useMatchStore((s) => s.chipsLeft)
+  const challenge = useMatchStore((s) => !!s.challenge)
   const round = Math.min(kicks.team1, kicks.team2) + 1
   const clock = shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : formatClock(timeRemaining)
   const detail = phase === PHASE.MATCH_OVER ? 'FULL TIME' : shootout
@@ -70,6 +72,7 @@ function ScoreBug() {
     active={phase === PHASE.MATCH_OVER ? null : activeTeam}
     myTeam={gameMode === 'online' ? onlineMyTeam : gameMode === 'ai' ? otherTeam(aiTeam) : null}
     label={shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : 'TIMED MATCH'} clock={!shootout && !goalTarget ? clock : null} detail={detail} popping={phase === PHASE.GOAL ? lastScorer : null}
+    chips={shootout || challenge ? null : chipsLeft}
     rail={<span>{gameMode === 'online' ? lan ? 'LAN MATCH' : 'LIVE ONLINE' : gameMode === 'ai' ? 'VS CPU' : 'LOCAL MATCH'}</span>} />
 
 }
