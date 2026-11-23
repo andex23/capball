@@ -162,6 +162,8 @@ export function stakedOutcome(reports, players) {
 export const COUNT_EVENTS = ['open', 'menu', 'match_start', 'match_end', 'find', 'find_ok', 'paired', 'find_cancel', 'pitch_lost', 'pitch_back', 'pitch_dead', 'board', 'match_quit', 'error']
 const DETAIL = /^[a-z0-9_]{1,40}$/
 const statsKey = (day) => `__stats__:${day}`
+// Players seen in this many days before a day aren't new that day
+const LOOKBACK = 7
 export const dayOf = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)
 const emptyDay = () => ({ v: 1, counts: {}, players: [] })
 const cleanDay = (d) => (d && d.v === 1 && d.counts && typeof d.counts === 'object' && Array.isArray(d.players) ? d : emptyDay())
@@ -184,13 +186,28 @@ export async function countEvent(saves, mode, playerId, event, detail = null, no
 /** The last `days` days of counts for one mode, newest first: [{ day, players, counts }]. */
 export async function readStats(saves, mode, days = 14, now = Date.now()) {
   if (!saves) return []
-  const out = []
-  for (let i = 0; i < Math.min(60, Math.max(1, days)); i++) {
+  const want = Math.min(60, Math.max(1, days))
+  // A week more than asked for, to tell who's new from who came back
+  const read = []
+  for (let i = 0; i < want + LOOKBACK; i++) {
     const day = dayOf(now - i * 86400000)
     try {
       const d = (await saves('get', mode, statsKey(day)))?.data
-      if (d) { const c = cleanDay(d); out.push({ day, players: c.players.length, counts: c.counts }) }
-    } catch { /* skip a day that can't be read */ }
+      read.push(d ? { day, c: cleanDay(d) } : { day, c: null })
+    } catch { read.push({ day, c: null }) }
+  }
+  const out = []
+  for (let i = 0; i < want; i++) {
+    const { day, c } = read[i]
+    if (!c) continue
+    const before = read[i + 1]?.c ? new Set(read[i + 1].c.players) : null
+    const seen = new Set(read.slice(i + 1, i + 1 + LOOKBACK).flatMap((r) => r.c?.players || []))
+    out.push({
+      day, players: c.players.length, counts: c.counts,
+      // Played the day before too / not seen at all in the week before
+      returning: before ? c.players.filter((p) => before.has(p)).length : null,
+      newPlayers: c.players.filter((p) => !seen.has(p)).length,
+    })
   }
   return out
 }
