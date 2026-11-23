@@ -9,7 +9,7 @@ import {
   Chart, ArcElement, LineElement, BarElement, PointElement, LineController, BarController, DoughnutController,
   PieController, CategoryScale, LinearScale, Filler, Tooltip, Legend,
 } from 'chart.js'
-import { timeline, MODES, change, finishRate, headlines, dayProgress, rangeByMode, closedByStage, STAGES, STAGE_LABELS } from './statsView'
+import { timeline, MODES, change, finishRate, headlines, dayProgress, rangeByMode, closedByStage, STAGES, STAGE_LABELS, sumOver, allCounts, COUNT_NAMES, FEATURE_NAMES, ERROR_NAMES } from './statsView'
 
 Chart.register(ArcElement, LineElement, BarElement, PointElement, LineController, BarController, DoughnutController,
   PieController, CategoryScale, LinearScale, Filler, Tooltip, Legend)
@@ -39,13 +39,17 @@ function ChartBox({ type, data, options, plugins, height = 260 }) {
     chart.current = new Chart(ref.current, { type, data, options: { responsive: true, maintainAspectRatio: false, ...options }, plugins })
     return () => chart.current?.destroy()
   }, [type]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Redraw only when the numbers or labels actually change, and without the grow-in animation
+  const sig = JSON.stringify([data.labels, data.datasets.map((d) => d.data)])
+  const seen = useRef(sig)
   useEffect(() => {
     const c = chart.current
-    if (!c) return
+    if (!c || seen.current === sig) return
+    seen.current = sig
     c.data = data
     c.options = { responsive: true, maintainAspectRatio: false, ...options }
-    c.update()
-  }, [data, options])
+    c.update('none')
+  }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="sd-chart" style={{ height }}><canvas ref={ref} /></div>
 }
 
@@ -74,7 +78,6 @@ export default function LagosStats() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [at, setAt] = useState(null)
-  const [, tick] = useState(0)
 
   const load = useCallback(async () => {
     if (!key) return
@@ -83,7 +86,8 @@ export default function LagosStats() {
       if (r.status === 404) { setError('That stats key isn’t right. Enter it again.'); saveKey(''); setKey(''); return }
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const j = await r.json()
-      setData(j.live || [])
+      const next = j.live || []
+      setData((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
       setError('')
       setAt(Date.now())
     } catch {
@@ -94,8 +98,7 @@ export default function LagosStats() {
   useEffect(() => {
     load()
     const t = setInterval(load, REFRESH_MS)
-    const s = setInterval(() => tick((n) => n + 1), 5000)
-    return () => { clearInterval(t); clearInterval(s) }
+    return () => clearInterval(t)
   }, [load])
 
   if (!key) return <KeyGate error={error} onKey={(k) => { saveKey(k); setError(''); setKey(k) }} />
@@ -106,7 +109,7 @@ export default function LagosStats() {
         <div>
           <div className="sd-kicker"><span className="sd-dot" />Live from Lagos Life</div>
           <h1>Counterball pulse</h1>
-          <p>{at ? `Updated ${Math.max(0, Math.round((Date.now() - at) / 1000))}s ago · refreshes every minute` : 'Loading the numbers…'}</p>
+          <p>{at ? <Since at={at} /> : 'Loading the numbers…'}</p>
         </div>
         <div className="sd-hero-ctl">
           <div className="sd-pills" role="group" aria-label="Days shown">
@@ -119,6 +122,14 @@ export default function LagosStats() {
       {days.length > 0 && <Dashboard days={days} />}
     </section>
   )
+}
+
+/** "Updated 12s ago": ticks on its own, so nothing else on the page redraws. */
+function Since({ at }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 5000); return () => clearInterval(t) }, [])
+  const secs = Math.max(0, Math.round((now - at) / 1000))
+  return <>Updated {secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`} ago · refreshes every minute</>
 }
 
 function KeyGate({ error, onKey }) {
@@ -189,6 +200,41 @@ function Dashboard({ days }) {
   const quitBuckets = ['0m', '1m', '3m', '6m']
   const quitTotals = quitBuckets.map((b) => days.reduce((s, d) => s + MODES.reduce((t, m) => t + d.byMode[m.key].quits[b], 0), 0))
   const quits = { labels: ['Under 1 min', '1–3 min', '3–6 min', '6+ min'], datasets: [{ data: quitTotals, backgroundColor: ['#ff5468', '#ff8a4c', '#ffc83d', '#4fb3ff'], borderColor: '#0d1325', borderWidth: 3, hoverOffset: 10 }] }
+  // From opening the game to finishing a match, over the range
+  const sum = (f) => days.reduce((t, d) => t + (f(d) || 0), 0)
+  const funnel = { labels: ['Opened the game', 'Reached the menu', 'Started a match', 'Finished a match'], datasets: [{ data: [sum((d) => d.opens), sum((d) => d.menus), sum((d) => d.started), sum((d) => d.finished)], backgroundColor: ['#4fb3ff', '#a78bfa', '#ffc83d', '#34d27b'], borderRadius: 8, barThickness: 26 }] }
+  // Finding a Lagos player online
+  const find = sumOver(days, (d) => d.find)
+  const errs = sumOver(days, (d) => d.errors)
+  const online = {
+    labels: ['Found a player', 'No one available', 'Too many tries', 'Gave up looking', 'Other errors'],
+    datasets: [{ data: [find.found || 0, errs.quick_not_available || 0, errs.quick_rate_limited || 0, find.cancelled || 0, Object.entries(errs).filter(([k]) => !ERROR_NAMES[k]).reduce((t, [, v]) => t + v, 0)], backgroundColor: ['#34d27b', '#ff5468', '#ff8a4c', '#a8b2cc', '#a78bfa'], borderColor: '#0d1325', borderWidth: 3, hoverOffset: 10 }],
+  }
+  const hasOnline = (find.tries || 0) > 0
+  // The shop
+  const shop = days.reduce((t, d) => ({ open: t.open + d.shop.open, tries: t.tries + d.shop.tries, bought: t.bought + d.shop.bought, pending: t.pending + d.shop.pending }), { open: 0, tries: 0, bought: 0, pending: 0 })
+  const items = Object.entries(sumOver(days, (d) => d.shop.items)).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  // Features
+  const feats = sumOver(days, (d) => d.feature)
+  const featKeys = Object.keys(FEATURE_NAMES).filter((k) => feats[k])
+  const featChart = { labels: featKeys.map((k) => FEATURE_NAMES[k]), datasets: [{ data: featKeys.map((k) => feats[k]), backgroundColor: ['#ffc83d', '#a8b2cc', '#34d27b', '#ff5468', '#4fb3ff', '#5eead4', '#a78bfa', '#ff5fa2'], borderRadius: 8, barThickness: 18 }] }
+  const everything = allCounts(days)
+  const nameOf = (key) => {
+    const [ev, detail] = key.split(/:(.*)/s)
+    if (ev === 'feature' && FEATURE_NAMES[detail]) return FEATURE_NAMES[detail]
+    if (ev === 'error' && ERROR_NAMES[detail]) return ERROR_NAMES[detail]
+    return detail ? `${COUNT_NAMES[ev] || ev} · ${detail.replace(/_/g, ' ')}` : COUNT_NAMES[ev] || ev
+  }
+  // Day by day: players, plays (the game opened) and matches, side by side
+  const daily = {
+    labels,
+    datasets: [
+      { label: 'Players', data: days.map((d) => d.players), backgroundColor: '#ffc83d', borderRadius: 6, barPercentage: 0.9, categoryPercentage: 0.7 },
+      { label: 'Plays (game opened)', data: days.map((d) => d.opens), backgroundColor: '#4fb3ff', borderRadius: 6, barPercentage: 0.9, categoryPercentage: 0.7 },
+      { label: 'Matches', data: days.map((d) => d.started), backgroundColor: '#a78bfa', borderRadius: 6, barPercentage: 0.9, categoryPercentage: 0.7 },
+    ],
+  }
+  const dayRows = days.map((d, i) => ({ ...d, prev: days[i - 1] || null })).reverse()
   const closed = closedByStage(days)
   const hasClosed = closed.some((n) => n > 0)
   const closedChart = { labels: STAGES.map((k) => STAGE_LABELS[k]), datasets: [{ label: 'Closed', data: closed, backgroundColor: ['#ff5468', '#ff8a4c', '#ffc83d', '#34d27b', '#4fb3ff', '#a78bfa'], borderRadius: 8, barThickness: 22 }] }
@@ -211,6 +257,27 @@ function Dashboard({ days }) {
         </ul>
       )}
       <div className="sd-grid">
+        <Panel title="Day by day" sub="Players, plays and matches each day" span={3}>
+          <ChartBox type="bar" data={daily} options={{ interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }} height={260} />
+          <div className="sd-days">
+            <table>
+              <thead><tr><th>Day</th><th>Players</th><th>Plays</th><th>Matches</th><th>Finished</th><th>Plays a player</th><th>Matches a player</th></tr></thead>
+              <tbody>
+                {dayRows.map((d, i) => (
+                  <tr key={d.day}>
+                    <td>{new Date(`${d.day}T12:00:00Z`).toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' })}{i === 0 && <small> so far</small>}</td>
+                    <td>{fmt(d.players)}<Delta now={d.players} was={d.prev?.players} /></td>
+                    <td>{fmt(d.opens)}<Delta now={d.opens} was={d.prev?.opens} /></td>
+                    <td>{fmt(d.started)}<Delta now={d.started} was={d.prev?.started} /></td>
+                    <td>{finishRate(d.started, d.finished) ?? '—'}{d.started ? '%' : ''}</td>
+                    <td>{d.players ? (d.opens / d.players).toFixed(1) : '—'}</td>
+                    <td>{d.players ? (d.started / d.players).toFixed(1) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
         <Panel title="Players per day" sub={hasReturn ? 'Who came back, who’s new' : `Today is ${Math.round(part * 100)}% through, so it’s dashed`} span={2}>
           <ChartBox type="line" data={playersChart} options={lineOpts(hasReturn, hasReturn)} height={280} />
         </Panel>
@@ -232,6 +299,24 @@ function Dashboard({ days }) {
         <Panel title="When people quit" sub="Time played before leaving from the menu">
           <ChartBox type="doughnut" data={quits} options={doughnutOpts} plugins={[centre(fmt(quitTotals.reduce((a, b) => a + b, 0)), 'quit')]} height={260} />
         </Panel>
+        <Panel title="From opening to playing" sub={`Last ${days.length} days · ${fmt(sum((d) => d.players))} player-days`} span={2}>
+          <ChartBox type="bar" data={funnel} options={{ indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true }, y: { grid: { display: false } } } }} height={220} />
+        </Panel>
+        <Panel title="Online: finding a player" sub={hasOnline ? `${fmt(find.tries)} tries` : 'No one looked yet'}>
+          {hasOnline ? <ChartBox type="doughnut" data={online} options={{ cutout: '68%', plugins: { legend: { position: 'bottom' } } }} plugins={[centre(`${Math.round(((find.found || 0) / find.tries) * 100)}%`, 'found someone')]} height={240} /> : <p className="sd-empty">No online searches in this range.</p>}
+        </Panel>
+        <Panel title="Shop" sub={`Last ${days.length} days`}>
+          <div className="sd-shop">
+            <div><b>{fmt(shop.open)}</b><span>opened the shop</span></div>
+            <div><b>{fmt(shop.tries)}</b><span>tapped buy</span></div>
+            <div><b>{fmt(shop.bought)}</b><span>bought</span></div>
+            <div><b>{fmt(shop.pending)}</b><span>still paying</span></div>
+          </div>
+          {items.length ? <ol className="sd-list">{items.map(([k, n]) => <li key={k}><span>{k.replace(/^cap_/, '').replace(/_/g, ' ')}</span><b>{n}</b></li>)}</ol> : <p className="sd-empty">{shop.open ? 'No sales yet.' : 'Counting starts once the update that tracks the shop is live.'}</p>}
+        </Panel>
+        <Panel title="Features" sub="Chips, the daily challenge, the Weekend Cup" span={2}>
+          {featKeys.length ? <ChartBox type="bar" data={featChart} options={{ indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } } }} height={Math.max(160, featKeys.length * 34)} /> : <p className="sd-empty">Counting starts once the update that tracks features is live.</p>}
+        </Panel>
         <Panel title="Where matches get closed" sub={`Closed the app mid-match and never came back, last ${days.length} days`} span={3}>
           {hasClosed
             ? <ChartBox type="bar" data={closedChart} options={{ plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } }} height={220} />
@@ -240,9 +325,25 @@ function Dashboard({ days }) {
         <Panel title="Health" sub="Pitch drops, freezes and online errors" span={3}>
           <ChartBox type="bar" data={health} options={{ plugins: { legend: { position: 'bottom' } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true } } }} height={200} />
         </Panel>
+        <Panel title="Everything we count" sub={`${everything.length} kinds · last ${days.length} days`} span={3}>
+          <details className="sd-all">
+            <summary>Show every count</summary>
+            <table>
+              <thead><tr><th>What</th><th>Today</th><th>Last {days.length} days</th></tr></thead>
+              <tbody>{everything.map((r) => <tr key={r.key}><td>{nameOf(r.key)}</td><td>{fmt(r.today)}</td><td>{fmt(r.total)}</td></tr>)}</tbody>
+            </table>
+          </details>
+        </Panel>
       </div>
     </>
   )
+}
+
+/** Change on the day before, as a small ▲/▼ percentage. */
+function Delta({ now, was }) {
+  const c = change(now, was)
+  if (c === null) return null
+  return <span className="sd-delta" data-up={c >= 0 ? 'true' : 'false'}>{c >= 0 ? '▲' : '▼'}{Math.abs(c)}%</span>
 }
 
 function Panel({ title, sub, span = 1, children }) {

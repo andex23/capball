@@ -60,6 +60,7 @@ export function watchMatchCounts(store, count, kindOf, now = () => Date.now(), d
     if (live && !live.ended && s.challenge && s.phase === PHASE.CHALLENGE_DONE) {
       live.ended = true
       count('match_end', live.kind)
+      count('feature', s.challenge.won ? 'daily_won' : 'daily_lost')
     }
     if (s.screen === SCREEN.MATCH_END && prev.screen !== SCREEN.MATCH_END && live && !live.ended) {
       live.ended = true

@@ -506,7 +506,8 @@ export const useMatchStore = create((set, get) => ({
     set({ chipArmed: capId })
     return true
   },
-  useChip: (team) => set({ chipsLeft: { ...get().chipsLeft, [team]: Math.max(0, (get().chipsLeft?.[team] ?? CHIPS_PER_HALF) - 1) } }),
+  // (counted: how often chips get used)
+  useChip: (team) => { globalThis.__counterballCount?.('feature', get().gameMode === 'ai' && team === get().aiTeam ? 'chip_cpu' : 'chip'); set({ chipsLeft: { ...get().chipsLeft, [team]: Math.max(0, (get().chipsLeft?.[team] ?? CHIPS_PER_HALF) - 1) } }) },
 
   /** A flick has been applied to the physics world — watch it play out. */
   commitFlick: (capId, fromOwnHalf = false) => set({

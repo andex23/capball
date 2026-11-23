@@ -386,13 +386,16 @@ export const useLagosStore = create((set, get) => ({
   async buy(productId, name) {
     if (!sdk?.purchase || get().buying || !isProduct(productId)) return
     set({ buying: productId, shopNote: null })
+    get().count('shop', `try_${productId}`.slice(0, 40))
     try {
       const p = await sdk.purchase(productId)
       if (!p?.purchaseId) {
+        get().count('shop', `pending_${productId}`.slice(0, 40))
         set({ justBought: { productId, state: 'pending', at: Date.now() } })
         return
       }
       const got = await get().claim(p.purchaseId, productId, { announce: true })
+      if (got) get().count('shop', `buy_${productId}`.slice(0, 40))
       if (got) set({ shopNote: { tone: 'good', text: `${name} is yours. Tap it to put it on your caps.` } })
     } catch (e) {
       if (e?.code === 'owned') get().loadOwned()
