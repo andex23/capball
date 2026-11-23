@@ -34,3 +34,12 @@ describe('HQ stats', () => {
     expect(notes.join(' ')).toMatch(/dropped 1 time/)
   })
 })
+
+describe('closed by stage', async () => {
+  const { dayView, closedByStage } = await import('../admin/statsView')
+  it('counts matches that went off screen and never came back, by stage', () => {
+    const d = dayView({ day: '2026-11-24', counts: { 'match_hidden:computer_loading': 3, 'match_hidden:career_first_turn': 2, 'match_back:career_first_turn': 1, 'match_hidden:tournament_computer_1m': 1, 'pitch_stall:turned': 2 } })
+    expect(closedByStage([d])).toEqual([3, 1, 0, 1, 0, 0])
+    expect(d.pitch.stall).toBe(2)
+  })
+})

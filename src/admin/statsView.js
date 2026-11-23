@@ -17,10 +17,21 @@ export const MODES = [
 const modeOf = (detail) => MODES.find((m) => (m.match ? m.match(detail) : m.key === detail))?.key || null
 
 /** One day, summed by mode: { day, players, opens, started, finished, quits, byMode, pitch, errors, board }. */
+/** How far a match had got when the app went off screen (see src/lagos/matchCounts.js). */
+export const STAGES = ['loading', 'first_turn', '0m', '1m', '3m', '6m']
+export const STAGE_LABELS = { loading: 'Still loading', first_turn: 'Before the first flick', '0m': 'First minute', '1m': '1–3 min', '3m': '3–6 min', '6m': '6+ min' }
+
+/** Matches closed (went off screen and never came back) by stage, over some days. */
+export function closedByStage(days) {
+  return STAGES.map((k) => days.reduce((sum, d) => sum + Math.max(0, (d.away?.[k]?.hidden || 0) - (d.away?.[k]?.back || 0)), 0))
+}
+
 export function dayView(d) {
   const counts = d?.counts || {}
   const byMode = Object.fromEntries(MODES.map((m) => [m.key, { started: 0, finished: 0, quits: { '0m': 0, '1m': 0, '3m': 0, '6m': 0 } }]))
-  const pitch = { lost: 0, shown: 0, hidden: 0, back: 0, dead: 0 }
+  const pitch = { lost: 0, shown: 0, hidden: 0, back: 0, dead: 0, stall: 0 }
+  // A live match going off screen, and coming back, by how far it had got
+  const away = Object.fromEntries(STAGES.map((k) => [k, { hidden: 0, back: 0 }]))
   const errors = {}
   let board = 0
   for (const [key, n] of Object.entries(counts)) {
@@ -41,6 +52,11 @@ export function dayView(d) {
       if (detail === 'hidden') pitch.hidden += n
     } else if (ev === 'pitch_back') pitch.back += n
     else if (ev === 'pitch_dead') pitch.dead += n
+    else if (ev === 'pitch_stall') pitch.stall += n
+    else if (ev === 'match_hidden' || ev === 'match_back') {
+      const stage = STAGES.find((k) => detail.endsWith(`_${k}`))
+      if (stage) away[stage][ev === 'match_hidden' ? 'hidden' : 'back'] += n
+    }
     else if (ev === 'error') errors[detail || 'other'] = (errors[detail || 'other'] || 0) + n
     else if (ev === 'board') board += n
   }
@@ -53,7 +69,7 @@ export function dayView(d) {
     // (from the server once it counts them; null before)
     returning: Number.isFinite(d?.returning) ? d.returning : null,
     newPlayers: Number.isFinite(d?.newPlayers) ? d.newPlayers : null,
-    started, finished, byMode, pitch, errors, board,
+    started, finished, byMode, pitch, errors, board, away,
   }
 }
 

@@ -9,7 +9,7 @@ import {
   Chart, ArcElement, LineElement, BarElement, PointElement, LineController, BarController, DoughnutController,
   PieController, CategoryScale, LinearScale, Filler, Tooltip, Legend,
 } from 'chart.js'
-import { timeline, MODES, change, finishRate, headlines, dayProgress, rangeByMode } from './statsView'
+import { timeline, MODES, change, finishRate, headlines, dayProgress, rangeByMode, closedByStage, STAGES, STAGE_LABELS } from './statsView'
 
 Chart.register(ArcElement, LineElement, BarElement, PointElement, LineController, BarController, DoughnutController,
   PieController, CategoryScale, LinearScale, Filler, Tooltip, Legend)
@@ -189,11 +189,15 @@ function Dashboard({ days }) {
   const quitBuckets = ['0m', '1m', '3m', '6m']
   const quitTotals = quitBuckets.map((b) => days.reduce((s, d) => s + MODES.reduce((t, m) => t + d.byMode[m.key].quits[b], 0), 0))
   const quits = { labels: ['Under 1 min', '1–3 min', '3–6 min', '6+ min'], datasets: [{ data: quitTotals, backgroundColor: ['#ff5468', '#ff8a4c', '#ffc83d', '#4fb3ff'], borderColor: '#0d1325', borderWidth: 3, hoverOffset: 10 }] }
+  const closed = closedByStage(days)
+  const hasClosed = closed.some((n) => n > 0)
+  const closedChart = { labels: STAGES.map((k) => STAGE_LABELS[k]), datasets: [{ label: 'Closed', data: closed, backgroundColor: ['#ff5468', '#ff8a4c', '#ffc83d', '#34d27b', '#4fb3ff', '#a78bfa'], borderRadius: 8, barThickness: 22 }] }
   const health = {
     labels,
     datasets: [
       { label: 'Pitch drop, seen', data: days.map((d) => d.pitch.shown), backgroundColor: '#ff5468', borderRadius: 4, stack: 'h' },
       { label: 'Pitch drop, background', data: days.map((d) => d.pitch.lost - d.pitch.shown), backgroundColor: 'rgba(255,84,104,0.4)', borderRadius: 4, stack: 'h' },
+      { label: 'Pitch froze', data: days.map((d) => d.pitch.stall), backgroundColor: '#ff8a4c', borderRadius: 4, stack: 'h' },
       { label: 'Online errors', data: days.map((d) => Object.values(d.errors).reduce((s, v) => s + v, 0)), backgroundColor: '#4fb3ff', borderRadius: 4, stack: 'h' },
     ],
   }
@@ -228,7 +232,12 @@ function Dashboard({ days }) {
         <Panel title="When people quit" sub="Time played before leaving from the menu">
           <ChartBox type="doughnut" data={quits} options={doughnutOpts} plugins={[centre(fmt(quitTotals.reduce((a, b) => a + b, 0)), 'quit')]} height={260} />
         </Panel>
-        <Panel title="Health" sub="Pitch drops and online errors" span={3}>
+        <Panel title="Where matches get closed" sub={`Closed the app mid-match and never came back, last ${days.length} days`} span={3}>
+          {hasClosed
+            ? <ChartBox type="bar" data={closedChart} options={{ plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } }} height={220} />
+            : <p className="sd-empty">Counting starts once the update that tracks this is live.</p>}
+        </Panel>
+        <Panel title="Health" sub="Pitch drops, freezes and online errors" span={3}>
           <ChartBox type="bar" data={health} options={{ plugins: { legend: { position: 'bottom' } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true } } }} height={200} />
         </Panel>
       </div>
