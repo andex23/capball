@@ -84,3 +84,6 @@
 /* First place: a crown with the 1 in it, in place of the number */
 .lb-crown { display: inline-block; flex: none; vertical-align: middle; filter: drop-shadow(0 0 5px rgba(255, 210, 63, 0.7)); }
 .tk-run .lb-crown { margin: -4px 2px 0 0; }
+/* Progress from another phone is ready to load */
+.cloud-notice { position: fixed; z-index: 60; left: 50%; top: calc(var(--safe-top) + 10px); transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; max-width: calc(100vw - 24px); color: #fff; background: #0b1236; border: 3px solid var(--accent); box-shadow: 3px 3px 0 #000; font-weight: 600; }
+.cloud-notice .btn { min-height: 36px; padding: 0 14px; white-space: nowrap; }

@@ -16,9 +16,9 @@ export async function lagosRequest(sdk, body, signal) {
   return data
 }
 
-export async function readCloudSave(sdk, playerId) {
+export async function readCloudSave(sdk, playerId, waitMs = 8000) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 8000)
+  const timeout = setTimeout(() => controller.abort(), waitMs)
   try {
     const { data } = await lagosRequest(sdk, { action: 'loadSave', expectedPlayerId: playerId }, controller.signal)
     if (data === null) return null
@@ -36,11 +36,15 @@ export async function prepareLagosLaunch() {
     switchSaveTo(launch.player.id)
     const localAtLaunch = collectSave()
     let cloudBaseline = null
-    try {
-      const data = await readCloudSave(sdk, launch.player.id)
-      if (data) applySave(data)
-      cloudBaseline = data ? JSON.stringify(collectSave()) : ''
-    } catch { /* Keep playing locally until we can confirm which cloud save belongs here. */ }
+    // A slow connection (or a server waking up) gets a second, longer try before the game opens
+    for (const waitMs of [10_000, 15_000]) {
+      try {
+        const data = await readCloudSave(sdk, launch.player.id, waitMs)
+        if (data) applySave(data)
+        cloudBaseline = data ? JSON.stringify(collectSave()) : ''
+        break
+      } catch { /* try again, then keep playing locally until we can confirm which cloud save belongs here */ }
+    }
     return { sdk, launch, cloudBaseline, localAtLaunch }
   } catch (error) {
     return { error }

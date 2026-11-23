@@ -57,7 +57,7 @@ describe('opening Counterball inside Lagos Life', () => {
     expect(items.get(rewardsKey)).toBe(save.items[rewardsKey])
     const previous = JSON.parse(items.get('counterball:lagos:save:other'))
     expect(JSON.parse(previous.items[rewardsKey]).bank).toBe(99)
-    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledTimes(2) // a second, longer try before the game opens
     expect(location.reload).not.toHaveBeenCalled()
   })
 
