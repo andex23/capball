@@ -23,8 +23,8 @@ describe('Lagos Life usage counts', () => {
     await countEvent(saves, 'live', 't_b', 'match_start', 'computer', NOW)
     await countEvent(saves, 'live', 't_b', 'open', null, NOW - 86400000)
     const stats = await readStats(saves, 'live', 3, NOW)
-    expect(stats[0]).toEqual({ day: '2026-11-16', players: 2, counts: { open: 2, 'match_start:computer': 1 } })
-    expect(stats[1]).toEqual({ day: '2026-11-15', players: 1, counts: { open: 1 } })
+    expect(stats[0]).toMatchObject({ day: '2026-11-16', players: 2, counts: { open: 2, 'match_start:computer': 1 }, returning: 1, newPlayers: 1 })
+    expect(stats[1]).toMatchObject({ day: '2026-11-15', players: 1, counts: { open: 1 } })
     // Nothing that identifies a player is kept
     expect(JSON.stringify([...saves.rows.values()])).not.toContain('t_a')
   })
@@ -104,5 +104,25 @@ describe('goals settle ties on the board', () => {
     const board = { top: [{ name: 'Bob', score: 2009 }, { name: 'Elder', score: 2013 }, { name: 'Old', score: 3 }, { name: 'Zed', score: 2009 }], me: { rank: 2, score: 2013 } }
     const { items } = tickerItems(board)
     expect(items.map((x) => `${x.rank} ${x.name} ${x.wins}`)).toEqual(['1 Old 3', '2 Elder 2', '3 Bob 2', '3 Zed 2'])
+  })
+})
+
+describe('players coming back', () => {
+  it('counts who also played the day before, and who is new this week', async () => {
+    const rows = new Map()
+    const saves = async (action, mode, player, data = null) => {
+      const k = `${mode}|${player}`
+      if (action === 'put') { rows.set(k, JSON.parse(JSON.stringify(data))); return { ok: true } }
+      return { ok: true, data: rows.get(k) ?? null }
+    }
+    const D = 86400000
+    const t = Date.UTC(2026, 10, 20, 12)
+    for (const p of ['a', 'b', 'c']) await countEvent(saves, 'live', p, 'open', null, t - 2 * D)
+    for (const p of ['a', 'b', 'd']) await countEvent(saves, 'live', p, 'open', null, t - D)
+    for (const p of ['a', 'c', 'e']) await countEvent(saves, 'live', p, 'open', null, t)
+    const [today, yday, first] = await readStats(saves, 'live', 3, t)
+    expect(today).toMatchObject({ players: 3, returning: 1, newPlayers: 1 }) // a came back; c skipped a day; e is new
+    expect(yday).toMatchObject({ returning: 2, newPlayers: 1 }) // a, b back; d new
+    expect(first).toMatchObject({ returning: null, newPlayers: 3 })
   })
 })
