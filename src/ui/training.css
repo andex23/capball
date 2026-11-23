@@ -45,3 +45,4 @@
 .corner-cone { margin-left: auto; align-self: center; padding: 6px; background: none; border: 0; cursor: pointer; }
 .corner-cone:active svg, .corner-cone[data-wobble='true'] svg { animation: cone-wobble 0.45s ease; }
 @keyframes cone-wobble { 0% { transform: rotate(0); } 30% { transform: rotate(-22deg); } 60% { transform: rotate(14deg); } 100% { transform: rotate(0); } }
+.tg-done .challenge-actions { grid-template-columns: 1fr; }
