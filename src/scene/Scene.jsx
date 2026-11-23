@@ -1,5 +1,5 @@
 import { Component, useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useThree, useFrame, advance, _roots } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { STADIUMS } from '../data/StadiumData'
@@ -434,6 +434,50 @@ const STABLE_MS = 15000
 // A rebuilt canvas that hasn't started drawing by now never will: try again (or give up)
 const REBUILD_TIMEOUT_MS = 3500
 const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden'
+// Some phones stop drawing after the screen turns (no "lost" event, or one frame callback
+// failing every frame), which freezes the clock and the pitch. If no full frame has run for
+// this long while the match is on screen, rebuild the pitch the same way as after a loss.
+const STALL_MS = 2500
+let lastBeat = 0
+
+/* The pitch draws from our own frame loop rather than three-fiber's. Theirs runs on
+   one global requestAnimationFrame chain: if a phone ever drops a frame callback
+   (some do while the screen turns), that chain is gone for good and every pitch
+   after it stays frozen, even a rebuilt one. Ours can be restarted, and falls back
+   to a timer while the phone isn't handing out frames at all. */
+let rafId = 0
+let fallbackId = 0
+let lastRaf = 0
+function drawFrame(ms) {
+  for (const root of _roots.values()) {
+    const st = root.store.getState()
+    if (st.frameloop !== 'never' || !st.gl || !st.internal.active) continue
+    try { advance(ms / 1000, false, st) } catch (e) { console.error(e) }
+  }
+}
+function onRaf(ms) {
+  rafId = requestAnimationFrame(onRaf)
+  lastRaf = performance.now()
+  drawFrame(ms)
+}
+function startLoop() {
+  cancelAnimationFrame(rafId)
+  lastRaf = performance.now()
+  rafId = requestAnimationFrame(onRaf)
+}
+function stopLoop() { cancelAnimationFrame(rafId); clearTimeout(fallbackId); rafId = 0; fallbackId = 0 }
+/** No frames from the phone: draw on a timer until they come back. */
+function fallback() {
+  fallbackId = 0
+  if (performance.now() - lastRaf < 500) return
+  drawFrame(performance.now())
+  fallbackId = setTimeout(fallback, 33)
+}
+/** Registered last, so it only runs when every earlier frame callback got through. */
+function FrameBeat() {
+  useFrame(() => { lastBeat = performance.now() })
+  return null
+}
 
 /** Catches a canvas that couldn't be created at all (no graphics available). */
 class PitchBoundary extends Component {
@@ -510,6 +554,37 @@ export default function Scene() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [rebuild])
 
+  // A pitch that stopped drawing without telling us (often right after the screen turns)
+  useEffect(() => {
+    lastBeat = performance.now()
+    let turnedAt = 0
+    const onTurn = () => { turnedAt = performance.now() }
+    const check = () => {
+      // Drawing on the timer: keep asking the phone for frames again
+      if (fallbackId && performance.now() - lastRaf > 1000) startLoop()
+      if (hidden() || stateRef.current !== 'ok' || useMatchStore.getState().screen !== SCREEN.PLAYING) { lastBeat = performance.now(); return }
+      const canvas = current.current
+      const dead = canvas && (canvas.getContext('webgl2') || canvas.getContext('webgl'))?.isContextLost?.()
+      if (!dead && performance.now() - lastBeat < STALL_MS) return
+      // The phone stopped handing out frames: restart our loop, and draw on a timer meanwhile
+      if (!dead && performance.now() - lastRaf > STALL_MS) {
+        globalThis.__counterballCount?.('pitch_stall', 'frames')
+        startLoop()
+        if (!fallbackId) fallback()
+        lastBeat = performance.now()
+        return
+      }
+      globalThis.__counterballCount?.('pitch_stall', performance.now() - turnedAt < 10000 ? 'turned' : dead ? 'lost' : 'stuck')
+      lastBeat = performance.now()
+      rebuild()
+    }
+    startLoop()
+    const t = setInterval(check, 1000)
+    window.addEventListener('orientationchange', onTurn)
+    window.addEventListener('resize', onTurn)
+    return () => { clearInterval(t); stopLoop(); window.removeEventListener('orientationchange', onTurn); window.removeEventListener('resize', onTurn) }
+  }, [rebuild])
+
   // three.js throws "Error creating WebGL context" outside React when a phone refuses a new canvas:
   // treat it as a failed rebuild straight away instead of waiting for the timeout
   useEffect(() => {
@@ -531,6 +606,7 @@ export default function Scene() {
           <Canvas
             shadows={SHADOWS}
             dpr={DPR}
+            frameloop="never"
             camera={{
               position: [0, 30, 5],
               fov: 55,
@@ -549,6 +625,7 @@ export default function Scene() {
           >
             <color attach="background" args={[STADIUMS[useMatchStore.getState().stadium || 'arena'].bgColor]} />
             <GameWorld key={matchKey} />
+            <FrameBeat />
           </Canvas>
         </PitchBoundary>
       )}
