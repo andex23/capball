@@ -34,6 +34,10 @@ export function dayView(d) {
   const away = Object.fromEntries(STAGES.map((k) => [k, { hidden: 0, back: 0 }]))
   const errors = {}
   let board = 0
+  // Finding a Lagos player online, the shop, and features, as { detail: n }
+  const find = { tries: 0, found: 0, paired: 0, cancelled: 0 }
+  const shop = { open: 0, tries: 0, bought: 0, pending: 0, items: {} }
+  const feature = {}
   for (const [key, n] of Object.entries(counts)) {
     const i = key.indexOf(':')
     const ev = i < 0 ? key : key.slice(0, i)
@@ -59,6 +63,16 @@ export function dayView(d) {
     }
     else if (ev === 'error') errors[detail || 'other'] = (errors[detail || 'other'] || 0) + n
     else if (ev === 'board') board += n
+    else if (ev === 'find') find.tries += n
+    else if (ev === 'find_ok') find.found += n
+    else if (ev === 'paired') find.paired += n
+    else if (ev === 'find_cancel') find.cancelled += n
+    else if (ev === 'shop') {
+      if (detail === 'open') shop.open += n
+      else if (detail.startsWith('try_')) shop.tries += n
+      else if (detail.startsWith('pending_')) shop.pending += n
+      else if (detail.startsWith('buy_')) { shop.bought += n; const item = detail.slice(4); shop.items[item] = (shop.items[item] || 0) + n }
+    } else if (ev === 'feature') feature[detail || 'other'] = (feature[detail || 'other'] || 0) + n
   }
   // A finish can be counted for a match started the day before: never show more than 100%
   for (const m of Object.values(byMode)) m.finished = Math.min(m.finished, Math.max(m.started, m.finished))
@@ -69,7 +83,7 @@ export function dayView(d) {
     // (from the server once it counts them; null before)
     returning: Number.isFinite(d?.returning) ? d.returning : null,
     newPlayers: Number.isFinite(d?.newPlayers) ? d.newPlayers : null,
-    started, finished, byMode, pitch, errors, board, away,
+    started, finished, byMode, pitch, errors, board, away, find, shop, feature, counts,
   }
 }
 
@@ -112,6 +126,8 @@ export function headlines(days, now = new Date()) {
   for (const [k, m] of weak) out.push({ tone: 'bad', text: `${MODES.find((x) => x.key === k).label}: only ${finishRate(m.started, m.finished)}% of ${m.started} matches finished.` })
   if (today.pitch.shown) out.push({ tone: 'bad', text: `The pitch dropped ${today.pitch.shown} time${today.pitch.shown === 1 ? '' : 's'} while someone was playing.` })
   else if (today.pitch.lost === 0) out.push({ tone: 'good', text: 'No pitch drops today.' })
+  if (today.find.tries >= 3 && !today.find.found) out.push({ tone: 'bad', text: `${today.find.tries} tries to find an online player today, none found.` })
+  if (today.newPlayers) out.push({ tone: 'info', text: `${today.newPlayers} new player${today.newPlayers === 1 ? '' : 's'} today.` })
   const errs = Object.values(today.errors).reduce((s, v) => s + v, 0)
   if (errs) out.push({ tone: 'bad', text: `${errs} online match error${errs === 1 ? '' : 's'} from Lagos Life.` })
   return out
@@ -128,3 +144,30 @@ export function rangeByMode(days) {
   }
   return out
 }
+
+/** Add up a per-day object of numbers over several days. */
+export function sumOver(days, pick) {
+  const out = {}
+  for (const d of days) for (const [k, v] of Object.entries(pick(d) || {})) if (Number.isFinite(v)) out[k] = (out[k] || 0) + v
+  return out
+}
+
+/** Every count over the days, biggest first: [{ key, total, today }]. */
+export function allCounts(days) {
+  const total = sumOver(days, (d) => d.counts)
+  const today = days.at(-1)?.counts || {}
+  return Object.entries(total).map(([key, n]) => ({ key, total: n, today: today[key] || 0 })).sort((a, b) => b.total - a.total)
+}
+
+/** Friendly names for what's counted (anything else shows as it's stored). */
+export const COUNT_NAMES = {
+  open: 'Opened the game', menu: 'Reached the menu', board: 'Leaderboard loaded', find: 'Looked for an online player', find_ok: 'Found an online player',
+  paired: 'Online match paired', find_cancel: 'Stopped looking for a player', match_start: 'Match started', match_end: 'Match finished', match_quit: 'Match left from the menu',
+  match_hidden: 'Match went off screen', match_back: 'Came back to a match', pitch_lost: 'Pitch dropped', pitch_back: 'Pitch came back', pitch_dead: 'Pitch couldn’t come back',
+  pitch_stall: 'Pitch froze (fixed itself)', error: 'Lagos Life error', shop: 'Shop', feature: 'Feature used',
+}
+export const FEATURE_NAMES = {
+  chip: 'Chip shots (players)', chip_cpu: 'Chip shots (computer)', daily_won: 'Daily challenge won', daily_lost: 'Daily challenge lost',
+  weekend_run: 'Weekend Cup runs started', weekend_round: 'Weekend Cup rounds played', weekend_match: 'Weekend Cup matches finished', weekend_five: 'Weekend Cup: all five won',
+}
+export const ERROR_NAMES = { quick_not_available: 'Online: no one available', quick_rate_limited: 'Online: too many tries' }

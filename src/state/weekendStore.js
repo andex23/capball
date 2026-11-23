@@ -86,6 +86,7 @@ export const useWeekendStore = create((set, get) => ({
     const stash = get().stash || Object.fromEntries(BORROWED.map((k) => [k, ms[k]]))
     const mine = { ...ms.teamConfig.team1 }
     set({ playing: up, stash })
+    globalThis.__counterballCount?.('feature', up.round === 0 ? 'weekend_run' : 'weekend_round')
     useMatchStore.setState({
       teamConfig: { team1: mine, team2: kitFor(club, 'team2') },
       gameMode: 'ai',
@@ -117,6 +118,7 @@ export const useWeekendStore = create((set, get) => ({
     get()._save()
     // Got through all five: ₦100k, once a run
     const id = `${get().key}:${p.run}`
+    globalThis.__counterballCount?.('feature', runComplete(runs[p.run]) ? 'weekend_five' : 'weekend_match')
     if (runComplete(runs[p.run]) && !get().paid.includes(id)) {
       set({ paid: [...get().paid, id] })
       get()._save()

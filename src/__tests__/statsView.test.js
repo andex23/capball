@@ -43,3 +43,14 @@ describe('closed by stage', async () => {
     expect(d.pitch.stall).toBe(2)
   })
 })
+
+describe('more of what we count', async () => {
+  const { dayView, allCounts } = await import('../admin/statsView')
+  it('reads online searches, the shop and features', () => {
+    const d = dayView({ day: '2026-11-24', counts: { find: 5, find_ok: 1, 'shop:open': 4, 'shop:try_cap_danfo': 2, 'shop:buy_cap_danfo': 1, 'feature:chip': 7, 'feature:daily_won': 2, open: 9 } })
+    expect(d.find).toEqual({ tries: 5, found: 1, paired: 0, cancelled: 0 })
+    expect(d.shop).toEqual({ open: 4, tries: 2, bought: 1, pending: 0, items: { cap_danfo: 1 } })
+    expect(d.feature).toEqual({ chip: 7, daily_won: 2 })
+    expect(allCounts([d])[0]).toEqual({ key: 'open', total: 9, today: 9 })
+  })
+})
