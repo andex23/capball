@@ -88,10 +88,10 @@ function summary(format, legs, teams, online) {
 }
 
 /** Edit a team: optional name, kit, and squad (numbers, name on caps). */
-export function KitEditor({ team, onUpdate, onClose, withName = false, squadNames = null, onSave = null, saving = false, error = null }) {
+export function KitEditor({ team, onUpdate, onClose, withName = false, squadNames = null, onSave = null, saving = false, error = null, title = 'Edit team', designs = true }) {
   return (
     <Modal
-      title="Edit team"
+      title={title}
       onClose={onClose}
       footer={<button className="btn btn-gold btn-block" disabled={saving} onClick={() => { playConfirm(); if (onSave) onSave(); else onClose() }}>{saving ? 'Saving…' : onSave ? 'Save team' : 'Done'} <Icon name="check" size={18} /></button>}
     >
@@ -103,10 +103,12 @@ export function KitEditor({ team, onUpdate, onClose, withName = false, squadName
           <input id="kit-team-name" className="field" value={team.name || ''} maxLength={TEAM_NAME_MAX} onChange={(e) => onUpdate({ name: e.target.value })} onBlur={(e) => onUpdate({ name: e.target.value.trim() || 'My Club' })} />
         </div>
       )}
-      <div>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>Ready-made designs</div>
-        <CapDesigns config={team} onPick={onUpdate} />
-      </div>
+      {designs && (
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Ready-made designs</div>
+          <CapDesigns config={team} onPick={onUpdate} />
+        </div>
+      )}
       <ColorPicker label="Top colour" value={team.primary} onPick={(c) => onUpdate({ primary: c || team.primary })} />
       <ColorPicker label="Pattern & ring colour" value={team.edge} onPick={(c) => onUpdate({ edge: c || team.edge })} />
       <ColorPicker label="Text & badge colour" value={team.textColor || ''} allowDefault onPick={(c) => onUpdate({ textColor: c })} />

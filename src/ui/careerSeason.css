@@ -150,3 +150,37 @@
 .ccl-group li[data-mine='true'] { background: rgba(255, 210, 63, 0.16); font-weight: 800; }
 .sr-news li > div { display: flex; flex-direction: column; gap: 2px; }
 .sr-news li > div > span { font-size: 13px; color: #d6dcf5; }
+
+/* ── Starting a career: three short steps ── */
+.csu-progress { display: flex; gap: 6px; padding: 0 var(--gutter-r) 10px var(--gutter-l); max-width: 760px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.csu-progress i { flex: 1; height: 6px; background: rgba(255, 255, 255, 0.18); }
+.csu-progress i[data-on='true'] { background: var(--accent); }
+.csu { display: flex; flex-direction: column; gap: 12px; }
+.csu-modes { display: flex; flex-direction: column; gap: 10px; }
+.csu-mode { display: flex; align-items: center; gap: 14px; padding: 14px; text-align: left; color: #fff; background: #1435b8; border: 3px solid rgba(255, 255, 255, 0.35); box-shadow: 3px 3px 0 #000; cursor: pointer; }
+.csu-mode[aria-checked='true'] { border-color: var(--accent); background: #1c3fd0; }
+.csu-mode-ic { display: grid; place-items: center; width: 44px; height: 44px; flex: none; color: var(--accent); background: rgba(0, 0, 0, 0.25); }
+.csu-mode b { display: block; font: 700 14px var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; }
+.csu-mode small { display: block; margin-top: 4px; font-size: 13px; line-height: 1.35; color: #dbe1ff; }
+.csu-ladder { padding: 12px 14px; font-size: 13px; color: #cfd6ff; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.2); }
+.csu-ladder b { color: #fff; }
+.csu-ladder ol { margin: 6px 0; padding-left: 20px; line-height: 1.6; }
+.csu-ladder li[data-start='true'] { color: var(--accent); font-weight: 700; }
+.csu-ladder p { margin: 0; }
+.csu-cap { display: flex; justify-content: center; padding: 4px 0; }
+.csu-name { font-size: 18px; font-weight: 700; }
+.csu-quick { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cap-design-own .cap-design-art { position: relative; }
+.cap-design-edit { position: absolute; top: -4px; right: -8px; display: grid; place-items: center; width: 20px; height: 20px; font-size: 12px; color: #000; background: var(--accent); border: 2px solid #000; }
+.csu-more { margin-top: 2px; }
+.csu-summary { display: flex; align-items: center; gap: 14px; padding: 14px; color: #fff; background: #1435b8; border: 3px solid #fff; box-shadow: 3px 3px 0 #000; }
+.csu-summary b { display: block; font-size: 28px; line-height: 1; text-transform: uppercase; }
+.csu-summary small { display: block; margin-top: 4px; font-size: 13px; color: #dbe1ff; }
+.csu-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.csu-facts > .csu-fact { grid-column: auto; display: block; text-align: left; padding: 10px 12px; background: #0b1236; border: 2px solid rgba(255, 255, 255, 0.2); }
+.csu-facts small { display: block; font-size: 12px; color: #aab3d6; }
+.csu-facts b { display: block; margin-top: 3px; font-size: 15px; color: #fff; }
+.csu-foot { display: flex; gap: 10px; }
+.csu-foot .btn-gold { flex: 1; }
+.csu-tabs { margin-bottom: 4px; }
+.csu-colours { display: flex; flex-direction: column; gap: 12px; }

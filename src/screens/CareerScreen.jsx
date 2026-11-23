@@ -4,23 +4,26 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useMatchStore, SCREEN, MATCH_DURATIONS } from '../state/MatchStore'
 import { useCareerStore } from '../state/careerStore'
 import { useTournamentStore } from '../state/tournamentStore'
-import { cclPending, DIVISIONS, TOP, PROMOTED, RELEGATED, ME, opponentOvr, careerNext, careerDate, cupDate, leagueDate, formatGameDate, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
+import { cclPending, DIVISIONS, TOP, PROMOTED, RELEGATED, ME, LEGS, opponentOvr, careerNext, careerDate, cupDate, leagueDate, formatGameDate, seasonOver, myPosition, outcomeFor, cupNext, cupRun, cupPending, CUP_NAME, CUP_PRIZE, TARGETS, TARGET_BONUS, targetMet } from '../game/career'
 import { teamById, allFixtures, standings, roundName } from '../game/tournament'
 import { formatClock } from '../game/rules'
-import { TEAM_NAME_MAX } from '../data/TeamOptions'
+import { TEAM_NAME_MAX, RARE_DESIGNS, designPatch, isDesign } from '../data/TeamOptions'
 import { playButtonSelect, playConfirm, playHoverTick } from '../audio/SoundManager'
 import { Table } from './TournamentHubScreen'
 import { KitEditor } from './TournamentSetupScreen'
 import { TeamTag } from '../ui/TournamentBits'
 import CapPreview from '../ui/CapPreview'
-import CapDesigns from '../ui/CapDesigns'
+import CapDesigns, { PLAIN } from '../ui/CapDesigns'
+import ColorPicker from '../ui/ColorPicker'
+import { useCapDesigns } from '../game/capOverrides'
+import { SHOP_DESIGNS } from '../data/shop'
 import Modal from '../ui/Modal'
 import Icon from '../ui/Icon'
 import AccountPanel from '../ui/AccountPanel'
 import { useAccountStore } from '../state/accountStore'
 import { isLagos } from '../platform'
 import SquadPanel, { PlayerRatings } from '../ui/SquadPanel'
-import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money } from '../game/squad'
+import { seasonBonus, startingSquad, squadSurnames, squadRatings, averageRating, matchupOf, money, START_COINS } from '../game/squad'
 import LeagueClubs from '../ui/LeagueClubs'
 import TransferMarket from '../ui/TransferMarket'
 import MatchReport from '../ui/MatchReport'
@@ -52,19 +55,6 @@ const MODE_INFO = {
   solo: { label: 'Solo', icon: 'play', line: 'Your own manager career. Every match is you against the computer.' },
   online: { label: 'Online', icon: 'globe', line: 'A friend plays every opponent from their own phone, anywhere. You host each match and send them the code.' },
   lan: { label: 'LAN', icon: 'wifi', line: 'A friend on the same Wi-Fi plays every opponent. You host each match; they join over LAN.' },
-}
-
-function ModePicker({ mode, onPick }) {
-  return (
-    <>
-      <div className="segmented stretch" role="group" aria-label="Career type">
-        {Object.entries(MODE_INFO).map(([k, m]) => (
-          <button key={k} aria-pressed={mode === k} onClick={() => { playButtonSelect(); onPick(k) }}><Icon name={m.icon} size={14} /> {m.label}</button>
-        ))}
-      </div>
-      <p className="muted t-note">{MODE_INFO[mode].line}</p>
-    </>
-  )
 }
 
 /** Clubs bidding for your players while a window is open. */
@@ -145,46 +135,158 @@ function startingKit(teamConfig) {
   }
 }
 
-function StartCareer() {
+const STEP_TITLES = ['Start your career', 'Your club', 'Ready?']
+/** The look of a cap (not its name or numbers). */
+const LOOK = ['primary', 'edge', 'pattern', 'badge', 'finish', 'capText', 'textColor', 'skirtColor', 'art']
+const pickLook = (c) => Object.fromEntries(LOOK.map((k) => [k, c[k] ?? '']))
+const DESIGN_TABS = [['free', 'Free'], ['earn', 'Earn'], ['lagos', 'Lagos'], ['colours', 'Colours']]
+const QUICK_PICKS = 7 // after "Your own"
+
+/** "All designs & colours": the cap picker split into tabs, so nothing is one long scroll. */
+function KitSheet({ club, onPick, onCustom, onClose }) {
+  const tabs = DESIGN_TABS.filter(([k]) => k !== 'lagos' || isLagos())
+  const [tab, setTab] = useState('free')
+  return (
+    <Modal title="Kit designs" onClose={onClose} footer={<button className="btn btn-gold btn-block" onClick={() => { playConfirm(); onClose() }}>Done <Icon name="check" size={18} /></button>}>
+      <div className="segmented stretch csu-tabs" role="tablist" aria-label="Kit designs">
+        {tabs.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => { playButtonSelect(); setTab(k) }}>{label}</button>)}
+      </div>
+      <div className="t-kit-preview"><CapPreview config={club} size={96} number={club.numbers?.atk1 ?? 10} /></div>
+      {tab === 'colours' ? (
+        <div className="csu-colours">
+          <ColorPicker label="Top colour" value={club.primary} onPick={(c) => onPick({ primary: c || club.primary })} />
+          <ColorPicker label="Pattern & ring colour" value={club.edge} onPick={(c) => onPick({ edge: c || club.edge })} />
+          <button className="btn btn-secondary btn-block" onClick={() => { playButtonSelect(); onCustom() }}><Icon name="settings" size={18} /> More: pattern, badge, text, numbers</button>
+        </div>
+      ) : <CapDesigns config={club} onPick={onPick} section={tab} onCustom={tab === 'free' ? onCustom : null} />}
+    </Modal>
+  )
+}
+
+/** Starting a career, in three short steps: how you'll play, your club, then go. */
+function CareerSetup({ onMenu }) {
   const teamConfig = useMatchStore((s) => s.teamConfig)
   const [club, setClub] = useState(() => startingKit(teamConfig))
   const [squad] = useState(() => startingSquad(Date.now()))
   const [duration, setDuration] = useState(120)
-  const [kitOpen, setKitOpen] = useState(false)
   const [mode, setMode] = useState('solo')
+  const [step, setStep] = useState(0)
+  const [sheet, setSheet] = useState(false)
+  const [maker, setMaker] = useState(false)
+  const designs = useCapDesigns()
+  const bodyRef = useRef(null)
+  useLayoutEffect(() => { for (let el = bodyRef.current; el; el = el.parentElement) el.scrollTop = 0 }, [step])
+  const name = club.name.trim() || 'My Club'
+  const caps = { ...club, players: squadSurnames(squad) }
+  // The last cap you made yourself, so "Your own" still shows it after trying a ready-made design
+  const [own, setOwn] = useState(null)
+  const pick = (patch) => setClub((c) => {
+    if (![...designs, ...RARE_DESIGNS, ...SHOP_DESIGNS].some((d) => isDesign(c, d))) setOwn(c)
+    return { ...c, ...patch }
+  })
+  const openMaker = () => {
+    setSheet(false)
+    // Back to the cap you made, if you'd tried a ready-made one since
+    if (own && [...designs, ...RARE_DESIGNS, ...SHOP_DESIGNS].some((d) => isDesign(club, d))) setClub((c) => ({ ...c, ...pickLook(own) }))
+    setMaker(true)
+  }
   const start = () => {
     playConfirm()
-    useCareerStore.getState().start({ ...club, name: club.name.trim() || 'My Club' }, duration, squad, mode)
+    useCareerStore.getState().start({ ...club, name }, duration, squad, mode)
   }
+  const next = () => { playConfirm(); setStep((n) => n + 1) }
+  const prev = () => { playButtonSelect(); if (step === 0) onMenu(); else setStep((n) => n - 1) }
+  // The quick picks: "Your own", the first drink caps, and whatever's on now if it's from further in
+  const quick = designs.slice(0, QUICK_PICKS)
+  const onNow = [...designs, ...RARE_DESIGNS, ...SHOP_DESIGNS].find((d) => isDesign(club, d))
+  if (onNow && !quick.includes(onNow)) quick.splice(QUICK_PICKS - 1, 1, onNow)
+  // A plain cap is where your own starts, so it counts as yours
+  const isCustom = !onNow
+  const seasonMatches = DIVISIONS[0].clubs.length * LEGS
   return (
-    <div className="career-start">
-      <section className="card card-pad">
-        <h2 className="saved-h">How you’ll play</h2>
-        <ModePicker mode={mode} onPick={setMode} />
-      </section>
-      <section className="card card-pad">
-        <h2 className="saved-h">Your club</h2>
-        <p className="muted t-note">Start in the {DIVISIONS[0].name} against seven computer clubs. Finish in the top {PROMOTED} to go up a division. Finish in the bottom {RELEGATED} and you go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
-        <div className="career-club">
-          <CapPreview config={{ ...club, players: squadSurnames(squad) }} size={96} number={club.numbers?.atk1 ?? 10} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <label className="eyebrow" htmlFor="career-name" style={{ display: 'block', marginBottom: 6 }}>Club name</label>
-            <input id="career-name" className="field" value={club.name} maxLength={TEAM_NAME_MAX} onChange={(e) => setClub({ ...club, name: e.target.value })} />
+    <div className="screen">
+      <div className="shell">
+        <header className="shell-head">
+          <div>
+            <div className="eyebrow shell-eyebrow">Career mode · step {step + 1} of 3</div>
+            <h1 className="display shell-title">{STEP_TITLES[step]}</h1>
           </div>
-        </div>
-        <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Kit</div>
-        <p className="muted t-note">Pick a design, or open Edit team for colours, pattern, badge, text and squad numbers. Your club keeps this kit all season — you can change it again before the next season kicks off.</p>
-        <button className="btn btn-secondary btn-block" style={{ margin: '8px 0 10px' }} onClick={() => { playButtonSelect(); setKitOpen(true) }}><Icon name="settings" size={18} /> Edit team</button>
-        <CapDesigns config={club} onPick={(patch) => setClub({ ...club, ...patch })} />
-        <div className="eyebrow" style={{ margin: '14px 0 8px' }}>Time per half</div>
-        <div className="segmented stretch" role="group" aria-label="Time per half">
-          {MATCH_DURATIONS.map((d) => (
-            <button key={d} aria-pressed={duration === d} onClick={() => { playButtonSelect(); setDuration(d) }}>{formatClock(d)}</button>
-          ))}
-        </div>
-      </section>
-      <button className="btn btn-gold btn-lg btn-block" onClick={start} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Start career</button>
-      {kitOpen && <KitEditor team={club} withName squadNames={squadSurnames(squad)} onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setKitOpen(false)} />}
+          {step === 0 && <IntroButton mode="career" />}
+        </header>
+        <div className="csu-progress" aria-hidden>{STEP_TITLES.map((t, i) => <i key={t} data-on={i <= step ? 'true' : undefined} />)}</div>
+        <main className="shell-body career-start csu" ref={bodyRef}>
+          {step === 0 && (
+            <>
+              <div className="eyebrow">How will you play?</div>
+              <div className="csu-modes" role="radiogroup" aria-label="Career type">
+                {Object.entries(MODE_INFO).map(([k, m]) => (
+                  <button key={k} role="radio" aria-checked={mode === k} className="csu-mode" onClick={() => { playButtonSelect(); setMode(k) }}>
+                    <span className="csu-mode-ic"><Icon name={m.icon} size={24} /></span>
+                    <span><b>{m.label}</b><small>{m.line}</small></span>
+                  </button>
+                ))}
+              </div>
+              <section className="csu-ladder" aria-label="The ladder">
+                <b>The ladder</b>
+                <ol>{DIVISIONS.map((d, i) => <li key={d.name} data-start={i === 0 ? 'true' : undefined}>{d.name}{i === 0 ? ' (you start here)' : ''}</li>)}</ol>
+                <p>{DIVISIONS[0].clubs.length + 1} clubs a division. Top {PROMOTED} go up, bottom {RELEGATED} go down. Win the {DIVISIONS[TOP].name} to be champions.</p>
+              </section>
+              <HallOfFame />
+            </>
+          )}
+          {step === 1 && (
+            <>
+              <div className="csu-cap"><CapPreview config={caps} size={132} number={club.numbers?.atk1 ?? 10} /></div>
+              <label className="eyebrow" htmlFor="career-name">Club name</label>
+              <input id="career-name" className="field csu-name" value={club.name} maxLength={TEAM_NAME_MAX} onChange={(e) => pick({ name: e.target.value })} />
+              <div className="eyebrow">Kit</div>
+              <div className="cap-designs csu-quick" role="group" aria-label="Kit">
+                <button className="cap-design cap-design-own" aria-pressed={isCustom} onClick={() => { playButtonSelect(); openMaker() }}>
+                  <span className="cap-design-art"><CapPreview config={isCustom ? club : own ? { ...club, ...pickLook(own) } : { ...club, ...designPatch(PLAIN) }} size={58} /><span className="cap-design-edit" aria-hidden>✎</span></span>
+                  <span>Your own</span>
+                </button>
+                {quick.map((d) => (
+                  <button key={d.key} className="cap-design" aria-pressed={isDesign(club, d)} onClick={() => { playButtonSelect(); pick(designPatch(d)) }}>
+                    <CapPreview config={d} size={58} />
+                    <span>{d.name}</span>
+                  </button>
+                ))}
+              </div>
+              <button className="btn btn-secondary btn-block csu-more" onClick={() => { playButtonSelect(); setSheet(true) }}>All designs &amp; colours <Icon name="next" size={16} /></button>
+              <p className="muted t-note">Your club keeps this kit all season. You can change it again before the next season.</p>
+            </>
+          )}
+          {step === 2 && (
+            <>
+              <section className="csu-summary">
+                <CapPreview config={caps} size={72} number={club.numbers?.atk1 ?? 10} />
+                <div><b className="display">{name}</b><small>{MODE_INFO[mode].label} · {DIVISIONS[0].name} · Season 1</small></div>
+              </section>
+              <div className="eyebrow">Time per half</div>
+              <div className="segmented stretch" role="group" aria-label="Time per half">
+                {MATCH_DURATIONS.map((d) => (
+                  <button key={d} aria-pressed={duration === d} onClick={() => { playButtonSelect(); setDuration(d) }}>{formatClock(d)}</button>
+                ))}
+              </div>
+              <div className="csu-facts">
+                <div className="csu-fact"><small>Season</small><b>{seasonMatches} league matches</b></div>
+                <div className="csu-fact"><small>Your goal</small><b>Top {PROMOTED} to go up</b></div>
+                <div className="csu-fact"><small>Budget</small><b>{money(START_COINS)}</b></div>
+                <div className="csu-fact"><small>Your squad</small><b>{averageRating(squadRatings(squad))} OVR</b></div>
+              </div>
+              <p className="muted t-note">There’s a cup too. You can change the time per half before any match.</p>
+            </>
+          )}
+        </main>
+        <footer className="shell-foot"><div className="shell-foot-inner csu-foot">
+          <button className="btn btn-secondary" onClick={prev}><Icon name="back" size={18} /> {step === 0 ? 'Menu' : 'Back'}</button>
+          {step < 2
+            ? <button className="btn btn-gold btn-lg" onClick={next}>Next <Icon name="next" size={18} /></button>
+            : <button className="btn btn-gold btn-lg" onClick={start} onMouseEnter={playHoverTick}><Icon name="play" size={20} /> Start career</button>}
+        </div></footer>
+      </div>
+      {sheet && <KitSheet club={club} onPick={pick} onCustom={openMaker} onClose={() => setSheet(false)} />}
+      {maker && <KitEditor team={club} title="Your cap" designs={false} withName squadNames={squadSurnames(squad)} onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setMaker(false)} />}
     </div>
   )
 }
@@ -411,25 +513,7 @@ export default function CareerScreen() {
     )
   }
 
-  if (!career) {
-    return (
-      <div className="screen">
-        <div className="shell">
-          <header className="shell-head">
-            <div>
-              <div className="eyebrow shell-eyebrow">Career mode</div>
-              <h1 className="display shell-title">Start your career</h1>
-            </div>
-            <IntroButton mode="career" />
-          </header>
-          <main className="shell-body"><StartCareer /><HallOfFame /></main>
-          <footer className="shell-foot"><div className="shell-foot-inner">
-            <button className="btn btn-secondary" onClick={back}><Icon name="back" size={18} /> Menu</button>
-          </div></footer>
-        </div>
-      </div>
-    )
-  }
+  if (!career) return <CareerSetup onMenu={back} />
 
   if (career.sacked) return <Sacked career={career} onBack={back} />
 
