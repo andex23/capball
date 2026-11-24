@@ -13,6 +13,7 @@ import { isLagos } from '../platform'
 import FeedbackPanel from '../ui/FeedbackPanel'
 import { DailyReward } from '../ui/Rewards'
 import { useRewardsStore } from '../state/rewardsStore'
+import { SHOP_OPEN } from '../data/shop'
 import CloudNotice from '../lagos/CloudNotice'
 import { useWeekendStore } from '../state/weekendStore'
 import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weekendRules'
@@ -155,7 +156,9 @@ export default function MenuScreen() {
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? `Beaten today · Tomorrow: ${challengeName(nextDay(dayKey()))}` : `Today: ${challengeName(dayKey())} · Tomorrow: ${challengeName(nextDay(dayKey()))}`, tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       ...(username ? [{ key: 'reward', title: 'Daily Reward', sub: reward.ready ? `Day ${reward.day + 1} of 7 ready: ${rewardWhat(reward.reward)}` : `Collected. Tomorrow, day ${reward.day + 1}: ${rewardWhat(reward.reward)}`, tag: reward.ready ? 'GIFT' : 'DONE', done: !reward.ready, action: () => openDialog('reward') }] : []),
       ...(lagos ? [{ key: 'board', title: 'Leaderboard', sub: lagosWins ? `Your wins: ${lagosWins}${lagosRank ? ` · ranked #${lagosRank}` : ''}` : 'Most wins in Lagos Life', tag: lagosRank ? `#${lagosRank}` : 'TOP', action: () => openDialog('records') }] : []),
-      ...(lagos ? [{ key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => { globalThis.__counterballCount?.('shop', 'open'); openDialog('shop') } }] : []),
+      ...(lagos ? [SHOP_OPEN
+        ? { key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => { globalThis.__counterballCount?.('shop', 'open'); openDialog('shop') } }
+        : { key: 'shop', title: 'Shop', sub: 'Opening soon', tag: 'SOON', off: true }] : []),
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play, feedback', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],
@@ -214,7 +217,7 @@ export default function MenuScreen() {
       } else if ((e.key === 'Escape' || e.key === 'Backspace') && page !== 'main') {
         e.preventDefault(); go('main')
       } else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) {
-        e.preventDefault(); item?.action()
+        e.preventDefault(); if (!item?.off) item?.action()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -237,11 +240,11 @@ export default function MenuScreen() {
             <div className="iss-window-tab">{PAGE_TITLES[page]}</div>
             <ul className="iss-list" role="menu">
               {items.map((m, i) => (
-                <li key={m.key} role="none" className={`iss-row${m.small ? ' is-small' : ''}${cursor === i ? ' is-on' : ''}`} onPointerEnter={(e) => e.pointerType === 'mouse' && moveTo(i)}>
+                <li key={m.key} role="none" className={`iss-row${m.small ? ' is-small' : ''}${m.off ? ' is-off' : ''}${cursor === i ? ' is-on' : ''}`} onPointerEnter={(e) => e.pointerType === 'mouse' && moveTo(i)}>
                   {cursor === i && <CapCursor />}
-                  <button role="menuitem" className="iss-item" onClick={m.action} onFocus={() => setCursor(i)}>
+                  <button role="menuitem" className="iss-item" aria-disabled={m.off ? 'true' : undefined} onClick={m.off ? undefined : m.action} onFocus={() => setCursor(i)}>
                     {m.title}
-                    {m.sub && (cursor === i || m.tag === 'SAVE') && <small className="iss-sub">{m.sub}</small>}
+                    {m.sub && (cursor === i || m.tag === 'SAVE' || m.off) && <small className="iss-sub">{m.sub}</small>}
                   </button>
                   {m.picker === 'level' ? (
                     <span className="iss-level" role="group" aria-label="Computer level">
