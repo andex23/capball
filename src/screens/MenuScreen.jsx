@@ -11,7 +11,6 @@ import { useAccountStore } from '../state/accountStore'
 import InstallGuide from '../pwa/InstallGuide'
 import { isLagos } from '../platform'
 import FeedbackPanel from '../ui/FeedbackPanel'
-import { SHOP_OPEN } from '../data/shop'
 import CloudNotice from '../lagos/CloudNotice'
 import { useWeekendStore } from '../state/weekendStore'
 import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weekendRules'
@@ -149,9 +148,6 @@ export default function MenuScreen() {
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? `Beaten today · Tomorrow: ${challengeName(nextDay(dayKey()))}` : `Today: ${challengeName(dayKey())} · Tomorrow: ${challengeName(nextDay(dayKey()))}`, tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
       ...(lagos ? [{ key: 'board', title: 'Leaderboard', sub: lagosWins ? `Your wins: ${lagosWins}${lagosRank ? ` · ranked #${lagosRank}` : ''}` : 'Most wins in Lagos Life', tag: lagosRank ? `#${lagosRank}` : 'TOP', action: () => openDialog('records') }] : []),
-      ...(lagos ? [SHOP_OPEN
-        ? { key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => { globalThis.__counterballCount?.('shop', 'open'); openDialog('shop') } }
-        : { key: 'shop', title: 'Shop', sub: 'Opening soon', tag: 'SOON', off: true }] : []),
       { key: 'options', title: 'Options', sub: 'Rankings, my games, settings, how to play, feedback', tag: '►', action: () => go('options') },
       ...(!installed ? [{ key: 'install', title: 'Add to Home Screen', sub: 'Play full screen, like an app', tag: '+', action: () => { playConfirm(); if (canInstall) promptInstall(); else openDialog('install') } }] : []),
     ],

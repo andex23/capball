@@ -26,6 +26,8 @@ import { useRewardsStore } from '../state/rewardsStore'
 import { weekProgress, weekKey, dailyStatus, CUP_CAPS } from '../game/rewards'
 import { money } from '../game/squad'
 import Icon from './Icon'
+import { isLagos } from '../platform'
+import { SHOP_OPEN } from '../data/shop'
 
 const KIND_LABEL = { update: 'Game update', achievement: 'Achievement', daily: 'Daily challenge', career: 'Career', reward: 'Daily reward', goal: 'Weekly goals' }
 const KIND_TONE = { update: 'blue', achievement: 'gold', daily: 'green', career: 'purple', reward: 'gold', goal: 'green' }
@@ -113,6 +115,8 @@ function Profile({ onClose, onOpen, onSheet }) {
   const rows = [
     ['daily', 'Daily reward', st.ready ? `Day ${st.day + 1} ready!` : `Day ${st.day + 1} tomorrow`],
     ['weekly', 'Weekly goals', `${goalsDone} of 3 done`],
+    // Lagos Life: the shop lives here (greyed out until Lagos Life opens purchases)
+    ...(isLagos() ? [['shop', 'Shop', SHOP_OPEN ? 'Rare caps, exclusives and rubber bands' : 'Opening soon']] : []),
     ['records', 'Records & badges', `${badges} of ${ACHIEVEMENTS.length}`],
     ['settings', 'Sound & settings', 'Sound, camera, controls'],
     ['account', username ? 'My games & account' : 'Save my games', username ? `Saved to ${username}` : 'Free account'],
@@ -144,9 +148,15 @@ function Profile({ onClose, onOpen, onSheet }) {
           </div>
         )}
         <nav className="corner-rows">
-          {rows.map(([k, title, sub]) => (
-            <button key={k} onClick={() => { playMenuNavigate(); if (k === 'daily' || k === 'weekly') onSheet(k); else onOpen(k) }}><b>{title}</b><small>{sub}</small><Icon name="next" size={16} /></button>
-          ))}
+          {rows.map(([k, title, sub]) => {
+            const off = k === 'shop' && !SHOP_OPEN
+            return (
+              <button key={k} aria-disabled={off ? 'true' : undefined} data-off={off ? 'true' : undefined}
+                onClick={() => { if (off) return; playMenuNavigate(); if (k === 'shop') globalThis.__counterballCount?.('shop', 'open'); if (k === 'daily' || k === 'weekly') onSheet(k); else onOpen(k) }}>
+                <b>{title}</b><small>{sub}</small>{off ? <span className="corner-soon">SOON</span> : <Icon name="next" size={16} />}
+              </button>
+            )
+          })}
         </nav>
       </div>
     </section>
