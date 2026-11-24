@@ -11,8 +11,6 @@ import { useAccountStore } from '../state/accountStore'
 import InstallGuide from '../pwa/InstallGuide'
 import { isLagos } from '../platform'
 import FeedbackPanel from '../ui/FeedbackPanel'
-import { DailyReward } from '../ui/Rewards'
-import { useRewardsStore } from '../state/rewardsStore'
 import { SHOP_OPEN } from '../data/shop'
 import CloudNotice from '../lagos/CloudNotice'
 import { useWeekendStore } from '../state/weekendStore'
@@ -96,10 +94,6 @@ export default function MenuScreen() {
   const streak = liveStreak(daily)
   const [page, setPage] = useState('main')
   useEffect(() => { startMenuMusic() }, [])
-  // The daily reward, on the menu itself: what's waiting today, or what tomorrow brings
-  useRewardsStore((s) => s.daily)
-  const reward = useRewardsStore.getState().status(dayKey())
-  const rewardWhat = (r) => (r.cap ? 'a mystery cap' : r.scout ? `${money(r.coins)} and a scout report` : r.fitness && career ? 'a squad rest day' : money(r.coins))
   // Lagos Life: the Weekend Cup's place on the menu, and Monday's result in the bell
   const weekendRank = useWeekendStore((s) => s.table?.me?.rank ?? null)
   const weekendPlayers = useWeekendStore((s) => s.table?.players ?? null)
@@ -154,7 +148,6 @@ export default function MenuScreen() {
       { key: 'career', title: 'Career', sub: !username ? 'Needs an account — saved as you play' : career ? `${career.club.name} · Season ${career.season} · ${DIVISIONS[career.level].name}` : 'Take your club from the Street League to the top', tag: 'PRO', action: () => { playConfirm(); goToScreen(SCREEN.CAREER) } },
       { key: 'tournament', title: 'Tournament', sub: openT ? `Saved: ${openT.format === 'league' ? 'league' : 'cup'} · ${localDone}/${localTotal} played` : lagos ? 'Leagues and cups on this phone' : 'Leagues and cups · local, LAN or online', tag: openT ? 'SAVE' : '►', action: () => go('tournament') },
       { key: 'daily', title: 'Daily Challenge', sub: !username ? 'Needs an account — build a streak for rewards' : doneToday ? `Beaten today · Tomorrow: ${challengeName(nextDay(dayKey()))}` : `Today: ${challengeName(dayKey())} · Tomorrow: ${challengeName(nextDay(dayKey()))}`, tag: !username ? 'PRO' : doneToday ? 'DONE' : streak ? `x${streak}` : 'NEW', done: !!username && doneToday, action: () => openDialog('daily') },
-      ...(username ? [{ key: 'reward', title: 'Daily Reward', sub: reward.ready ? `Day ${reward.day + 1} of 7 ready: ${rewardWhat(reward.reward)}` : `Collected. Tomorrow, day ${reward.day + 1}: ${rewardWhat(reward.reward)}`, tag: reward.ready ? 'GIFT' : 'DONE', done: !reward.ready, action: () => openDialog('reward') }] : []),
       ...(lagos ? [{ key: 'board', title: 'Leaderboard', sub: lagosWins ? `Your wins: ${lagosWins}${lagosRank ? ` · ranked #${lagosRank}` : ''}` : 'Most wins in Lagos Life', tag: lagosRank ? `#${lagosRank}` : 'TOP', action: () => openDialog('records') }] : []),
       ...(lagos ? [SHOP_OPEN
         ? { key: 'shop', title: 'Shop', sub: 'Rare caps, exclusives and rubber bands', tag: '₦', action: () => { globalThis.__counterballCount?.('shop', 'open'); openDialog('shop') } }
@@ -289,7 +282,6 @@ export default function MenuScreen() {
           <ShopPanel />
         </Modal>
       )}
-      {dialog === 'reward' && <DailyReward onClose={() => setDialog(null)} />}
       {dialog === 'feedback' && (
         <Modal title="Feedback" onClose={() => setDialog(null)}>
           <FeedbackPanel onDone={() => setDialog(null)} />
