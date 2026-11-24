@@ -8,7 +8,7 @@ import CapPreview from './CapPreview'
 import Icon from './Icon'
 import { isLagos } from '../platform'
 import { useLagosStore } from '../lagos/lagosStore'
-import { SHOP_DESIGNS, itemFor, naira } from '../data/shop'
+import { SHOP_DESIGNS, itemFor, naira, SHOP_OPEN } from '../data/shop'
 
 // A plain cap in the team's own colours: the starting point for designing your own
 export const PLAIN = { key: 'plain', name: 'Plain', pattern: 'none', badge: 'none', finish: 'matte', capText: '' }
@@ -40,11 +40,12 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
   const signedIn = !!useAccountStore((s) => s.username)
   const [hint, setHint] = useState(null)
   // Inside Lagos Life, caps can also be bought
-  const shop = isLagos()
+  const shop = isLagos() && SHOP_OPEN
   const owned = useLagosStore((s) => s.owned)
   const buying = useLagosStore((s) => s.buying)
   const shopNote = useLagosStore((s) => s.shopNote)
-  const owns = (d) => shop && owned.includes(itemFor(d.key)?.productId)
+  // Anything already bought stays yours, shop open or not
+  const owns = (d) => isLagos() && owned.includes(itemFor(d.key)?.productId)
   const pick = (d) => { playButtonSelect(); setHint(null); useLagosStore.getState().clearShopNote?.(); onPick(designPatch(d)) }
   const hinted = hint ? itemFor(hint) : null
   const show = (s) => section === 'all' || section === s
@@ -103,7 +104,7 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
         })}
       </div>
       </>}
-      {shop && show('lagos') && (
+      {isLagos() && show('lagos') && (
         <>
           <div className="eyebrow" style={{ margin: section === 'all' ? '12px 0 8px' : '0 0 8px' }}>Lagos Life exclusives</div>
           <div className="cap-designs" role="group" aria-label="Lagos Life exclusives">
@@ -114,18 +115,18 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
                   key={d.key}
                   className="cap-design rare"
                   data-locked={open ? undefined : 'true'}
-                  data-shop="true"
+                  data-shop={shop ? 'true' : undefined}
                   aria-pressed={open && isDesign(config, d)}
                   disabled={disabled}
                   onClick={() => (open ? pick(d) : (playButtonSelect(), setHint(d.key)))}
-                  aria-label={open ? d.name : `${d.name}: ${naira(d.price)}`}
+                  aria-label={open ? d.name : shop ? `${d.name}: ${naira(d.price)}` : `${d.name}: in the shop soon`}
                 >
                   <span className="cap-design-art">
                     <CapPreview config={d} size={58} />
                     {!open && <span className="cap-design-lock"><Icon name="lock" size={16} /></span>}
                   </span>
                   <span>{d.name}</span>
-                  {!open && <small className="cap-design-need">{naira(d.price)}</small>}
+                  {!open && <small className="cap-design-need">{shop ? naira(d.price) : 'Soon'}</small>}
                 </button>
               )
             })}
@@ -142,7 +143,7 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
           </button>
           <p className="muted t-note">Looks only. Caps never play differently.</p>
         </div>
-      ) : hint && <p className="cap-design-hint" role="status">{RARE_DESIGNS.find((d) => d.key === hint)?.hint} to unlock it.</p>}
+      ) : hint && <p className="cap-design-hint" role="status">{RARE_DESIGNS.find((d) => d.key === hint) ? `${RARE_DESIGNS.find((d) => d.key === hint).hint} to unlock it.` : 'In the Lagos Life shop soon.'}</p>}
       {shop && shopNote && <p className={shopNote.tone === 'bad' ? 't-warn' : 'cap-design-hint'} role="status">{shopNote.text}</p>}
     </div>
   )

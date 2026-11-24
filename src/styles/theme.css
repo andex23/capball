@@ -2954,3 +2954,12 @@ button.other-side { cursor: pointer; }
 .local-check-art { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 0 4px; color: var(--accent); }
 .local-check-art span { display: grid; place-items: center; width: 44px; height: 44px; font: 700 12px/1 var(--font-pixel); color: #fff; background: #0b1236; border: 3px solid #fff; border-radius: 50%; box-shadow: 3px 3px 0 #000; }
 .local-check-art span:last-child { border-color: var(--accent); }
+/* One-time tip: chip shots */
+.chip-tip { position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 76px); transform: translateX(-50%); z-index: 12; max-width: calc(100% - 32px); padding: 9px 14px; font-size: 14px; color: #fff; background: rgba(11, 18, 54, 0.94); border: 2px solid var(--accent); box-shadow: 3px 3px 0 #000; text-align: center; pointer-events: none; animation: fade-in 0.2s ease; }
+.chip-tip b { color: var(--accent); }
+/* A menu row that isn't open yet (the Lagos Life shop, before purchases open) */
+.iss-row.is-off .iss-item { opacity: 0.45; cursor: default; }
+.iss-row.is-off .iss-tag { opacity: 0.6; }
+/* The profile's Shop row, before Lagos Life opens purchases */
+.corner-rows button[data-off='true'] { opacity: 0.45; cursor: default; }
+.corner-soon { font: 700 9px/1 var(--font-pixel); letter-spacing: 0.08em; padding: 4px 6px; border: 1px solid rgba(255, 255, 255, 0.4); }

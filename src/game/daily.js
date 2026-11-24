@@ -111,8 +111,9 @@ export function previousDay(key) {
  */
 export const WEEK = [
   { day: 'Sun', template: null, level: 'Hardest' },
-  { day: 'Mon', template: 0, level: 'Easy' }, // Free kick
-  { day: 'Tue', template: 2, level: 'Easy' }, // Breakaway
+  // Easy days give one flick more: early in the week should feel winnable (Monday was won 3 times in 10)
+  { day: 'Mon', template: 0, level: 'Easy', extraFlicks: 1 }, // Free kick
+  { day: 'Tue', template: 2, level: 'Easy', extraFlicks: 1 }, // Breakaway
   { day: 'Wed', template: 1, level: 'Medium' }, // Corner
   { day: 'Thu', template: 4, level: 'Medium' }, // Long range
   { day: 'Fri', template: 3, level: 'Hard' }, // Tight angle
@@ -164,7 +165,10 @@ function extraDefender(c, r) {
 export function challengeFor(key) {
   const r = seededRng(`daily:${key}`)
   const w = WEEK[weekdayOf(key)]
-  if (w.template != null) return { id: key, template: w.template, level: w.level, ...TEMPLATES[w.template](r) }
+  if (w.template != null) {
+    const c = TEMPLATES[w.template](r)
+    return { id: key, template: w.template, level: w.level, ...c, flicks: c.flicks + (w.extraFlicks || 0) }
+  }
   // Sunday Special: one of the week's set-ups, an extra defender, one flick fewer
   const n = Math.floor(r() * TEMPLATES.length) % TEMPLATES.length
   const base = TEMPLATES[n](r)

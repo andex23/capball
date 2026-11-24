@@ -119,8 +119,10 @@ function HallOfFame() {
 function playCareerFixture(career, kind, fixture) {
   playConfirm()
   const ts = useTournamentStore.getState()
-  if (career.mode === 'online') ts.playLanFixture(kind, fixture, ME, 'internet')
-  else if (career.mode === 'lan') ts.playLanFixture(kind, fixture, ME, 'lan')
+  // Inside Lagos Life there's no playing a friend yet: those careers play the computer meanwhile
+  const mode = isLagos() ? 'solo' : career.mode
+  if (mode === 'online') ts.playLanFixture(kind, fixture, ME, 'internet')
+  else if (mode === 'lan') ts.playLanFixture(kind, fixture, ME, 'lan')
   else ts.playFixture(kind, fixture)
 }
 
@@ -219,12 +221,16 @@ function CareerSetup({ onMenu }) {
             <>
               <div className="eyebrow">How will you play?</div>
               <div className="csu-modes" role="radiogroup" aria-label="Career type">
-                {Object.entries(MODE_INFO).map(([k, m]) => (
-                  <button key={k} role="radio" aria-checked={mode === k} className="csu-mode" onClick={() => { playButtonSelect(); setMode(k) }}>
-                    <span className="csu-mode-ic"><Icon name={m.icon} size={24} /></span>
-                    <span><b>{m.label}</b><small>{m.line}</small></span>
-                  </button>
-                ))}
+                {Object.entries(MODE_INFO).map(([k, m]) => {
+                  // Inside Lagos Life, careers with a friend wait until Lagos Life opens matches between players
+                  const off = isLagos() && k !== 'solo'
+                  return (
+                    <button key={k} role="radio" aria-checked={mode === k} aria-disabled={off ? 'true' : undefined} className="csu-mode" data-off={off ? 'true' : undefined} onClick={() => { if (off) return; playButtonSelect(); setMode(k) }}>
+                      <span className="csu-mode-ic"><Icon name={m.icon} size={24} /></span>
+                      <span><b>{m.label}{off ? ' · soon' : ''}</b><small>{off ? 'Playing a friend opens when Lagos Life turns on matches between players.' : m.line}</small></span>
+                    </button>
+                  )
+                })}
               </div>
               <section className="csu-ladder" aria-label="The ladder">
                 <b>The ladder</b>
@@ -623,9 +629,9 @@ export default function CareerScreen() {
                   <p className="cs-preview-line">{fixtureBrief(career, due)}</p>
                   <p className="career-match-line" data-matchup={matchupOf(myOvr, theirOvr)}>OVR {myOvr} v {theirOvr} · <b>{MATCHUP[matchupOf(myOvr, theirOvr)]}</b></p>
                   <button className="btn btn-gold btn-lg btn-block" onClick={play} onMouseEnter={playHoverTick}>
-                    <Icon name={MODE_INFO[career.mode || 'solo'].icon} size={20} /> {career.mode === 'online' ? 'Play your friend online' : career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
+                    <Icon name={MODE_INFO[isLagos() ? 'solo' : career.mode || 'solo'].icon} size={20} /> {!isLagos() && career.mode === 'online' ? 'Play your friend online' : !isLagos() && career.mode === 'lan' ? 'Play your friend over LAN' : 'Play match'}
                   </button>
-                  {(career.mode === 'online' || career.mode === 'lan') && <p className="muted t-note">Your friend plays the opposition from their phone. The result saves here.</p>}
+                  {!isLagos() && (career.mode === 'online' || career.mode === 'lan') && <p className="muted t-note">Your friend plays the opposition from their phone. The result saves here.</p>}
                 </section>
               )}
               {career.target && !done && played > 0 && (

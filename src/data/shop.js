@@ -21,6 +21,13 @@ export const SHOP_DESIGNS = [
   { key: 'naija', name: 'Oga at the Top', primary: '#008751', edge: '#FFFFFF', pattern: 'split', badge: 'crown', finish: 'chrome', capText: 'OGA', price: 500 },
 ]
 
+/**
+ * Is the shop open? Lagos Life hasn't opened in-app purchases yet: until it
+ * does, the Shop shows greyed out ("Opening soon") and nothing can be bought.
+ * Flip this to true when purchases go live.
+ */
+export const SHOP_OPEN = false
+
 export const productIdFor = (designKey) => `cap_${designKey}`
 
 /** Everything for sale: { productId, design, price, earnable }. */

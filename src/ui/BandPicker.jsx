@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CAP_ROLES, playerNames } from '../data/TeamOptions'
 import { BANDS, bandEarned } from '../data/bands'
-import { bandProductId, naira } from '../data/shop'
+import { bandProductId, naira, SHOP_OPEN } from '../data/shop'
 import { useProgress } from '../state/unlocks'
 import { isLagos } from '../platform'
 import { useLagosStore } from '../lagos/lagosStore'
@@ -17,13 +17,14 @@ export default function BandPicker({ config, onUpdate, numberOf, disabled = fals
   const [role, setRole] = useState('atk1')
   const [hint, setHint] = useState(null)
   const progress = useProgress()
-  const shop = isLagos()
+  // Bands can be bought only once Lagos Life opens purchases; bought ones stay yours either way
+  const shop = isLagos() && SHOP_OPEN
   const owned = useLagosStore((s) => s.owned)
   const buying = useLagosStore((s) => s.buying)
   const shopNote = useLagosStore((s) => s.shopNote)
   const names = playerNames(config)
   const bands = config.bands || {}
-  const open = (b) => bandEarned(b, progress) || (shop && owned.includes(bandProductId(b.key)))
+  const open = (b) => bandEarned(b, progress) || (isLagos() && owned.includes(bandProductId(b.key)))
   const list = BANDS.filter((b) => shop || !b.shopOnly)
   const choose = (key) => { playButtonSelect(); setHint(null); onUpdate({ bands: { ...bands, [role]: key || undefined } }) }
   const hinted = hint ? BANDS.find((b) => b.key === hint) : null
