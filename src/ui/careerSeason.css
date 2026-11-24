@@ -159,6 +159,7 @@
 .csu-modes { display: flex; flex-direction: column; gap: 10px; }
 .csu-mode { display: flex; align-items: center; gap: 14px; padding: 14px; text-align: left; color: #fff; background: #1435b8; border: 3px solid rgba(255, 255, 255, 0.35); box-shadow: 3px 3px 0 #000; cursor: pointer; }
 .csu-mode[aria-checked='true'] { border-color: var(--accent); background: #1c3fd0; }
+.csu-mode[data-off='true'] { opacity: 0.45; cursor: default; box-shadow: none; }
 .csu-mode-ic { display: grid; place-items: center; width: 44px; height: 44px; flex: none; color: var(--accent); background: rgba(0, 0, 0, 0.25); }
 .csu-mode b { display: block; font: 700 14px var(--font-pixel); letter-spacing: 0.06em; text-transform: uppercase; }
 .csu-mode small { display: block; margin-top: 4px; font-size: 13px; line-height: 1.35; color: #dbe1ff; }

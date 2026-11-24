@@ -16,6 +16,7 @@ import { onlineInterrupted } from '../multiplayer/reconnect'
 import { stopAllBodies } from '../physics/PhysicsWorld'
 import { playButtonSelect, playWhistle, playShotClockTick, playShotClockBuzzer } from '../audio/SoundManager'
 import Icon from './Icon'
+import ChipTip from './ChipTip'
 import { modeOfMatch } from './ModeIntro'
 import { useIntroStore } from '../state/introStore'
 import { MODE_INTROS } from '../data/modeIntros'
@@ -417,6 +418,7 @@ export default function HUD() {
       <KeeperPick />
       <ChallengeHud />
       <TrainingHud />
+      <ChipTip />
 
       {!coached && <div className="hint">
         <span className="hint-mouse">{aimHint} from a cap to aim · Drag the pitch to turn · Scroll to zoom · C camera · F full screen · P pause</span>
