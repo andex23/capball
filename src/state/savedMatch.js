@@ -3,6 +3,7 @@
  * matches. Both live in localStorage, so a signed-in player's account copies
  * them across phones along with the rest of the save (see accountStore).
  */
+import { useWalletStore } from './walletStore'
 import { getSaveStorage as store } from '../utils/playerSave'
 import { create } from 'zustand'
 import { useMatchStore, SCREEN, PHASE, INPUT_PHASES, clearMatchTimers } from './MatchStore'
@@ -88,6 +89,7 @@ export function cantSaveReason() {
   if (s.gameMode === 'online') return 'Live matches can’t be saved.'
   if (s.challenge) return 'The daily challenge can’t be saved.'
   if (s.training) return 'Training can’t be saved.'
+  if (globalThis.__counterballLeagueMatch) return 'Weekend League matches can’t be saved: one go at each.'
   if (s.penaltyShootout) return 'A shootout can’t be saved — finish it!'
   const p = useTournamentStore.getState().playing
   if (p && p.kind === 'online') return 'Online tournament matches are played live — they can’t be saved.'
@@ -279,9 +281,26 @@ export function addToCareer(prev, result, me, teamConfig = {}, now = new Date())
   return c
 }
 
+/** Every finished match pays into the wallet (not the daily challenge, training or online spectating). */
+function payWallet(m) {
+  const r = m.matchResult
+  if (!r || m.challenge || m.training) return
+  const me = myTeamFor(m) || 'team1'
+  const them = me === 'team1' ? 'team2' : 'team1'
+  const gf = r.score?.[me] ?? 0
+  const ga = r.score?.[them] ?? 0
+  const pens = r.penaltyScore
+  const won = gf > ga || (gf === ga && !!pens && pens[me] > pens[them])
+  const drawn = gf === ga && !pens
+  useWalletStore.getState().earn({ gf, ga, won, drawn, mode: m.gameMode === 'ai' ? 'ai' : myTeamFor(m) ? 'online' : 'local', level: m.aiDifficulty })
+}
+
 /** Keep the history up to date as matches finish. */
 export function initSavedMatches() {
   useMatchStore.subscribe((m, prev) => {
-    if (m.screen === SCREEN.MATCH_END && prev.screen !== SCREEN.MATCH_END) recordHistory(m.matchResult, m.gameMode)
+    if (m.screen === SCREEN.MATCH_END && prev.screen !== SCREEN.MATCH_END) {
+      recordHistory(m.matchResult, m.gameMode)
+      payWallet(m)
+    }
   })
 }

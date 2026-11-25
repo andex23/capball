@@ -1,3 +1,4 @@
+import { cleanBandFields } from '../game/bandStyle'
 import { getSaveStorage as storage } from '../utils/playerSave'
 import { matchVenue } from '../game/club'
 import { anytimeRequest } from './anytimeStore'
@@ -135,6 +136,7 @@ export function kitFor(team, side, ratings = null, players = null, attrs = null)
     capNames: team.capNames || 'player',
     players: players || team.players || {},
     numbers: { ...base.numbers, ...(team.numbers || {}) },
+    ...cleanBandFields(team),
   }
 }
 
@@ -389,7 +391,7 @@ export const useTournamentStore = create((set, get) => ({
       const kit = kitFor(uniform, own ? 'team1' : side, ratingsOf(team), playersOf(team), attrsOf(team))
       if (career) {
         kit.art = uniform.art || ''
-        kit.bands = uniform.bands || {}
+        Object.assign(kit, cleanBandFields(uniform)) // the manager's club band
         const six = team.id === 'T1' ? career.squad : sixOf(team)
         kit.traits = Object.fromEntries(Object.entries(six).filter(([, p]) => legendById(p.id)).map(([role, p]) => [role, legendById(p.id).trait]))
       }

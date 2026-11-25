@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CareerFinalWhistle } from '../ui/CareerScoreboard'
 import MatchResultSplash from '../ui/MatchResultSplash'
 import { useWeekendStore } from '../state/weekendStore'
+import { useLeagueStore } from '../state/leagueStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import GoalClips from '../ui/GoalClips'
 import { HeadToHead, ShareResult } from '../ui/ShareResult'
@@ -12,11 +13,21 @@ import { stopAllBodies } from '../physics/PhysicsWorld'
 import { disconnect } from '../multiplayer/MultiplayerManager'
 import { playConfirm, playButtonSelect, playWhistle } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
+import { useWalletStore } from '../state/walletStore'
+import { walletNaira } from '../game/wallet'
 import CapPreview from '../ui/CapPreview'
 import OnlineEndChoice from '../ui/OnlineEndChoice'
 import { displayColor } from '../ui/color'
 import { useRecordsStore } from '../state/persistence'
 import { recordLine, BEST_LABELS } from '../game/records'
+
+/** What this match paid into the wallet. */
+function WalletPay() {
+  const last = useWalletStore((s) => s.last)
+  if (!last || Date.now() - last.at > 60000) return null
+  if (!last.amount) return <div className="wallet-pay is-capped">Today’s wallet limit reached. Back tomorrow for more.</div>
+  return <div className="wallet-pay"><span>+{walletNaira(last.amount)}</span><small>to your wallet{last.amount < last.full ? ' (today’s limit)' : ''}</small></div>
+}
 
 const STAT_ROWS = [
   { key: 'goals', label: 'Goals' },
@@ -71,6 +82,7 @@ export default function MatchEndScreen() {
   const careerNow = useCareerStore((s) => s.career)
   const tournamentError = useTournamentStore((s) => s.error)
   const weekend = useWeekendStore((s) => s.playing)
+  const league = useLeagueStore((s) => s.playing)
 
   if (!matchResult) return null
   const { winner, score, team1Name, team2Name, penaltyScore, isDraw, stats } = matchResult
@@ -135,6 +147,7 @@ export default function MatchEndScreen() {
           </div>
         </div>
 
+        <WalletPay />
         <RecordNote />
         <HeadToHead />
         <ShareResult />
@@ -151,7 +164,9 @@ export default function MatchEndScreen() {
         <GoalClips />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>
-          {weekend ? (
+          {league ? (
+            <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); stopAllBodies(); useLeagueStore.getState().finish(matchResult) }}><Icon name="trophy" size={18} /> Back to the Weekend League</button>
+          ) : weekend ? (
             isDraw && !penaltyScore
               ? <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalties to go through</button>
               : <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); stopAllBodies(); useWeekendStore.getState().finish(matchResult) }}><Icon name="trophy" size={18} /> Back to the Weekend Cup</button>
@@ -195,7 +210,7 @@ export default function MatchEndScreen() {
           ) : (
             <p className="muted" style={{ textAlign: 'center' }}>Waiting for the host to start a rematch{isDraw && !penaltyScore ? ' or penalties' : ''}…</p>
           )}
-          {!tournament && !weekend && <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>}
+          {!tournament && !weekend && !league && <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>}
         </div>
       </div>
     </div>

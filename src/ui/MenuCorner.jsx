@@ -26,8 +26,8 @@ import { useRewardsStore } from '../state/rewardsStore'
 import { weekProgress, weekKey, dailyStatus, CUP_CAPS } from '../game/rewards'
 import { money } from '../game/squad'
 import Icon from './Icon'
-import { isLagos } from '../platform'
-import { SHOP_OPEN } from '../data/shop'
+import { useWalletStore } from '../state/walletStore'
+import { walletNaira } from '../game/wallet'
 
 const KIND_LABEL = { update: 'Game update', achievement: 'Achievement', daily: 'Daily challenge', career: 'Career', reward: 'Daily reward', goal: 'Weekly goals' }
 const KIND_TONE = { update: 'blue', achievement: 'gold', daily: 'green', career: 'purple', reward: 'gold', goal: 'green' }
@@ -112,11 +112,15 @@ function Profile({ onClose, onOpen, onSheet }) {
   const week = useRewardsStore((s) => s.week)
   const goalsDone = weekProgress(week, weekKey()).filter((g) => g.done).length
   const cups = useRewardsStore((s) => s.cups)
+  const wallet = useWalletStore((s) => s.balance)
+  const leagues = useRewardsStore((s) => s.leagues)
+  const titles = leagues.filter((l) => l.rank === 1).length
+  const trophies = leagues.filter((l) => l.rank <= 10).length
   const rows = [
     ['daily', 'Daily reward', st.ready ? `Day ${st.day + 1} ready!` : `Day ${st.day + 1} tomorrow`],
     ['weekly', 'Weekly goals', `${goalsDone} of 3 done`],
-    // Lagos Life: the shop lives here (greyed out until Lagos Life opens purchases)
-    ...(isLagos() ? [['shop', 'Shop', SHOP_OPEN ? 'Rare caps, exclusives and rubber bands' : 'Opening soon']] : []),
+    ['cabinet', 'Trophy cabinet', trophies ? `${titles} title${titles === 1 ? '' : 's'} · ${trophies} troph${trophies === 1 ? 'y' : 'ies'}` : 'Win yours in the Weekend League'],
+    ['shop', 'Shop', `Wallet ${walletNaira(wallet)} · caps and bands`],
     ['records', 'Records & badges', `${badges} of ${ACHIEVEMENTS.length}`],
     ['settings', 'Sound & settings', 'Sound, camera, controls'],
     ['account', username ? 'My games & account' : 'Save my games', username ? `Saved to ${username}` : 'Free account'],
@@ -149,7 +153,7 @@ function Profile({ onClose, onOpen, onSheet }) {
         )}
         <nav className="corner-rows">
           {rows.map(([k, title, sub]) => {
-            const off = k === 'shop' && !SHOP_OPEN
+            const off = false
             return (
               <button key={k} aria-disabled={off ? 'true' : undefined} data-off={off ? 'true' : undefined}
                 onClick={() => { if (off) return; playMenuNavigate(); if (k === 'shop') globalThis.__counterballCount?.('shop', 'open'); if (k === 'daily' || k === 'weekly') onSheet(k); else onOpen(k) }}>

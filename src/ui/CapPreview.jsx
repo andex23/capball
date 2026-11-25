@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { bandColor } from '../data/bands'
+import { bandStyleOf } from '../game/bandStyle'
 import { capArtUrl, hasArt } from '../game/capArt'
 import { darkenHex, lightenHex } from './color'
 import { capLabel } from '../data/TeamOptions'
@@ -162,8 +162,8 @@ export default function CapPreview({ config, size = 120, number = null, role = '
   // Printed artwork (with the number on a sticker) replaces the plain print
   // (a design from the lists is drawn with its own artwork too)
   const artUrl = capArtUrl(config.art ?? (hasArt(config.key) ? config.key : ''), number)
-  // This player's rubber band, if any, stretched round the middle of the skirt
-  const band = bandColor(config.bands?.[role])
+  // The team's Band Studio band, stretched round the middle of the skirt
+  const band = bandStyleOf(config)
   const bandY = tc + H * 0.5
   const bandRx = (R + R2) / 2 * 1.005
   const bandPath = `M ${(cx + bandRx).toFixed(2)} ${bandY.toFixed(2)} A ${bandRx.toFixed(2)} ${(bandRx * K).toFixed(2)} 0 0 1 ${(cx - bandRx).toFixed(2)} ${bandY.toFixed(2)}`
@@ -229,13 +229,7 @@ export default function CapPreview({ config, size = 120, number = null, role = '
       ))}
       {folds.filter((f) => f.shine).map((f, i) => <path key={`s${i}`} d={f.d} fill={`url(#skirtShine-${uid})`} />)}
 
-      {band && (
-        <g>
-          <path d={bandPath} fill="none" stroke="rgba(0,0,0,0.55)" strokeWidth={size * 0.062} strokeLinecap="round" />
-          <path d={bandPath} fill="none" stroke={band} strokeWidth={size * 0.044} strokeLinecap="round" />
-          <path d={bandPath} fill="none" stroke="#ffffff" strokeOpacity="0.28" strokeWidth={size * 0.012} transform={`translate(0 ${(-size * 0.01).toFixed(2)})`} />
-        </g>
-      )}
+      {band && <BandArc d={bandPath} band={band} size={size} />}
 
       {/* Rolled edge round the top */}
       <ellipse cx={cx} cy={tc} rx={R} ry={R * K} fill={darkenHex(primary, 0.3)} />
@@ -307,3 +301,22 @@ export default function CapPreview({ config, size = 120, number = null, role = '
 /* ========================================
    SECTION LABEL
    ======================================== */
+
+/** The band in 2D: the base colour, then the pattern's accent drawn along the same arc. */
+const BAND_W = { slim: 0.032, standard: 0.046, wide: 0.064 }
+function BandArc({ d, band, size }) {
+  const w = size * (BAND_W[band.width] || BAND_W.standard)
+  const line = (dy, sw, extra = {}) => <path d={d} fill="none" stroke={band.accent} strokeWidth={sw} transform={`translate(0 ${dy.toFixed(2)})`} {...extra} />
+  const shine = { matte: 0, satin: 0.18, gloss: 0.4, chrome: 0.65 }[band.finish] ?? 0.2
+  return (
+    <g>
+      <path d={d} fill="none" stroke="rgba(0,0,0,0.5)" strokeWidth={w * 1.35} />
+      <path d={d} fill="none" stroke={band.base} strokeWidth={w} />
+      {band.pattern === 'twin' && <>{line(-w * 0.28, w * 0.14)}{line(w * 0.28, w * 0.14)}</>}
+      {band.pattern === 'grid' && <>{line(0, w, { strokeDasharray: `${(w * 0.16).toFixed(2)} ${(w * 0.55).toFixed(2)}` })}{line(-w * 0.17, w * 0.08)}{line(w * 0.17, w * 0.08)}</>}
+      {band.pattern === 'chevron' && line(0, w * 0.55, { strokeDasharray: `${(w * 0.5).toFixed(2)} ${(w * 0.45).toFixed(2)}`, strokeLinecap: 'butt' })}
+      {band.pattern === 'regal' && <>{line(-w * 0.42, w * 0.12)}{line(w * 0.42, w * 0.12)}{line(0, w * 0.4, { strokeDasharray: `${(w * 0.4).toFixed(2)} ${(w * 0.9).toFixed(2)}` })}</>}
+      {shine > 0 && <path d={d} fill="none" stroke="#ffffff" strokeOpacity={shine} strokeWidth={w * 0.18} transform={`translate(0 ${(-w * 0.25).toFixed(2)})`} />}
+    </g>
+  )
+}

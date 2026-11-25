@@ -20,6 +20,7 @@ import { isProduct, productIdFor, naira } from '../data/shop'
 import { platformHooks } from '../platformHooks'
 import { sendBet } from '../multiplayer/MultiplayerManager'
 import { ownKit } from './ownership'
+import { useWalletStore } from '../state/walletStore'
 import { currentProgress } from '../state/unlocks'
 
 const SCORE_GAP_MS = 21_000 // the SDK takes one score every 20 s
@@ -377,9 +378,9 @@ export const useLagosStore = create((set, get) => ({
     } catch { /* shop not set up yet: nothing owned shows (kits are left alone) */ }
   },
 
-  /** Take off any cap or band this player hasn't bought or earned. */
+  /** Take off any cap or band extra this player hasn't bought or earned. */
   enforceOwnership() {
-    const who = { owned: get().owned, progress: currentProgress() }
+    const who = { owned: get().owned, progress: currentProgress(), bandParts: useWalletStore.getState().bands }
     const m = useMatchStore.getState()
     for (const team of ['team1', 'team2']) {
       const fixed = ownKit(m.teamConfig[team], DEFAULT_TEAM_CONFIG[team], who)

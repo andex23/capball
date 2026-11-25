@@ -12,17 +12,22 @@ describe('only the player who bought or earned it can use it', () => {
     expect(canUseArt('silver', { owned: [], progress: { ...none, won: 10 } })).toBe(true)
     expect(canUseArt('silver', { owned: [], progress: none })).toBe(false)
     expect(canUseArt('stout', { owned: [], progress: none })).toBe(true)
-    expect(canUseBand('gold', { owned: [], progress: none })).toBe(false)
-    expect(canUseBand('red', { owned: [], progress: none })).toBe(false) // every band is earned now
-    expect(canUseBand('red', { owned: [], progress: { ...none, won: 1 } })).toBe(true)
+    expect(canUseBand('solid', { owned: [], progress: none })).toBe(true)
+    expect(canUseBand('satin', { owned: [], progress: none })).toBe(true)
+    expect(canUseBand('chrome', { owned: [], progress: none })).toBe(false)
+    expect(canUseBand('chrome', { owned: [], progress: none, bandParts: ['chrome'] })).toBe(true)
+    expect(canUseBand('regal', { owned: ['band_pink'], progress: none })).toBe(true) // bought an old band: keeps every extra
   })
-  it('takes off a cap and bands the player does not own, keeps what they do', () => {
-    const kit = { ...fallback, art: 'eko', primary: '#1A0B3B', bands: { gk: 'gold', atk1: 'red', mid: 'pink' } }
-    const fixed = ownKit(kit, fallback, { owned: ['band_pink'], progress: { ...none, won: 1 } })
+  it('takes off a cap and band extras the player does not own, keeps what they do', () => {
+    const band = { bandEnabled: true, bandPattern: 'regal', bandBase: '#111111', bandAccent: '#FFD600', bandWidth: 'wide', bandFinish: 'chrome' }
+    const kit = { ...fallback, art: 'eko', primary: '#1A0B3B', ...band }
+    const fixed = ownKit(kit, fallback, { owned: [], progress: none, bandParts: ['chrome'] })
     expect(fixed.art).toBe('')
     expect(fixed.primary).toBe(fallback.primary)
-    expect(fixed.bands).toEqual({ atk1: 'red', mid: 'pink' })
-    expect(ownKit({ ...fallback, art: 'eko', bands: {} }, fallback, { owned: ['cap_eko'], progress: none })).toBe(null)
+    expect(fixed.bandPattern).toBe('solid')
+    expect(fixed.bandFinish).toBe('chrome')
+    expect(fixed.bandWidth).toBe('wide')
+    expect(ownKit({ ...fallback, art: 'eko', ...band }, fallback, { owned: ['cap_eko'], progress: none, bandParts: ['regal', 'chrome'] })).toBe(null)
   })
 })
 

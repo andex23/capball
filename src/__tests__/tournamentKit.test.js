@@ -23,8 +23,8 @@ describe('tournament kits', () => {
     expect(useMatchStore.getState().teamConfig.team1.primary).toBe('#E53935')
   })
 
-  it('an away career fixture uses the squad’s cap art, bands, numbers and player prints', () => {
-    let career = newCareer({ name: 'Rail End', art: 'stout', bands: { atk1: 'red' }, numbers: { atk1: 0 } }, { now: 45 })
+  it('an away career fixture uses the squad’s cap art, band, numbers and player prints', () => {
+    let career = newCareer({ name: 'Rail End', art: 'stout', bandEnabled: true, bandPattern: 'chevron', bandBase: '#111111', bandAccent: '#FFD600', bandWidth: 'wide', bandFinish: 'gloss', numbers: { atk1: 0 } }, { now: 45 })
     let due = careerNext(career)
     while (due.fixture.away !== ME) {
       const record = due.kind === 'cup' ? recordCupResult : recordCareerResult
@@ -35,7 +35,7 @@ describe('tournament kits', () => {
     useTournamentStore.getState().playFixture(due.kind === 'cup' ? 'careerCup' : 'career', due.fixture)
     const kit = useMatchStore.getState().teamConfig.team2
     expect(kit.art).toBe('stout')
-    expect(kit.bands.atk1).toBe('red')
+    expect([kit.bandEnabled, kit.bandPattern, kit.bandWidth, kit.bandFinish]).toEqual([true, 'chevron', 'wide', 'gloss'])
     expect(kit.numbers).toEqual({ ...DEFAULT_TEAM_CONFIG.team1.numbers, atk1: 0 })
     expect(kit.players.atk1).toBe(career.squad.atk1.name.split(' ').at(-1).slice(0, 12))
   })

@@ -156,3 +156,5 @@
 .lg-soon { display: inline-flex; align-items: center; gap: 6px; font: 700 10px/1 var(--font-pixel); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
 .lg-progress { height: 8px; background: rgba(255, 255, 255, 0.1); }
 .lg-progress i { display: block; height: 100%; background: var(--accent); }
+.lg-last { display: block; width: 100%; padding: 0; margin: 0; background: none; border: 0; text-align: inherit; font: inherit; color: inherit; cursor: pointer; }
+.lg-days button:disabled { cursor: default; }

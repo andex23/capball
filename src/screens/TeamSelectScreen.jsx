@@ -6,6 +6,7 @@ import { BADGES, PATTERNS, FINISHES, TEAM_NAME_MAX, CAP_TEXT_MAX, sanitizeCapTex
 import CapDesigns, { useOpenDesigns } from '../ui/CapDesigns'
 import ColorPicker from '../ui/ColorPicker'
 import SquadEditor from '../ui/SquadEditor'
+import BandStudio from '../ui/BandStudio'
 import { sendTeamConfig } from '../multiplayer/MultiplayerManager'
 import { playButtonSelect, playHoverTick } from '../audio/SoundManager'
 import SetupShell from '../ui/SetupShell'
@@ -21,11 +22,12 @@ const BALL_COLORS = [
 ]
 
 const TABS = [
-  { key: 'designs', label: 'All designs' },
+  { key: 'designs', label: 'Designs' },
   { key: 'colors', label: 'Colours' },
   { key: 'badge', label: 'Text' },
   { key: 'style', label: 'Finish' },
   { key: 'squad', label: 'Squad' },
+  { key: 'band', label: 'Band' },
 ]
 
 // Tapping the chosen option again clears it (back to `clearTo`)
@@ -141,6 +143,7 @@ function CapStudio({ teamKey, config, onUpdate }) {
             </>
           )}
           {tab === 'squad' && <SquadEditor config={config} teamKey={teamKey} onUpdate={onUpdate} />}
+          {tab === 'band' && <BandStudio config={config} onUpdate={onUpdate} />}
           {tab === 'style' && (
             <>
               <Chips label="Pattern" options={PATTERNS} value={config.pattern} onPick={(k) => onUpdate({ pattern: k })} clearTo={CLEAR_TO.pattern} />

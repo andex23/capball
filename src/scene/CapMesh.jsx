@@ -1,9 +1,10 @@
 import { forwardRef, useRef, useMemo, useEffect } from 'react'
-import { drawCapArt, drawNumberSticker, stickerSpot } from '../game/capArt'
+import { drawCapArt, drawNumberSticker, stickerSpot, artHasNumber } from '../game/capArt'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CAP_RADIUS, GK_RADIUS, GK_HALF_D } from '../data/TeamData'
 import { CAP_TEXTURE_SCALE, SHADOWS } from './gpuBudget'
+import { drawBand, BAND_WIDTHS } from '../game/bandStyle'
 
 /* ========================================
    A CROWN BOTTLE CAP, lying top up
@@ -106,7 +107,13 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   const ctx = c.getContext('2d')
   ctx.scale(CAP_TEXTURE_SCALE, CAP_TEXTURE_SCALE)
   // Printed artwork: the whole top, plus the number on a sticker
-  if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2)) {
+  if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2, number)) {
+    if (artHasNumber(art)) {
+      const t = new THREE.CanvasTexture(c)
+      t.colorSpace = THREE.SRGBColorSpace
+      t.anisotropy = 4
+      return t
+    }
     const s = stickerSpot(size / 2)
     drawNumberSticker(ctx, number, size / 2 + s.x, size / 2 + s.y, s.r)
     // The design keeps its own lettering; the player or team name goes round the bottom rim
@@ -199,6 +206,71 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
 
 // Finish presets. The printed top always shows the exact colours picked; the
 // finish only changes the shine laid over it (shine/shineMetal) and the skirt.
+/** Band Studio: a band stretched over the pleat crests, round the middle of the skirt. */
+function createBandGeometry(radius, width) {
+  const segs = PLEATS * 8
+  const rings = 6
+  const span = width / (CAP_H - 0.02)          // how much of the skirt's height it covers
+  const mid = 0.55
+  const pos = []
+  const uv = []
+  const idx = []
+  for (let j = 0; j <= rings; j++) {
+    const t = j / rings
+    const h = mid - span / 2 + t * span
+    const y = CAP_H / 2 - 0.02 - h * (CAP_H - 0.02)
+    const flare = TOP_RATIO + (1 - TOP_RATIO) * Math.pow(h, 0.7)
+    // Over the crests, rounded like rubber, a touch proud of the tin
+    const r = radius * (flare + PLEAT_DEPTH * Math.pow(h, 0.8) - PLEAT_DEPTH * 0.25 * h) + 0.004 + Math.sin(Math.PI * t) * 0.01
+    for (let i = 0; i <= segs; i++) {
+      const a = (i / segs) * Math.PI * 2
+      pos.push(Math.cos(a) * r, y, Math.sin(a) * r)
+      uv.push(i / segs, 1 - t)
+    }
+  }
+  const row = segs + 1
+  for (let j = 0; j < rings; j++) {
+    for (let i = 0; i < segs; i++) {
+      const a = j * row + i
+      const b = a + row
+      idx.push(a, b, a + 1, a + 1, b, b + 1)
+    }
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  g.setIndex(idx)
+  g.computeVertexNormals()
+  return g
+}
+
+function createBandTexture(style, hq) {
+  const w = hq ? 2048 : 1024
+  const h = hq ? 128 : 64
+  const c = document.createElement('canvas')
+  c.width = w; c.height = h
+  drawBand(c.getContext('2d'), w, h, style)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 4
+  return t
+}
+
+function BandRing({ radius, style, hq }) {
+  const geo = useMemo(() => createBandGeometry(radius, BAND_WIDTHS[style.width]), [radius, style.width])
+  const { pattern, base, accent } = style
+  const tex = useMemo(() => createBandTexture({ pattern, base, accent }, hq), [pattern, base, accent, hq])
+  useEffect(() => () => geo.dispose(), [geo])
+  useEffect(() => () => tex.dispose(), [tex])
+  const f = FINISH_MAP[style.finish] || FINISH_MAP.satin
+  return (
+    <mesh geometry={geo}>
+      <meshStandardMaterial map={tex} color={SKIRT_LIT} emissive="#ffffff" emissiveMap={tex} emissiveIntensity={style.finish === 'chrome' ? 0.45 : 0.62}
+        metalness={f.metalness} roughness={f.roughness} envMapIntensity={f.envMapIntensity * 1.2} side={THREE.DoubleSide} toneMapped={false} fog={false} />
+    </mesh>
+  )
+}
+
 const FINISH_MAP = {
   // Matte: no shine at all. Satin: a soft sheen. Gloss: a sharp, bright highlight.
   matte:  { metalness: 0.02, roughness: 0.85, envMapIntensity: 0.35, shine: 0, shineMetal: 0 },
@@ -525,7 +597,7 @@ function chipTexture() {
   return chipTex
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, faceDir = 1, isSelected, chip = false, badge, number, pattern, finish, capText, band, art }, ref) {
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, faceDir = 1, isSelected, chip = false, badge, number, pattern, finish, capText, band, bandStyle, art, hq }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -621,8 +693,11 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
         />
       </mesh>}
 
+      {/* The team's Band Studio band, round every cap's skirt (cosmetic) */}
+      {bandStyle && <BandRing radius={radius} style={bandStyle} hq={hq} />}
+
       {/* A rubber band stretched round the skirt (cosmetic) */}
-      {band && (
+      {band && !bandStyle && (
         <mesh position={[0, -0.03, 0]} rotation-x={Math.PI / 2}>
           <torusGeometry args={[radius * 0.985, 0.034, 8, 48]} />
           <meshStandardMaterial color={band} emissive={band} emissiveIntensity={0.35} roughness={0.75} metalness={0} toneMapped={false} fog={false} />

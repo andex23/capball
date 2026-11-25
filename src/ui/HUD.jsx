@@ -1,3 +1,5 @@
+import { useLeagueStore, inLeaguePlay } from '../state/leagueStore'
+import LeagueCommentary from './LeagueCommentary'
 import VoiceChat from './VoiceChat'
 import { platformHooks } from '../platformHooks'
 import { leaveVoice } from '../multiplayer/voiceStore'
@@ -65,6 +67,7 @@ function ScoreBug() {
   const aiTeam = useMatchStore((s) => s.aiTeam)
   const chipsLeft = useMatchStore((s) => s.chipsLeft)
   const challenge = useMatchStore((s) => !!s.challenge)
+  const leagueMatch = useLeagueStore((s) => s.playing)
   const round = Math.min(kicks.team1, kicks.team2) + 1
   const clock = shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : formatClock(timeRemaining)
   const detail = phase === PHASE.MATCH_OVER ? 'FULL TIME' : shootout
@@ -73,7 +76,7 @@ function ScoreBug() {
   return <MatchScoreboard teams={teamConfig} score={shootout ? pens : score}
     active={phase === PHASE.MATCH_OVER ? null : activeTeam}
     myTeam={gameMode === 'online' ? onlineMyTeam : gameMode === 'ai' ? otherTeam(aiTeam) : null}
-    label={shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : 'TIMED MATCH'} clock={!shootout && !goalTarget ? clock : null} detail={detail} popping={phase === PHASE.GOAL ? lastScorer : null}
+    label={shootout ? 'PENALTIES' : goalTarget ? `FIRST TO ${goalTarget}` : leagueMatch ? `WEEKEND LEAGUE · ${leagueMatch.index + 1} OF 15` : 'TIMED MATCH'} clock={!shootout && !goalTarget ? clock : null} detail={detail} popping={phase === PHASE.GOAL ? lastScorer : null}
     chips={shootout || challenge ? null : chipsLeft}
     rail={<span>{gameMode === 'online' ? lan ? 'LAN MATCH' : 'LIVE ONLINE' : gameMode === 'ai' ? 'VS CPU' : 'LOCAL MATCH'}</span>} />
 
@@ -239,7 +242,7 @@ function PauseMenu({ onClose }) {
       )}
       <VoiceChat />
       <ShareGame />
-      {authority && gameMode !== 'online' && (
+      {authority && gameMode !== 'online' && !inLeaguePlay() && (
         <button className="btn btn-orange btn-block" onClick={restart}><Icon name="restart" size={18} /> Restart {shootout ? 'shootout' : 'match'}</button>
       )}
       {saveBlock !== 'online' && (
@@ -308,9 +311,10 @@ export default function HUD() {
   // Short explanations from the input layer ("your keeper can't play from there")
   useEffect(() => {
     const onNotice = (e) => {
-      setNotice(e.detail)
+      const d = e.detail
+      setNotice(typeof d === 'string' ? d : d?.text)
       clearTimeout(noticeTimer.current)
-      noticeTimer.current = setTimeout(() => setNotice(null), 2200)
+      noticeTimer.current = setTimeout(() => setNotice(null), (typeof d === 'object' && d?.ms) || 2200)
     }
     window.addEventListener('capball:notice', onNotice)
     return () => { window.removeEventListener('capball:notice', onNotice); clearTimeout(noticeTimer.current) }
@@ -383,6 +387,7 @@ export default function HUD() {
         <AimWarning />
         {!paused && <MatchEvent />}
         {notice && !paused && <div className="match-event" role="status">{notice}</div>}
+        <LeagueCommentary />
         {turnText && !paused && (
           <div className="turn-pill" style={{ '--team': displayColor(teamConfig[activeTeam].primary) }} aria-live="polite">
             <i className="team-dot" /> {turnText}

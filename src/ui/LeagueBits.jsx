@@ -31,7 +31,7 @@ export function LeagueCup({ tier = 'gold', size = 24, label }) {
 const DAYS = ['Fri', 'Sat', 'Sun']
 
 /** Your fixtures: three day tabs, the five matches of the day picked, and the play button. */
-export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay }) {
+export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay, onDay, busy }) {
   const shown = fixtures.slice(day * 5, day * 5 + 5)
   const next = fixtures.findIndex((f, i) => !f.result && Math.floor(i / 5) <= today)
   const played = fixtures.filter((f) => f.result).length
@@ -43,7 +43,7 @@ export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay }) {
           const done = fixtures.slice(i * 5, i * 5 + 5).filter((f) => f.result).length
           const state = i > today ? 'locked' : i === day ? 'on' : 'open'
           return (
-            <button key={d} role="tab" aria-selected={i === day} data-state={state}>
+            <button key={d} role="tab" aria-selected={i === day} data-state={state} disabled={i > today} onClick={() => onDay?.(i)}>
               <span>{d}</span>
               <b>{i > today ? (i === today + 1 ? `opens in ${opensIn}` : 'locked') : `${done}/5`}</b>
             </button>
@@ -67,11 +67,11 @@ export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay }) {
           )
         })}
       </ol>
-      {next >= 0 && (
-        <button className="btn btn-gold btn-lg btn-block" onClick={onPlay}>
-          <Icon name="play" size={18} /> Play match {next + 1}
+      {next >= 0 ? (
+        <button className="btn btn-gold btn-lg btn-block" disabled={busy} onClick={() => onPlay?.(next)}>
+          <Icon name="play" size={18} /> {busy ? 'Starting…' : `Play match ${next + 1}`}
         </button>
-      )}
+      ) : played < fixtures.length && <p className="muted wk-done">{today < 2 ? `That’s today’s matches. The next five open in ${opensIn}.` : 'That’s everything open for now.'}</p>}
       <p className="muted wk-note">One go at each match, no replays. Leave early and it’s a 3–0 loss. Miss a day? Catch up any time before Sunday midnight.</p>
     </section>
   )
@@ -137,20 +137,22 @@ export function LeaguePrizes({ champCap }) {
 }
 
 /** Full time in a league match: the points, and where that leaves you. */
-export function LeagueResultCard({ gf, ga, club, rankFrom, rankTo, pts, left }) {
+export function LeagueResultCard({ gf, ga, club, rankFrom, rankTo, pts, left, mine = 'You' }) {
   const res = gf > ga ? 'won' : gf === ga ? 'drew' : 'lost'
   const up = rankTo < rankFrom
   return (
     <div className="lg-result" data-r={res}>
       <div className="lg-result-tag">Weekend League · full time</div>
       <div className="lg-result-score">
-        <span>You</span><b>{gf}–{ga}</b><span>{club.name}</span>
+        <span>{mine}</span><b>{gf}–{ga}</b><span>{club.name}</span>
       </div>
       <div className="lg-result-pts">{res === 'won' ? '+3 points' : res === 'drew' ? '+1 point' : 'No points'}</div>
       <div className="lg-result-move">
-        <span className="lg-result-rank">#{rankFrom}</span>
-        <span className="lg-arrow" data-up={up ? 'true' : undefined}>{up ? '▲' : rankTo > rankFrom ? '▼' : '='}</span>
-        <span className="lg-result-rank is-now">#{rankTo}</span>
+        {rankFrom && rankTo && rankFrom !== rankTo && <>
+          <span className="lg-result-rank">#{rankFrom}</span>
+          <span className="lg-arrow" data-up={up ? 'true' : undefined}>{up ? '▲' : '▼'}</span>
+        </>}
+        {rankTo && <span className="lg-result-rank is-now">#{rankTo}</span>}
         <small>{pts} points · {left}</small>
       </div>
     </div>
@@ -175,6 +177,16 @@ export function LeagueMonday({ rank, players, tier, cap, champion, pts, money: p
   )
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** Your Weekend League finishes as cabinet pieces: cups for the top three, a medal for the top ten. */
+export function cabinetFrom(leagues = []) {
+  const items = leagues.filter((l) => l.rank <= 10).map((l) => {
+    const [, m, d] = l.key.split('-').map(Number)
+    return { rank: l.rank, tier: ['', 'gold', 'silver', 'bronze'][l.rank] || null, date: `${d} ${MONTHS[m - 1]}` }
+  })
+  return { items, best: leagues.length ? Math.min(...leagues.map((l) => l.rank)) : null, weekends: leagues.length }
+}
+
 /** The trophy cabinet: every weekend you placed, dated. */
 export function TrophyCabinet({ items, best, weekends }) {
   return (
@@ -182,7 +194,7 @@ export function TrophyCabinet({ items, best, weekends }) {
       <div className="lg-cab-stats">
         <div><b>{items.filter((t) => t.tier === 'gold').length}</b><small>Titles</small></div>
         <div><b>{items.length}</b><small>Trophies</small></div>
-        <div><b>#{best}</b><small>Best finish</small></div>
+        <div><b>{best ? `#${best}` : '–'}</b><small>Best finish</small></div>
         <div><b>{weekends}</b><small>Weekends</small></div>
       </div>
       <div className="lg-shelves">
