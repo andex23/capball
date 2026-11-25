@@ -18,6 +18,8 @@ import { disconnect, isConnected } from './multiplayer/MultiplayerManager'
 import { fadeOutMenuMusic } from './audio/MusicManager'
 import SplashScreen from './screens/SplashScreen'
 import WeekendScreen from './screens/WeekendScreen'
+import LeagueScreen from './screens/LeagueScreen'
+import { WEEKEND_CUP_ON } from './game/weekendCup'
 import MenuScreen, { markStarted } from './screens/MenuScreen'
 import TeamSelectScreen from './screens/TeamSelectScreen'
 import OnlineScreen from './screens/OnlineScreen'
@@ -115,7 +117,8 @@ function Screen({ screen }) {
     case SCREEN.TOURNAMENT_HUB: return <TournamentHubScreen />
     case SCREEN.CAREER: return <CareerScreen />
     case SCREEN.TRAINING: return <TrainingScreen />
-    case SCREEN.WEEKEND: return isLagos() ? <WeekendScreen /> : <MenuScreen />
+    case SCREEN.WEEKEND: return isLagos() && WEEKEND_CUP_ON ? <WeekendScreen /> : <MenuScreen />
+    case SCREEN.LEAGUE: return <LeagueScreen />
     default: return <MenuScreen />
   }
 }

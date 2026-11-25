@@ -15,6 +15,9 @@ import CloudNotice from '../lagos/CloudNotice'
 import { useWeekendStore } from '../state/weekendStore'
 import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weekendRules'
 import { timeLeft } from './WeekendScreen'
+import { WEEKEND_CUP_ON } from '../game/weekendCup'
+import { useLeagueStore, leagueWins } from '../state/leagueStore'
+import { LEAGUE_ENTRY, qualifies } from '../game/leagueRules'
 import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
@@ -96,9 +99,14 @@ export default function MenuScreen() {
   // Lagos Life: the Weekend Cup's place on the menu, and Monday's result in the bell
   const weekendRank = useWeekendStore((s) => s.table?.me?.rank ?? null)
   const weekendPlayers = useWeekendStore((s) => s.table?.players ?? null)
-  const weekendLive = lagos && weekendOpen()
+  const weekendLive = WEEKEND_CUP_ON && lagos && weekendOpen()
+  // The Weekend League, before it opens: sign up, or how many wins to go
+  const leagueJoined = useLeagueStore((s) => s.joined)
+  useLagosStore((s) => s.wins + s.best)
+  const leagueWon = leagueWins()
   useEffect(() => {
-    if (!lagos) return
+    useLeagueStore.getState().refresh()
+    if (!lagos || !WEEKEND_CUP_ON) return
     const w = useWeekendStore.getState()
     w.checkLast()
     if (weekendOpen()) { w.roll(); w.refreshTable() }
@@ -141,6 +149,13 @@ export default function MenuScreen() {
   const PAGES = {
     main: [
       // Friday to Sunday in Lagos Life: the Weekend Cup goes first
+      {
+        key: 'league', title: 'Weekend League',
+        sub: leagueJoined ? 'You’re signed up · coming soon' : !lagos && !username ? `Needs an account · ${LEAGUE_ENTRY} wins to enter` : qualifies(leagueWon) ? 'You qualify · sign up now · coming soon' : `Win ${LEAGUE_ENTRY} matches to enter · you have ${leagueWon}`,
+        tag: leagueJoined ? '✓ IN' : qualifies(leagueWon) && (lagos || username) ? 'JOIN' : `${Math.min(leagueWon, LEAGUE_ENTRY)}/${LEAGUE_ENTRY}`,
+        done: !!leagueJoined,
+        action: () => { playConfirm(); goToScreen(SCREEN.LEAGUE) },
+      },
       ...(weekendLive ? [{ key: 'weekend', title: 'Weekend Cup', sub: `Live now · ${timeLeft(weekendWindow(weekendKey()).end - Date.now())} left${weekendPlayers ? ` · ${weekendPlayers} playing` : ''}${weekendRank ? ` · you #${weekendRank}` : ''}`, tag: 'LIVE', action: () => { playConfirm(); goToScreen(SCREEN.WEEKEND) } }] : []),
       // Something saved shows on its own button; the choice to carry on or start again is one tap in
       { key: 'play', title: 'Quick Match', sub: saved ? `Saved: ${describeSave(saved)}` : lagos ? (LAGOS_PLAYERS ? 'Computer, Lagos players or one phone' : 'Computer or two on one phone') : 'Computer, local, LAN or online', tag: saved ? 'SAVE' : '►', action: () => go('play') },
@@ -242,7 +257,7 @@ export default function MenuScreen() {
                       <button className="iss-arrow" aria-label="Harder" onClick={() => { setCursor(i); shiftLevel(1) }}>►</button>
                     </span>
                   ) : m.tag ? (
-                    <span className="iss-tag" data-done={m.done ? 'true' : undefined} data-arrow={m.tag === '►' ? 'true' : undefined}>{m.tag}</span>
+                    <span className="iss-tag" data-done={m.done ? 'true' : undefined} data-join={m.tag === 'JOIN' ? 'true' : undefined} data-arrow={m.tag === '►' ? 'true' : undefined}>{m.tag}</span>
                   ) : null}
                 </li>
               ))}
