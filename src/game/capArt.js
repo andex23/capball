@@ -10,6 +10,8 @@
  *  - Lagos Life exclusives: full-bleed pictures of Lagos
  */
 
+import { heritageFace, drawHeritageFace, isHeritagePattern } from '../data/HeritageCaps.js'
+
 const COND = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif'
 const SANS = 'Inter, "Helvetica Neue", Arial, sans-serif'
 const PAPER = '#F3EBD8' // printed white on tin is never pure white
@@ -449,13 +451,24 @@ export function setCapLabels(map) {
 const labelsFor = (key) => LABELS[key] || {}
 
 /** Does this design have printed artwork? */
-export const hasArt = (key) => typeof key === 'string' && Object.hasOwn(ART, key)
+export const hasArt = (key) => typeof key === 'string' && (Object.hasOwn(ART, key) || isHeritagePattern(key))
+
+/** Collectible caps print the squad number as part of their artwork (no sticker). */
+export const artHasNumber = (key) => isHeritagePattern(key)
 
 /**
  * Draw a design's artwork into a canvas context, filling a disc of radius
  * `r` centred at (cx, cy). Returns false when there's no art for it.
  */
-export function drawCapArt(ctx, key, cx, cy, r) {
+export function drawCapArt(ctx, key, cx, cy, r, number = null) {
+  const face = heritageFace({ pattern: key, number: number ?? undefined })
+  if (face) {
+    ctx.save()
+    ctx.translate(cx - r, cy - r)
+    drawHeritageFace(ctx, r * 2, face)
+    ctx.restore()
+    return true
+  }
   const draw = ART[key]
   if (!draw) return false
   ctx.save()
@@ -502,9 +515,11 @@ export function capArtUrl(key, number = null, px = 240) {
   const c = document.createElement('canvas')
   c.width = c.height = px
   const ctx = c.getContext('2d')
-  drawCapArt(ctx, key, px / 2, px / 2, px / 2)
-  const s = stickerSpot(px / 2)
-  drawNumberSticker(ctx, number, px / 2 + s.x, px / 2 + s.y, s.r)
+  drawCapArt(ctx, key, px / 2, px / 2, px / 2, number)
+  if (!artHasNumber(key)) {
+    const s = stickerSpot(px / 2)
+    drawNumberSticker(ctx, number, px / 2 + s.x, px / 2 + s.y, s.r)
+  }
   const url = c.toDataURL('image/png')
   if (urls.size > 300) urls.clear()
   urls.set(id, url)
