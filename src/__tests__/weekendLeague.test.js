@@ -166,3 +166,12 @@ describe('Weekend League on the server', () => {
     expect(r.registered).toBe(1)
   })
 })
+
+describe('Weekend League club names', () => {
+  it('gives all fifteen clubs their own club name', async () => {
+    const { CLUB_NAMES } = await import('../game/leagueClubs')
+    const names = leagueClubs('2026-11-27').map((c) => c.name)
+    expect(new Set(names).size).toBe(15)
+    for (const n of names) expect(Object.values(CLUB_NAMES)).toContain(n)
+  })
+})
