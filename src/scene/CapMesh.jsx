@@ -21,9 +21,9 @@ import { drawBand, BAND_WIDTHS } from '../game/bandStyle'
    ======================================== */
 
 const CAP_H = 0.3            // total height (a real cap: ~6 mm tall, 32 mm across)
-const TOP_RATIO = 0.86       // printed top radius as a fraction of the cap's footprint
+const TOP_RATIO = 0.91       // printed top radius as a fraction of the cap's footprint (a thin rim round it)
 const PLEATS = 21            // a crown cap always has 21
-const PLEAT_DEPTH = 0.075    // how far each pleat stands out (fraction of radius)
+const PLEAT_DEPTH = 0.055    // how far each pleat stands out (fraction of radius)
 
 /** The crimped skirt: a ring of pleats flaring from the top edge down to the table. */
 function createSkirtGeometry(radius) {
@@ -662,7 +662,7 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
 
       {/* Rounded shoulder where the top meets the skirt */}
       <mesh position={[0, halfH - 0.02, 0]} rotation-x={Math.PI / 2}>
-        <torusGeometry args={[topR, 0.022, 8, 64]} />
+        <torusGeometry args={[topR, 0.016, 8, 64]} />
         <meshStandardMaterial color={shoulderLit} emissive={color} emissiveIntensity={SKIRT_BASE} metalness={metal} roughness={rough} toneMapped={false} fog={false} />
       </mesh>
 
