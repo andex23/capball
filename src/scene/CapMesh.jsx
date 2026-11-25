@@ -1,5 +1,5 @@
 import { forwardRef, useRef, useMemo, useEffect } from 'react'
-import { drawCapArt, drawNumberSticker, stickerSpot } from '../game/capArt'
+import { drawCapArt, drawNumberSticker, stickerSpot, artHasNumber } from '../game/capArt'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CAP_RADIUS, GK_RADIUS, GK_HALF_D } from '../data/TeamData'
@@ -106,7 +106,13 @@ function createTopTexture(color, edgeColor, badge, number, pattern, capText = ''
   const ctx = c.getContext('2d')
   ctx.scale(CAP_TEXTURE_SCALE, CAP_TEXTURE_SCALE)
   // Printed artwork: the whole top, plus the number on a sticker
-  if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2)) {
+  if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2, number)) {
+    if (artHasNumber(art)) {
+      const t = new THREE.CanvasTexture(c)
+      t.colorSpace = THREE.SRGBColorSpace
+      t.anisotropy = 4
+      return t
+    }
     const s = stickerSpot(size / 2)
     drawNumberSticker(ctx, number, size / 2 + s.x, size / 2 + s.y, s.r)
     // The design keeps its own lettering; the player or team name goes round the bottom rim
