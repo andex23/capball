@@ -22,7 +22,7 @@ const BALL_COLORS = [
 ]
 
 const TABS = [
-  { key: 'designs', label: 'All designs' },
+  { key: 'designs', label: 'Designs' },
   { key: 'colors', label: 'Colours' },
   { key: 'badge', label: 'Text' },
   { key: 'style', label: 'Finish' },

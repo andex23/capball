@@ -4,6 +4,11 @@
  * context, so it works for the 3D cap and for previews).
  */
 export const BAND_PATTERNS = ['solid', 'twin', 'grid', 'chevron', 'regal']
+/** One line for a folded band row: 'Twin Line · Wide · Satin', or 'Off'. */
+export function bandSummary(config) {
+  const s = bandStyleOf(config)
+  return s ? `${BAND_PATTERN_NAMES[s.pattern]} · ${BAND_WIDTH_NAMES[s.width]} · ${s.finish[0].toUpperCase()}${s.finish.slice(1)}` : 'Off'
+}
 export const BAND_PATTERN_NAMES = { solid: 'Solid', twin: 'Twin Line', grid: 'Grid', chevron: 'Chevron', regal: 'Regal' }
 export const BAND_WIDTHS = { slim: 0.055, standard: 0.085, wide: 0.12 } // height on the skirt (cap is 0.3 tall)
 export const BAND_WIDTH_NAMES = { slim: 'Slim', standard: 'Standard', wide: 'Wide' }
@@ -25,8 +30,8 @@ export const BAND_PARTS_LOOK = {
 }
 export const isFreeBandPart = (key) => !BAND_PART_PRICES[key]
 
-/** The swatches offered for base and accent. */
-export const BAND_COLORS = ['#1A1A1A', '#F4F4F4', '#D32F2F', '#FF7A00', '#FFD600', '#1FA34A', '#1E63D6', '#7B1FA2', '#FF2E88', '#E9C46A', '#5B1E7A', '#0E7C7B']
+/** The swatches offered for base and accent (one row on a phone). */
+export const BAND_COLORS = ['#1A1A1A', '#F4F4F4', '#D32F2F', '#FFD600', '#1FA34A', '#1E63D6', '#5B1E7A', '#E9C46A'] // any other colour with +
 
 const HEX = /^#[0-9a-f]{6}$/i
 
