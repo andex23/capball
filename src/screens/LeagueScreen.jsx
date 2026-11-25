@@ -139,7 +139,7 @@ export default function LeagueScreen() {
         </header>
         <main className="shell-body wk lg-has-nav">
           <section className="wk-poster">
-            <div className="lg-soon">Opens Friday · midnight</div>
+            <div className="lg-soon">Opens Friday · 4:30pm</div>
             <Countdown />
             <div className="wk-poster-row">
               <div>

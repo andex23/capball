@@ -50,8 +50,8 @@ describe('Weekend League sign-up (server)', () => {
 })
 
 describe('Weekend League countdown', () => {
-  it('opens Friday 27 November at midnight in Lagos', () => {
-    expect(new Date(LEAGUE_OPENS).toISOString()).toBe('2026-11-26T23:00:00.000Z')
+  it('opens Friday 27 November at 4:30pm in Lagos', () => {
+    expect(new Date(LEAGUE_OPENS).toISOString()).toBe('2026-11-27T15:30:00.000Z')
   })
   it('counts down and stops at zero', () => {
     const at = LEAGUE_OPENS - ((1 * 86400 + 10 * 3600 + 32 * 60 + 5) * 1000)

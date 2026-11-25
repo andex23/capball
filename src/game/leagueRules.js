@@ -12,8 +12,8 @@ export const qualifies = (wins) => Number.isFinite(wins) && wins >= LEAGUE_ENTRY
 /** How many more wins they need (0 once in). */
 export const winsToGo = (wins) => Math.max(0, LEAGUE_ENTRY - (Number.isFinite(wins) ? Math.floor(wins) : 0))
 
-/** When the first Weekend League opens: Friday 27 November, midnight in Lagos (UTC+1). */
-export const LEAGUE_OPENS = Date.parse('2026-11-26T23:00:00Z')
+/** When the first Weekend League opens: Friday 27 November, 4:30pm in Lagos (UTC+1). */
+export const LEAGUE_OPENS = Date.parse('2026-11-27T15:30:00Z')
 
 /** Time to go, split up for a countdown: { days, hours, mins, secs }, all 0 once it's open. */
 export function untilOpen(now = Date.now(), opens = LEAGUE_OPENS) {
