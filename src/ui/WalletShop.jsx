@@ -6,8 +6,8 @@
 import { useState } from 'react'
 import { useMatchStore } from '../state/MatchStore'
 import { designPatch, isUnlocked } from '../data/TeamOptions'
-import { bandEarned } from '../data/bands'
-import { SHOP_ITEMS, BAND_ITEMS } from '../data/shop'
+import { SHOP_ITEMS } from '../data/shop'
+import { BAND_PART_NAMES, BAND_PARTS_LOOK } from '../game/bandStyle'
 import { CAP_PRICES, BAND_PRICES, walletNaira, DAILY_CAP } from '../game/wallet'
 import { COLLECTION } from '../game/collection'
 import { useWalletStore } from '../state/walletStore'
@@ -31,13 +31,14 @@ export default function WalletShop() {
 
   const collectionItems = COLLECTION.filter((d) => d.price).map((d) => ({ productId: `cap_${d.key}`, design: { ...d, art: d.key, capNames: 'none' }, earnable: false, key: d.key, kind: 'cap', price: d.price }))
   const capItems = [...collectionItems, ...SHOP_ITEMS.filter((i) => CAP_PRICES[i.design.key] && (i.earnable || isLagos())).map((i) => ({ ...i, key: i.design.key, kind: 'cap', price: CAP_PRICES[i.design.key] }))]
-  const bandItems = BAND_ITEMS.filter((i) => BAND_PRICES[i.band.key]).map((i) => ({ ...i, key: i.band.key, kind: 'band', price: BAND_PRICES[i.band.key] }))
+  // Band Studio extras: a pattern or a finish, bought once, then used in Edit team › Band
+  const bandItems = Object.keys(BAND_PRICES).map((k) => ({ key: k, kind: 'band', price: BAND_PRICES[k], band: { name: BAND_PART_NAMES[k], look: BAND_PARTS_LOOK[k] } }))
   const items = tab === 'caps' ? capItems : bandItems
   const have = (i) => i.kind === 'cap'
     ? caps.includes(i.key) || lagosOwned.includes(i.productId) || (i.earnable && isUnlocked(i.design, progress))
-    : bands.includes(i.key) || lagosOwned.includes(i.productId) || bandEarned(i.band, progress)
+    : bands.includes(i.key) || (isLagos() && lagosOwned.some((p) => p.startsWith('band_')))
   const sel = picked ? items.find((i) => i.key === picked) : null
-  const name = (i) => (i.kind === 'cap' ? i.design.name : `${i.band.name} band`)
+  const name = (i) => (i.kind === 'cap' ? i.design.name : i.band.name)
 
   const buy = (i) => {
     if (useWalletStore.getState().buy(i.kind, i.key)) { playConfirm(); setNote({ tone: 'good', text: `${name(i)} is yours.` }) }
@@ -58,7 +59,7 @@ export default function WalletShop() {
       </div>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'caps'} onClick={() => { playButtonSelect(); setTab('caps'); setPicked(null); setNote(null) }}>Caps</button>
-        <button role="tab" aria-selected={tab === 'bands'} onClick={() => { playButtonSelect(); setTab('bands'); setPicked(null); setNote(null) }}>Rubber bands</button>
+        <button role="tab" aria-selected={tab === 'bands'} onClick={() => { playButtonSelect(); setTab('bands'); setPicked(null); setNote(null) }}>Band extras</button>
       </div>
       <div className="shop-grid" role="list">
         {items.map((i) => {
@@ -67,7 +68,7 @@ export default function WalletShop() {
             <button key={i.key} role="listitem" type="button" className="shop-item" aria-pressed={picked === i.key} onClick={() => { playButtonSelect(); setPicked(i.key); setNote(null) }}>
               {i.kind === 'cap'
                 ? <CapPreview config={{ ...i.design }} size={64} number={10} />
-                : <span className="band-dot shop-band" style={{ '--band': i.band.color }} aria-hidden="true" />}
+                : <BandLook look={i.band.look} />}
               <span className="shop-name">{name(i)}</span>
               <small className={got ? 'shop-owned' : 'shop-price'}>{got ? 'Yours' : walletNaira(i.price)}</small>
             </button>
@@ -79,10 +80,10 @@ export default function WalletShop() {
           {have(sel) ? (
             sel.kind === 'cap'
               ? <button className="btn btn-gold btn-block" onClick={() => use(sel)}>Use {sel.design.name} on my team</button>
-              : <p className="cap-design-hint">The {sel.band.name.toLowerCase()} band is yours. Put it on a player in Edit team.</p>
+              : <p className="cap-design-hint">The {sel.band.name.toLowerCase()} is yours. Use it in Edit team › Band.</p>
           ) : (
             <>
-              {sel.earnable && <p className="muted t-note">Or {(sel.kind === 'cap' ? sel.design.hint : sel.band.hint)?.toLowerCase()} to get it free.</p>}
+              {sel.earnable && sel.kind === 'cap' && <p className="muted t-note">Or {sel.design.hint?.toLowerCase()} to get it free.</p>}
               <button className="btn btn-gold btn-block" disabled={balance < sel.price} onClick={() => buy(sel)}>
                 {balance < sel.price ? `${walletNaira(sel.price - balance)} more to buy` : `Buy ${name(sel)} · ${walletNaira(sel.price)}`}
               </button>
@@ -93,4 +94,9 @@ export default function WalletShop() {
       {note && <p className={note.tone === 'bad' ? 't-warn' : 'cap-design-hint'} role="status">{note.text}</p>}
     </div>
   )
+}
+
+/** A band extra in the shop: a strip of it drawn on a cap's band. */
+function BandLook({ look }) {
+  return <CapPreview config={{ primary: '#2B3A67', edge: '#FFFFFF', pattern: 'none', badge: 'none', bandEnabled: true, ...look }} size={64} number={10} />
 }

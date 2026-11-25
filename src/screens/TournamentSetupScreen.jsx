@@ -13,6 +13,7 @@ import CapPreview from '../ui/CapPreview'
 import CapDesigns from '../ui/CapDesigns'
 import ColorPicker from '../ui/ColorPicker'
 import SquadEditor from '../ui/SquadEditor'
+import BandStudio from '../ui/BandStudio'
 import { displayColor } from '../ui/color'
 
 /** Ready-made clubs for the extra teams (the first team is the player's own kit). */
@@ -143,6 +144,7 @@ export function KitEditor({ team, onUpdate, onClose, withName = false, squadName
         </div>
       </div>
       <SquadEditor config={team} onUpdate={onUpdate} fixedNames={squadNames} />
+      <BandStudio config={team} onUpdate={onUpdate} />
     </Modal>
   )
 }

@@ -9,8 +9,8 @@
  */
 import { collectSave, applySave, getSaveStorage as store } from '../utils/playerSave'
 import { CAP_DESIGNS, RARE_DESIGNS, isUnlocked } from '../data/TeamOptions'
-import { BANDS, bandEarned } from '../data/bands'
-import { SHOP_DESIGNS, productIdFor, bandProductId } from '../data/shop'
+import { SHOP_DESIGNS, productIdFor } from '../data/shop'
+import { isFreeBandPart, ownBand } from '../game/bandStyle'
 
 const OWNER_KEY = 'counterball:lagos:owner'
 const saveKey = (id) => `counterball:lagos:save:${id}`
@@ -50,16 +50,19 @@ export function canUseArt(art, { owned, progress }) {
   return true
 }
 
-/** May this player put this band on a cap? */
-export function canUseBand(key, { owned, progress }) {
-  const band = BANDS.find((b) => b.key === key)
-  if (!band) return false
-  return bandEarned(band, progress) || owned.includes(bandProductId(key))
+/**
+ * May this player use this Band Studio extra (a pattern or finish)? Free ones
+ * always; paid ones once bought from the wallet. Anyone who bought one of the
+ * old single-colour bands in Lagos Life keeps every extra.
+ */
+export function canUseBand(key, { owned = [], bandParts = [] }) {
+  return isFreeBandPart(key) || bandParts.includes(key) || owned.some((p) => typeof p === 'string' && p.startsWith('band_'))
 }
 
 /**
  * A kit with anything this player doesn't own taken off: a cap they don't
- * own goes back to the plain team colours; a band they don't own comes off.
+ * own goes back to the plain team colours; a band extra they haven't bought goes
+ * back to a free one.
  * Returns null when the kit is fine as it is.
  */
 export function ownKit(config, fallback, who) {
@@ -68,8 +71,6 @@ export function ownKit(config, fallback, who) {
   if (config.art && !canUseArt(config.art, who)) {
     next = { ...config, art: '', primary: fallback.primary, edge: fallback.edge, pattern: fallback.pattern, badge: fallback.badge, finish: fallback.finish, capText: fallback.capText, textColor: '', skirtColor: '' }
   }
-  const bands = config.bands || {}
-  const kept = Object.fromEntries(Object.entries(bands).filter(([, k]) => canUseBand(k, who)))
-  if (Object.keys(kept).length !== Object.keys(bands).length) next = { ...(next || config), bands: kept }
-  return next
+  const banded = ownBand(next || config, (k) => canUseBand(k, who))
+  return banded || next
 }

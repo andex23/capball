@@ -12,6 +12,22 @@ export const BAND_FINISHES = ['matte', 'satin', 'gloss', 'chrome']
 export const BAND_DEFAULTS = { bandEnabled: false, bandPattern: 'solid', bandBase: '#1A1A1A', bandAccent: '#FFD600', bandWidth: 'standard', bandFinish: 'satin' }
 export const BAND_FIELDS = Object.keys(BAND_DEFAULTS)
 
+/** The extras bought once from the wallet; everything else is free. */
+export const BAND_PART_PRICES = { grid: 500000, chevron: 500000, regal: 500000, gloss: 500000, chrome: 500000 }
+export const BAND_PART_NAMES = { grid: 'Grid pattern', chevron: 'Chevron pattern', regal: 'Regal pattern', gloss: 'Gloss finish', chrome: 'Chrome finish' }
+/** How each extra looks in the shop. */
+export const BAND_PARTS_LOOK = {
+  grid: { bandPattern: 'grid', bandBase: '#1E63D6', bandAccent: '#F4F4F4', bandWidth: 'wide', bandFinish: 'satin' },
+  chevron: { bandPattern: 'chevron', bandBase: '#1FA34A', bandAccent: '#111111', bandWidth: 'wide', bandFinish: 'satin' },
+  regal: { bandPattern: 'regal', bandBase: '#5B1E7A', bandAccent: '#E9C46A', bandWidth: 'wide', bandFinish: 'satin' },
+  gloss: { bandPattern: 'solid', bandBase: '#D32F2F', bandAccent: '#FFFFFF', bandWidth: 'wide', bandFinish: 'gloss' },
+  chrome: { bandPattern: 'solid', bandBase: '#B8C2CF', bandAccent: '#FFFFFF', bandWidth: 'wide', bandFinish: 'chrome' },
+}
+export const isFreeBandPart = (key) => !BAND_PART_PRICES[key]
+
+/** The swatches offered for base and accent. */
+export const BAND_COLORS = ['#1A1A1A', '#F4F4F4', '#D32F2F', '#FF7A00', '#FFD600', '#1FA34A', '#1E63D6', '#7B1FA2', '#FF2E88', '#E9C46A', '#5B1E7A', '#0E7C7B']
+
 const HEX = /^#[0-9a-f]{6}$/i
 
 /** A team config's band, cleaned (anything odd falls back to the default). Null when off. */
@@ -79,4 +95,24 @@ export function drawBand(ctx, w, h, { pattern, base, accent }) {
   g.addColorStop(0, 'rgba(0,0,0,0.28)'); g.addColorStop(0.18, 'rgba(0,0,0,0)'); g.addColorStop(0.82, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.32)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, w, h)
+}
+
+/** The paid extras a config's band uses. */
+export function bandPartsUsed(config) {
+  const s = bandStyleOf(config)
+  if (!s) return []
+  return [s.pattern, s.finish].filter((k) => BAND_PART_PRICES[k])
+}
+
+/**
+ * A config with any band extra this player hasn't bought swapped for a free
+ * one (pattern back to Solid, finish back to Satin). Null when it's fine.
+ */
+export function ownBand(config, owns) {
+  const s = bandStyleOf(config)
+  if (!s) return null
+  const patch = {}
+  if (BAND_PART_PRICES[s.pattern] && !owns(s.pattern)) patch.bandPattern = 'solid'
+  if (BAND_PART_PRICES[s.finish] && !owns(s.finish)) patch.bandFinish = 'satin'
+  return Object.keys(patch).length ? { ...config, ...patch } : null
 }
