@@ -88,6 +88,7 @@ export function cantSaveReason() {
   if (s.gameMode === 'online') return 'Live matches can’t be saved.'
   if (s.challenge) return 'The daily challenge can’t be saved.'
   if (s.training) return 'Training can’t be saved.'
+  if (globalThis.__counterballLeagueMatch) return 'Weekend League matches can’t be saved: one go at each.'
   if (s.penaltyShootout) return 'A shootout can’t be saved — finish it!'
   const p = useTournamentStore.getState().playing
   if (p && p.kind === 'online') return 'Online tournament matches are played live — they can’t be saved.'
