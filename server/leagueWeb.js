@@ -3,7 +3,7 @@
  * account (checked from their sign-in token), and the table is the website's own.
  */
 import { DATABASE_URL } from './anytime.js'
-import { isLeagueAction, runLeague } from './league.js'
+import { isLeagueAction, runLeague, webSaves } from './league.js'
 import { makeSaveDb } from './lagos.js'
 
 /** The account behind a sign-in token, or null. */
@@ -28,5 +28,5 @@ export async function handleLeagueWeb(input, check = makeAccountCheck(), saves =
   if (!isLeagueAction(input?.action)) throw new Error('bad-request')
   const account = await check(input.token)
   if (!account) throw new Error('signed-out')
-  return runLeague(input.action, saves, 'web', `acct:${account}`, input)
+  return runLeague(input.action, webSaves(saves), 'web', `acct:${account}`, input)
 }
