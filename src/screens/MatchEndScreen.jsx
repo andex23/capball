@@ -13,11 +13,21 @@ import { stopAllBodies } from '../physics/PhysicsWorld'
 import { disconnect } from '../multiplayer/MultiplayerManager'
 import { playConfirm, playButtonSelect, playWhistle } from '../audio/SoundManager'
 import Icon from '../ui/Icon'
+import { useWalletStore } from '../state/walletStore'
+import { walletNaira } from '../game/wallet'
 import CapPreview from '../ui/CapPreview'
 import OnlineEndChoice from '../ui/OnlineEndChoice'
 import { displayColor } from '../ui/color'
 import { useRecordsStore } from '../state/persistence'
 import { recordLine, BEST_LABELS } from '../game/records'
+
+/** What this match paid into the wallet. */
+function WalletPay() {
+  const last = useWalletStore((s) => s.last)
+  if (!last || Date.now() - last.at > 60000) return null
+  if (!last.amount) return <div className="wallet-pay is-capped">Today’s wallet limit reached. Back tomorrow for more.</div>
+  return <div className="wallet-pay"><span>+{walletNaira(last.amount)}</span><small>to your wallet{last.amount < last.full ? ' (today’s limit)' : ''}</small></div>
+}
 
 const STAT_ROWS = [
   { key: 'goals', label: 'Goals' },
@@ -137,6 +147,7 @@ export default function MatchEndScreen() {
           </div>
         </div>
 
+        <WalletPay />
         <RecordNote />
         <HeadToHead />
         <ShareResult />

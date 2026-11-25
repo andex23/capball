@@ -2964,3 +2964,14 @@ button.other-side { cursor: pointer; }
 /* The profile's Shop row, before Lagos Life opens purchases */
 .corner-rows button[data-off='true'] { opacity: 0.45; cursor: default; }
 .corner-soon { font: 700 9px/1 var(--font-pixel); letter-spacing: 0.08em; padding: 4px 6px; border: 1px solid rgba(255, 255, 255, 0.4); }
+
+/* The wallet */
+.wallet-bal { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 10px; padding: 10px 12px; background: rgba(255, 210, 63, 0.1); border: 1px solid rgba(255, 210, 63, 0.45); }
+.wallet-bal > svg { color: var(--accent); }
+.wallet-bal div { display: flex; flex-direction: column; }
+.wallet-bal small { font: 700 8px/1 var(--font-pixel); text-transform: uppercase; color: var(--accent); }
+.wallet-bal b { font: 800 26px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.wallet-bal p { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted, #aab3d6); }
+.wallet-pay { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 20px 12px; padding: 8px 12px; font-weight: 700; color: #1b1400; background: var(--accent); }
+.wallet-pay small { font-weight: 500; opacity: 0.8; }
+.wallet-pay.is-capped { color: inherit; background: rgba(255, 255, 255, 0.08); }
