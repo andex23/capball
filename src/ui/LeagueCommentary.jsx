@@ -21,7 +21,7 @@ export default function LeagueCommentary() {
     said.current = { late: false, goals: 0 }
     const l = useLeagueStore.getState()
     const mine = useMatchStore.getState().teamConfig.team1.name
-    const rank = l.table?.me?.rank
+    const rank = l.rankFrom // before this match (kick-off already counts it as 3–0 on the server)
     const t = setTimeout(() => say(rank
       ? `Weekend League, match ${playing.index + 1} of 15. ${mine} are ${nth(rank)}. Three points on the line against ${playing.club.name}.`
       : `Weekend League, match ${playing.index + 1} of 15. ${mine} against ${playing.club.name}. Every point counts.`), 1200)

@@ -137,20 +137,22 @@ export function LeaguePrizes({ champCap }) {
 }
 
 /** Full time in a league match: the points, and where that leaves you. */
-export function LeagueResultCard({ gf, ga, club, rankFrom, rankTo, pts, left }) {
+export function LeagueResultCard({ gf, ga, club, rankFrom, rankTo, pts, left, mine = 'You' }) {
   const res = gf > ga ? 'won' : gf === ga ? 'drew' : 'lost'
   const up = rankTo < rankFrom
   return (
     <div className="lg-result" data-r={res}>
       <div className="lg-result-tag">Weekend League · full time</div>
       <div className="lg-result-score">
-        <span>You</span><b>{gf}–{ga}</b><span>{club.name}</span>
+        <span>{mine}</span><b>{gf}–{ga}</b><span>{club.name}</span>
       </div>
       <div className="lg-result-pts">{res === 'won' ? '+3 points' : res === 'drew' ? '+1 point' : 'No points'}</div>
       <div className="lg-result-move">
-        <span className="lg-result-rank">#{rankFrom}</span>
-        <span className="lg-arrow" data-up={up ? 'true' : undefined}>{up ? '▲' : rankTo > rankFrom ? '▼' : '='}</span>
-        <span className="lg-result-rank is-now">#{rankTo}</span>
+        {rankFrom && rankTo && rankFrom !== rankTo && <>
+          <span className="lg-result-rank">#{rankFrom}</span>
+          <span className="lg-arrow" data-up={up ? 'true' : undefined}>{up ? '▲' : '▼'}</span>
+        </>}
+        {rankTo && <span className="lg-result-rank is-now">#{rankTo}</span>}
         <small>{pts} points · {left}</small>
       </div>
     </div>

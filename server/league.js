@@ -112,7 +112,7 @@ const ACTIONS = { leagueJoin, leagueInfo, leagueStart, leagueFinish, leagueTable
 export const isLeagueAction = (a) => Object.hasOwn(ACTIONS, a)
 
 /** Run a league action for a verified player. */
-export function runLeague(action, saves, mode, playerId, input) {
+export function runLeague(action, saves, mode, playerId, input, now = Date.now()) {
   if (!saves) fail('shop-not-configured')
-  return ACTIONS[action](saves, mode, playerId, input)
+  return ACTIONS[action](saves, mode, playerId, input, now)
 }

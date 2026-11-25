@@ -165,7 +165,7 @@ function LiveLeague({ joined, tab }) {
       </section>
       {last && tab === 'fixtures' && (
         <button className="lg-last" onClick={() => useLeagueStore.setState({ last: null })} aria-label="Close">
-          <LeagueResultCard gf={last.gf} ga={last.ga} club={last.club} rankFrom={last.rankFrom ?? last.rankTo ?? 0} rankTo={last.rankTo ?? last.rankFrom ?? 0} pts={last.pts} left={toPlay ? `${toPlay} left today` : 'that’s today done'} />
+          <LeagueResultCard mine={joined.club.name} gf={last.gf} ga={last.ga} club={last.club} rankFrom={last.rankFrom} rankTo={last.rankTo} pts={last.pts} left={toPlay ? `${toPlay} left today` : 'that’s today done'} />
         </button>
       )}
       {error && <p className="t-warn" role="alert">{error}</p>}
