@@ -125,7 +125,7 @@
 .lg-ft-into { flex-basis: 100%; font: 700 9px/1 var(--font-pixel); text-transform: uppercase; color: #3ddc84; }
 .lg-ft-table { max-width: 300px; }
 .lg-fold-body .wk-card-h { display: none; }
-.lg-count { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.lg-count { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
 .lg-count div { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.15); }
 .lg-count b { font: 800 34px/1 var(--font-display); color: #fff; font-variant-numeric: tabular-nums; }
 .lg-count small { font: 700 8px/1 var(--font-pixel); text-transform: uppercase; color: #aab3d6; }

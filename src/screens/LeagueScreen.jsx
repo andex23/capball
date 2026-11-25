@@ -8,7 +8,7 @@ import { useLeagueStore, leagueWins } from '../state/leagueStore'
 import { useLagosStore } from '../lagos/lagosStore'
 import { useSavedStore } from '../state/savedMatch'
 import { useAccountStore } from '../state/accountStore'
-import { LEAGUE_ENTRY, qualifies, winsToGo } from '../game/leagueRules'
+import { LEAGUE_ENTRY, qualifies, winsToGo, untilOpen } from '../game/leagueRules'
 import { isLagos } from '../platform'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import CapPreview from '../ui/CapPreview'
@@ -27,6 +27,19 @@ function startingClub(teamConfig) {
   const own = teamConfig?.team1 || {}
   const name = own.name && !/^team\s*\d$/i.test(own.name) ? own.name : ''
   return { ...own, name }
+}
+
+/** Days, hours, minutes and seconds until it opens, ticking. */
+export function Countdown() {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
+  const t = untilOpen(now)
+  const pad = (n) => String(n).padStart(2, '0')
+  return (
+    <div className="lg-count" role="timer" aria-label={`Opens in ${t.days} days ${t.hours} hours ${t.mins} minutes`}>
+      {[[t.days, 'days'], [pad(t.hours), 'hours'], [pad(t.mins), 'mins'], [pad(t.secs), 'secs']].map(([n, l]) => <div key={l}><b>{n}</b><small>{l}</small></div>)}
+    </div>
+  )
 }
 
 export function HowItWorks() {
@@ -126,7 +139,8 @@ export default function LeagueScreen() {
         </header>
         <main className="shell-body wk lg-has-nav">
           <section className="wk-poster">
-            <div className="lg-soon">Coming soon</div>
+            <div className="lg-soon">Opens Friday · midnight</div>
+            <Countdown />
             <div className="wk-poster-row">
               <div>
                 <p>Fifteen matches over one weekend. One club. The best players in {isLagos() ? 'Lagos' : 'Counterball'} on one table, and only one champion.</p>

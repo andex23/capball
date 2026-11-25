@@ -7,7 +7,7 @@
  * icon: an Icon name. date: YYYY-MM-DD.
  */
 export const UPDATES = [
-  { id: 'weekend-league', date: '2026-11-25', icon: 'trophy', title: 'The Weekend League is coming', text: 'Fifteen matches over one weekend, one club, one table, and only one champion. Win the Champion cap, a one-of-a-kind custom cap, plus a gold cup for your trophy cabinet and ₦1m. You need 15 wins to enter: sign up now from the top of the menu.' },
+  { id: 'weekend-league', date: '2026-11-25', icon: 'trophy', title: 'The Weekend League is coming', text: 'Fifteen matches over one weekend, one club, one table, and only one champion. Win the Champion cap, a one-of-a-kind custom cap, plus a gold cup for your trophy cabinet and ₦1m. It opens this Friday at midnight. You need 15 wins to enter: sign up now from the top of the menu.' },
   { id: 'training-ground', date: '2026-11-23', icon: 'help', title: 'Psst… there’s a training ground', text: 'Open your profile and look for the little cone. Practise chips, free kicks and one-on-ones, or set up anything you like. Nothing counts.' },
   { id: 'chip-shot', date: '2026-11-23', icon: 'ball', title: 'Chip shots', text: 'Double-tap a cap next to the ball, then flick: the ball flies over the wall. Keepers back up for chips, so float one and it’s caught, overdo it and it’s over the bar. Three a half, in the half you’re attacking.' },
   { id: 'daily-week', date: '2026-11-21', icon: 'check', title: 'A daily challenge for every day of the week', text: 'Each day has its own set-up, getting harder towards the weekend, so no two days in a row are the same. Sunday is the Sunday Special: an extra defender and one flick fewer, worth ₦250k.' },

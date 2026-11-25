@@ -17,7 +17,7 @@ import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weeken
 import { timeLeft } from './WeekendScreen'
 import { WEEKEND_CUP_ON } from '../game/weekendCup'
 import { useLeagueStore, leagueWins } from '../state/leagueStore'
-import { LEAGUE_ENTRY, qualifies } from '../game/leagueRules'
+import { LEAGUE_ENTRY, qualifies, opensIn } from '../game/leagueRules'
 import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
@@ -151,7 +151,7 @@ export default function MenuScreen() {
       // Friday to Sunday in Lagos Life: the Weekend Cup goes first
       {
         key: 'league', title: 'Weekend League',
-        sub: leagueJoined ? 'You’re signed up · coming soon' : !lagos && !username ? `Needs an account · ${LEAGUE_ENTRY} wins to enter` : qualifies(leagueWon) ? 'You qualify · sign up now · coming soon' : `Win ${LEAGUE_ENTRY} matches to enter · you have ${leagueWon}`,
+        sub: leagueJoined ? `You’re in · opens in ${opensIn()}` : !lagos && !username ? `Needs an account · ${LEAGUE_ENTRY} wins to enter` : qualifies(leagueWon) ? `You qualify · sign up · opens in ${opensIn()}` : `Win ${LEAGUE_ENTRY} matches to enter · you have ${leagueWon}`,
         tag: leagueJoined ? '✓ IN' : qualifies(leagueWon) && (lagos || username) ? 'JOIN' : `${Math.min(leagueWon, LEAGUE_ENTRY)}/${LEAGUE_ENTRY}`,
         done: !!leagueJoined,
         action: () => { playConfirm(); goToScreen(SCREEN.LEAGUE) },

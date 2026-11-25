@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LEAGUE_ENTRY, qualifies, winsToGo } from '../game/leagueRules'
+import { LEAGUE_ENTRY, LEAGUE_OPENS, qualifies, winsToGo, untilOpen, opensIn } from '../game/leagueRules'
 import { cleanClub } from '../state/leagueStore'
 import { leagueJoin, leagueInfo } from '../../server/lagos.js'
 
@@ -46,5 +46,20 @@ describe('Weekend League sign-up (server)', () => {
     expect((await leagueJoin(saves, 'live', 'bayo', { name: 'Bayo' })).registered).toBe(2)
     expect(await leagueInfo(saves, 'live', 'ada')).toEqual({ ok: true, registered: 2, me: true })
     expect((await leagueInfo(saves, 'test', 'ada')).registered).toBe(0)
+  })
+})
+
+describe('Weekend League countdown', () => {
+  it('opens Friday 27 November at midnight in Lagos', () => {
+    expect(new Date(LEAGUE_OPENS).toISOString()).toBe('2026-11-26T23:00:00.000Z')
+  })
+  it('counts down and stops at zero', () => {
+    const at = LEAGUE_OPENS - ((1 * 86400 + 10 * 3600 + 32 * 60 + 5) * 1000)
+    expect(untilOpen(at)).toEqual({ days: 1, hours: 10, mins: 32, secs: 5, open: false })
+    expect(opensIn(at)).toBe('1d 10h')
+    expect(opensIn(LEAGUE_OPENS - 90 * 60000)).toBe('1h 30m')
+    expect(opensIn(LEAGUE_OPENS - 20000)).toBe('1m')
+    expect(untilOpen(LEAGUE_OPENS + 5000).open).toBe(true)
+    expect(opensIn(LEAGUE_OPENS + 5000)).toBe('now')
   })
 })
