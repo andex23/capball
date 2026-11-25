@@ -311,6 +311,27 @@ const ART = {
     text(ctx, 'GOALS', 0, 26, { size: 14, font: SANS, weight: 800, color: '#FFFFFF', spacing: 5 })
   },
 
+  /* The Weekend League champion's cap: one a weekend, for first place only */
+  champ(ctx) {
+    disc(ctx, 100, '#0A4D33')
+    const sheen = ctx.createRadialGradient(-35, -40, 8, 0, 0, 105); sheen.addColorStop(0, 'rgba(255,255,255,0.16)'); sheen.addColorStop(1, 'rgba(0,0,0,0.3)')
+    disc(ctx, 100, sheen)
+    const gold = metal(ctx, 90, ['#FFF3B0', '#D4AF37', '#FFE58A', '#A27C1B'])
+    ring(ctx, 91, 7, gold)
+    dotRing(ctx, 81, 36, 1.8, '#E9C96A')
+    laurel(ctx, 64, '#D4AF37', 9, 9)
+    // the cup: bowl, handles, stem, two-step base
+    ctx.save(); ctx.fillStyle = gold; ctx.strokeStyle = '#5C430C'; ctx.lineWidth = 2.5
+    ctx.beginPath(); ctx.moveTo(-30, -50); ctx.lineTo(30, -50); ctx.quadraticCurveTo(30, -6, 0, 2); ctx.quadraticCurveTo(-30, -6, -30, -50); ctx.closePath(); ctx.fill(); ctx.stroke()
+    ctx.lineWidth = 6; ctx.strokeStyle = gold
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * 31, -34, 11, s > 0 ? -Math.PI / 2 : Math.PI / 2, s > 0 ? Math.PI / 2 : Math.PI * 1.5); ctx.stroke() }
+    ctx.fillRect(-5, 0, 10, 14); ctx.fillRect(-18, 13, 36, 7); ctx.fillRect(-24, 20, 48, 7)
+    // a star on the bowl
+    starPath(ctx, 0, -30, 11, 4.6); ctx.fillStyle = '#0A4D33'; ctx.fill()
+    ctx.restore()
+    banner(ctx, 48, 120, 24, '#F3EBD8', '#B9AD92', 'CHAMPION', '#0A4D33', 19)
+  },
+
   cup(ctx) {
     disc(ctx, 100, '#7A0010')
     const gold = metal(ctx, 60, ['#FFF3B0', '#D4AF37', '#FFE58A', '#A27C1B'])
