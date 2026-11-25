@@ -11,7 +11,7 @@ export const HERITAGE_DESIGNS = [
   cap('edo-regalia','Edo Regalia','#221B17','#DDB55B','#8C602B','satin','EDO REGALIA',10,'Benin court brasswork'),
   cap('ukwu-gold','Ukwu Gold','#143F32','#EAC35D','#B17C25','satin','UKWU GOLD',9,'Igbo-Ukwu metalwork'),
   cap('ife-dynasty','Ife Dynasty','#15555D','#DFC797','#A78A58','satin','IFE DYNASTY',11,'Ile-Ife portraiture'),
-  cap('alaafin','Alaafin','#852E25','#EAC473','#A77B30','satin','ALAAFIN',10,'Oyo royal regalia'),
+  cap('alaafin','Aláàfin','#852E25','#EAC473','#A77B30','satin','ALÁÀFIN',10,'Oyo royal beaded crown'),
   cap('kingmaker','Kingmaker','#171717','#EBC25C','#C2963B','satin','KINGMAKER',1,'Championship crown and laurel'),
   cap('acid-racing','Acid Racing','#121414','#C8F900','#161818','satin','ACID RACING',7,'Neon racing graphics','street'),
   cap('lagos-90',"Lagos '90",'#F0E1BC','#16522C','#164A2A','matte',"LAGOS '90",10,'Retro Nigerian football kits','street'),
@@ -126,18 +126,36 @@ export function heritageFace({pattern,primary,edge,textColor,number,capText}) {
       numberInk=textColor||base;labelInk=accent;break
     }
     case 'alaafin': {
-      ring(47,1.8,'@gold')
-      for(let i=0;i<5;i++)fill(poly([[8,18+i*12],[18,12+i*12],[27,18+i*12],[18,24+i*12]]),'#A94E38')
-      stroke('M 85 16 V 82 M 90 25 V 73','@gold',2.6)
-      relief('M 34 31 L 35 23 L 41 23 L 43 13 L 47 13 L 49 21 L 54 19 L 57 9 L 61 9 L 63 21 L 69 16 L 73 16 L 74 30 Z','@gold')
-      for(const [x,y] of [[45,12],[59,8],[71,15]])dot(x,y,2.4,'@gold','#916124')
-      for(let x=38;x<73;x+=5){dot(x,25,1.6,'#F1D593','#815326');dot(x,29,1.4,'#F1D593','#815326')}
-      relief('M 36 31 Q 53 26 72 32 L 74 42 L 81 50 L 74 53 L 75 58 L 69 61 Q 68 70 60 73 L 61 79 L 38 79 L 42 65 Q 33 53 36 31 Z','@gold')
-      fill('M 38 34 Q 44 29 53 32 L 47 47 L 42 60 L 37 53 Z','#80552C')
-      stroke('M 60 40 Q 67 35 73 41 M 62 44 Q 68 47 72 43 M 70 53 L 74 54 M 65 59 Q 70 57 74 58 M 52 50 Q 47 54 52 61','#704522',1.4)
-      dot(68,42,1.3,dark);dot(50,54,2.6,'@bronze','#77502D')
-      for(let i=0;i<4;i++)stroke('M 39 '+(66+i*3)+' Q 50 '+(76+i*2)+' 61 '+(69+i*2),'@gold',2.1)
-      nx=23;ny=49;ns=23;nw=23;break
+      // The beaded crown (ade) of Oyo: a tall cone of bead rows, the royal
+      // bird on top and a veil of bead strands, on a field of coral beadwork.
+      const coral='#CF5138', ivory='#F3E3BE'
+      ring(47,1.8,'@gold');beads(36,43.5,1.1,coral,'#6E2A1F')
+      // faint diamond beadwork behind the crown
+      for(let r=0;r<4;r++)for(let c=0;c<3;c++){const x=10+c*9+(r%2)*4.5,y=26+r*12;stroke(poly([[x,y-4],[x+4,y],[x,y+4],[x-4,y]]),'rgba(234,196,115,0.28)',.7)}
+      // crown cone
+      const cone='M 22 60 Q 26 40 29 29 Q 37 13 45 29 Q 48 40 52 60 Z'
+      fill(cone,'@gold','#7A4E1C',.9)
+      // bead rows across the cone, alternating coral and ivory
+      for(let i=0;i<7;i++){
+        const y=32.5+i*3.9, half=6.2+i*1.3
+        for(let k=-3;k<=3;k++){const x=37+k*(half/3.2);if(Math.abs(x-37)<=half)dot(x,y,1.05,(i+k)%2?coral:ivory,'#6E3A18')}
+      }
+      // zigzag beadwork band near the top
+      stroke('M 32 27.5 L 34 24.5 L 36 27.5 L 38 24.5 L 40 27.5 L 42 24.5','#7A4E1C',.9)
+      // the royal bird
+      fill('M 30 19 L 33 16 Q 36 10.5 41 12.5 L 46 11 L 43.5 14.5 Q 43 18.5 38 20.5 Q 35 21.5 33 20 Z','@gold','#7A4E1C',.7)
+      dot(40.6,13.6,.7,'#3A2210')
+      stroke('M 37 20.5 V 22.5','#7A4E1C',1.2)
+      // brim
+      fill('M 21 59 H 53 Q 54 63 51 64 H 23 Q 20 63 21 59 Z','@gold','#7A4E1C',.8)
+      for(let x=24;x<=50;x+=3.25)dot(x,61.5,.95,coral,'#6E2A1F')
+      // veil: bead strands over the face
+      for(let x=24.5;x<=49.5;x+=2.5){
+        const len=10+((x*7)%5)
+        stroke('M '+x+' 64 V '+(64+len),'rgba(243,227,190,0.55)',.35)
+        for(let y=66;y<64+len;y+=2.6)dot(x,y,.75,((x+y)|0)%3?ivory:coral)
+      }
+      break
     }
     case 'kingmaker': {
       ring(47,1.7,'@gold')
