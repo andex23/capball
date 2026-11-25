@@ -6,9 +6,28 @@
 import { ARCHIVE_DESIGNS } from '../data/ArchiveCaps.js'
 import { FIXTURES } from './leagueRules.js'
 
+/** Each club's name, after the look of its cap (the caps keep their own names). */
+export const CLUB_NAMES = {
+  'arc-adire': 'Indigo Rovers',
+  'arc-akwete': 'Loom City',
+  'arc-uli': 'Inkwell Athletic',
+  'arc-gwari': 'Gecko FC',
+  'arc-zaria': 'Arch United',
+  'arc-dufuna': 'Riverwood Wanderers',
+  'arc-nok-kiln': 'Kiln Town',
+  'arc-ikom': 'Monolith SC',
+  'arc-lost-wax': 'Coilworks FC',
+  'arc-edo-brass': 'Coral Athletic',
+  'arc-aguda': 'Veranda Club',
+  'arc-highlife': 'Vinyl Dynamos',
+  'arc-danfo': 'Yellow Express',
+  'arc-osogbo': 'Grove Rangers',
+  'arc-festac': 'Sunset Stars',
+}
+
 /** A club's kit: its Archive cap, printed with just a number. */
 const kit = (d) => ({
-  name: d.name, primary: d.primary, edge: d.edge, skirtColor: d.skirtColor,
+  name: CLUB_NAMES[d.key] || d.name, primary: d.primary, edge: d.edge, skirtColor: d.skirtColor,
   pattern: 'none', badge: 'none', finish: 'matte', capText: '', textColor: '',
   art: d.key, capNames: 'none', difficulty: 'hard',
 })
