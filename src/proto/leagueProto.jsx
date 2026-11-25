@@ -41,7 +41,8 @@ const Phone = ({ id, label, children }) => (
 function Menu({ variant, app = 'lagos' }) {
   const lg = {
     locked: { title: 'Weekend League', sub: 'Win 15 matches to enter · you have 7', tag: '7/15', lock: true },
-    soon: { title: 'Weekend League', sub: 'Opens Friday · 15 matches · winner takes the Champion cap', tag: 'FRI' },
+    soon: { title: 'Weekend League', sub: 'You qualify · register now · opens Friday', tag: 'JOIN', join: true },
+    joined: { title: 'Weekend League', sub: 'You’re registered · opens Friday in 10h', tag: '✓ IN' },
     live: { title: 'Weekend League', sub: 'Live · 2 to play today · you #14 of 86', tag: 'LIVE' },
   }[variant]
   const lagos = app === 'lagos'
@@ -66,7 +67,7 @@ function Menu({ variant, app = 'lagos' }) {
                 <button className="iss-item">{m.title}{i === 0 && <small className="iss-sub">{m.sub}</small>}
                   {i === 0 && m.lock && <span className="proto-bar"><i /></span>}
                 </button>
-                {m.tag && <span className="iss-tag" data-arrow={m.tag === '►' ? 'true' : undefined} style={m.tag === 'LIVE' ? { background: '#ffc83d', color: '#1b1400' } : undefined}>{m.lock ? <><Icon name="lock" size={11} /> {m.tag}</> : m.tag}</span>}
+                {m.tag && <span className="iss-tag" data-arrow={m.tag === '►' ? 'true' : undefined} style={m.tag === 'LIVE' || m.join ? { background: '#ffc83d', color: '#1b1400' } : m.tag === '✓ IN' ? { background: '#3ddc84', color: '#06210f' } : undefined}>{m.lock ? <><Icon name="lock" size={11} /> {m.tag}</> : m.tag}</span>}
               </li>
             ))}
           </ul>
@@ -224,10 +225,83 @@ const css = `
 .proto-champ-last{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff;font-size:13px;background:rgba(255,200,61,.1);border:1px solid rgba(255,200,61,.4)}
 .rankings-name .lg-cup{display:inline-block;vertical-align:-3px;margin-left:6px}
 `
-const VIEWS = { locked: <Menu variant="locked" />, soon: <Menu variant="soon" />, live: <Menu variant="live" />, web: <Menu variant="live" app="web" />, pick: <Pick />, folded: <Folded />, fulltime: <FullTime />, league: <League />, table: <Table />, moments: <Moments />, cabinet: <Cabinet /> }
+
+function Countdown() {
+  return (
+    <div className="lg-count">
+      {[['0', 'days'], ['10', 'hours'], ['32', 'mins']].map(([n, l]) => <div key={l}><b>{n}</b><small>{l}</small></div>)}
+    </div>
+  )
+}
+
+function HowItWorks() {
+  return (
+    <ul className="lg-how">
+      <li><b>15 matches</b> against the computer on hard, 5 open each day, Friday to Sunday</li>
+      <li><b>One club</b> for the whole weekend, on the Cap Arena board</li>
+      <li><b>One go</b> at each match. Win 3, draw 1</li>
+      <li><b>Top of the table</b> on Sunday night is champion</li>
+    </ul>
+  )
+}
+
+function Register({ qualified = true }) {
+  return (
+    <div className="shell"><Head />
+      <main className="shell-body wk">
+        <section className="wk-poster">
+          <div className="wk-live" style={{ color: '#aab3d6' }}>Opens Friday 00:00</div>
+          <Countdown />
+          <div className="lg-qual" data-ok={qualified ? 'true' : undefined}>
+            {qualified ? <><Icon name="check" size={16} /> You qualify: <b>23 wins</b></> : <><Icon name="lock" size={14} /> You have <b>7 wins</b>. 8 more to enter.</>}
+          </div>
+          <div className="wk-facts" style={{ marginTop: 10 }}><span><b>41</b> registered</span><span>Winner takes the <b>Champion cap</b></span></div>
+        </section>
+        <Fold title="How it works" summary="15 matches · 5 a day"><HowItWorks /></Fold>
+        {qualified ? (
+          <Fold title="Register" summary="Pick your club">
+            <LeagueTeamPick options={pickOptions} chosen="Dru FC" when="when you register" />
+            <button className="btn btn-gold btn-lg btn-block"><Icon name="check" size={18} /> Register</button>
+            <p className="muted wk-note">You’ll play as Dru FC. You can’t change club until next weekend.</p>
+          </Fold>
+        ) : (
+          <section className="wk-card"><button className="btn btn-lg btn-block" disabled style={{ opacity: 0.5 }}><Icon name="lock" size={16} /> Win 8 more to register</button><p className="muted wk-note">Wins against the computer and friends all count. Register any time before Sunday.</p></section>
+        )}
+        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><LeaguePrizes champCap={champCap} /></Fold>
+      </main>
+    </div>
+  )
+}
+
+function Registered() {
+  return (
+    <div className="shell"><Head />
+      <main className="shell-body wk">
+        <section className="wk-poster">
+          <div className="wk-live"><Icon name="check" size={14} /> You’re in</div>
+          <p style={{ margin: '8px 0 6px' }}>Your first 5 fixtures open Friday at midnight. We’ll see you on the table.</p>
+          <Countdown />
+          <div className="lg-club"><CapPreview config={myKit} size={40} /><div><small>Your club this weekend</small><b>Dru FC</b></div><span><Icon name="lock" size={12} /> Locked</span></div>
+          <div className="wk-facts" style={{ marginTop: 10 }}><span><b>41</b> registered</span><span>Last champion: <b>—</b> (first weekend)</span></div>
+        </section>
+        <Fold title="Friday’s fixtures" summary="5 matches · open at midnight">
+          <ol className="wk-rounds lg-list">
+            {clubs.slice(0, 5).map((c, i) => (
+              <li key={i} data-state="todo"><span className="lg-no">{i + 1}</span><CapPreview config={c} size={30} /><span className="wk-club"><b>{c.name}</b><small>Hard</small></span><span className="wk-score"><Icon name="lock" size={14} /></span></li>
+            ))}
+          </ol>
+        </Fold>
+        <Fold title="How it works" summary="15 matches · 5 a day" open={false}><HowItWorks /></Fold>
+        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><LeaguePrizes champCap={champCap} /></Fold>
+      </main>
+    </div>
+  )
+}
+
+const VIEWS = { joined: <Menu variant="joined" />, register: <Register />, notyet: <Register qualified={false} />, registered: <Registered />, locked: <Menu variant="locked" />, soon: <Menu variant="soon" />, live: <Menu variant="live" />, web: <Menu variant="live" app="web" />, pick: <Pick />, folded: <Folded />, fulltime: <FullTime />, league: <League />, table: <Table />, moments: <Moments />, cabinet: <Cabinet /> }
 function Proto() {
   const v = new URLSearchParams(location.search).get('v') || 'league'
-  const menu = ['locked', 'soon', 'live', 'web'].includes(v)
+  const menu = ['locked', 'soon', 'joined', 'live', 'web'].includes(v)
   return (
     <>
       <style>{css + 'html,body,#root{height:100%;margin:0}'}</style>

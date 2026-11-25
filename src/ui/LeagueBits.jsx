@@ -204,10 +204,10 @@ export function Fold({ title, summary, open: start = true, children }) {
 }
 
 /** Friday, first visit: pick the club you'll play all fifteen with. */
-export function LeagueTeamPick({ options, chosen }) {
+export function LeagueTeamPick({ options, chosen, when = 'when you kick off match 1' }) {
   return (
     <div className="lg-pick">
-      <p className="lg-pick-lead">Pick the club you’ll play the weekend with. <b>All 15 matches, one club.</b> It locks when you kick off match 1.</p>
+      <p className="lg-pick-lead">Pick the club you’ll play the weekend with. <b>All 15 matches, one club.</b> It locks {when}.</p>
       <ul className="lg-pick-grid">
         {options.map((o) => (
           <li key={o.name} data-on={o.name === chosen ? 'true' : undefined}>
