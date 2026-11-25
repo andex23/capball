@@ -1,3 +1,5 @@
+import { archiveFace, archiveDesign, isArchivePattern } from './ArchiveCaps.js'
+import { ART_CAPS, artDesign, artFace } from './ArtCaps.js'
 /**
  * Counterball collectible prints. Original vector art, drawn in the existing
  * cap preview and 512px match texture; no baked mockups or fixed player numbers.
@@ -17,10 +19,11 @@ export const HERITAGE_DESIGNS = [
   cap('lagos-90',"Lagos '90",'#F0E1BC','#16522C','#164A2A','matte',"LAGOS '90",10,'Retro Nigerian football kits','street'),
   cap('liquid-chrome','Liquid Chrome','#D4D6D9','#17181D','#B9BCC2','satin','LIQUID',9,'Iridescent liquid metal','street'),
   cap('midnight-club','Midnight Club','#101A35','#DCE5EF','#101C3D','satin','MIDNIGHT CLUB'.slice(0,12),11,'Electric-blue racing checks','street'),
+  ...ART_CAPS,
 ]
 const byPattern = new Map(HERITAGE_DESIGNS.map(d=>[d.pattern,d]))
-export const heritageDesign = pattern=>byPattern.get(pattern)
-export const isHeritagePattern = pattern=>byPattern.has(pattern)
+export const heritageDesign = pattern=>byPattern.get(pattern)||archiveDesign(pattern)
+export const isHeritagePattern = pattern=>byPattern.has(pattern)||isArchivePattern(pattern)
 
 // Localized metal and ink gradients are printed artwork, not a reflection
 // overlay. They share coordinates in the SVG and Canvas implementations.
@@ -40,6 +43,8 @@ const poly=pts=>'M '+pts.map(p=>p.join(' ')).join(' L ')+' Z'
 export const HERITAGE_FONT='"Barlow Condensed", "Arial Narrow", Impact, sans-serif'
 
 export function heritageFace({pattern,primary,edge,textColor,number,capText}) {
+  if(isArchivePattern(pattern))return archiveFace({pattern,number})
+  if(artDesign(pattern))return artFace({pattern,number})
   const design=heritageDesign(pattern)
   if(!design)return null
   const base=primary||design.primary, accent=edge||design.edge, dark='#261B16'
@@ -280,7 +285,7 @@ export function drawHeritageFace(ctx,size,face){
   ctx.textAlign='center';ctx.textBaseline='middle'
   for(const item of face.labels){
     ctx.save()
-    ctx.font=item.style+' 900 '+item.size+'px '+HERITAGE_FONT
+    ctx.font=item.style+' 900 '+item.size+'px '+(item.fontFamily||HERITAGE_FONT)
     const width=ctx.measureText(item.text).width
     ctx.translate(item.x,item.y)
     ctx.scale(item.width/Math.max(width,1),1)

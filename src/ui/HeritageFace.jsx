@@ -21,7 +21,7 @@ export default function HeritageFace({ config, number, capText, transform }) {
         {face.shapes.map((item,i) => <path key={i} d={item.d} fill={paint(item.fill)} stroke={paint(item.stroke)} strokeWidth={item.strokeWidth} />)}
         {face.labels.map((item,i) => (
           <text key={i} x={item.x} y={item.y} textAnchor="middle" dominantBaseline="central"
-            fontFamily={HERITAGE_FONT} fontWeight="900" fontStyle={item.style} fontSize={item.size}
+            fontFamily={item.fontFamily||HERITAGE_FONT} fontWeight="900" fontStyle={item.style} fontSize={item.size}
             textLength={item.width} lengthAdjust="spacingAndGlyphs"
             fill={item.fill} stroke={item.stroke} strokeWidth={item.strokeWidth} paintOrder="stroke">
             {item.text}

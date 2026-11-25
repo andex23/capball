@@ -5,21 +5,24 @@ import { hasArt, artHasNumber } from '../game/capArt.js'
 
 describe('Counterball collectible cap collection', () => {
   it('includes every reference design, distinct art and bounded printed names', () => {
-    expect(HERITAGE_DESIGNS.map(d=>d.key)).toEqual(['nok-ember','edo-regalia','ukwu-gold','ife-dynasty','alaafin','kingmaker','acid-racing','lagos-90','liquid-chrome','midnight-club'])
+    expect(HERITAGE_DESIGNS.map(d=>d.key)).toEqual(['nok-ember','edo-regalia','ukwu-gold','ife-dynasty','alaafin','kingmaker','acid-racing','lagos-90','liquid-chrome','midnight-club','purple-hibiscus','confluence-town'])
     const artwork = HERITAGE_DESIGNS.map(d => {
       expect(d.capText.length).toBeLessThanOrEqual(CAP_TEXT_MAX)
       expect(d.pattern.length).toBeLessThanOrEqual(16)
       expect(isHeritagePattern(d.pattern)).toBe(true)
       const f=heritageFace({...d,number:99})
       expect(f.shapes.length).toBeGreaterThan(5)
-      expect(f.shapes.every(p=>p.d.startsWith('M ')&&!/NaN|Infinity/.test(p.d))).toBe(true)
+      expect(f.shapes.every(p=>p.d.startsWith('M')&&!/NaN|Infinity/.test(p.d))).toBe(true)
       for(const p of f.shapes)for(const paint of [p.fill,p.stroke])if(paint?.startsWith('@'))expect(FACE_GRADIENTS[paint.slice(1)]).toBeTruthy()
       expect(f.labels.find(l=>l.role==='number').text).toBe('99')
-      expect(f.labels.find(l=>l.role==='name').text).toBe(d.name.toUpperCase())
-      expect(f.labels.find(l=>l.role==='name').width).toBeLessThanOrEqual(60)
+      if(d.series==='art')expect(f.labels.map(l=>l.role)).toEqual(['number'])
+      else {
+        expect(f.labels.find(l=>l.role==='name').text).toBe(d.name.toUpperCase())
+        expect(f.labels.find(l=>l.role==='name').width).toBeLessThanOrEqual(60)
+      }
       return JSON.stringify(f.shapes)
     })
-    expect(new Set(artwork).size).toBe(10)
+    expect(new Set(artwork).size).toBe(12)
     expect(heritageFace({pattern:'ring'})).toBeNull()
     expect(heritageFace({pattern:'__proto__'})).toBeNull()
   })
@@ -27,9 +30,14 @@ describe('Counterball collectible cap collection', () => {
     for(const d of HERITAGE_DESIGNS){
       for(const capText of ['', 'PLAYER NAME']){
         const face=heritageFace({...d,number:8,capText})
-        expect(face.labels.find(l=>l.role==='number').text).toBe('08')
-        expect(face.labels.find(l=>l.role==='name').text).toBe(d.name.toUpperCase())
-        if(capText)expect(face.labels.find(l=>l.role==='custom').width).toBeLessThanOrEqual(43)
+        if(d.series==='art'){
+          expect(face.labels).toHaveLength(1)
+          expect(face.labels[0].text).toBe('8')
+        }else{
+          expect(face.labels.find(l=>l.role==='number').text).toBe('08')
+          expect(face.labels.find(l=>l.role==='name').text).toBe(d.name.toUpperCase())
+          if(capText)expect(face.labels.find(l=>l.role==='custom').width).toBeLessThanOrEqual(43)
+        }
       }
     }
   })
