@@ -40,7 +40,7 @@ const Phone = ({ id, label, children }) => (
 
 function Menu({ variant, app = 'lagos' }) {
   const lg = {
-    locked: { title: 'Weekend League', sub: 'Win 10 matches to enter · you have 7', tag: '7/10', lock: true },
+    locked: { title: 'Weekend League', sub: 'Win 15 matches to enter · you have 7', tag: '7/15', lock: true },
     soon: { title: 'Weekend League', sub: 'Opens Friday · 15 matches · winner takes the Champion cap', tag: 'FRI' },
     live: { title: 'Weekend League', sub: 'Live · 2 to play today · you #14 of 86', tag: 'LIVE' },
   }[variant]
@@ -87,7 +87,7 @@ function Head() {
   return (
     <header className="shell-head tour-top">
       <button className="tour-back"><Icon name="back" size={18} /></button>
-      <div><h1 className="display tour-title">Weekend League</h1><div className="tour-sub">10+ wins to enter · Friday to Sunday</div></div>
+      <div><h1 className="display tour-title">Weekend League</h1><div className="tour-sub">15+ wins to enter · Friday to Sunday</div></div>
     </header>
   )
 }
@@ -220,7 +220,7 @@ const css = `
 .proto-screen .shell{padding-top:28px}
 .proto-sub{font:700 9px/1 Silkscreen,monospace;text-transform:uppercase;color:#aab3d6;letter-spacing:.08em}
 .proto-bar{display:block;height:6px;margin-top:8px;background:rgba(255,255,255,.12);position:relative}
-.proto-bar i{position:absolute;inset:0 30% 0 0;background:#ffc83d}
+.proto-bar i{position:absolute;inset:0 53% 0 0;background:#ffc83d}
 .proto-champ-last{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff;font-size:13px;background:rgba(255,200,61,.1);border:1px solid rgba(255,200,61,.4)}
 .rankings-name .lg-cup{display:inline-block;vertical-align:-3px;margin-left:6px}
 `
