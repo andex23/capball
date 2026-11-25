@@ -2,6 +2,8 @@ import ShareGame from '../ui/ShareGame'
 import Icon from '../ui/Icon'
 import { useState, useEffect, useCallback } from 'react'
 import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useRewardsStore } from '../state/rewardsStore'
+import { designPatch, CAP_DESIGNS } from '../data/TeamOptions'
 import Modal from '../ui/Modal'
 import SettingsPanel from '../ui/SettingsPanel'
 import RulesPanel from '../ui/RulesPanel'
@@ -121,6 +123,12 @@ export default function MenuScreen() {
   const countdown = left.open ? 'Open now' : `${left.days ? `${left.days}d ` : ''}${pad(left.hours)}:${pad(left.mins)}:${pad(left.secs)}`
   useEffect(() => {
     useLeagueStore.getState().refresh()
+    useLeagueStore.getState().checkLast()
+    // The Kingmaker is the champion's for a week; after that it comes off
+    if (!(useRewardsStore.getState().kingmakerUntil > Date.now())) {
+      const m = useMatchStore.getState()
+      for (const t of ['team1', 'team2']) if (m.teamConfig[t]?.art === 'kingmaker') m.setTeamConfig(t, designPatch(CAP_DESIGNS[0]))
+    }
     if (!lagos || !WEEKEND_CUP_ON) return
     const w = useWeekendStore.getState()
     w.checkLast()

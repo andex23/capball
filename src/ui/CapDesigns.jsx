@@ -10,6 +10,9 @@ import { isLagos } from '../platform'
 import { useLagosStore } from '../lagos/lagosStore'
 import { SHOP_DESIGNS, itemFor, naira, SHOP_OPEN } from '../data/shop'
 import { useWalletStore } from '../state/walletStore'
+import { useRewardsStore } from '../state/rewardsStore'
+import { COLLECTION } from '../game/collection'
+import { walletNaira } from '../game/wallet'
 
 // A plain cap in the team's own colours: the starting point for designing your own
 export const PLAIN = { key: 'plain', name: 'Plain', pattern: 'none', badge: 'none', finish: 'matte', capText: '' }
@@ -53,6 +56,11 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
   const hinted = hint ? itemFor(hint) : null
   const show = (s) => section === 'all' || section === s
   // Caps you can only win (weekly goals, cups, the Weekend Cup) stay out of sight until you have them
+  // The Collection: league prizes (earned), and Street and art caps (bought)
+  const prizeCaps = useRewardsStore((s) => s.caps)
+  const kingmakerUntil = useRewardsStore((s) => s.kingmakerUntil)
+  const ownsCollection = (d) => (d.key === 'kingmaker' ? kingmakerUntil > Date.now() : prizeCaps.includes(d.key) || walletCaps.includes(d.key))
+  const [collectionHint, setCollectionHint] = useState(null)
   const rare = RARE_DESIGNS.filter((d) => !d.hidden || isUnlocked(d, progress) || owns(d))
   // "Your own": the club's own cap, made in the cap maker (selected when it isn't one of the ready-made looks)
   const allDesigns = [...(onCustom ? [] : [plain]), ...designs, ...RARE_DESIGNS, ...SHOP_DESIGNS]
@@ -106,6 +114,27 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
           )
         })}
       </div>
+      </>}
+      {show('earn') && <>
+      <div className="eyebrow" style={{ margin: '12px 0 8px' }}>The Collection — win them in the Weekend League, or buy them</div>
+      <div className="cap-designs" role="group" aria-label="The Collection">
+        {COLLECTION.map((d) => {
+          const open = ownsCollection(d)
+          return (
+            <button key={d.key} className="cap-design rare" data-locked={open ? undefined : 'true'} aria-pressed={open && isDesign(config, d)} disabled={disabled}
+              onClick={() => (open ? pick(d) : (playButtonSelect(), setCollectionHint(d.key)))}
+              aria-label={open ? d.name : `${d.name} — locked: ${d.price ? walletNaira(d.price) + ' in the shop' : d.hint}`}>
+              <span className="cap-design-art">
+                <CapPreview config={{ ...d, art: d.key, capNames: 'none' }} size={58} />
+                {!open && <span className="cap-design-lock"><Icon name="lock" size={16} /></span>}
+              </span>
+              <span>{d.name}</span>
+              {!open && <small className="cap-design-need">{d.price ? walletNaira(d.price) : d.league === 1 ? 'Champion' : d.league ? `Top ${d.league}` : d.feat === 'unbeaten' ? 'Unbeaten' : 'All 15'}</small>}
+            </button>
+          )
+        })}
+      </div>
+      {collectionHint && (() => { const d = COLLECTION.find((x) => x.key === collectionHint); return d && <p className="cap-design-hint">{d.price ? `${d.name}: ${walletNaira(d.price)} in the shop (your profile). Every match you finish adds to your wallet.` : `${d.name}: ${d.hint}.`}</p> })()}
       </>}
       {isLagos() && show('lagos') && (
         <>

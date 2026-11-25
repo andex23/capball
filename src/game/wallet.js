@@ -5,6 +5,7 @@
  */
 import { RARE_PRICES, SHOP_DESIGNS } from '../data/shop.js'
 import { BANDS } from '../data/bands.js'
+import { COLLECTION_PRICES } from './collection.js'
 
 export const WIN = 20000
 export const DRAW = 8000
@@ -34,6 +35,7 @@ export const capped = (amount, earnedToday) => Math.max(0, Math.min(amount, DAIL
 export const CAP_PRICES = {
   ...Object.fromEntries(Object.entries(RARE_PRICES).map(([k, p]) => [k, p * 10000])), // ₦1m–₦5m
   ...Object.fromEntries(SHOP_DESIGNS.map((d) => [d.key, d.price * 10000])), // ₦3m–₦5m
+  ...COLLECTION_PRICES, // Street ₦1.5m, art editions ₦5m
 }
 export const BAND_PRICES = Object.fromEntries(BANDS.filter((b) => b.price).map((b) => [b.key, b.price * 4000])) // ₦400k–₦800k
 

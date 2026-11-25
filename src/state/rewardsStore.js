@@ -15,7 +15,7 @@ import { useCareerStore } from './careerStore'
 import { isSignedIn, useAccountStore } from './accountStore'
 
 export const REWARDS_KEY = 'capball:rewards:v1'
-const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [], cups: [] }
+const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [], cups: [], kingmakerUntil: 0 }
 
 function clean(raw) {
   const r = raw && typeof raw === 'object' ? raw : {}
@@ -28,6 +28,8 @@ function clean(raw) {
     // What the bell shows: { id, title, text, date }
     news: Array.isArray(r.news) ? r.news.filter((n) => n && typeof n.id === 'string').slice(0, 30) : [],
     // Weekly Cups won: { key (week), name, date }
+    // Weekend League champion: holds the Kingmaker until then (ms)
+    kingmakerUntil: Number.isFinite(r.kingmakerUntil) ? r.kingmakerUntil : 0,
     cups: Array.isArray(r.cups) ? r.cups.filter((c) => c && typeof c.key === 'string' && typeof c.name === 'string').slice(0, 200).map((c) => ({ key: c.key.slice(0, 10), name: c.name.slice(0, 24), id: typeof c.id === 'string' ? c.id.slice(0, 40) : null, date: String(c.date || '').slice(0, 10) })) : [],
   }
 }
@@ -48,8 +50,8 @@ export const useRewardsStore = create((set, get) => ({
 
   _save(next) {
     set(next)
-    const { daily, week, caps, bank, scouts, news, cups } = get()
-    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, scouts, news, cups })) } catch { /* blocked */ }
+    const { daily, week, caps, bank, scouts, news, cups, kingmakerUntil } = get()
+    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, scouts, news, cups, kingmakerUntil })) } catch { /* blocked */ }
   },
 
   /** Today's reward: { day, ready, reward }. */
@@ -125,6 +127,32 @@ export const useRewardsStore = create((set, get) => ({
       text: top ? `+${money(TOP_PRIZE)} and the ${cap.name} cap. Pick it in Edit team.` : `You finished ${place}. The next Weekend Cup starts Friday.`,
       ...(top ? { cap: cap.key, coins: TOP_PRIZE } : {}),
       date: today,
+    }, ...s.news].slice(0, 30)
+    get()._save(s)
+    useAccountStore.getState().save()
+    return true
+  },
+
+  /**
+   * Weekend League, Monday: where you finished, once a weekend. Places stack:
+   * the champion also gets the caps for 2nd, 3rd and the top ten. The champion
+   * holds the Kingmaker for a week. Prize money goes to the career budget.
+   */
+  leagueResult({ key, rank, players, pts, caps, money: prize = 0 }, now = new Date()) {
+    const id = `league:${key}`
+    if (get().news.some((n) => n.id === id)) return false
+    let s = { ...get() }
+    const fresh = (caps || []).filter((c) => c !== 'kingmaker' && !s.caps.includes(c))
+    if (fresh.length) s.caps = [...s.caps, ...fresh]
+    if (rank === 1) s.kingmakerUntil = now.getTime() + 7 * 86400000
+    if (prize) s = pay(prize, s)
+    s.news = [{
+      id,
+      title: rank === 1 ? 'You won the Weekend League!' : `Weekend League: you finished #${rank}`,
+      text: `#${rank} of ${players} with ${pts} points.${rank === 1 ? ' The Kingmaker is yours this week.' : ''}${fresh.length ? ` New caps: ${fresh.length}. Pick them in Edit team.` : ''}${prize ? ` +${money(prize)} into your club budget.` : ''}`,
+      ...(fresh[0] ? { cap: fresh[0] } : {}),
+      ...(prize ? { coins: prize } : {}),
+      date: dayKey(now),
     }, ...s.news].slice(0, 30)
     get()._save(s)
     useAccountStore.getState().save()
