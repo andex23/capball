@@ -17,7 +17,7 @@ import { useMatchStore, SCREEN } from './MatchStore'
 
 const SESSION_KEY = 'capball:account'
 // Progress that belongs to the account: cleared from the phone on sign out (it stays on the server)
-export const PROGRESS_KEYS = ['capball:tournaments:v1', 'capball.device', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:career-hof:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1', 'capball:inbox-seen:v1', 'capball:rewards:v1', 'capball:training:v1']
+export const PROGRESS_KEYS = ['capball:tournaments:v1', 'capball.device', 'capball:savedMatch:v1', 'capball:history:v1', 'capball:career:v1', 'capball:career-mode:v1', 'capball:career-hof:v1', 'capball:unlocks-seen:v1', 'capball:daily:v1', 'capball:achievements:v1', 'capball:rivals:v1', 'capball:inbox-seen:v1', 'capball:rewards:v1', 'capball:training:v1', 'capball:league:v1']
 
 /** Is a player signed in on this phone? (Stats, streaks and rewards only count when they are.) */
 export const isSignedIn = () => !!useAccountStore.getState().username

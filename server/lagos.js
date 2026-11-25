@@ -337,6 +337,28 @@ export async function weekendTable(saves, mode, playerId, which, now = Date.now(
   return { ok: true, key, ...tableView(table, playerHash(playerId)) }
 }
 
+/* ── The Weekend League: who has signed up so far (before it opens) ── */
+const LEAGUE_SIGNUP = '__league__:signup'
+const cleanSignup = (d) => (d && d.v === 1 && d.rows && typeof d.rows === 'object' ? d : { v: 1, rows: {} })
+
+/** Sign up (or update your club's name): how many are in, and that you are. */
+export async function leagueJoin(saves, mode, playerId, input, now = Date.now()) {
+  const list = cleanSignup((await saves('get', mode, LEAGUE_SIGNUP))?.data)
+  const id = playerHash(playerId)
+  const name = cleanName(input?.name)
+  if (!list.rows[id] || list.rows[id].name !== name) {
+    list.rows[id] = { name, at: list.rows[id]?.at || now }
+    if (Object.keys(list.rows).length <= 50000) await saves('put', mode, LEAGUE_SIGNUP, list)
+  }
+  return { ok: true, registered: Object.keys(list.rows).length, me: true }
+}
+
+/** How many have signed up, and whether this player has. */
+export async function leagueInfo(saves, mode, playerId) {
+  const list = cleanSignup((await saves('get', mode, LEAGUE_SIGNUP))?.data)
+  return { ok: true, registered: Object.keys(list.rows).length, me: !!list.rows[playerHash(playerId)] }
+}
+
 export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), saves = makeSaveDb(), reports = makeReportDb()) {
   if (!api) fail('not-configured')
   // The player's save: always the verified player's own, never anyone else's
@@ -376,6 +398,12 @@ export async function handleLagos(input, api = makeApi(), db = makeOwnedDb(), sa
     return input.action === 'weekendSubmit'
       ? weekendSubmit(saves, mode, playerId, input)
       : weekendTable(saves, mode, playerId, input.which === 'last' ? 'last' : 'now')
+  }
+  // The Weekend League: signing up before it opens
+  if (input?.action === 'leagueJoin' || input?.action === 'leagueInfo') {
+    if (!saves) fail('shop-not-configured')
+    const { playerId, mode } = await whoIs(api, input.session)
+    return input.action === 'leagueJoin' ? leagueJoin(saves, mode, playerId, input) : leagueInfo(saves, mode, playerId)
   }
   if (input?.action === 'claim') return claim(input, api, db)
   if (input?.action === 'owned') {

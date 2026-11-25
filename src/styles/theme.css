@@ -1937,6 +1937,7 @@ button { cursor: pointer; background: none; border: 0; }
 .daily-name { font-size: 34px; color: var(--accent); }
 .daily-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .iss-tag[data-done='true'] { background: #1b5e20; }
+.iss-tag[data-join='true'] { background: var(--iss-yellow); color: #1b1400; }
 
 /* Rankings */
 .rankings { display: flex; flex-direction: column; gap: 12px; }

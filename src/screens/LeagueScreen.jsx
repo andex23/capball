@@ -1,0 +1,170 @@
+/**
+ * The Weekend League, before it opens: what it is, what you can win, and
+ * signing up with the club you'll play it with. Lagos Life and the website.
+ */
+import { useEffect, useState } from 'react'
+import { useMatchStore, SCREEN } from '../state/MatchStore'
+import { useLeagueStore, leagueWins } from '../state/leagueStore'
+import { useLagosStore } from '../lagos/lagosStore'
+import { useSavedStore } from '../state/savedMatch'
+import { useAccountStore } from '../state/accountStore'
+import { LEAGUE_ENTRY, qualifies, winsToGo, untilOpen } from '../game/leagueRules'
+import { isLagos } from '../platform'
+import { playButtonSelect, playConfirm } from '../audio/SoundManager'
+import CapPreview from '../ui/CapPreview'
+import CapDesigns from '../ui/CapDesigns'
+import Icon from '../ui/Icon'
+import { KitEditor } from './TournamentSetupScreen'
+import { LeaguePrizes, MysteryCap } from '../ui/LeagueBits'
+import '../ui/weekend.css'
+import '../ui/league.css'
+
+const TABS = [['club', 'Your club', 'users'], ['prizes', 'Prizes', 'trophy'], ['how', 'How it works', 'help']]
+const DESIGN_TABS = [['free', 'Free'], ['earn', 'Earned'], ['lagos', 'Lagos']]
+
+/** The club a player starts from: their own team's look and name. */
+function startingClub(teamConfig) {
+  const own = teamConfig?.team1 || {}
+  const name = own.name && !/^team\s*\d$/i.test(own.name) ? own.name : ''
+  return { ...own, name }
+}
+
+/** Days, hours, minutes and seconds until it opens, ticking. */
+export function Countdown() {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
+  const t = untilOpen(now)
+  const pad = (n) => String(n).padStart(2, '0')
+  return (
+    <div className="lg-count" role="timer" aria-label={`Opens in ${t.days} days ${t.hours} hours ${t.mins} minutes`}>
+      {[[t.days, 'days'], [pad(t.hours), 'hours'], [pad(t.mins), 'mins'], [pad(t.secs), 'secs']].map(([n, l]) => <div key={l}><b>{n}</b><small>{l}</small></div>)}
+    </div>
+  )
+}
+
+export function HowItWorks() {
+  return (
+    <ul className="lg-how">
+      <li><b>15 matches</b> against the computer on hard, five a day, Friday to Sunday</li>
+      <li><b>One club</b> for the whole weekend, on the best board in the game</li>
+      <li><b>One go</b> at each match. Win 3, draw 1</li>
+      <li><b>Top of the table</b> on Sunday night is champion</li>
+      <li><b>Leave a match early</b> and it counts as a 3–0 loss</li>
+      <li><b>{LEAGUE_ENTRY} wins</b> against the computer or friends to enter</li>
+    </ul>
+  )
+}
+
+function Register({ wins }) {
+  const teamConfig = useMatchStore((s) => s.teamConfig)
+  const [club, setClub] = useState(() => startingClub(teamConfig))
+  const [tab, setTab] = useState('free')
+  const [maker, setMaker] = useState(false)
+  const tabs = DESIGN_TABS.filter(([k]) => k !== 'lagos' || isLagos())
+  const ok = club.name.trim().length > 0
+  const join = () => { if (!ok) return; playConfirm(); useLeagueStore.getState().join(club) }
+  return (
+    <section className="wk-card">
+      <div className="wk-card-h"><h2 className="display">Your club</h2><span>One club, all 15</span></div>
+      <div className="lg-qual" data-ok="true"><Icon name="check" size={16} /><span>You qualify: <b>{wins} wins</b></span></div>
+      <p className="muted wk-note" style={{ margin: 0 }}>Make your own cap, or use any cap you’ve unlocked. It’s locked in when you sign up.</p>
+      <div className="lg-kit">
+        <div className="lg-kit-top">
+          <CapPreview config={club} size={96} number={10} />
+          <label><small>Club name</small><input value={club.name} maxLength={18} placeholder="Your club" onChange={(e) => setClub((c) => ({ ...c, name: e.target.value }))} /></label>
+        </div>
+        <div className="segmented stretch csu-tabs" role="tablist" aria-label="Cap designs">
+          {tabs.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => { playButtonSelect(); setTab(k) }}>{label}</button>)}
+        </div>
+        <CapDesigns config={club} onPick={(patch) => setClub((c) => ({ ...c, ...patch }))} section={tab} onCustom={tab === 'free' ? () => setMaker(true) : null} />
+      </div>
+      <button className="btn btn-gold btn-lg btn-block" disabled={!ok} onClick={join}><Icon name="check" size={18} /> Sign up</button>
+      {maker && <KitEditor team={club} title="Your cap" designs={false} withName onUpdate={(patch) => setClub((c) => ({ ...c, ...patch }))} onClose={() => setMaker(false)} />}
+    </section>
+  )
+}
+
+function Joined({ club }) {
+  return (
+    <section className="wk-card">
+      <div className="wk-card-h"><h2 className="display">You’re in</h2><span>Signed up</span></div>
+      <div className="lg-club"><CapPreview config={club} size={56} number={10} /><div><small>Your club</small><b>{club.name}</b></div><span><Icon name="lock" size={12} /> Locked</span></div>
+      <p className="muted wk-note" style={{ margin: 0 }}>We’ll let you know the moment it opens. Keep your form up until then.</p>
+    </section>
+  )
+}
+
+function NotYet({ wins, signedIn }) {
+  const go = useMatchStore((s) => s.goToScreen)
+  if (!signedIn) {
+    return (
+      <section className="wk-card">
+        <div className="lg-qual"><Icon name="lock" size={14} /><span>The Weekend League needs an account</span></div>
+        <p className="muted wk-note" style={{ margin: 0 }}>Sign in from the menu’s profile so your wins count towards the {LEAGUE_ENTRY} you need.</p>
+      </section>
+    )
+  }
+  const need = winsToGo(wins)
+  return (
+    <section className="wk-card">
+      <div className="lg-qual"><Icon name="lock" size={14} /><span>You have <b>{wins} {wins === 1 ? 'win' : 'wins'}</b>. {need} more to enter.</span></div>
+      <div className="lg-progress" role="progressbar" aria-valuemin={0} aria-valuemax={LEAGUE_ENTRY} aria-valuenow={wins}><i style={{ width: `${Math.min(100, (wins / LEAGUE_ENTRY) * 100)}%` }} /></div>
+      <p className="muted wk-note" style={{ margin: 0 }}>Wins against the computer and friends all count.</p>
+      <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); go(SCREEN.MENU) }}><Icon name="play" size={18} /> Go and win some</button>
+    </section>
+  )
+}
+
+export default function LeagueScreen() {
+  const joined = useLeagueStore((s) => s.joined)
+  const registered = useLeagueStore((s) => s.registered)
+  // Re-read wins when either source changes
+  useLagosStore((s) => s.wins + s.best)
+  useSavedStore((s) => s.career)
+  const signedIn = !!useAccountStore((s) => s.username) || isLagos()
+  const wins = leagueWins()
+  const [tab, setTab] = useState('club')
+  useEffect(() => { useLeagueStore.getState().refresh() }, [])
+  const back = () => { playButtonSelect(); useMatchStore.getState().goToScreen(SCREEN.MENU) }
+
+  return (
+    <div className="screen">
+      <div className="shell">
+        <header className="shell-head tour-top">
+          <button className="tour-back" onClick={back} aria-label="Back to the menu"><Icon name="back" size={18} /></button>
+          <div>
+            <h1 className="display tour-title">Weekend League</h1>
+            <div className="tour-sub">{LEAGUE_ENTRY}+ wins to enter · Friday to Sunday</div>
+          </div>
+        </header>
+        <main className="shell-body wk lg-has-nav">
+          <section className="wk-poster">
+            <div className="lg-soon">Opens Friday · 4:30pm</div>
+            <Countdown />
+            <div className="wk-poster-row">
+              <div>
+                <p>Fifteen matches over one weekend. One club. The best players in {isLagos() ? 'Lagos' : 'Counterball'} on one table, and only one champion.</p>
+                <div className="wk-facts">
+                  {registered ? <span><b>{registered}</b> signed up</span> : null}
+                  <span>Winner takes the <b>Champion cap</b></span>
+                </div>
+              </div>
+              <div className="wk-prize-cap"><MysteryCap size={64} /><small>1st wins it</small></div>
+            </div>
+          </section>
+          {tab === 'club' && (joined ? <Joined club={joined.club} /> : signedIn && qualifies(wins) ? <Register wins={wins} /> : <NotYet wins={wins} signedIn={signedIn} />)}
+          {tab === 'prizes' && <LeaguePrizes />}
+          {tab === 'how' && <section className="wk-card"><div className="wk-card-h"><h2 className="display">How it works</h2><span>The rules</span></div><HowItWorks /></section>}
+        </main>
+        <nav className="lg-nav" aria-label="Weekend League" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          {TABS.map(([k, label, icon]) => (
+            <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => { playButtonSelect(); setTab(k) }}>
+              <Icon name={icon} size={22} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+    </div>
+  )
+}

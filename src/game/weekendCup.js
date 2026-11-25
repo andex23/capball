@@ -7,6 +7,9 @@ import { LEVELS } from './weekendRules.js'
 
 export * from './weekendRules.js'
 
+// Switched off: the Weekend League takes the weekend instead
+export const WEEKEND_CUP_ON = false
+
 // Lagos clubs: a district, then a nickname
 const PLACES = ['Surulere', 'Yaba', 'Ikeja', 'Lekki', 'Eko', 'Ajegunle', 'Mushin', 'Oshodi', 'Ikoyi', 'Festac', 'Agege', 'Apapa', 'Ebute Metta', 'Victoria Is']
 const NAMES = ['Strikers', 'Rovers', 'United', 'Lions', 'Kings', 'Stars', 'Eagles', 'City', 'Sharks', 'Bulls']
