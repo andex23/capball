@@ -113,9 +113,13 @@ function Profile({ onClose, onOpen, onSheet }) {
   const goalsDone = weekProgress(week, weekKey()).filter((g) => g.done).length
   const cups = useRewardsStore((s) => s.cups)
   const wallet = useWalletStore((s) => s.balance)
+  const leagues = useRewardsStore((s) => s.leagues)
+  const titles = leagues.filter((l) => l.rank === 1).length
+  const trophies = leagues.filter((l) => l.rank <= 10).length
   const rows = [
     ['daily', 'Daily reward', st.ready ? `Day ${st.day + 1} ready!` : `Day ${st.day + 1} tomorrow`],
     ['weekly', 'Weekly goals', `${goalsDone} of 3 done`],
+    ['cabinet', 'Trophy cabinet', trophies ? `${titles} title${titles === 1 ? '' : 's'} · ${trophies} troph${trophies === 1 ? 'y' : 'ies'}` : 'Win yours in the Weekend League'],
     ['shop', 'Shop', `Wallet ${walletNaira(wallet)} · caps and bands`],
     ['records', 'Records & badges', `${badges} of ${ACHIEVEMENTS.length}`],
     ['settings', 'Sound & settings', 'Sound, camera, controls'],

@@ -35,6 +35,7 @@ import { money } from '../game/squad'
 import { useCareerStore } from '../state/careerStore'
 import { DIVISIONS } from '../game/career'
 import WalletShop from '../ui/WalletShop'
+import { TrophyCabinet, cabinetFrom } from '../ui/LeagueBits'
 import MenuCorner from '../ui/MenuCorner'
 import { useLagosStore } from '../lagos/lagosStore'
 import { LagosTicker } from '../lagos/LagosPanels'
@@ -310,6 +311,12 @@ export default function MenuScreen() {
       {dialog === 'settings' && (
         <Modal title="Settings" onClose={() => setDialog(null)}>
           <SettingsPanel />
+        </Modal>
+      )}
+      {dialog === 'cabinet' && (
+        <Modal title="Trophy cabinet" onClose={() => setDialog(null)}>
+          <TrophyCabinet {...cabinetFrom(useRewardsStore.getState().leagues)} />
+          <p className="muted" style={{ marginTop: 12 }}>Finish top three in the Weekend League for a cup, top ten for a medal. Every weekend you play counts.</p>
         </Modal>
       )}
       {dialog === 'shop' && (

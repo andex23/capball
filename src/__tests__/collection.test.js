@@ -52,3 +52,19 @@ describe('Weekend League payout', () => {
     expect(s.leagueResult({ key: '2026-11-27', rank: 1, players: 40, pts: 41, caps, money: 110 }, now)).toBe(false)
   })
 })
+
+describe('Trophy cabinet', () => {
+  it('keeps each weekend once and shows cups for the top three, medals for the top ten', async () => {
+    const { useRewardsStore } = await import('../state/rewardsStore')
+    const { cabinetFrom } = await import('../ui/LeagueBits')
+    const s = useRewardsStore.getState()
+    s.leagueResult({ key: '2026-12-04', rank: 7, players: 40, pts: 30, caps: capsForRank(7) }, new Date('2026-12-07T09:00:00Z'))
+    s.leagueResult({ key: '2026-12-11', rank: 14, players: 40, pts: 20, caps: [] }, new Date('2026-12-14T09:00:00Z'))
+    const leagues = useRewardsStore.getState().leagues
+    expect(leagues.map((l) => l.key)).toEqual(['2026-12-11', '2026-12-04', '2026-11-27'])
+    const c = cabinetFrom(leagues)
+    expect(c.weekends).toBe(3)
+    expect(c.best).toBe(1)
+    expect(c.items.map((i) => [i.rank, i.tier, i.date])).toEqual([[7, null, '4 Dec'], [1, 'gold', '27 Nov']])
+  })
+})

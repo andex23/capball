@@ -15,7 +15,7 @@ import { useCareerStore } from './careerStore'
 import { isSignedIn, useAccountStore } from './accountStore'
 
 export const REWARDS_KEY = 'capball:rewards:v1'
-const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [], cups: [], kingmakerUntil: 0 }
+const EMPTY = { daily: null, week: null, caps: [], bank: 0, scouts: 0, news: [], cups: [], kingmakerUntil: 0, leagues: [] }
 
 function clean(raw) {
   const r = raw && typeof raw === 'object' ? raw : {}
@@ -30,6 +30,8 @@ function clean(raw) {
     // Weekly Cups won: { key (week), name, date }
     // Weekend League champion: holds the Kingmaker until then (ms)
     kingmakerUntil: Number.isFinite(r.kingmakerUntil) ? r.kingmakerUntil : 0,
+    // Weekend League finishes, newest first: { key (Friday), rank, players }
+    leagues: Array.isArray(r.leagues) ? r.leagues.filter((l) => l && typeof l.key === 'string' && Number.isSafeInteger(l.rank) && l.rank > 0).slice(0, 200).map((l) => ({ key: l.key.slice(0, 10), rank: l.rank, players: Number.isSafeInteger(l.players) ? l.players : 0 })) : [],
     cups: Array.isArray(r.cups) ? r.cups.filter((c) => c && typeof c.key === 'string' && typeof c.name === 'string').slice(0, 200).map((c) => ({ key: c.key.slice(0, 10), name: c.name.slice(0, 24), id: typeof c.id === 'string' ? c.id.slice(0, 40) : null, date: String(c.date || '').slice(0, 10) })) : [],
   }
 }
@@ -50,8 +52,8 @@ export const useRewardsStore = create((set, get) => ({
 
   _save(next) {
     set(next)
-    const { daily, week, caps, bank, scouts, news, cups, kingmakerUntil } = get()
-    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, scouts, news, cups, kingmakerUntil })) } catch { /* blocked */ }
+    const { daily, week, caps, bank, scouts, news, cups, kingmakerUntil, leagues } = get()
+    try { storage()?.setItem(REWARDS_KEY, JSON.stringify({ daily, week, caps, bank, scouts, news, cups, kingmakerUntil, leagues })) } catch { /* blocked */ }
   },
 
   /** Today's reward: { day, ready, reward }. */
@@ -145,6 +147,7 @@ export const useRewardsStore = create((set, get) => ({
     const fresh = (caps || []).filter((c) => c !== 'kingmaker' && !s.caps.includes(c))
     if (fresh.length) s.caps = [...s.caps, ...fresh]
     if (rank === 1) s.kingmakerUntil = now.getTime() + 7 * 86400000
+    s.leagues = [{ key, rank, players: players || 0 }, ...s.leagues.filter((l) => l.key !== key)].slice(0, 200)
     if (prize) s = pay(prize, s)
     s.news = [{
       id,
