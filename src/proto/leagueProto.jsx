@@ -15,7 +15,7 @@ import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 import CapPreview from '../ui/CapPreview'
 import Icon from '../ui/Icon'
 import { CrownRank } from '../lagos/LagosPanels'
-import { LeagueCup, LeagueFixtures, LeagueTable, LeaguePrizes, LeagueResultCard, LeagueMonday, TrophyCabinet } from '../ui/LeagueBits'
+import { LeagueCup, LeagueFixtures, LeagueTable, LeaguePrizes, LeagueMonday, TrophyCabinet, Fold, LeagueTeamPick, LeagueFullTime } from '../ui/LeagueBits'
 
 loadArtFonts?.()
 const PLACES = ['Surulere', 'Yaba', 'Ikeja', 'Lekki', 'Eko', 'Ajegunle', 'Mushin', 'Oshodi', 'Ikoyi', 'Festac', 'Agege', 'Apapa', 'Ebute Metta', 'Victoria Is', 'Ojota']
@@ -38,26 +38,35 @@ const Phone = ({ id, label, children }) => (
   </div>
 )
 
-function Menu({ variant }) {
-  const tile = {
-    locked: { title: 'Weekend League', sub: 'Win 10 matches to enter · you have 7', tag: '7/10', off: true },
+function Menu({ variant, app = 'lagos' }) {
+  const lg = {
+    locked: { title: 'Weekend League', sub: 'Win 10 matches to enter · you have 7', tag: '7/10', lock: true },
     soon: { title: 'Weekend League', sub: 'Opens Friday · 15 matches · winner takes the Champion cap', tag: 'FRI' },
     live: { title: 'Weekend League', sub: 'Live · 2 to play today · you #14 of 86', tag: 'LIVE' },
   }[variant]
-  const rows = [tile, { title: 'Career' }, { title: 'Quick match' }, { title: 'Daily challenge', tag: '►' }, { title: 'Options', tag: '►' }]
+  const lagos = app === 'lagos'
+  const rows = [
+    lg,
+    { title: 'Quick Match', sub: lagos ? 'Computer or two on one phone' : 'Computer, local, LAN or online', tag: '►' },
+    { title: 'Career', sub: 'Dru FC · Season 2 · Sunday League', tag: 'PRO' },
+    { title: 'Tournament', sub: 'Leagues and cups', tag: '►' },
+    { title: 'Daily Challenge', sub: 'Today: Wall of Three', tag: 'x3' },
+    ...(lagos ? [{ title: 'Leaderboard', sub: 'Your wins: 7', tag: '#41' }] : []),
+    { title: 'Options', sub: 'Rankings, my games, settings', tag: '►' },
+  ]
   return (
-    <div className="screen iss iss-menu is-started is-lagos" style={{ position: 'relative', height: '100%' }}>
+    <div className={`screen iss iss-menu is-started${lagos ? ' is-lagos' : ''}`} style={{ position: 'relative', height: '100%' }}>
       <RetroBackdrop />
       <div className="iss-layout">
         <RetroLogo />
         <main className="iss-window"><div className="iss-window-tab">Main menu</div>
           <ul className="iss-list">
             {rows.map((m, i) => (
-              <li key={i} className={`iss-row${i === 0 ? ' is-on' : ''}${m.off ? ' is-off' : ''}`}>
+              <li key={i} className={`iss-row${i === 0 ? ' is-on' : ''}${m.lock ? ' is-off' : ''}`}>
                 <button className="iss-item">{m.title}{i === 0 && <small className="iss-sub">{m.sub}</small>}
-                  {i === 0 && variant === 'locked' && <span className="proto-bar"><i /></span>}
+                  {i === 0 && m.lock && <span className="proto-bar"><i /></span>}
                 </button>
-                {m.tag && <span className="iss-tag" data-arrow={m.tag === '►' ? 'true' : undefined} style={m.tag === 'LIVE' ? { background: '#ffc83d', color: '#1b1400' } : undefined}>{m.tag === '7/10' ? <><Icon name="lock" size={11} /> 7/10</> : m.tag}</span>}
+                {m.tag && <span className="iss-tag" data-arrow={m.tag === '►' ? 'true' : undefined} style={m.tag === 'LIVE' ? { background: '#ffc83d', color: '#1b1400' } : undefined}>{m.lock ? <><Icon name="lock" size={11} /> {m.tag}</> : m.tag}</span>}
               </li>
             ))}
           </ul>
@@ -67,28 +76,89 @@ function Menu({ variant }) {
   )
 }
 
+const myKit = { ...designPatch(designs[0]), name: 'Dru FC', capNames: 'none' }
+const pickOptions = [
+  { name: 'Dru FC', from: 'Your team', kit: myKit },
+  { name: 'Surulere Kings', from: 'Career club', kit: { ...designPatch(designs[4]), capNames: 'none' } },
+  ...[2, 5, 7, 9].map((k) => ({ name: designs[k].name || designs[k].key, from: 'Cap design', kit: { ...designPatch(designs[k]), capNames: 'none' } })),
+]
+
+function Head() {
+  return (
+    <header className="shell-head tour-top">
+      <button className="tour-back"><Icon name="back" size={18} /></button>
+      <div><h1 className="display tour-title">Weekend League</h1><div className="tour-sub">10+ wins to enter · Friday to Sunday</div></div>
+    </header>
+  )
+}
+
+function Overview() {
+  return (
+    <section className="wk-poster">
+      <div className="wk-live"><i aria-hidden /> Live · Friday</div>
+      <div className="wk-poster-row">
+        <div>
+          <p>15 matches against the computer on hard, five a day, on the Cap Arena board. One go at each. Top of the table on Sunday night is champion.</p>
+          <div className="wk-facts"><span><b>86</b> playing</span><span><b>2d 9h</b> left</span><span><b>#14</b> you</span></div>
+        </div>
+        <div className="wk-prize-cap"><CapPreview config={champCap} size={70} /><small>1st wins it</small></div>
+      </div>
+      <div className="lg-club"><CapPreview config={myKit} size={40} /><div><small>Your club this weekend</small><b>Dru FC</b></div><span><Icon name="lock" size={12} /> Locked</span></div>
+      <div className="lg-chase">3 points off the top 10. Two matches left today.</div>
+    </section>
+  )
+}
+
 function League() {
   return (
-    <div className="shell">
-      <header className="shell-head tour-top">
-        <button className="tour-back"><Icon name="back" size={18} /></button>
-        <div><h1 className="display tour-title">Weekend League</h1><div className="tour-sub">10+ wins to enter · Friday to Sunday</div></div>
-      </header>
+    <div className="shell"><Head />
       <main className="shell-body wk">
-        <section className="wk-poster">
-          <div className="wk-live"><i aria-hidden /> Live · Friday</div>
-          <div className="wk-poster-row">
-            <div>
-              <p>15 matches against the computer on hard, five a day. One go at each. Top of the table on Sunday night is champion.</p>
-              <div className="wk-facts"><span><b>86</b> playing</span><span><b>2d 9h</b> left</span><span><b>#14</b> you</span></div>
-            </div>
-            <div className="wk-prize-cap"><CapPreview config={champCap} size={70} /><small>1st wins it</small></div>
-          </div>
-          <div className="lg-chase">3 points off the top 10. Two matches left today.</div>
-        </section>
-        <LeagueFixtures fixtures={fixtures} day={0} today={0} opensIn="9h" />
+        <Overview />
+        <Fold title="Your fixtures" summary="3 of 15 played"><LeagueFixtures fixtures={fixtures} day={0} today={0} opensIn="9h" /></Fold>
+        <Fold title="The table" summary="You #14 · 4 pts" open={false}><LeagueTable rows={rows} me={me} players={86} /></Fold>
+        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><LeaguePrizes champCap={champCap} /></Fold>
       </main>
     </div>
+  )
+}
+
+function Folded() {
+  return (
+    <div className="shell"><Head />
+      <main className="shell-body wk">
+        <Overview />
+        <Fold title="Your fixtures" summary="3 of 15 played · next Lekki Bulls" open={false}><span /></Fold>
+        <Fold title="The table" summary="You #14 · 4 pts"><LeagueTable rows={rows.slice(0, 11)} me={me} players={86} /></Fold>
+        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><span /></Fold>
+      </main>
+    </div>
+  )
+}
+
+function Pick() {
+  return (
+    <div className="shell"><Head />
+      <main className="shell-body wk">
+        <section className="wk-card">
+          <div className="wk-card-h"><h2 className="display">Your club</h2><span>Before match 1</span></div>
+          <LeagueTeamPick options={pickOptions} chosen="Dru FC" />
+          <button className="btn btn-gold btn-lg btn-block"><Icon name="lock" size={16} /> Lock in Dru FC</button>
+          <p className="muted wk-note">You can’t change club until next weekend.</p>
+        </section>
+      </main>
+    </div>
+  )
+}
+
+function FullTime() {
+  const around = [
+    { rank: 7, name: 'Kemi', p: 4, pts: 7 }, { rank: 8, name: 'Tobi', p: 5, pts: 7 },
+    { rank: 9, me: true, p: 4, pts: 7 }, { rank: 10, name: 'Scity', p: 4, pts: 7 }, { rank: 11, name: 'Chidi', p: 4, pts: 6 },
+  ]
+  return (
+    <div className="shell"><main className="shell-body wk">
+      <LeagueFullTime no={4} gf={3} ga={1} mine={myKit} club={clubs[3]} line="Okafor’s double sends Dru FC into the top ten." rankFrom={14} rankTo={9} around={around} next={clubs[4]} />
+    </main></div>
   )
 }
 
@@ -105,8 +175,6 @@ function Table() {
 function Moments() {
   return (
     <div className="shell"><main className="shell-body wk" style={{ gap: 18 }}>
-      <div className="proto-sub">After each league match</div>
-      <LeagueResultCard gf={3} ga={1} club={clubs[3]} rankFrom={14} rankTo={9} pts={7} left="1 left today" />
       <div className="proto-sub">Monday, opening the game</div>
       <LeagueMonday rank={1} players={86} tier="gold" cap={champCap} pts={37} money="₦1m" />
     </main></div>
@@ -156,10 +224,10 @@ const css = `
 .proto-champ-last{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff;font-size:13px;background:rgba(255,200,61,.1);border:1px solid rgba(255,200,61,.4)}
 .rankings-name .lg-cup{display:inline-block;vertical-align:-3px;margin-left:6px}
 `
-const VIEWS = { locked: <Menu variant="locked" />, soon: <Menu variant="soon" />, live: <Menu variant="live" />, league: <League />, table: <Table />, moments: <Moments />, cabinet: <Cabinet /> }
+const VIEWS = { locked: <Menu variant="locked" />, soon: <Menu variant="soon" />, live: <Menu variant="live" />, web: <Menu variant="live" app="web" />, pick: <Pick />, folded: <Folded />, fulltime: <FullTime />, league: <League />, table: <Table />, moments: <Moments />, cabinet: <Cabinet /> }
 function Proto() {
   const v = new URLSearchParams(location.search).get('v') || 'league'
-  const menu = ['locked', 'soon', 'live'].includes(v)
+  const menu = ['locked', 'soon', 'live', 'web'].includes(v)
   return (
     <>
       <style>{css + 'html,body,#root{height:100%;margin:0}'}</style>

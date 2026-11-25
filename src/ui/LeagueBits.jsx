@@ -3,6 +3,7 @@
  * table, the prizes, the full-time card, Monday's result and the trophy
  * cabinet. Presentational: everything comes in as props.
  */
+import { useState } from 'react'
 import CapPreview from './CapPreview'
 import Icon from './Icon'
 import './league.css'
@@ -184,5 +185,73 @@ export function TrophyCabinet({ items, best, weekends }) {
         {Array.from({ length: Math.max(0, 8 - items.length) }, (_, i) => <figure key={`e${i}`} className="lg-trophy is-empty" aria-hidden><span /></figure>)}
       </div>
     </section>
+  )
+}
+
+/** A box on the league screen that folds away to its header and a one-line summary. */
+export function Fold({ title, summary, open: start = true, children }) {
+  const [open, setOpen] = useState(start)
+  return (
+    <section className="wk-card lg-fold" data-open={open ? 'true' : undefined}>
+      <button className="lg-fold-h" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <h2 className="display">{title}</h2>
+        {!open && summary && <span className="lg-fold-sum">{summary}</span>}
+        <span className="lg-chev" aria-hidden>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && <div className="lg-fold-body">{children}</div>}
+    </section>
+  )
+}
+
+/** Friday, first visit: pick the club you'll play all fifteen with. */
+export function LeagueTeamPick({ options, chosen }) {
+  return (
+    <div className="lg-pick">
+      <p className="lg-pick-lead">Pick the club you’ll play the weekend with. <b>All 15 matches, one club.</b> It locks when you kick off match 1.</p>
+      <ul className="lg-pick-grid">
+        {options.map((o) => (
+          <li key={o.name} data-on={o.name === chosen ? 'true' : undefined}>
+            <CapPreview config={o.kit} size={64} />
+            <b>{o.name}</b>
+            <small>{o.from}</small>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** Full time in a league match: the score, the line of the match, points, and the table around you. */
+export function LeagueFullTime({ no, gf, ga, mine, club, line: story, rankFrom, rankTo, around, next }) {
+  const res = gf > ga ? 'won' : gf === ga ? 'drew' : 'lost'
+  return (
+    <div className="lg-ft">
+      <div className="lg-result-tag">Weekend League · match {no} of 15 · full time</div>
+      <div className="lg-ft-score">
+        <div><CapPreview config={mine} size={54} /><span>{mine.name}</span></div>
+        <b>{gf}–{ga}</b>
+        <div><CapPreview config={club} size={54} /><span>{club.name}</span></div>
+      </div>
+      <p className="lg-ft-line">“{story}”</p>
+      <div className="lg-ft-pts" data-r={res}>{res === 'won' ? '+3 points' : res === 'drew' ? '+1 point' : 'No points'}</div>
+      <div className="lg-result-move">
+        <span className="lg-result-rank">#{rankFrom}</span>
+        <span className="lg-arrow" data-up={rankTo < rankFrom ? 'true' : undefined}>{rankTo < rankFrom ? '▲' : rankTo > rankFrom ? '▼' : '='}</span>
+        <span className="lg-result-rank is-now">#{rankTo}</span>
+        {rankTo <= 10 && rankFrom > 10 && <small className="lg-ft-into">Into the top ten</small>}
+      </div>
+      <table className="lg-table lg-ft-table">
+        <tbody>
+          {around.map((r) => [
+            <tr key={r.rank} data-me={r.me ? 'true' : undefined}>
+              <td className="lg-rank">{r.rank}</td><td className="lg-name">{r.me ? mine.name : r.name}</td><td>{r.p}</td><td className="lg-pts">{r.pts}</td>
+            </tr>,
+            r.rank === 10 ? <tr key="cut" className="lg-cut"><td colSpan={4}><span>Top 10</span></td></tr> : null,
+          ])}
+        </tbody>
+      </table>
+      <button className="btn btn-gold btn-lg btn-block"><Icon name="play" size={18} /> Next: {next.name}</button>
+      <button className="btn btn-ghost btn-block">League table</button>
+    </div>
   )
 }
