@@ -16,13 +16,13 @@ function memSaves() {
 }
 
 describe('Weekend League entry', () => {
-  it('takes 15 wins', () => {
-    expect(LEAGUE_ENTRY).toBe(15)
-    expect(qualifies(14)).toBe(false)
-    expect(qualifies(15)).toBe(true)
-    expect(winsToGo(7)).toBe(8)
+  it('takes 10 wins', () => {
+    expect(LEAGUE_ENTRY).toBe(10)
+    expect(qualifies(9)).toBe(false)
+    expect(qualifies(10)).toBe(true)
+    expect(winsToGo(7)).toBe(3)
     expect(winsToGo(40)).toBe(0)
-    expect(winsToGo(undefined)).toBe(15)
+    expect(winsToGo(undefined)).toBe(10)
   })
 })
 
