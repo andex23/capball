@@ -17,7 +17,7 @@ import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weeken
 import { timeLeft } from './WeekendScreen'
 import { WEEKEND_CUP_ON } from '../game/weekendCup'
 import { useLeagueStore, leagueWins } from '../state/leagueStore'
-import { LEAGUE_ENTRY, qualifies, opensIn } from '../game/leagueRules'
+import { LEAGUE_ENTRY, qualifies, opensIn, untilOpen } from '../game/leagueRules'
 import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
@@ -104,6 +104,16 @@ export default function MenuScreen() {
   const leagueJoined = useLeagueStore((s) => s.joined)
   useLagosStore((s) => s.wins + s.best)
   const leagueWon = leagueWins()
+  // Signed up: a live countdown on the menu
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => {
+    if (!leagueJoined) return
+    const t = setInterval(() => setClock(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [leagueJoined])
+  const left = untilOpen(clock)
+  const pad = (n) => String(n).padStart(2, '0')
+  const countdown = left.open ? 'Open now' : `${left.days ? `${left.days}d ` : ''}${pad(left.hours)}:${pad(left.mins)}:${pad(left.secs)}`
   useEffect(() => {
     useLeagueStore.getState().refresh()
     if (!lagos || !WEEKEND_CUP_ON) return
@@ -151,7 +161,8 @@ export default function MenuScreen() {
       // Friday to Sunday in Lagos Life: the Weekend Cup goes first
       {
         key: 'league', title: 'Weekend League',
-        sub: leagueJoined ? `You’re in · opens in ${opensIn()}` : !lagos && !username ? `Needs an account · ${LEAGUE_ENTRY} wins to enter` : qualifies(leagueWon) ? `You qualify · sign up · opens in ${opensIn()}` : `Win ${LEAGUE_ENTRY} matches to enter · you have ${leagueWon}`,
+        sub: leagueJoined ? `You’re in · opens in ${countdown}` : !lagos && !username ? `Needs an account · ${LEAGUE_ENTRY} wins to enter` : qualifies(leagueWon) ? `You qualify · sign up · opens in ${opensIn()}` : `Win ${LEAGUE_ENTRY} matches to enter · you have ${leagueWon}`,
+        always: !!leagueJoined,
         tag: leagueJoined ? '✓ IN' : qualifies(leagueWon) && (lagos || username) ? 'JOIN' : `${Math.min(leagueWon, LEAGUE_ENTRY)}/${LEAGUE_ENTRY}`,
         done: !!leagueJoined,
         action: () => { playConfirm(); goToScreen(SCREEN.LEAGUE) },
@@ -248,7 +259,7 @@ export default function MenuScreen() {
                   {cursor === i && <CapCursor />}
                   <button role="menuitem" className="iss-item" aria-disabled={m.off ? 'true' : undefined} onClick={m.off ? undefined : m.action} onFocus={() => setCursor(i)}>
                     {m.title}
-                    {m.sub && (cursor === i || m.tag === 'SAVE' || m.off) && <small className="iss-sub">{m.sub}</small>}
+                    {m.sub && (cursor === i || m.tag === 'SAVE' || m.off || m.always) && <small className="iss-sub">{m.sub}</small>}
                   </button>
                   {m.picker === 'level' ? (
                     <span className="iss-level" role="group" aria-label="Computer level">
