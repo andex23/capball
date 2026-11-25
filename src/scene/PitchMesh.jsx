@@ -4,6 +4,9 @@ import { PITCH } from '../data/TeamData'
 import { useMatchStore } from '../state/MatchStore'
 import { STADIUMS, surfaceFor, withFinish, resolveFinish, isFinish } from '../data/StadiumData'
 
+// How wide the board's rim looks from above (the walls the caps bounce off are set by PITCH)
+const RAIL = 0.5
+
 // A cylinder connecting two 3D points (for sloped goal bars)
 function SlopeBar({ from, to, radius, matProps }) {
   const [midX, midY, midZ] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2]
@@ -371,12 +374,12 @@ export default function PitchMesh() {
 
       {/* Board base platform */}
       <mesh position={[0, -0.15, 0]} castShadow receiveShadow>
-        <boxGeometry args={[PITCH.width + 2.5, 0.3, PITCH.height + 2.5]} />
+        <boxGeometry args={[PITCH.width + RAIL * 2 + 0.5, 0.3, PITCH.height + RAIL * 2 + 0.5]} />
         <meshStandardMaterial color={sc.baseColor} roughness={0.65} metalness={0.08} />
       </mesh>
       {/* Board edge trim */}
       <mesh position={[0, -0.01, 0]}>
-        <boxGeometry args={[PITCH.width + 2.7, 0.02, PITCH.height + 2.7]} />
+        <boxGeometry args={[PITCH.width + RAIL * 2 + 0.7, 0.02, PITCH.height + RAIL * 2 + 0.7]} />
         <meshStandardMaterial color={sc.baseTrimColor} roughness={0.3} metalness={0.5} />
       </mesh>
 
@@ -393,7 +396,8 @@ export default function PitchMesh() {
 }
 
 function WallSegments({ woodColor = '#8B5E3C', trimColor = '#C5943A', trimGlow = 0 }) {
-  const { halfW, halfH, goalWidth, wallThickness: wt } = PITCH
+  const { halfW, halfH, goalWidth } = PITCH
+  const wt = RAIL
   const goalHalf = goalWidth / 2
   const wallHeight = 0.6
   const sideLen = halfH - goalHalf
