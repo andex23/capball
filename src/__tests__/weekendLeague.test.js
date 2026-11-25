@@ -175,3 +175,16 @@ describe('Weekend League club names', () => {
     for (const n of names) expect(Object.values(CLUB_NAMES)).toContain(n)
   })
 })
+
+describe('Weekend League stats', () => {
+  it('counts sign-ups per mode for the owner, and those in the last day', async () => {
+    const { leagueSummary } = await import('../../server/league.js')
+    const saves = memSaves()
+    const now = Date.parse('2026-11-25T20:00:00Z')
+    await leagueJoin(saves, 'live', 'p1', { name: 'A' }, now - 2 * 86400000)
+    await leagueJoin(saves, 'live', 'p2', { name: 'B' }, now - 3600000)
+    const s = await leagueSummary(saves, now)
+    expect(s.live).toEqual({ signedUp: 2, lastDay: 1 })
+    expect(s.web).toEqual({ signedUp: 0, lastDay: 0 })
+  })
+})

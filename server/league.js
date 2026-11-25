@@ -42,6 +42,18 @@ export async function leagueJoin(saves, mode, playerId, input, now = Date.now())
   return { ok: true, registered: Object.keys(list.rows).length, me: true }
 }
 
+/** For the owner's stats: sign-ups in each mode, and how many in the last day. */
+export async function leagueSummary(saves, now = Date.now()) {
+  const out = {}
+  for (const mode of ['live', 'web', 'test']) {
+    try {
+      const rows = Object.values(cleanSignup((await saves('get', mode, SIGNUP))?.data).rows)
+      out[mode] = { signedUp: rows.length, lastDay: rows.filter((r) => Number(r.at) > now - 86400000).length }
+    } catch { out[mode] = null }
+  }
+  return out
+}
+
 /** How many have signed up, and whether this player has. */
 export async function leagueInfo(saves, mode, playerId) {
   const list = cleanSignup((await saves('get', mode, SIGNUP))?.data)

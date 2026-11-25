@@ -1,4 +1,5 @@
 import { readFeedback } from '../server/feedback.js'
+import { leagueSummary } from '../server/league.js'
 import { handleLagos, ERRORS, lagosConfigured, databaseCheck, statsAllowed, readStats, makeSaveDb } from '../server/lagos.js'
 
 // POST /api/lagos — friend-match results for Lagos Life (see server/lagos.js)
@@ -10,7 +11,7 @@ export default async function handler(req, res) {
     if (!statsAllowed(req.headers['x-stats-key'])) return res.status(404).json({ error: 'not-found' })
     const saves = makeSaveDb()
     const days = Number(req.query.stats) || 14
-    return res.status(200).json({ ok: true, live: await readStats(saves, 'live', days), test: await readStats(saves, 'test', days), feedback: await readFeedback(saves, days) })
+    return res.status(200).json({ ok: true, live: await readStats(saves, 'live', days), test: await readStats(saves, 'test', days), feedback: await readFeedback(saves, days), league: saves ? await leagueSummary(saves) : null })
   }
   if (req.method === 'GET') return res.status(200).json({ ok: true, configured: lagosConfigured(), database: await databaseCheck() })
   if (req.method !== 'POST') return res.status(405).json({ error: 'method-not-allowed' })

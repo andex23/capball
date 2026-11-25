@@ -190,7 +190,11 @@ export default function LeagueScreen() {
   const live = isLive() && !!joined
   const tabs = live ? LIVE_TABS : TABS
   const [tab, setTab] = useState(live ? 'fixtures' : 'club')
-  useEffect(() => { useLeagueStore.getState().roll(); useLeagueStore.getState().refresh() }, [])
+  useEffect(() => {
+    useLeagueStore.getState().roll(); useLeagueStore.getState().refresh()
+    // Count each visit, by where the player stands: still winning their way in, can sign up, or in
+    globalThis.__counterballCount?.('feature', `league_open_${joined ? 'joined' : signedIn && qualifies(wins) ? 'qualified' : 'notyet'}`)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const back = () => { playButtonSelect(); useMatchStore.getState().goToScreen(SCREEN.MENU) }
 
   return (
@@ -213,7 +217,7 @@ export default function LeagueScreen() {
                 <p>Fifteen matches over one weekend. One club. The best players in {isLagos() ? 'Lagos' : 'Counterball'} on one table, and only one champion.</p>
                 <div className="wk-facts">
                   {registered ? <span><b>{registered}</b> signed up</span> : null}
-                  <span>Winner takes the <b>Champion cap</b></span>
+                  <span>The champion wears the <b>Kingmaker</b></span>
                 </div>
               </div>
               <div className="wk-prize-cap"><MysteryCap size={64} /><small>1st wins it</small></div>
