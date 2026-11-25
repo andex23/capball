@@ -15,7 +15,9 @@ import { RetroBackdrop, RetroLogo } from '../ui/Retro'
 import CapPreview from '../ui/CapPreview'
 import Icon from '../ui/Icon'
 import { CrownRank } from '../lagos/LagosPanels'
-import { LeagueCup, LeagueFixtures, LeagueTable, LeaguePrizes, LeagueMonday, TrophyCabinet, Fold, LeagueTeamPick, LeagueFullTime } from '../ui/LeagueBits'
+import CapDesigns from '../ui/CapDesigns'
+import { useState } from 'react'
+import { LeagueCup, LeagueNav, LeagueFixtures, LeagueTable, LeaguePrizes, LeagueMonday, TrophyCabinet, Fold, LeagueTeamPick, LeagueFullTime } from '../ui/LeagueBits'
 
 loadArtFonts?.()
 const PLACES = ['Surulere', 'Yaba', 'Ikeja', 'Lekki', 'Eko', 'Ajegunle', 'Mushin', 'Oshodi', 'Ikoyi', 'Festac', 'Agege', 'Apapa', 'Ebute Metta', 'Victoria Is', 'Ojota']
@@ -110,31 +112,51 @@ function Overview() {
   )
 }
 
-function League() {
+function Compact({ live = true }) {
+  return (
+    <section className="wk-poster lg-compact">
+      <div className="wk-live">{live ? <><i aria-hidden /> Live · Friday</> : <><Icon name="check" size={14} /> You’re in · opens Friday</>}</div>
+      <div className="wk-facts"><span><b>86</b> playing</span><span><b>{live ? '2d 9h' : '10h 32m'}</b> {live ? 'left' : 'to go'}</span>{live && <span><b>#14</b> you</span>}</div>
+      <div className="lg-compact-row">
+        <div className="lg-club"><CapPreview config={myKit} size={40} /><div><small>Your club</small><b>Dru FC</b></div><span><Icon name="lock" size={12} /></span></div>
+        <div className="wk-prize-cap"><CapPreview config={champCap} size={52} /><small>1st wins it</small></div>
+      </div>
+      {live && <div className="lg-chase">3 points off the top 10. Two matches left today.</div>}
+    </section>
+  )
+}
+
+function HowCard() {
+  return (
+    <section className="wk-card">
+      <div className="wk-card-h"><h2 className="display">How it works</h2><span>The rules</span></div>
+      <HowItWorks />
+      <ul className="lg-how">
+        <li><b>Leave a match early</b> and it counts as a 3–0 loss</li>
+        <li><b>Miss a day?</b> Catch up any time before Sunday midnight</li>
+        <li><b>Level on points:</b> goal difference, then goals scored, then who got there first</li>
+        <li><b>15 wins</b> against the computer or friends to enter</li>
+      </ul>
+    </section>
+  )
+}
+
+function League({ tab = 'fixtures' }) {
   return (
     <div className="shell"><Head />
-      <main className="shell-body wk">
-        <Overview />
-        <Fold title="Your fixtures" summary="3 of 15 played"><LeagueFixtures fixtures={fixtures} day={0} today={0} opensIn="9h" /></Fold>
-        <Fold title="The table" summary="You #14 · 4 pts" open={false}><LeagueTable rows={rows} me={me} players={86} /></Fold>
-        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><LeaguePrizes champCap={champCap} /></Fold>
+      <main className="shell-body wk lg-has-nav">
+        <Compact />
+        {tab === 'fixtures' && <LeagueFixtures fixtures={fixtures} day={0} today={0} opensIn="9h" />}
+        {tab === 'table' && <LeagueTable rows={rows} me={me} players={86} />}
+        {tab === 'prizes' && <LeaguePrizes champCap={champCap} />}
+        {tab === 'how' && <HowCard />}
       </main>
+      <LeagueNav tab={tab} />
     </div>
   )
 }
 
-function Folded() {
-  return (
-    <div className="shell"><Head />
-      <main className="shell-body wk">
-        <Overview />
-        <Fold title="Your fixtures" summary="3 of 15 played · next Lekki Bulls" open={false}><span /></Fold>
-        <Fold title="The table" summary="You #14 · 4 pts"><LeagueTable rows={rows.slice(0, 11)} me={me} players={86} /></Fold>
-        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><span /></Fold>
-      </main>
-    </div>
-  )
-}
+function Folded() { return <League tab="table" /> }
 
 function Pick() {
   return (
@@ -245,7 +267,24 @@ function HowItWorks() {
   )
 }
 
-function Register({ qualified = true }) {
+function KitPick({ start = 'free' }) {
+  const [tab, setTab] = useState(start)
+  const [kit, setKit] = useState(myKit)
+  return (
+    <div className="lg-kit">
+      <div className="lg-kit-top">
+        <CapPreview config={kit} size={96} number={10} />
+        <label><small>Club name</small><input defaultValue="Dru FC" /></label>
+      </div>
+      <div className="segmented stretch csu-tabs" role="tablist">
+        {[['free', 'Free'], ['earn', 'Earned'], ['lagos', 'Lagos']].map(([k, l]) => <button key={k} aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+      </div>
+      <CapDesigns config={kit} onPick={(p) => setKit({ ...kit, ...p })} section={tab} onCustom={tab === 'free' ? () => {} : null} />
+    </div>
+  )
+}
+
+function Register({ qualified = true, kitTab = 'free' }) {
   return (
     <div className="shell"><Head />
       <main className="shell-body wk">
@@ -257,17 +296,17 @@ function Register({ qualified = true }) {
           </div>
           <div className="wk-facts" style={{ marginTop: 10 }}><span><b>41</b> registered</span><span>Winner takes the <b>Champion cap</b></span></div>
         </section>
-        <Fold title="How it works" summary="15 matches · 5 a day"><HowItWorks /></Fold>
         {qualified ? (
-          <Fold title="Register" summary="Pick your club">
-            <LeagueTeamPick options={pickOptions} chosen="Dru FC" when="when you register" />
+          <section className="wk-card">
+            <div className="wk-card-h"><h2 className="display">Your club</h2><span>One club, all 15</span></div>
+            <p className="muted wk-note" style={{ margin: 0 }}>Make your own cap, or use any cap you’ve unlocked. It’s locked in when you register.</p>
+            <KitPick start={kitTab} />
             <button className="btn btn-gold btn-lg btn-block"><Icon name="check" size={18} /> Register</button>
-            <p className="muted wk-note">You’ll play as Dru FC. You can’t change club until next weekend.</p>
-          </Fold>
+          </section>
         ) : (
           <section className="wk-card"><button className="btn btn-lg btn-block" disabled style={{ opacity: 0.5 }}><Icon name="lock" size={16} /> Win 8 more to register</button><p className="muted wk-note">Wins against the computer and friends all count. Register any time before Sunday.</p></section>
         )}
-        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><LeaguePrizes champCap={champCap} /></Fold>
+        <HowCard />
       </main>
     </div>
   )
@@ -276,29 +315,23 @@ function Register({ qualified = true }) {
 function Registered() {
   return (
     <div className="shell"><Head />
-      <main className="shell-body wk">
-        <section className="wk-poster">
-          <div className="wk-live"><Icon name="check" size={14} /> You’re in</div>
-          <p style={{ margin: '8px 0 6px' }}>Your first 5 fixtures open Friday at midnight. We’ll see you on the table.</p>
-          <Countdown />
-          <div className="lg-club"><CapPreview config={myKit} size={40} /><div><small>Your club this weekend</small><b>Dru FC</b></div><span><Icon name="lock" size={12} /> Locked</span></div>
-          <div className="wk-facts" style={{ marginTop: 10 }}><span><b>41</b> registered</span><span>Last champion: <b>—</b> (first weekend)</span></div>
-        </section>
-        <Fold title="Friday’s fixtures" summary="5 matches · open at midnight">
+      <main className="shell-body wk lg-has-nav">
+        <Compact live={false} />
+        <section className="wk-card">
+          <div className="wk-card-h"><h2 className="display">Friday’s fixtures</h2><span>Open at midnight</span></div>
           <ol className="wk-rounds lg-list">
             {clubs.slice(0, 5).map((c, i) => (
               <li key={i} data-state="todo"><span className="lg-no">{i + 1}</span><CapPreview config={c} size={30} /><span className="wk-club"><b>{c.name}</b><small>Hard</small></span><span className="wk-score"><Icon name="lock" size={14} /></span></li>
             ))}
           </ol>
-        </Fold>
-        <Fold title="How it works" summary="15 matches · 5 a day" open={false}><HowItWorks /></Fold>
-        <Fold title="Prizes" summary="Champion cap · cups · ₦1m" open={false}><LeaguePrizes champCap={champCap} /></Fold>
+        </section>
       </main>
+      <LeagueNav tab="fixtures" />
     </div>
   )
 }
 
-const VIEWS = { joined: <Menu variant="joined" />, register: <Register />, notyet: <Register qualified={false} />, registered: <Registered />, locked: <Menu variant="locked" />, soon: <Menu variant="soon" />, live: <Menu variant="live" />, web: <Menu variant="live" app="web" />, pick: <Pick />, folded: <Folded />, fulltime: <FullTime />, league: <League />, table: <Table />, moments: <Moments />, cabinet: <Cabinet /> }
+const VIEWS = { joined: <Menu variant="joined" />, register: <Register />, regearn: <Register kitTab="earn" />, notyet: <Register qualified={false} />, registered: <Registered />, locked: <Menu variant="locked" />, soon: <Menu variant="soon" />, live: <Menu variant="live" />, web: <Menu variant="live" app="web" />, pick: <Pick />, folded: <Folded />, fulltime: <FullTime />, league: <League />, ltable: <League tab="table" />, lprizes: <League tab="prizes" />, lhow: <League tab="how" />, table: <Table />, moments: <Moments />, cabinet: <Cabinet /> }
 function Proto() {
   const v = new URLSearchParams(location.search).get('v') || 'league'
   const menu = ['locked', 'soon', 'joined', 'live', 'web'].includes(v)

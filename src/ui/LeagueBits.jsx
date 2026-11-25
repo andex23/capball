@@ -255,3 +255,19 @@ export function LeagueFullTime({ no, gf, ga, mine, club, line: story, rankFrom, 
     </div>
   )
 }
+
+export const LEAGUE_TABS = [['fixtures', 'Fixtures', 'ball'], ['table', 'Table', 'menu'], ['prizes', 'Prizes', 'trophy'], ['how', 'How it works', 'help']]
+
+/** The league screen's bottom bar: one section at a time instead of one long page. */
+export function LeagueNav({ tab, onTab }) {
+  return (
+    <nav className="lg-nav" aria-label="Weekend League">
+      {LEAGUE_TABS.map(([k, label, icon]) => (
+        <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => onTab?.(k)}>
+          <Icon name={icon} size={22} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
