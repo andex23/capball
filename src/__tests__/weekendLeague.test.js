@@ -188,3 +188,24 @@ describe('Weekend League stats', () => {
     expect(s.web).toEqual({ signedUp: 0, lastDay: 0 })
   })
 })
+
+describe('Weekend League on the website', () => {
+  it('works with a store that only takes live and test, and never mixes with Lagos Life', async () => {
+    const { leagueSummary } = await import('../../server/league.js')
+    const inner = memSaves()
+    // Like the real database: anything but 'live' or 'test' is refused
+    const strict = (action, mode, key, data) => {
+      if (!['live', 'test'].includes(mode)) throw new Error('bad mode')
+      return inner(action, mode, key, data)
+    }
+    const check = async (t) => (t === 'good-token-123456789012' ? 'acc1' : null)
+    const r = await handleLeagueWeb({ action: 'leagueJoin', token: 'good-token-123456789012', name: 'Web FC' }, check, strict)
+    expect(r.registered).toBe(1)
+    await leagueJoin(strict, 'live', 'lagos-player', { name: 'Eko FC' })
+    const info = await handleLeagueWeb({ action: 'leagueInfo', token: 'good-token-123456789012' }, check, strict)
+    expect(info).toMatchObject({ registered: 1, me: true })
+    const s = await leagueSummary(strict)
+    expect(s.web.signedUp).toBe(1)
+    expect(s.live.signedUp).toBe(1)
+  })
+})

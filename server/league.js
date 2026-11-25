@@ -42,12 +42,20 @@ export async function leagueJoin(saves, mode, playerId, input, now = Date.now())
   return { ok: true, registered: Object.keys(list.rows).length, me: true }
 }
 
+/**
+ * The website's league lives in the same store as Lagos Life's, which only
+ * takes 'live' and 'test': keep it under 'live' with its own key prefix, so
+ * the two leagues never mix.
+ */
+export const webSaves = (saves) => (action, mode, key, data) =>
+  saves(action, mode === 'web' ? 'live' : mode, mode === 'web' ? String(key).replace(/^__league__:/, '__league_web__:') : key, data)
+
 /** For the owner's stats: sign-ups in each mode, and how many in the last day. */
 export async function leagueSummary(saves, now = Date.now()) {
   const out = {}
   for (const mode of ['live', 'web', 'test']) {
     try {
-      const rows = Object.values(cleanSignup((await saves('get', mode, SIGNUP))?.data).rows)
+      const rows = Object.values(cleanSignup((await webSaves(saves)('get', mode, SIGNUP))?.data).rows)
       out[mode] = { signedUp: rows.length, lastDay: rows.filter((r) => Number(r.at) > now - 86400000).length }
     } catch { out[mode] = null }
   }
