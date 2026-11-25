@@ -9,6 +9,7 @@ import Icon from './Icon'
 import { isLagos } from '../platform'
 import { useLagosStore } from '../lagos/lagosStore'
 import { SHOP_DESIGNS, itemFor, naira, SHOP_OPEN } from '../data/shop'
+import { useWalletStore } from '../state/walletStore'
 
 // A plain cap in the team's own colours: the starting point for designing your own
 export const PLAIN = { key: 'plain', name: 'Plain', pattern: 'none', badge: 'none', finish: 'matte', capText: '' }
@@ -19,7 +20,8 @@ export function useOpenDesigns(defaultKit = DEFAULT_KIT) {
   const designs = useCapDesigns()
   const progress = useProgress()
   const owned = useLagosStore((s) => s.owned)
-  const owns = (d) => isLagos() && owned.includes(itemFor(d.key)?.productId)
+  const walletCaps = useWalletStore((s) => s.caps)
+  const owns = (d) => walletCaps.includes(d.key) || (isLagos() && owned.includes(itemFor(d.key)?.productId))
   return [
     { ...PLAIN, primary: defaultKit.primary, edge: defaultKit.edge },
     ...designs,
@@ -45,7 +47,8 @@ export default function CapDesigns({ config, onPick, disabled = false, defaultKi
   const buying = useLagosStore((s) => s.buying)
   const shopNote = useLagosStore((s) => s.shopNote)
   // Anything already bought stays yours, shop open or not
-  const owns = (d) => isLagos() && owned.includes(itemFor(d.key)?.productId)
+  const walletCaps = useWalletStore((s) => s.caps)
+  const owns = (d) => walletCaps.includes(d.key) || (isLagos() && owned.includes(itemFor(d.key)?.productId))
   const pick = (d) => { playButtonSelect(); setHint(null); useLagosStore.getState().clearShopNote?.(); onPick(designPatch(d)) }
   const hinted = hint ? itemFor(hint) : null
   const show = (s) => section === 'all' || section === s

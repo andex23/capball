@@ -32,7 +32,7 @@ import { challengeFor, challengeName, dayKey, nextDay, weekDays, WEEK, SPECIAL_B
 import { money } from '../game/squad'
 import { useCareerStore } from '../state/careerStore'
 import { DIVISIONS } from '../game/career'
-import ShopPanel from '../lagos/ShopPanel'
+import WalletShop from '../ui/WalletShop'
 import MenuCorner from '../ui/MenuCorner'
 import { useLagosStore } from '../lagos/lagosStore'
 import { LagosTicker } from '../lagos/LagosPanels'
@@ -305,8 +305,8 @@ export default function MenuScreen() {
         </Modal>
       )}
       {dialog === 'shop' && (
-        <Modal title="Shop" onClose={() => { setDialog(null); useLagosStore.getState().clearShopNote() }}>
-          <ShopPanel />
+        <Modal title="Shop" onClose={() => setDialog(null)}>
+          <WalletShop />
         </Modal>
       )}
       {dialog === 'feedback' && (

@@ -5,6 +5,7 @@ import { bandProductId, naira, SHOP_OPEN } from '../data/shop'
 import { useProgress } from '../state/unlocks'
 import { isLagos } from '../platform'
 import { useLagosStore } from '../lagos/lagosStore'
+import { useWalletStore } from '../state/walletStore'
 import { playButtonSelect } from '../audio/SoundManager'
 import CapPreview from './CapPreview'
 import Icon from './Icon'
@@ -24,8 +25,9 @@ export default function BandPicker({ config, onUpdate, numberOf, disabled = fals
   const shopNote = useLagosStore((s) => s.shopNote)
   const names = playerNames(config)
   const bands = config.bands || {}
-  const open = (b) => bandEarned(b, progress) || (isLagos() && owned.includes(bandProductId(b.key)))
-  const list = BANDS.filter((b) => shop || !b.shopOnly)
+  const walletBands = useWalletStore((s) => s.bands)
+  const open = (b) => bandEarned(b, progress) || walletBands.includes(b.key) || (isLagos() && owned.includes(bandProductId(b.key)))
+  const list = BANDS.filter((b) => shop || !b.shopOnly || walletBands.includes(b.key))
   const choose = (key) => { playButtonSelect(); setHint(null); onUpdate({ bands: { ...bands, [role]: key || undefined } }) }
   const hinted = hint ? BANDS.find((b) => b.key === hint) : null
 
