@@ -2,7 +2,7 @@
  * The Weekend League's rules, shared by the game and our server (no imports,
  * so the server can use this file as it is). Pure.
  *
- * - Fifteen wins (against the computer or friends) to enter; you sign up with
+ * - Ten wins (against the computer or friends) to enter; you sign up with
  *   one club and play the whole weekend with it.
  * - Friday 4:30pm to Sunday midnight, Lagos time (UTC+1 all year).
  * - Fifteen matches against computer clubs on hard: 1–5 open on Friday, 6–10 on
@@ -10,7 +10,7 @@
  * - One go at each. Win 3, draw 1; leave early and it's a 3–0 loss.
  * - The table: points, then goal difference, then goals scored, then who got there first.
  */
-export const LEAGUE_ENTRY = 15
+export const LEAGUE_ENTRY = 10
 export const FIXTURES = 15
 export const PER_DAY = 5
 export const MAX_GOALS = 12 // a side, in one match: anything more isn't believable
