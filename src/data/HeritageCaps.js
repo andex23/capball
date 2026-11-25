@@ -133,24 +133,24 @@ export function heritageFace({pattern,primary,edge,textColor,number,capText}) {
       // faint diamond beadwork behind the crown
       for(let r=0;r<4;r++)for(let c=0;c<3;c++){const x=10+c*9+(r%2)*4.5,y=26+r*12;stroke(poly([[x,y-4],[x+4,y],[x,y+4],[x-4,y]]),'rgba(234,196,115,0.28)',.7)}
       // crown cone
-      const cone='M 22 60 Q 26 40 29 29 Q 37 13 45 29 Q 48 40 52 60 Z'
+      const cone='M 27 60 Q 29.5 40 31.5 29 Q 37 13 42.5 29 Q 44.5 40 47 60 Z'
       fill(cone,'@gold','#7A4E1C',.9)
       // bead rows across the cone, alternating coral and ivory
       for(let i=0;i<7;i++){
-        const y=32.5+i*3.9, half=6.2+i*1.3
-        for(let k=-3;k<=3;k++){const x=37+k*(half/3.2);if(Math.abs(x-37)<=half)dot(x,y,1.05,(i+k)%2?coral:ivory,'#6E3A18')}
+        const y=32.5+i*3.9, half=4.4+i*0.75
+        for(let k=-3;k<=3;k++){const x=37+k*(half/3.1);if(Math.abs(x-37)<=half)dot(x,y,1.05,(i+k)%2?coral:ivory,'#6E3A18')}
       }
       // zigzag beadwork band near the top
-      stroke('M 32 27.5 L 34 24.5 L 36 27.5 L 38 24.5 L 40 27.5 L 42 24.5','#7A4E1C',.9)
+      stroke('M 33.5 27.5 L 35.2 24.8 L 37 27.5 L 38.8 24.8 L 40.5 27.5','#7A4E1C',.9)
       // the royal bird
       fill('M 30 19 L 33 16 Q 36 10.5 41 12.5 L 46 11 L 43.5 14.5 Q 43 18.5 38 20.5 Q 35 21.5 33 20 Z','@gold','#7A4E1C',.7)
       dot(40.6,13.6,.7,'#3A2210')
       stroke('M 37 20.5 V 22.5','#7A4E1C',1.2)
       // brim
-      fill('M 21 59 H 53 Q 54 63 51 64 H 23 Q 20 63 21 59 Z','@gold','#7A4E1C',.8)
-      for(let x=24;x<=50;x+=3.25)dot(x,61.5,.95,coral,'#6E2A1F')
+      fill('M 25 59 H 49 Q 50 63 47.5 64 H 26.5 Q 24 63 25 59 Z','@gold','#7A4E1C',.8)
+      for(let x=27.5;x<=46.5;x+=3.15)dot(x,61.5,.95,coral,'#6E2A1F')
       // veil: bead strands over the face
-      for(let x=24.5;x<=49.5;x+=2.5){
+      for(let x=28;x<=46;x+=2.25){
         const len=10+((x*7)%5)
         stroke('M '+x+' 64 V '+(64+len),'rgba(243,227,190,0.55)',.35)
         for(let y=66;y<64+len;y+=2.6)dot(x,y,.75,((x+y)|0)%3?ivory:coral)
