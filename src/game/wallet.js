@@ -4,7 +4,7 @@
  * daily reward) go to the career budget instead. Pure.
  */
 import { RARE_PRICES, SHOP_DESIGNS } from '../data/shop.js'
-import { BANDS } from '../data/bands.js'
+import { BAND_PART_PRICES } from './bandStyle.js'
 import { COLLECTION_PRICES } from './collection.js'
 
 export const WIN = 20000
@@ -37,7 +37,8 @@ export const CAP_PRICES = {
   ...Object.fromEntries(SHOP_DESIGNS.map((d) => [d.key, d.price * 10000])), // ₦3m–₦5m
   ...COLLECTION_PRICES, // Street ₦1.5m, art editions ₦5m
 }
-export const BAND_PRICES = Object.fromEntries(BANDS.filter((b) => b.price).map((b) => [b.key, b.price * 4000])) // ₦400k–₦800k
+/** Band Studio extras: patterns and finishes, ₦500k each, bought once. */
+export const BAND_PRICES = BAND_PART_PRICES
 
 export const walletNaira = (n) => `₦${Math.round(Number(n) || 0).toLocaleString('en-NG')}`
 /** "₦26k", "₦1.5m": short, for small places. */

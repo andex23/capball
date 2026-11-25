@@ -17,7 +17,7 @@ export default function CareerPlayerCap({ club, player, role, size = 54 }) {
   const kit = {
     ...DEFAULT_TEAM_CONFIG.team1, ...club,
     players: { [printRole]: printedSurname(player) },
-    bands: slot ? club.bands : undefined,
+    bandEnabled: !!slot && club.bandEnabled === true,
     ...(legendById(player.id) ? { edge: '#ffcf57', skirtColor: '#b8862e' } : {}),
   }
   return <span className="roster-cap" aria-hidden="true">

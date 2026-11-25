@@ -1,3 +1,4 @@
+import { cleanBandFields } from '../game/bandStyle'
 import SeasonOverview, { FormLine } from '../ui/SeasonOverview'
 import { fixtureBrief } from '../game/careerBrief'
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
@@ -133,7 +134,7 @@ function startingKit(teamConfig) {
     name: own.name && own.name !== 'Team 1' ? own.name : 'My Club',
     primary: own.primary, edge: own.edge, badge: own.badge, pattern: own.pattern, finish: own.finish,
     capText: own.capText || '', textColor: own.textColor || '', skirtColor: own.skirtColor || '', numbers: own.numbers,
-    art: own.art || '', bands: own.bands || {}, capNames: own.capNames || 'player',
+    art: own.art || '', ...cleanBandFields(own), capNames: own.capNames || 'player',
   }
 }
 

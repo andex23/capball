@@ -23,7 +23,8 @@ describe('wallet earnings', () => {
   it('prices caps to take real time', () => {
     expect(CAP_PRICES.silver).toBe(1000000)
     expect(CAP_PRICES.royal).toBe(5000000)
-    expect(BAND_PRICES.gold).toBe(800000)
+    expect(BAND_PRICES.chrome).toBe(500000)
+    expect(BAND_PRICES.solid).toBeUndefined()
     expect(shortNaira(1500000)).toBe('₦1.5m')
     expect(shortNaira(26000)).toBe('₦26k')
   })
