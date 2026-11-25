@@ -61,14 +61,14 @@ function createSkirtGeometry(radius) {
 }
 
 /** Metal glints on the crimp: bright on the pleat crests, shadowed in the folds. */
-function createSkirtTexture(color) {
+function createSkirtTexture(color, scale = CAP_TEXTURE_SCALE) {
   const w = 1024
   const h = 64
   const c = document.createElement('canvas')
-  c.width = Math.round(w * CAP_TEXTURE_SCALE)
+  c.width = Math.round(w * scale)
   c.height = h
   const ctx = c.getContext('2d')
-  ctx.scale(CAP_TEXTURE_SCALE, 1)
+  ctx.scale(scale, 1)
   ctx.fillStyle = color
   ctx.fillRect(0, 0, w, h)
   for (let i = 0; i < PLEATS; i++) {
@@ -97,14 +97,14 @@ function createSkirtTexture(color) {
 }
 
 /** The printed top: paint and pattern, a thin printed ring near the edge, then badge and number. */
-function createTopTexture(color, edgeColor, badge, number, pattern, capText = '', textColor = '', art = '') {
+function createTopTexture(color, edgeColor, badge, number, pattern, capText = '', textColor = '', art = '', scale = CAP_TEXTURE_SCALE) {
   const ink = textColor || (edgeColor === color ? '#ffffff' : edgeColor)
   const size = 512 // drawing units; the canvas itself may be smaller (gpuBudget)
   const c = document.createElement('canvas')
-  c.width = Math.round(size * CAP_TEXTURE_SCALE)
-  c.height = Math.round(size * CAP_TEXTURE_SCALE)
+  c.width = Math.round(size * scale)
+  c.height = Math.round(size * scale)
   const ctx = c.getContext('2d')
-  ctx.scale(CAP_TEXTURE_SCALE, CAP_TEXTURE_SCALE)
+  ctx.scale(scale, scale)
   // Printed artwork: the whole top, plus the number on a sticker
   if (art && drawCapArt(ctx, art, size / 2, size / 2, size / 2, number)) {
     if (artHasNumber(art)) {
@@ -531,7 +531,35 @@ function chipTexture() {
   return chipTex
 }
 
-const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, faceDir = 1, isSelected, chip = false, badge, number, pattern, finish, capText, band, art }, ref) {
+/** The inside of a cap, for the close-up viewer: tin with a pressed plastic liner. */
+let linerTex = null
+function createLinerTexture() {
+  if (linerTex) return linerTex
+  const n = 512, c = document.createElement('canvas'); c.width = c.height = n
+  const g = c.getContext('2d'), m = n / 2
+  const tin = g.createRadialGradient(m * 0.8, m * 0.7, 10, m, m, m)
+  tin.addColorStop(0, '#eef1f4'); tin.addColorStop(0.55, '#b9c0c8'); tin.addColorStop(1, '#8b939d')
+  g.fillStyle = tin; g.beginPath(); g.arc(m, m, m, 0, Math.PI * 2); g.fill()
+  // crimp ring where the skirt folds
+  g.strokeStyle = 'rgba(60,66,74,0.55)'; g.lineWidth = 6; g.beginPath(); g.arc(m, m, m * 0.93, 0, Math.PI * 2); g.stroke()
+  // the liner: a pale pressed disc with a sealing ring
+  const liner = g.createRadialGradient(m, m, 0, m, m, m * 0.8)
+  liner.addColorStop(0, '#f4f1ea'); liner.addColorStop(1, '#d9d4c8')
+  g.fillStyle = liner; g.beginPath(); g.arc(m, m, m * 0.8, 0, Math.PI * 2); g.fill()
+  g.strokeStyle = 'rgba(120,112,98,0.45)'; g.lineWidth = 10; g.beginPath(); g.arc(m, m, m * 0.7, 0, Math.PI * 2); g.stroke()
+  g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; g.beginPath(); g.arc(m, m, m * 0.67, 0, Math.PI * 2); g.stroke()
+  // pressed lettering round the liner
+  g.save(); g.translate(m, m); g.fillStyle = 'rgba(110,102,88,0.55)'; g.font = '800 34px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+  const word = 'COUNTERBALL · TABLETOP FOOTBALL · '
+  for (let i = 0; i < word.length; i++) { g.save(); g.rotate((i / word.length) * Math.PI * 2); g.translate(0, -m * 0.53); g.fillText(word[i], 0, 0); g.restore() }
+  g.restore()
+  linerTex = new THREE.CanvasTexture(c)
+  linerTex.colorSpace = THREE.SRGBColorSpace
+  linerTex.anisotropy = 4
+  return linerTex
+}
+
+const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirtColor, isGk, faceDir = 1, isSelected, chip = false, badge, number, pattern, finish, capText, band, art, hq = false }, ref) {
   const radius = isGk ? GK_RADIUS : CAP_RADIUS
   const ringRef = useRef()
   const fp = FINISH_MAP[finish] || FINISH_MAP.matte
@@ -539,10 +567,10 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
   const edge = edgeColor || color
 
   const topTexture = useMemo(
-    () => createTopTexture(color, edge, badge, number, pattern, capText, textColor, art),
-    [color, edge, badge, number, pattern, capText, textColor, art]
+    () => createTopTexture(color, edge, badge, number, pattern, capText, textColor, art, hq ? 2 : CAP_TEXTURE_SCALE),
+    [color, edge, badge, number, pattern, capText, textColor, art, hq]
   )
-  const skirtTexture = useMemo(() => createSkirtTexture(skirtColor || color), [skirtColor, color])
+  const skirtTexture = useMemo(() => createSkirtTexture(skirtColor || color, hq ? 2 : CAP_TEXTURE_SCALE), [skirtColor, color, hq])
   useEffect(() => () => topTexture.dispose(), [topTexture])
   useEffect(() => () => skirtTexture.dispose(), [skirtTexture])
   const skirt = useMemo(() => createSkirtGeometry(radius), [radius])
@@ -643,6 +671,13 @@ const CapMesh = forwardRef(function CapMesh({ color, edgeColor, textColor, skirt
         </mesh>
       )}
 
+      {/* Close up: the underside, tin and liner */}
+      {hq && (
+        <mesh position={[0, -halfH + 0.004, 0]} rotation-x={Math.PI / 2}>
+          <circleGeometry args={[radius * 0.97, 96]} />
+          <meshStandardMaterial map={createLinerTexture()} metalness={0.45} roughness={0.4} />
+        </mesh>
+      )}
       {/* Dark inside of the cap, seen only at the very bottom edge */}
       <mesh position={[0, -halfH + 0.006, 0]} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[radius * 0.98, 48]} />
