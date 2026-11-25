@@ -11,7 +11,9 @@ import { useLagosStore } from '../lagos/lagosStore'
 import { useSavedStore } from './savedMatch'
 import { useAccountStore } from './accountStore'
 import { useMatchStore, SCREEN } from './MatchStore'
-import { FIXTURES, LEFT_EARLY, leagueKey, isLive, openFixtures, cleanResult, lineFor } from '../game/leagueRules'
+import { FIXTURES, LEFT_EARLY, FIRST_LEAGUE, leagueKey, lastLeagueKey, isLive, openFixtures, cleanResult, lineFor } from '../game/leagueRules'
+import { capsForRank, capsForResults } from '../game/collection'
+import { useRewardsStore } from './rewardsStore'
 import { leagueClubs } from '../game/leagueClubs'
 
 export const LEAGUE_KEY = 'capball:league:v1'
@@ -190,6 +192,22 @@ export const useLeagueStore = create((set, get) => ({
       set({ registered: r.registered })
     } catch { /* sent again next time the screen opens */ }
     return true
+  },
+
+  /** After a weekend: where you finished, and your caps and prize money (once a weekend). */
+  async checkLast(now = Date.now()) {
+    const key = lastLeagueKey(now)
+    if (key < FIRST_LEAGUE || !get().joined) return
+    if (useRewardsStore.getState().news.some((n) => n.id === `league:${key}`)) return
+    try {
+      const r = await call('leagueTable', { key })
+      const me = r.me
+      if (!me) return
+      const results = Array.from({ length: FIXTURES }, (_, i) => (r.results?.[i] ? cleanResult(r.results[i]) : null))
+      const caps = [...new Set([...capsForRank(me.rank), ...capsForResults(results)])]
+      const prize = (me.rank === 1 ? 100 : me.rank === 2 ? 50 : me.rank === 3 ? 25 : 0) + (results.filter(Boolean).length === FIXTURES ? 10 : 0)
+      useRewardsStore.getState().leagueResult({ key, rank: me.rank, players: r.players, pts: me.pts, caps, money: prize })
+    } catch { /* try again next time */ }
   },
 
   /** How many have signed up, and (while it's on) the table. */

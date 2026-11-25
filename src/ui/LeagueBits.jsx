@@ -177,6 +177,16 @@ export function LeagueMonday({ rank, players, tier, cap, champion, pts, money: p
   )
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** Your Weekend League finishes as cabinet pieces: cups for the top three, a medal for the top ten. */
+export function cabinetFrom(leagues = []) {
+  const items = leagues.filter((l) => l.rank <= 10).map((l) => {
+    const [, m, d] = l.key.split('-').map(Number)
+    return { rank: l.rank, tier: ['', 'gold', 'silver', 'bronze'][l.rank] || null, date: `${d} ${MONTHS[m - 1]}` }
+  })
+  return { items, best: leagues.length ? Math.min(...leagues.map((l) => l.rank)) : null, weekends: leagues.length }
+}
+
 /** The trophy cabinet: every weekend you placed, dated. */
 export function TrophyCabinet({ items, best, weekends }) {
   return (
@@ -184,7 +194,7 @@ export function TrophyCabinet({ items, best, weekends }) {
       <div className="lg-cab-stats">
         <div><b>{items.filter((t) => t.tier === 'gold').length}</b><small>Titles</small></div>
         <div><b>{items.length}</b><small>Trophies</small></div>
-        <div><b>#{best}</b><small>Best finish</small></div>
+        <div><b>{best ? `#${best}` : '–'}</b><small>Best finish</small></div>
         <div><b>{weekends}</b><small>Weekends</small></div>
       </div>
       <div className="lg-shelves">

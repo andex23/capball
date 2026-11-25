@@ -9,6 +9,7 @@ import { designPatch, isUnlocked } from '../data/TeamOptions'
 import { bandEarned } from '../data/bands'
 import { SHOP_ITEMS, BAND_ITEMS } from '../data/shop'
 import { CAP_PRICES, BAND_PRICES, walletNaira, DAILY_CAP } from '../game/wallet'
+import { COLLECTION } from '../game/collection'
 import { useWalletStore } from '../state/walletStore'
 import { useProgress } from '../state/unlocks'
 import { useLagosStore } from '../lagos/lagosStore'
@@ -28,7 +29,8 @@ export default function WalletShop() {
   const lagosOwned = useLagosStore((s) => s.owned)
   const myTeam = useMatchStore((s) => (s.aiTeam === 'team1' ? 'team2' : 'team1'))
 
-  const capItems = SHOP_ITEMS.filter((i) => CAP_PRICES[i.design.key] && (i.earnable || isLagos())).map((i) => ({ ...i, key: i.design.key, kind: 'cap', price: CAP_PRICES[i.design.key] }))
+  const collectionItems = COLLECTION.filter((d) => d.price).map((d) => ({ productId: `cap_${d.key}`, design: { ...d, art: d.key, capNames: 'none' }, earnable: false, key: d.key, kind: 'cap', price: d.price }))
+  const capItems = [...collectionItems, ...SHOP_ITEMS.filter((i) => CAP_PRICES[i.design.key] && (i.earnable || isLagos())).map((i) => ({ ...i, key: i.design.key, kind: 'cap', price: CAP_PRICES[i.design.key] }))]
   const bandItems = BAND_ITEMS.filter((i) => BAND_PRICES[i.band.key]).map((i) => ({ ...i, key: i.band.key, kind: 'band', price: BAND_PRICES[i.band.key] }))
   const items = tab === 'caps' ? capItems : bandItems
   const have = (i) => i.kind === 'cap'
