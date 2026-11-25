@@ -31,7 +31,7 @@ export function LeagueCup({ tier = 'gold', size = 24, label }) {
 const DAYS = ['Fri', 'Sat', 'Sun']
 
 /** Your fixtures: three day tabs, the five matches of the day picked, and the play button. */
-export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay }) {
+export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay, onDay, busy }) {
   const shown = fixtures.slice(day * 5, day * 5 + 5)
   const next = fixtures.findIndex((f, i) => !f.result && Math.floor(i / 5) <= today)
   const played = fixtures.filter((f) => f.result).length
@@ -43,7 +43,7 @@ export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay }) {
           const done = fixtures.slice(i * 5, i * 5 + 5).filter((f) => f.result).length
           const state = i > today ? 'locked' : i === day ? 'on' : 'open'
           return (
-            <button key={d} role="tab" aria-selected={i === day} data-state={state}>
+            <button key={d} role="tab" aria-selected={i === day} data-state={state} disabled={i > today} onClick={() => onDay?.(i)}>
               <span>{d}</span>
               <b>{i > today ? (i === today + 1 ? `opens in ${opensIn}` : 'locked') : `${done}/5`}</b>
             </button>
@@ -67,11 +67,11 @@ export function LeagueFixtures({ fixtures, day, today, opensIn, onPlay }) {
           )
         })}
       </ol>
-      {next >= 0 && (
-        <button className="btn btn-gold btn-lg btn-block" onClick={onPlay}>
-          <Icon name="play" size={18} /> Play match {next + 1}
+      {next >= 0 ? (
+        <button className="btn btn-gold btn-lg btn-block" disabled={busy} onClick={() => onPlay?.(next)}>
+          <Icon name="play" size={18} /> {busy ? 'Starting…' : `Play match ${next + 1}`}
         </button>
-      )}
+      ) : played < fixtures.length && <p className="muted wk-done">{today < 2 ? `That’s today’s matches. The next five open in ${opensIn}.` : 'That’s everything open for now.'}</p>}
       <p className="muted wk-note">One go at each match, no replays. Leave early and it’s a 3–0 loss. Miss a day? Catch up any time before Sunday midnight.</p>
     </section>
   )

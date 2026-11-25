@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CareerFinalWhistle } from '../ui/CareerScoreboard'
 import MatchResultSplash from '../ui/MatchResultSplash'
 import { useWeekendStore } from '../state/weekendStore'
+import { useLeagueStore } from '../state/leagueStore'
 import { useTournamentStore } from '../state/tournamentStore'
 import GoalClips from '../ui/GoalClips'
 import { HeadToHead, ShareResult } from '../ui/ShareResult'
@@ -71,6 +72,7 @@ export default function MatchEndScreen() {
   const careerNow = useCareerStore((s) => s.career)
   const tournamentError = useTournamentStore((s) => s.error)
   const weekend = useWeekendStore((s) => s.playing)
+  const league = useLeagueStore((s) => s.playing)
 
   if (!matchResult) return null
   const { winner, score, team1Name, team2Name, penaltyScore, isDraw, stats } = matchResult
@@ -151,7 +153,9 @@ export default function MatchEndScreen() {
         <GoalClips />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderTop: '1px solid var(--line)' }}>
-          {weekend ? (
+          {league ? (
+            <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); stopAllBodies(); useLeagueStore.getState().finish(matchResult) }}><Icon name="trophy" size={18} /> Back to the Weekend League</button>
+          ) : weekend ? (
             isDraw && !penaltyScore
               ? <button className="btn btn-orange btn-lg btn-block" onClick={penalties}><Icon name="ball" size={18} /> Penalties to go through</button>
               : <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); stopAllBodies(); useWeekendStore.getState().finish(matchResult) }}><Icon name="trophy" size={18} /> Back to the Weekend Cup</button>
@@ -195,7 +199,7 @@ export default function MatchEndScreen() {
           ) : (
             <p className="muted" style={{ textAlign: 'center' }}>Waiting for the host to start a rematch{isDraw && !penaltyScore ? ' or penalties' : ''}…</p>
           )}
-          {!tournament && !weekend && <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>}
+          {!tournament && !weekend && !league && <button className="btn btn-secondary btn-block" onClick={menu}><Icon name="exit" size={18} /> {online ? 'Leave' : 'Main menu'}</button>}
         </div>
       </div>
     </div>

@@ -17,7 +17,7 @@ import { isOpen as weekendOpen, weekendWindow, weekendKey } from '../game/weeken
 import { timeLeft } from './WeekendScreen'
 import { WEEKEND_CUP_ON } from '../game/weekendCup'
 import { useLeagueStore, leagueWins } from '../state/leagueStore'
-import { LEAGUE_ENTRY, qualifies, opensIn, untilOpen } from '../game/leagueRules'
+import { LEAGUE_ENTRY, qualifies, opensIn, untilOpen, isLive, openFixtures } from '../game/leagueRules'
 import { useCanInstall, promptInstall, isStandalone } from '../pwa/install'
 import { playButtonSelect, playConfirm, playMenuNavigate, playCoinInsert } from '../audio/SoundManager'
 import { startMenuMusic } from '../audio/MusicManager'
@@ -111,6 +111,11 @@ export default function MenuScreen() {
     const t = setInterval(() => setClock(Date.now()), 1000)
     return () => clearInterval(t)
   }, [leagueJoined])
+  const leagueLive = isLive(clock)
+  const leagueRank = useLeagueStore((s) => s.table?.me?.rank ?? null)
+  const leagueResults = useLeagueStore((s) => s.results)
+  const leagueKeyNow = useLeagueStore((s) => s.key)
+  const leagueToPlay = leagueLive ? leagueResults.slice(0, openFixtures(leagueKeyNow, clock)).filter((r) => !r).length : 0
   const left = untilOpen(clock)
   const pad = (n) => String(n).padStart(2, '0')
   const countdown = left.open ? 'Open now' : `${left.days ? `${left.days}d ` : ''}${pad(left.hours)}:${pad(left.mins)}:${pad(left.secs)}`
@@ -161,9 +166,9 @@ export default function MenuScreen() {
       // Friday to Sunday in Lagos Life: the Weekend Cup goes first
       {
         key: 'league', title: 'Weekend League',
-        sub: leagueJoined ? `You’re in · opens in ${countdown}` : !lagos && !username ? `Needs an account · ${LEAGUE_ENTRY} wins to enter` : qualifies(leagueWon) ? `You qualify · sign up · opens in ${opensIn()}` : `Win ${LEAGUE_ENTRY} matches to enter · you have ${leagueWon}`,
+        sub: leagueLive && leagueJoined ? `Live · ${leagueToPlay ? `${leagueToPlay} to play now` : 'all played for now'}${leagueRank ? ` · you #${leagueRank}` : ''}` : leagueJoined ? `You’re in · opens in ${countdown}` : !lagos && !username ? `Needs an account · ${LEAGUE_ENTRY} wins to enter` : qualifies(leagueWon) ? (leagueLive ? 'Live now · you qualify · sign up and play' : `You qualify · sign up · opens in ${opensIn()}`) : `Win ${LEAGUE_ENTRY} matches to enter · you have ${leagueWon}`,
         always: !!leagueJoined,
-        tag: leagueJoined ? '✓ IN' : qualifies(leagueWon) && (lagos || username) ? 'JOIN' : `${Math.min(leagueWon, LEAGUE_ENTRY)}/${LEAGUE_ENTRY}`,
+        tag: leagueLive && leagueJoined ? 'LIVE' : leagueJoined ? '✓ IN' : qualifies(leagueWon) && (lagos || username) ? 'JOIN' : `${Math.min(leagueWon, LEAGUE_ENTRY)}/${LEAGUE_ENTRY}`,
         done: !!leagueJoined,
         action: () => { playConfirm(); goToScreen(SCREEN.LEAGUE) },
       },
@@ -268,7 +273,7 @@ export default function MenuScreen() {
                       <button className="iss-arrow" aria-label="Harder" onClick={() => { setCursor(i); shiftLevel(1) }}>►</button>
                     </span>
                   ) : m.tag ? (
-                    <span className="iss-tag" data-done={m.done ? 'true' : undefined} data-join={m.tag === 'JOIN' ? 'true' : undefined} data-arrow={m.tag === '►' ? 'true' : undefined}>{m.tag}</span>
+                    <span className="iss-tag" data-done={m.done ? 'true' : undefined} data-join={m.tag === 'JOIN' || m.tag === 'LIVE' ? 'true' : undefined} data-arrow={m.tag === '►' ? 'true' : undefined}>{m.tag}</span>
                   ) : null}
                 </li>
               ))}

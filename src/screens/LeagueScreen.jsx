@@ -8,14 +8,15 @@ import { useLeagueStore, leagueWins } from '../state/leagueStore'
 import { useLagosStore } from '../lagos/lagosStore'
 import { useSavedStore } from '../state/savedMatch'
 import { useAccountStore } from '../state/accountStore'
-import { LEAGUE_ENTRY, qualifies, winsToGo, untilOpen } from '../game/leagueRules'
+import { LEAGUE_ENTRY, qualifies, winsToGo, untilOpen, isLive, openFixtures, fixtureDay, leagueWindow } from '../game/leagueRules'
+import { leagueClubs } from '../game/leagueClubs'
 import { isLagos } from '../platform'
 import { playButtonSelect, playConfirm } from '../audio/SoundManager'
 import CapPreview from '../ui/CapPreview'
 import CapDesigns from '../ui/CapDesigns'
 import Icon from '../ui/Icon'
 import { KitEditor } from './TournamentSetupScreen'
-import { LeaguePrizes, MysteryCap } from '../ui/LeagueBits'
+import { LeaguePrizes, MysteryCap, LeagueFixtures, LeagueTable, LeagueResultCard } from '../ui/LeagueBits'
 import '../ui/weekend.css'
 import '../ui/league.css'
 
@@ -115,6 +116,69 @@ function NotYet({ wins, signedIn }) {
   )
 }
 
+const LIVE_TABS = [['fixtures', 'Fixtures', 'ball'], ['table', 'Table', 'menu'], ['prizes', 'Prizes', 'trophy'], ['how', 'How it works', 'help']]
+const DAY_NAMES = ['Friday', 'Saturday', 'Sunday']
+
+function timeLeft(ms) {
+  const m = Math.max(0, Math.floor(ms / 60000))
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60)
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m % 60}m` : `${m % 60}m`
+}
+
+/** While it's on: your club, the fixtures, the table, prizes and rules, a tab each. */
+function LiveLeague({ joined, tab }) {
+  const key = useLeagueStore((s) => s.key)
+  const results = useLeagueStore((s) => s.results)
+  const table = useLeagueStore((s) => s.table)
+  const error = useLeagueStore((s) => s.error)
+  const last = useLeagueStore((s) => s.last)
+  const [, tick] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const now = Date.now()
+  const open = openFixtures(key, now)
+  const today = Math.max(0, fixtureDay(open - 1))
+  const [day, setDay] = useState(today)
+  useEffect(() => { const t = setInterval(() => { tick((n) => n + 1); useLeagueStore.getState().refreshTable() }, 45000); return () => clearInterval(t) }, [])
+  const w = leagueWindow(key)
+  const clubs = leagueClubs(key)
+  const fixtures = clubs.map((club, i) => ({ club, result: results[i] }))
+  const left = open < 15 ? (today === 0 ? w.sat : w.sun) - now : 0
+  const me = table?.me
+  const tenth = table?.top?.[9]
+  const chase = !me ? 'Play your first match to get on the table.' : me.rank === 1 ? 'You’re top of the table. Stay there.' : me.rank <= 10 ? `You’re in the top ten. ${me.rank <= 3 ? 'A trophy place.' : `${(table.top[2]?.pts ?? me.pts) - me.pts} points off the top three.`}` : `${(tenth?.pts ?? 0) - me.pts} points off the top ten.`
+  const toPlay = results.slice(0, open).filter((r) => !r).length
+  const play = async (i) => { if (busy) return; setBusy(true); playConfirm(); const ok = await useLeagueStore.getState().play(i); if (!ok) setBusy(false) }
+  return (
+    <>
+      <section className="wk-poster lg-compact">
+        <div className="wk-live"><i aria-hidden /> Live · {DAY_NAMES[today]}</div>
+        <div className="wk-facts">
+          <span><b>{table?.players ?? '—'}</b> playing</span>
+          <span><b>{timeLeft(w.end - now)}</b> left</span>
+          {me && <span><b>#{me.rank}</b> you</span>}
+        </div>
+        <div className="lg-compact-row">
+          <div className="lg-club"><CapPreview config={joined.club} size={40} /><div><small>Your club</small><b>{joined.club.name}</b></div><span><Icon name="lock" size={12} /></span></div>
+          <div className="wk-prize-cap"><MysteryCap size={52} /><small>1st wins it</small></div>
+        </div>
+        <div className="lg-chase">{chase}{toPlay ? ` ${toPlay} to play now.` : ''}</div>
+      </section>
+      {last && tab === 'fixtures' && (
+        <button className="lg-last" onClick={() => useLeagueStore.setState({ last: null })} aria-label="Close">
+          <LeagueResultCard gf={last.gf} ga={last.ga} club={last.club} rankFrom={last.rankFrom ?? last.rankTo ?? 0} rankTo={last.rankTo ?? last.rankFrom ?? 0} pts={last.pts} left={toPlay ? `${toPlay} left today` : 'that’s today done'} />
+        </button>
+      )}
+      {error && <p className="t-warn" role="alert">{error}</p>}
+      {tab === 'fixtures' && <LeagueFixtures fixtures={fixtures} day={Math.min(day, today)} today={today} opensIn={timeLeft(left)} onPlay={play} onDay={setDay} busy={busy} />}
+      {tab === 'table' && (table
+        ? <LeagueTable rows={table.top} me={table.me} players={table.players} />
+        : <section className="wk-card"><p className="muted">Loading the table…</p></section>)}
+      {tab === 'prizes' && <LeaguePrizes />}
+      {tab === 'how' && <section className="wk-card"><div className="wk-card-h"><h2 className="display">How it works</h2><span>The rules</span></div><HowItWorks /></section>}
+    </>
+  )
+}
+
 export default function LeagueScreen() {
   const joined = useLeagueStore((s) => s.joined)
   const registered = useLeagueStore((s) => s.registered)
@@ -123,8 +187,10 @@ export default function LeagueScreen() {
   useSavedStore((s) => s.career)
   const signedIn = !!useAccountStore((s) => s.username) || isLagos()
   const wins = leagueWins()
-  const [tab, setTab] = useState('club')
-  useEffect(() => { useLeagueStore.getState().refresh() }, [])
+  const live = isLive() && !!joined
+  const tabs = live ? LIVE_TABS : TABS
+  const [tab, setTab] = useState(live ? 'fixtures' : 'club')
+  useEffect(() => { useLeagueStore.getState().roll(); useLeagueStore.getState().refresh() }, [])
   const back = () => { playButtonSelect(); useMatchStore.getState().goToScreen(SCREEN.MENU) }
 
   return (
@@ -138,9 +204,10 @@ export default function LeagueScreen() {
           </div>
         </header>
         <main className="shell-body wk lg-has-nav">
+          {live ? <LiveLeague joined={joined} tab={tab} /> : <>
           <section className="wk-poster">
-            <div className="lg-soon">Opens Friday · 4:30pm</div>
-            <Countdown />
+            <div className="lg-soon">{isLive() ? 'Live now · sign up and play' : 'Opens Friday · 4:30pm'}</div>
+            {!isLive() && <Countdown />}
             <div className="wk-poster-row">
               <div>
                 <p>Fifteen matches over one weekend. One club. The best players in {isLagos() ? 'Lagos' : 'Counterball'} on one table, and only one champion.</p>
@@ -155,9 +222,10 @@ export default function LeagueScreen() {
           {tab === 'club' && (joined ? <Joined club={joined.club} /> : signedIn && qualifies(wins) ? <Register wins={wins} /> : <NotYet wins={wins} signedIn={signedIn} />)}
           {tab === 'prizes' && <LeaguePrizes />}
           {tab === 'how' && <section className="wk-card"><div className="wk-card-h"><h2 className="display">How it works</h2><span>The rules</span></div><HowItWorks /></section>}
+          </>}
         </main>
-        <nav className="lg-nav" aria-label="Weekend League" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-          {TABS.map(([k, label, icon]) => (
+        <nav className="lg-nav" aria-label="Weekend League" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+          {tabs.map(([k, label, icon]) => (
             <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => { playButtonSelect(); setTab(k) }}>
               <Icon name={icon} size={22} />
               <span>{label}</span>
