@@ -110,8 +110,8 @@ function NotYet({ wins, signedIn }) {
     <section className="wk-card">
       <div className="lg-qual"><Icon name="lock" size={14} /><span>You have <b>{wins} {wins === 1 ? 'win' : 'wins'}</b>. {need} more to enter.</span></div>
       <div className="lg-progress" role="progressbar" aria-valuemin={0} aria-valuemax={LEAGUE_ENTRY} aria-valuenow={wins}><i style={{ width: `${Math.min(100, (wins / LEAGUE_ENTRY) * 100)}%` }} /></div>
-      <p className="muted wk-note" style={{ margin: 0 }}>Wins against the computer and friends all count.</p>
-      <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); go(SCREEN.MENU) }}><Icon name="play" size={18} /> Go and win some</button>
+      <p className="muted wk-note" style={{ margin: 0 }}>Every win counts, on any level: against the computer or a friend. Win {need} more and you’re in.</p>
+      <button className="btn btn-gold btn-lg btn-block" onClick={() => { playConfirm(); useMatchStore.getState().setGameMode('ai'); go(SCREEN.TEAM_SELECT) }}><Icon name="play" size={18} /> Play the computer now</button>
     </section>
   )
 }
