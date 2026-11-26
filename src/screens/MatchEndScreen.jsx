@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { CareerFinalWhistle } from '../ui/CareerScoreboard'
 import MatchResultSplash from '../ui/MatchResultSplash'
 import { useWeekendStore } from '../state/weekendStore'
-import { useLeagueStore } from '../state/leagueStore'
+import { useLeagueStore, leagueWins, inLeaguePlay } from '../state/leagueStore'
+import { winsToGo } from '../game/leagueRules'
 import { useTournamentStore } from '../state/tournamentStore'
 import GoalClips from '../ui/GoalClips'
 import { HeadToHead, ShareResult } from '../ui/ShareResult'
@@ -27,6 +28,19 @@ function WalletPay() {
   if (!last || Date.now() - last.at > 60000) return null
   if (!last.amount) return <div className="wallet-pay is-capped">Today’s wallet limit reached. Back tomorrow for more.</div>
   return <div className="wallet-pay"><span>+{walletNaira(last.amount)}</span><small>to your wallet{last.amount < last.full ? ' (today’s limit)' : ''}</small></div>
+}
+
+/** After a win against the computer: how close you are to the Weekend League. */
+function LeagueNudge() {
+  const m = useMatchStore.getState()
+  const joined = useLeagueStore((s) => s.joined)
+  if (joined || m.gameMode !== 'ai' || inLeaguePlay() || !m.matchResult || m.matchResult.winner === m.aiTeam || !m.matchResult.winner) return null
+  const wins = leagueWins()
+  const need = winsToGo(wins)
+  const go = () => { playConfirm(); stopAllBodies(); m.goToScreen(SCREEN.LEAGUE) }
+  return need > 0
+    ? <div className="wallet-pay league-nudge"><span>{need} more {need === 1 ? 'win' : 'wins'}</span><small>to enter the Weekend League</small></div>
+    : <button className="wallet-pay league-nudge is-go" onClick={go}><span>You qualify!</span><small>Sign up for the Weekend League ›</small></button>
 }
 
 const STAT_ROWS = [
@@ -148,6 +162,7 @@ export default function MatchEndScreen() {
         </div>
 
         <WalletPay />
+        <LeagueNudge />
         <RecordNote />
         <HeadToHead />
         <ShareResult />

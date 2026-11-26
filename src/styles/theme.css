@@ -3002,3 +3002,5 @@ button.other-side { cursor: pointer; }
 .bs-fold > summary::-webkit-details-marker { display: none; }
 .bs-fold > summary small { font: 600 12px/1.2 inherit; text-transform: none; letter-spacing: 0; color: var(--text-3, #9aa6d8); }
 .bs-fold[open] > summary { margin-bottom: 8px; }
+.league-nudge { border-color: var(--accent, #ffd23f); }
+.league-nudge.is-go { cursor: pointer; font: inherit; color: inherit; width: 100%; background: rgba(255, 210, 63, 0.16); }
