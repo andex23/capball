@@ -56,7 +56,12 @@ export async function leagueSummary(saves, now = Date.now()) {
   for (const mode of ['live', 'web', 'test']) {
     try {
       const rows = Object.values(cleanSignup((await webSaves(saves)('get', mode, SIGNUP))?.data).rows)
-      out[mode] = { signedUp: rows.length, lastDay: rows.filter((r) => Number(r.at) > now - 86400000).length }
+      const table = Object.values(cleanTable((await webSaves(saves)('get', mode, tableKey(leagueKey(now))))?.data).rows)
+      out[mode] = {
+        signedUp: rows.length, lastDay: rows.filter((r) => Number(r.at) > now - 86400000).length,
+        // This weekend's table: clubs on it and matches played (results in, plus ones started and not finished)
+        onTable: table.length, played: table.reduce((n, r) => n + (Number(r.p) || 0), 0),
+      }
     } catch { out[mode] = null }
   }
   return out

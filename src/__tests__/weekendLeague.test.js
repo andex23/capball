@@ -184,8 +184,8 @@ describe('Weekend League stats', () => {
     await leagueJoin(saves, 'live', 'p1', { name: 'A' }, now - 2 * 86400000)
     await leagueJoin(saves, 'live', 'p2', { name: 'B' }, now - 3600000)
     const s = await leagueSummary(saves, now)
-    expect(s.live).toEqual({ signedUp: 2, lastDay: 1 })
-    expect(s.web).toEqual({ signedUp: 0, lastDay: 0 })
+    expect(s.live).toMatchObject({ signedUp: 2, lastDay: 1, onTable: 0, played: 0 })
+    expect(s.web).toMatchObject({ signedUp: 0, lastDay: 0 })
   })
 })
 
