@@ -191,6 +191,8 @@ export const useLeagueStore = create((set, get) => ({
       const r = await call('leagueJoin', { name: c.name })
       set({ registered: r.registered })
     } catch { /* sent again next time the screen opens */ }
+    // Signed up while it's on: load this weekend's fixtures and table straight away
+    if (isLive()) { get().roll(); get().refreshTable() }
     return true
   },
 
