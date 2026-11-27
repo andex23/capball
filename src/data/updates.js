@@ -7,6 +7,7 @@
  * icon: an Icon name. date: YYYY-MM-DD.
  */
 export const UPDATES = [
+  { id: 'weekend-league-live', date: '2026-11-27', icon: 'trophy', title: 'The Weekend League is live', text: 'Your matches are waiting: five a day, Friday to Sunday, and you can catch up on any you missed before Sunday midnight. Top the table to wear the Kingmaker for a week. Not in yet? Win 10 matches and sign up from the top of the menu.' },
   { id: 'league-10-wins', date: '2026-11-26', icon: 'trophy', title: 'Weekend League: now 10 wins to enter', text: 'You only need 10 wins to sign up for the Weekend League now, not 15. It opens this Friday at 4:30pm: sign up from the top of the menu.' },
   { id: 'wallet-band-studio', date: '2026-11-26', icon: 'trophy', title: 'Your wallet, the shop and Band Studio', text: 'Every match you finish now pays into your wallet: more for a win, goals and harder opponents. Spend it in the shop (your profile) on rare caps and band extras. Design one band for your whole team in Edit team › Band: pick a pattern, two colours, a width and a finish.' },
   { id: 'weekend-league', date: '2026-11-25', icon: 'trophy', title: 'The Weekend League is coming', text: 'Fifteen matches over one weekend, one club, one table, and only one champion. The champion wears the Kingmaker cap for a week, and the top ten win caps, cups for the trophy cabinet and club money. It opens this Friday at 4:30pm. You need 10 wins to enter: sign up now from the top of the menu.' },
