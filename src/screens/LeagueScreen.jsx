@@ -187,9 +187,14 @@ export default function LeagueScreen() {
   useSavedStore((s) => s.career)
   const signedIn = !!useAccountStore((s) => s.username) || isLagos()
   const wins = leagueWins()
+  // Re-check every few seconds, so the screen turns live at 4:30pm without leaving it
+  const [, tick] = useState(0)
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 5000); return () => clearInterval(t) }, [])
   const live = isLive() && !!joined
   const tabs = live ? LIVE_TABS : TABS
-  const [tab, setTab] = useState(live ? 'fixtures' : 'club')
+  const [picked, setTab] = useState(live ? 'fixtures' : 'club')
+  // Signing up (or the league opening) while on the screen moves you to a tab that exists now
+  const tab = tabs.some(([k]) => k === picked) ? picked : tabs[0][0]
   useEffect(() => {
     useLeagueStore.getState().roll(); useLeagueStore.getState().refresh()
     // Count each visit, by where the player stands: still winning their way in, can sign up, or in
